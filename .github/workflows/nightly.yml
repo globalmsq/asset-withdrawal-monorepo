@@ -1,0 +1,51 @@
+# Nightly Build & Push Workflow
+# This workflow is currently disabled and for reference only
+# To enable: uncomment the 'on' section and configure secrets
+
+name: Nightly Build & Push
+
+# DISABLED - Uncomment to enable
+# on:
+#   push:
+#     branches:
+#       - main
+
+# DISABLED - This job will not run
+jobs:
+  build-test-push:
+    runs-on: ubuntu-latest
+    # DISABLED - This job is currently disabled
+    if: false # This prevents the job from running
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Run tests
+        run: |
+          yarn install
+          yarn test
+
+      - name: Build and push Docker image (nightly)
+        run: |
+          docker build -f docker/dockerfile.packages -t ${{ secrets.ECR_REPO }}:nightly .
+          docker push ${{ secrets.ECR_REPO }}:nightly
+
+# Required secrets:
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
+# - ECR_REPO (format: 123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/your-repo)

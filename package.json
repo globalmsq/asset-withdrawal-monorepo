@@ -1,0 +1,64 @@
+{
+  "name": "blockchain-withdrawal-system-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "libs/*"
+  ],
+  "scripts": {
+    "bootstrap": "yarn install",
+    "build": "nx run-many --target=build",
+    "clean": "nx run-many --target=clean && rm -rf node_modules .nx/cache",
+    "dev": "nx run-many --target=dev --parallel",
+    "lint": "nx run-many --target=lint",
+    "lint:fix": "nx run-many --target=lint --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "test": "nx run-many --target=test",
+    "coverage": "nx run-many --target=test --coverage",
+    "depcheck": "nx run-many --target=depcheck",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.27.7",
+    "@babel/preset-env": "^7.27.2",
+    "@babel/preset-typescript": "^7.27.1",
+    "@nx/esbuild": "^21.2.1",
+    "@nx/eslint": "21.2.1",
+    "@nx/eslint-plugin": "21.2.1",
+    "@nx/jest": "21.2.1",
+    "@nx/js": "21.2.1",
+    "@nx/node": "^21.2.1",
+    "@nx/workspace": "21.2.1",
+    "@swc-node/register": "~1.9.1",
+    "@swc/core": "~1.5.7",
+    "@swc/helpers": "~0.5.11",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^24.0.8",
+    "@typescript-eslint/eslint-plugin": "^7.7.1",
+    "@typescript-eslint/parser": "^7.7.1",
+    "depcheck": "^1.4.7",
+    "esbuild": "^0.19.2",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-jest": "^28.2.0",
+    "husky": "^8.0.0",
+    "jest": "^29.7.0",
+    "jest-environment-node": "^29.4.1",
+    "lint-staged": "^15.2.2",
+    "nx": "21.2.1",
+    "prettier": "^3.2.5",
+    "ts-jest": "^29.1.2",
+    "ts-node": "10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.4.5"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  }
+}

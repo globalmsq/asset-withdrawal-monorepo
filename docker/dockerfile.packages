@@ -1,0 +1,47 @@
+# Multi-stage Dockerfile for all applications
+FROM node:18-alpine AS base
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package.json yarn.lock ./
+
+# Install all dependencies
+RUN yarn install --frozen-lockfile
+
+# Copy source code
+COPY . .
+
+# Build stage for all applications
+FROM base AS builder
+
+# Build all applications
+RUN yarn nx run-many --target=build --all
+
+# Production stage for helloworld
+FROM node:18-alpine AS helloworld
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json yarn.lock ./
+
+# Install production dependencies only
+RUN yarn install --frozen-lockfile --production
+
+# Copy built helloworld application
+COPY --from=builder /app/dist/packages/helloworld ./dist/packages/helloworld
+
+EXPOSE 3000
+
+CMD ["node", "dist/packages/helloworld/main.js"]
+
+# Production stage for future applications
+# FROM node:18-alpine AS api
+# WORKDIR /app
+# COPY package.json yarn.lock ./
+# RUN yarn install --frozen-lockfile --production
+# COPY --from=builder /app/dist/packages/api ./dist/packages/api
+# EXPOSE 8080
+# CMD ["node", "dist/packages/api/main.js"]

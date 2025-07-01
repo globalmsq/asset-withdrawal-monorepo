@@ -1,0 +1,67 @@
+{
+  "name": "helloworld",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/helloworld/src",
+  "projectType": "application",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": [
+        "{workspaceRoot}/dist/packages/helloworld"
+      ],
+      "defaultConfiguration": "production",
+      "options": {
+        "platform": "node",
+        "outputPath": "dist/packages/helloworld",
+        "format": [
+          "cjs"
+        ],
+        "bundle": false,
+        "main": "packages/helloworld/src/main.ts",
+        "tsConfig": "packages/helloworld/tsconfig.app.json",
+        "assets": [
+          "packages/helloworld/src/assets"
+        ],
+        "generatePackageJson": true,
+        "esbuildOptions": {
+          "sourcemap": true,
+          "outExtension": {
+            ".js": ".js"
+          }
+        }
+      },
+      "configurations": {
+        "development": {},
+        "production": {
+          "esbuildOptions": {
+            "sourcemap": false,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        }
+      }
+    },
+    "serve": {
+      "continuous": true,
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "dependsOn": [
+        "build"
+      ],
+      "options": {
+        "buildTarget": "helloworld:build",
+        "runBuildTargetDependencies": false
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "helloworld:build:development"
+        },
+        "production": {
+          "buildTarget": "helloworld:build:production"
+        }
+      }
+    }
+  }
+}

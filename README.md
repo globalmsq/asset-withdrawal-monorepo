@@ -1,119 +1,126 @@
 # Blockchain Withdrawal System Monorepo
 
-TypeScript 기반의 블록체인 출금 시스템 모노레포입니다.
+A TypeScript-based blockchain withdrawal system monorepo.
 
-## 📁 프로젝트 구조
+## 📁 Project Structure
 
 ```
-├── apps/                   # 애플리케이션들
-├── libs/                  # 공유 라이브러리들
-│   └── shared/            # 공통 라이브러리
-├── tools/                 # 빌드 도구 및 스크립트
-├── nx.json               # Nx 설정
-├── package.json          # 루트 패키지 설정
-├── tsconfig.base.json    # TypeScript 기본 설정
-└── README.md            # 이 파일
+├── packages/              # Applications and packages
+│   └── helloworld/        # Example application
+├── libs/                  # Shared libraries
+│   └── shared/            # Common library
+├── docker/                # Docker configuration
+├── docs/                  # Documentation
+├── nx.json               # Nx configuration
+├── package.json          # Root package configuration
+├── tsconfig.base.json    # TypeScript base configuration
+└── README.md            # This file
 ```
 
-## 🚀 시작하기
+## 🚀 Getting Started
 
-### 1. 의존성 설치
+### 1. Install Dependencies
 ```bash
 yarn install
 ```
 
-### 2. 새 패키지 생성
+### 2. Create New Package
 ```bash
-# 라이브러리 생성
-nx g @nx/js:library my-package --directory=libs/my-package
+# Create library
+yarn nx g @nx/js:library my-package --directory=libs/my-package
 
-# 애플리케이션 생성
-nx g @nx/js:application my-app --directory=apps/my-app
+# Create application
+yarn nx g @nx/js:application my-app --directory=packages/my-app
 ```
 
-### 3. 개발 서버 실행
+### 3. Run Development Server
 ```bash
-# 모든 앱 실행
+# Run all apps
 yarn dev
 
-# 특정 앱 실행
-nx serve my-app
+# Run specific app
+yarn nx serve my-app
 ```
 
-## 📋 사용 가능한 명령어
+## 📋 Available Commands
 
 ```bash
-# 빌드
-yarn build                # 모든 프로젝트 빌드
-nx build my-package       # 특정 패키지 빌드
+# Build
+yarn build                # Build all projects
+yarn nx build my-package       # Build specific package
 
-# 테스트
-yarn test                 # 모든 테스트 실행
-nx test my-package        # 특정 패키지 테스트
+# Test
+yarn test                 # Run all tests
+yarn nx test my-package        # Test specific package
+yarn coverage             # Run tests with coverage
 
-# 린팅
-yarn lint                 # 모든 프로젝트 린팅
-yarn lint:fix            # 린팅 문제 자동 수정
+# Linting
+yarn lint                 # Lint all projects
+yarn lint:fix            # Auto-fix linting issues
 
-# 포맷팅
-yarn format              # Prettier로 코드 포맷팅
+# Formatting
+yarn format              # Format code with Prettier
 
-# 의존성 검사
-yarn depcheck            # 사용하지 않는 의존성 검사
+# Dependency check
+yarn depcheck            # Check for unused dependencies
 
-# 정리
-yarn clean               # 빌드 아티팩트 및 캐시 정리
+# Clean
+yarn clean               # Clean build artifacts and cache
 ```
 
-## 🏗️ 아키텍처
+## 🏗️ Architecture
 
-### 패키지 구조
-- **`libs/`**: 재사용 가능한 라이브러리들
-  - 각 패키지는 독립적으로 빌드 및 테스트 가능
-  - 타입스크립트 path mapping을 통한 모듈 참조 (`@libs/*`)
+### Package Structure
+- **`packages/`**: Applications and packages
+  - Each package can be built and tested independently
+  - Example: `helloworld` application
+- **`libs/`**: Reusable libraries
+  - Each library can be built and tested independently
+  - Module references through TypeScript path mapping (`@libs/*`)
 
-### 앱 구조
-- **`apps/`**: 실행 가능한 애플리케이션들
-  - API 서버, 웹 클라이언트 등
+### Development Tools
+- **Docker**: Containerization support in `docker/` directory
+- **Documentation**: Project docs in `docs/` directory
 
-## 🔧 개발 가이드
+## 🔧 Development Guide
 
-### 새 패키지 추가
-1. `nx g @nx/js:library` 명령어로 패키지 생성
-2. `tsconfig.base.json`의 paths에 자동으로 추가됨
-3. 다른 패키지에서 `@libs/my-package`로 import 가능
+### Adding New Package
+1. Create package using `nx g @nx/js:library` command
+2. Automatically added to paths in `tsconfig.base.json`
+3. Importable from other packages using `@libs/my-package`
 
-### 코드 스타일
-- ESLint + Prettier를 사용한 코드 스타일 강제
-- 커밋 전 자동 린팅 및 포맷팅 (husky + lint-staged)
-- TypeScript strict 모드 활성화
+### Code Style
+- Code style enforcement using ESLint + Prettier
+- Automatic linting and formatting before commit (husky + lint-staged)
+- TypeScript strict mode enabled
 
-### 테스팅
-- Jest를 사용한 단위 테스트
-- 각 패키지별 독립적인 테스트 실행
-- 코드 커버리지 리포트 생성
+### Testing
+- Unit testing using Jest
+- Independent test execution for each package
+- Code coverage report generation with `yarn coverage`
 
-## 🛠️ 도구 및 기술
+## 🛠️ Tools and Technologies
 
-- **Nx**: 모노레포 관리 및 빌드 시스템
-- **TypeScript**: 타입 안전성
-- **Jest**: 테스트 프레임워크
-- **ESLint**: 코드 품질 검사
-- **Prettier**: 코드 포맷팅
-- **Husky**: Git hooks
-- **Yarn**: 패키지 매니저
+- **Nx**: Monorepo management and build system
+- **TypeScript**: Type safety
+- **Jest**: Testing framework with coverage support
+- **ESLint**: Code quality inspection
+- **Prettier**: Code formatting
+- **Husky**: Git hooks for pre-commit checks
+- **Yarn**: Package manager with workspaces
+- **Docker**: Containerization support
 
-## 📝 컨벤션
+## 📝 Conventions
 
-### 패키지 네이밍
-- kebab-case 사용
-- 명확하고 설명적인 이름
+### Package Naming
+- Use kebab-case
+- Clear and descriptive names
 
-### 브랜치 네이밍
-- `feature/기능명`
-- `fix/버그명`
-- `refactor/리팩터링명`
+### Branch Naming
+- `feature/feature-name`
+- `fix/bug-name`
+- `refactor/refactoring-name`
 
-### 커밋 메시지
-- [Conventional Commits](https://www.conventionalcommits.org/) 규칙 준수
-- `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:` 등 사용
+### Commit Messages
+- Follow [Conventional Commits](https://www.conventionalcommits.org/) rules
+- Use `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:` etc.

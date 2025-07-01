@@ -19,7 +19,7 @@
         ],
         "bundle": false,
         "main": "packages/helloworld/src/main.ts",
-        "tsConfig": "packages/helloworld/tsconfig.app.json",
+        "tsConfig": "packages/helloworld/tsconfig.json",
         "assets": [
           "packages/helloworld/src/assets"
         ],

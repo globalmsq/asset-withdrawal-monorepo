@@ -13,7 +13,7 @@
       "options": {
         "outputPath": "dist/libs/shared",
         "main": "libs/shared/src/index.ts",
-        "tsConfig": "libs/shared/tsconfig.lib.json",
+        "tsConfig": "libs/shared/tsconfig.json",
         "assets": [
           "libs/shared/*.md"
         ]

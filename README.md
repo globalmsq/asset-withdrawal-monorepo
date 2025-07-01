@@ -13,7 +13,7 @@ A TypeScript-based blockchain withdrawal system monorepo.
 ├── docs/                  # Documentation
 ├── nx.json               # Nx configuration
 ├── package.json          # Root package configuration
-├── tsconfig.base.json    # TypeScript base configuration
+├── tsconfig.json         # TypeScript configuration
 └── README.md            # This file
 ```
 
@@ -38,9 +38,21 @@ yarn nx g @nx/js:application my-app --directory=packages/my-app
 # Run all apps
 yarn dev
 
-# Run specific app
-yarn nx serve my-app
+# Run specific app (with auto-reload)
+yarn nx serve helloworld
+
+# Run with custom port
+yarn nx serve helloworld --port=3001
+
+# Run with environment variables
+yarn nx serve helloworld --env NODE_ENV=development
 ```
+
+**Features:**
+- 🔄 **Auto-reload**: Server automatically restarts when code changes
+- 🚀 **Fast build**: Uses esbuild for quick compilation
+- 🔧 **Development mode**: Source maps enabled for debugging
+- 📡 **HTTP server**: Runs on http://localhost:3000 by default
 
 ## 📋 Available Commands
 
@@ -88,6 +100,12 @@ yarn clean               # Clean build artifacts and cache
 1. Create package using `nx g @nx/js:library` command
 2. Automatically added to paths in `tsconfig.base.json`
 3. Importable from other packages using `@libs/my-package`
+
+### Development Workflow
+- **Hot reload**: `yarn nx serve helloworld` - Auto-restart on code changes
+- **Build**: `yarn nx build helloworld` - Production build
+- **Test**: `yarn nx test helloworld` - Run tests
+- **Lint**: `yarn nx lint helloworld` - Check code quality
 
 ### Code Style
 - Code style enforcement using ESLint + Prettier

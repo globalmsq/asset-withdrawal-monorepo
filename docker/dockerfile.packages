@@ -1,26 +1,41 @@
-# Multi-stage Dockerfile for all applications
-FROM node:18-alpine AS base
+# Multi-stage Dockerfile for Nx applications with caching
+FROM node:20-alpine AS base
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first for better caching
 COPY package.json yarn.lock ./
 
 # Install all dependencies
 RUN yarn install --frozen-lockfile
 
+# Copy Nx configuration files
+COPY nx.json tsconfig.base.json ./
+
+# Copy workspace configuration
+COPY packages/ packages/
+COPY libs/ libs/
+
+# Build stage with Nx caching
+FROM base AS builder
+
+# Accept build arguments
+ARG PROJECT_NAME
+ARG BUILD_TARGET
+
 # Copy source code
 COPY . .
 
-# Build stage for all applications
-FROM base AS builder
+# Build specific project or all projects
+RUN if [ -n "$BUILD_TARGET" ]; then \
+        yarn nx run $BUILD_TARGET; \
+    else \
+        yarn nx run-many --target=build --all; \
+    fi
 
-# Build all applications
-RUN yarn nx run-many --target=build --all
-
-# Production stage for helloworld
-FROM node:18-alpine AS helloworld
+# Production stage for specific application
+FROM node:20-alpine AS production
 
 WORKDIR /app
 
@@ -30,15 +45,26 @@ COPY package.json yarn.lock ./
 # Install production dependencies only
 RUN yarn install --frozen-lockfile --production
 
-# Copy built helloworld application
-COPY --from=builder /app/dist/packages/helloworld ./dist/packages/helloworld
+# Copy built application (default to helloworld if no project specified)
+ARG PROJECT_NAME=helloworld
+COPY --from=builder /app/dist/packages/$PROJECT_NAME ./dist/packages/$PROJECT_NAME
 
-EXPOSE 3000
+# Set default port based on project
+ARG PORT=3000
+EXPOSE $PORT
 
+# Set default command based on project
+CMD ["node", "dist/packages/helloworld/main.js"]
+
+# Production stage for helloworld (backward compatibility)
+FROM production AS helloworld
+ARG PROJECT_NAME=helloworld
+ARG PORT=3000
+EXPOSE $PORT
 CMD ["node", "dist/packages/helloworld/main.js"]
 
 # Production stage for future applications
-# FROM node:18-alpine AS api
+# FROM node:20-alpine AS api
 # WORKDIR /app
 # COPY package.json yarn.lock ./
 # RUN yarn install --frozen-lockfile --production

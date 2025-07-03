@@ -16,7 +16,8 @@
     "baseUrl": ".",
     "paths": {
       "@libs/*": ["libs/*/src"],
-      "@libs/shared": ["libs/shared/src/index.ts"]
+      "shared": ["libs/shared/src/index.ts"],
+      "database": ["libs/database/src/index.ts"]
     },
     "strict": true,
     "esModuleInterop": true,

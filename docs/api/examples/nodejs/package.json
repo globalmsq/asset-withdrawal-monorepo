@@ -1,0 +1,12 @@
+{
+  "name": "withdrawal-api-example",
+  "version": "1.0.0",
+  "description": "Example code for Withdrawal API",
+  "main": "withdrawal.js",
+  "scripts": {
+    "start": "node withdrawal.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}

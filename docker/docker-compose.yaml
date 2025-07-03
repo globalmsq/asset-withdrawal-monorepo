@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # helloworld application service
+  # Helloworld application service
   helloworld:
     build:
       context: ..
@@ -15,20 +15,44 @@ services:
     networks:
       - mustb-asset-withdrawal
 
-  # Future API service example
-  # api:
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/dockerfile.packages
-  #     target: api
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     - NODE_ENV=production
-  #   restart: unless-stopped
-  #   networks:
-  #     - mustb-asset-withdrawal
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-pass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-withdrawal_system}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+    networks:
+      - mustb-asset-withdrawal
+
+  # API Server
+  api-server:
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    build:
+      context: ..
+      dockerfile: docker/dockerfile.packages
+      target: api-server
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=${MYSQL_PORT:-3306}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-withdrawal_system}
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pass}
+    networks:
+      - mustb-asset-withdrawal
 
 networks:
   mustb-asset-withdrawal:
     driver: bridge
+
+volumes:
+  mysql_data:

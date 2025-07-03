@@ -1,0 +1,36 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = "mysql://root:pass@localhost:3306/withdrawal_system"
+}
+
+model Transaction {
+  id            String   @id @default(cuid())
+  userId        String
+  amount        Decimal  @db.Decimal(18, 8)
+  currency      String   @db.VarChar(10)
+  status        String   @db.VarChar(20) // pending, completed, failed
+  txHash        String?  @db.VarChar(66)
+  blockNumber   Int?
+  confirmations Int      @default(0)
+  fee           Decimal? @db.Decimal(18, 8)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("transactions")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  wallet    String   @unique @db.VarChar(42)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}

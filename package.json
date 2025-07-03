@@ -16,7 +16,10 @@
     "test": "nx run-many --target=test",
     "coverage": "nx run-many --target=test --coverage",
     "depcheck": "nx run-many --target=depcheck",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
   },
   "devDependencies": {
     "@babel/core": "^7.27.7",
@@ -50,7 +53,8 @@
     "ts-jest": "^29.1.2",
     "ts-node": "10.9.1",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "prisma": "^6.11.0"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -59,6 +63,7 @@
     ]
   },
   "dependencies": {
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "@prisma/client": "^6.11.0"
   }
 }

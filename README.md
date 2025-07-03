@@ -24,7 +24,40 @@ A TypeScript-based blockchain withdrawal system monorepo.
 yarn install
 ```
 
-### 2. Create New Package
+### 2. Environment Configuration
+
+Each package has its own environment configuration. Copy the `env.example` file to `.env` in the appropriate package directory:
+
+```bash
+# API Server
+cp packages/api-server/env.example packages/api-server/.env
+
+# Database Library
+cp libs/database/env.example libs/database/.env
+
+# Shared Library
+cp libs/shared/env.example libs/shared/.env
+```
+
+**Environment Variables by Package:**
+
+- **API Server** (`packages/api-server/`):
+  - `NODE_ENV`: Development or production mode
+  - `PORT`: API server port (default: 8080)
+  - `MYSQL_HOST`: Database host
+  - `MYSQL_PORT`: Database port
+  - `MYSQL_USER`: Database user
+  - `MYSQL_PASSWORD`: Database password
+  - `MYSQL_DATABASE`: Database name
+
+- **Database Library** (`libs/database/`):
+  - `MYSQL_HOST`: Database host
+  - `MYSQL_PORT`: Database port
+  - `MYSQL_USER`: Database user
+  - `MYSQL_PASSWORD`: Database password
+  - `MYSQL_DATABASE`: Database name
+
+### 3. Create New Package
 ```bash
 # Create library
 yarn nx g @nx/js:library my-package --directory=libs/my-package
@@ -33,7 +66,7 @@ yarn nx g @nx/js:library my-package --directory=libs/my-package
 yarn nx g @nx/js:application my-app --directory=packages/my-app
 ```
 
-### 3. Run Development Server
+### 4. Run Development Server
 ```bash
 # Run all apps
 yarn dev

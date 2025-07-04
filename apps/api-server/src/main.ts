@@ -22,10 +22,11 @@ async function startServer() {
     console.log('Database service initialized with mock configuration');
   }
 
-  const server = app.listen(config.port, () => {
-    console.log(`API Server running on port ${config.port}`);
+  const server = app.listen(config.port, config.host, () => {
+    console.log(`API Server running on ${config.host}:${config.port}`);
+    const displayUrl = config.host === '0.0.0.0' ? 'localhost' : config.host;
     console.log(
-      `API Documentation available at http://localhost:${config.port}/api-docs`
+      `API Documentation available at http://${displayUrl}:${config.port}/api-docs`
     );
   });
 

@@ -1,17 +1,17 @@
 /* eslint-disable */
 export default {
-  displayName: 'common',
+  displayName: 'shared',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
+  roots: ['<rootDir>/src'],
   transform: {
     '^.+\\.[tj]sx?$': [
       'ts-jest',
       {
-        useESM: true,
+        tsconfig: './tsconfig.json',
       },
     ],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
-  extensionsToTreatAsEsm: ['.ts'],
   coverageDirectory: '../../coverage/libs/shared',
 };

@@ -3,28 +3,29 @@
   "compilerOptions": {
     "rootDir": ".",
     "sourceMap": true,
-    "declaration": false,
+    "declaration": true,
     "moduleResolution": "node",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "importHelpers": true,
-    "target": "es2015",
-    "module": "esnext",
-    "lib": ["es2020", "dom"],
+    "target": "es2020",
+    "module": "commonjs",
+    "lib": ["es2020"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@packages/*": ["packages/*/src"],
-      "shared": ["packages/shared/src/index.ts"],
-      "database": ["packages/database/src/index.ts"]
+      "shared": ["./packages/shared/src"],
+      "shared/*": ["./packages/shared/src/*"],
+      "database": ["./packages/database/src"],
+      "database/*": ["./packages/database/src/*"]
     },
     "strict": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
+    "isolatedModules": false,
     "noEmit": true
   },
   "exclude": ["node_modules", "tmp", "dist", "build"]

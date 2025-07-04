@@ -113,6 +113,12 @@ If you see "Failed to connect to database":
 
 2. Verify environment variables in `.env`:
    ```
+   # API Server Configuration
+   NODE_ENV=development
+   PORT=8080
+   HOST=0.0.0.0
+
+   # MySQL Database Configuration
    MYSQL_HOST=localhost
    MYSQL_PORT=3306
    MYSQL_USER=root
@@ -136,6 +142,31 @@ PORT=8081
 # Or find and kill the process using the port
 lsof -i :8080
 kill -9 <PID>
+```
+
+### Environment-Specific Configuration
+
+For different environments, update the environment variables:
+
+**Development:**
+```env
+NODE_ENV=development
+PORT=8080
+HOST=0.0.0.0
+```
+
+**Production:**
+```env
+NODE_ENV=production
+PORT=8080
+HOST=0.0.0.0
+```
+
+**Docker Environment:**
+```env
+NODE_ENV=production
+PORT=8080
+HOST=0.0.0.0
 ```
 
 ## Development Workflow

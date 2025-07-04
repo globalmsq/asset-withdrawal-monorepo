@@ -13,7 +13,7 @@ COPY apps/api-server/package.json ./apps/api-server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 
-# Install all dependencies (including devDependencies for ts-node)
+# Install all dependencies
 RUN yarn install --frozen-lockfile
 
 # Copy source files
@@ -25,35 +25,25 @@ COPY prisma/ ./prisma/
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build the libraries (still needed for dependencies)
+# Build all packages and apps
 RUN yarn nx run database:build
 RUN yarn nx run shared:build
+RUN yarn nx run api-server:build
 
 # Production stage for api-server
 FROM node:20-alpine AS api-server
 
-# Install production dependencies
-RUN apk add --no-cache python3 make g++
-
 WORKDIR /app
 
-# Copy package files
-COPY package.json yarn.lock ./
-COPY apps/api-server/package.json ./apps/api-server/
-COPY packages/shared/package.json ./packages/shared/
-COPY packages/database/package.json ./packages/database/
+# Copy built files and dependencies from base stage
+COPY --from=base /app/dist ./dist
+COPY --from=base /app/node_modules ./node_modules
+COPY --from=base /app/package.json ./package.json
+COPY --from=base /app/prisma ./prisma
 
-# Install all dependencies (including ts-node)
-RUN yarn install --frozen-lockfile
-
-# Copy all source files
-COPY nx.json tsconfig.json ./
-COPY apps/ ./apps/
-COPY packages/ ./packages/
-COPY prisma/ ./prisma/
-
-# Generate Prisma client
-RUN npx prisma generate
+# Copy Prisma client
+COPY --from=base /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=base /app/node_modules/@prisma ./node_modules/@prisma
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -62,6 +52,5 @@ ENV PORT=8080
 # Expose port
 EXPOSE 8080
 
-# Start the application using ts-node
-CMD ["yarn", "workspace", "api-server", "start"]
-
+# Start the application using built JS files
+CMD ["node", "dist/apps/api-server/src/main.js"]

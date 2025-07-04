@@ -16,16 +16,7 @@ export async function initializeDatabase(config: {
 
 export function getDatabase(): any {
   if (!databaseInstance) {
-    // For testing, initialize with mock config if not already initialized
-    if (process.env.NODE_ENV === 'test') {
-      throw new Error(
-        'Database not initialized. Call initializeDatabase first.'
-      );
-    } else {
-      throw new Error(
-        'Database not initialized. Call initializeDatabase first.'
-      );
-    }
+    throw new Error('Database not initialized. Call initializeDatabase first.');
   }
   return databaseInstance;
 }

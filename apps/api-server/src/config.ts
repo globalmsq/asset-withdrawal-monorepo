@@ -3,6 +3,7 @@ import { AppError, ErrorCode } from 'shared';
 export interface AppConfig {
   port: number;
   nodeEnv: string;
+  host: string;
   database: {
     host: string;
     port: number;
@@ -13,9 +14,13 @@ export interface AppConfig {
 }
 
 export function loadConfig(): AppConfig {
+  const port = parseInt(process.env.PORT || '8080', 10);
+  const host = process.env.HOST || '0.0.0.0';
+
   const config: AppConfig = {
-    port: parseInt(process.env.PORT || '8080', 10),
+    port,
     nodeEnv: process.env.NODE_ENV || 'development',
+    host,
     database: {
       host: process.env.MYSQL_HOST || 'localhost',
       port: parseInt(process.env.MYSQL_PORT || '3306', 10),

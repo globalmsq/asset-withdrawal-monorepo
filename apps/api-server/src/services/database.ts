@@ -1,26 +1,26 @@
-import { DatabaseService, DatabaseConfig } from 'database';
+let databaseInstance: any = null;
 
-let databaseInstance: DatabaseService | null = null;
-
-export function initializeDatabase(config: DatabaseConfig): DatabaseService {
+export async function initializeDatabase(config: {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+}): Promise<any> {
   if (!databaseInstance) {
+    const { DatabaseService } = await import('database');
     databaseInstance = new DatabaseService(config);
   }
   return databaseInstance;
 }
 
-export function getDatabase(): DatabaseService {
+export function getDatabase(): any {
   if (!databaseInstance) {
     // For testing, initialize with mock config if not already initialized
     if (process.env.NODE_ENV === 'test') {
-      const mockConfig = {
-        host: 'localhost',
-        port: 3306,
-        user: 'test',
-        password: 'test',
-        database: 'test_db',
-      };
-      databaseInstance = new DatabaseService(mockConfig);
+      throw new Error(
+        'Database not initialized. Call initializeDatabase first.'
+      );
     } else {
       throw new Error(
         'Database not initialized. Call initializeDatabase first.'

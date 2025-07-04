@@ -13,7 +13,7 @@ COPY apps/api-server/package.json ./apps/api-server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 
-# Install all dependencies
+# Install all dependencies (including devDependencies for ts-node)
 RUN yarn install --frozen-lockfile
 
 # Copy source files
@@ -25,17 +25,9 @@ COPY prisma/ ./prisma/
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build stage
-FROM base AS builder
-
-# Disable Nx Daemon for Docker builds
-ENV NX_DAEMON=false
-
-# Build the libraries and applications
+# Build the libraries (still needed for dependencies)
 RUN yarn nx run database:build
 RUN yarn nx run shared:build
-RUN yarn nx run api-server:build
-RUN yarn nx run helloworld:build
 
 # Production stage for api-server
 FROM node:20-alpine AS api-server
@@ -51,18 +43,17 @@ COPY apps/api-server/package.json ./apps/api-server/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/database/package.json ./packages/database/
 
-# Install production dependencies only
-RUN yarn install --frozen-lockfile --production
+# Install all dependencies (including ts-node)
+RUN yarn install --frozen-lockfile
 
-# Copy Prisma schema and generate client
+# Copy all source files
+COPY nx.json tsconfig.json ./
+COPY apps/ ./apps/
+COPY packages/ ./packages/
 COPY prisma/ ./prisma/
-RUN npx prisma generate
 
-# Copy built application
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/apps/api-server/dist ./apps/api-server/dist
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/packages/database/dist ./packages/database/dist
+# Generate Prisma client
+RUN npx prisma generate
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -71,23 +62,6 @@ ENV PORT=8080
 # Expose port
 EXPOSE 8080
 
-# Start the application
-CMD ["node", "apps/api-server/dist/main.js"]
+# Start the application using ts-node
+CMD ["yarn", "workspace", "api-server", "start"]
 
-# Production stage for helloworld (for backward compatibility)
-FROM node:20-alpine AS helloworld
-
-WORKDIR /app
-
-# Copy built files from builder
-COPY --from=builder /app/dist/apps/helloworld ./
-
-# Set environment
-ENV NODE_ENV=production
-ENV PORT=3000
-
-# Expose port
-EXPOSE 3000
-
-# Start the application
-CMD ["node", "main.js"]

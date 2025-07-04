@@ -9,4 +9,5 @@ export default {
   coverageDirectory: '../../coverage/apps/api-server',
   setupFilesAfterEnv: [],
   setupFiles: ['<rootDir>/jest.setup.js'],
+  testPathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/node_modules/'],
 };

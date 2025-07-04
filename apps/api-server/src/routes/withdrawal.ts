@@ -4,9 +4,8 @@ import {
   WithdrawalResponse,
   TransactionStatus,
   ApiResponse,
+  queueManager,
 } from 'shared';
-import { queueManager } from 'shared/queue';
-import { TransactionService } from 'database';
 import { getDatabase } from '../services/database';
 
 const router = Router();
@@ -82,6 +81,7 @@ const txRequestQueue = queueManager.getQueue<WithdrawalRequest>('tx-request');
 router.post('/request', async (req: Request, res: Response) => {
   try {
     const { userId, amount, toAddress, tokenAddress, network } = req.body;
+    const { TransactionService } = await import('database');
     const transactionService = new TransactionService(getDatabase());
 
     // Basic validation
@@ -211,6 +211,7 @@ router.post('/request', async (req: Request, res: Response) => {
 router.get('/status/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const { TransactionService } = await import('database');
     const transactionService = new TransactionService(getDatabase());
 
     if (!id) {

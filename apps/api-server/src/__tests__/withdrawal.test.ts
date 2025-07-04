@@ -8,6 +8,17 @@ jest.mock('shared', () => ({
     COMPLETED: 'completed',
     FAILED: 'failed',
   },
+  queueManager: {
+    getQueue: jest.fn().mockReturnValue({
+      enqueue: jest.fn().mockResolvedValue('mock-message-id'),
+      dequeue: jest.fn().mockResolvedValue(null),
+      ack: jest.fn().mockResolvedValue(true),
+      nack: jest.fn().mockResolvedValue(false),
+      getQueueSize: jest.fn().mockReturnValue(0),
+      getProcessingSize: jest.fn().mockReturnValue(0),
+    }),
+    getAllQueues: jest.fn().mockReturnValue(new Map()),
+  },
 }));
 
 jest.mock('database', () => ({

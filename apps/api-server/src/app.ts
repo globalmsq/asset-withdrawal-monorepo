@@ -6,25 +6,8 @@ import { ApiResponse, AppError, ErrorCode } from 'shared';
 import withdrawalRoutes from './routes/withdrawal';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger';
-import { initializeDatabase } from './services/database';
 
 const app = express();
-
-// Initialize database for testing/development if not already initialized
-if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
-  try {
-    const mockDbConfig = {
-      host: 'localhost',
-      port: 3306,
-      user: 'test',
-      password: 'test',
-      database: 'test_db',
-    };
-    initializeDatabase(mockDbConfig);
-  } catch (error) {
-    // Database may already be initialized, ignore the error
-  }
-}
 
 // Security middleware with exceptions for Swagger UI
 app.use(
@@ -112,7 +95,7 @@ app.use(
     next: express.NextFunction
   ) => {
     console.error('Error:', err);
-    
+
     // Handle AppError instances
     if (err instanceof AppError) {
       const response: ApiResponse = {
@@ -124,13 +107,14 @@ app.use(
       };
       return res.status(err.statusCode).json(response);
     }
-    
+
     // Handle other errors
     const response: ApiResponse = {
       success: false,
-      error: process.env.NODE_ENV === 'production' 
-        ? 'Internal server error' 
-        : err.message || 'Internal server error',
+      error:
+        process.env.NODE_ENV === 'production'
+          ? 'Internal server error'
+          : err.message || 'Internal server error',
       code: ErrorCode.UNKNOWN_ERROR,
       timestamp: new Date(),
     };

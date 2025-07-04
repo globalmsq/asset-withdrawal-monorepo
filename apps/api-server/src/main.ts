@@ -6,7 +6,7 @@ async function startServer() {
   const config = loadConfig();
 
   // Initialize database with configuration
-  const dbService = initializeDatabase(config.database);
+  const dbService = await initializeDatabase(config.database);
 
   // Connect to database (skip in development if no database available)
   if (config.nodeEnv === 'production') {

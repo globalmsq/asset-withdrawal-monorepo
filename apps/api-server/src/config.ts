@@ -1,10 +1,15 @@
-import { DatabaseConfig } from 'database';
 import { AppError, ErrorCode } from 'shared';
 
 export interface AppConfig {
   port: number;
   nodeEnv: string;
-  database: DatabaseConfig;
+  database: {
+    host: string;
+    port: number;
+    user: string;
+    password: string;
+    database: string;
+  };
 }
 
 export function loadConfig(): AppConfig {
@@ -19,7 +24,7 @@ export function loadConfig(): AppConfig {
       database: process.env.MYSQL_DATABASE || 'withdrawal_system',
     },
   };
-  
+
   validateConfig(config);
   return config;
 }
@@ -33,16 +38,20 @@ function validateConfig(config: AppConfig): void {
       500
     );
   }
-  
+
   // Validate database port
-  if (isNaN(config.database.port) || config.database.port < 1 || config.database.port > 65535) {
+  if (
+    isNaN(config.database.port) ||
+    config.database.port < 1 ||
+    config.database.port > 65535
+  ) {
     throw new AppError(
       ErrorCode.VALIDATION_ERROR,
       `Invalid database port number: ${process.env.MYSQL_PORT}`,
       500
     );
   }
-  
+
   // Validate node environment
   const validEnvs = ['development', 'test', 'production', 'staging'];
   if (!validEnvs.includes(config.nodeEnv)) {
@@ -52,10 +61,14 @@ function validateConfig(config: AppConfig): void {
       500
     );
   }
-  
+
   // In production, ensure required database config is provided
   if (config.nodeEnv === 'production') {
-    if (!process.env.MYSQL_HOST || !process.env.MYSQL_USER || !process.env.MYSQL_PASSWORD) {
+    if (
+      !process.env.MYSQL_HOST ||
+      !process.env.MYSQL_USER ||
+      !process.env.MYSQL_PASSWORD
+    ) {
       throw new AppError(
         ErrorCode.VALIDATION_ERROR,
         'Database configuration is required in production (MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD)',

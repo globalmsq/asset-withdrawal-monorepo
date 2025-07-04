@@ -14,12 +14,6 @@
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
-    "paths": {
-      "shared": ["./packages/shared/src"],
-      "shared/*": ["./packages/shared/src/*"],
-      "database": ["./packages/database/src"],
-      "database/*": ["./packages/database/src/*"]
-    },
     "strict": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,

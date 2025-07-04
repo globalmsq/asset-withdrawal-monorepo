@@ -11,13 +11,7 @@
     "noEmit": false,
     "module": "commonjs",
     "target": "es2020",
-    "baseUrl": ".",
-    "paths": {
-      "shared": ["../shared/src"],
-      "shared/*": ["../shared/src/*"],
-      "database": ["./src"],
-      "database/*": ["./src/*"]
-    }
+    "baseUrl": "."
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

@@ -130,3 +130,100 @@ graph TD
 - **Dead Letter Queue 처리 자동화**: `Handle Error` 부분은 시스템 안정성에 매우 중요하다. DLQ에 메시지가 수신될 경우, CloudWatch Alarm을 통해 즉시 운영팀에 알림을 전송하고, Admin Front에서 해당 내역을 조회하여 재처리하거나 폐기할 수 있는 기능을 구현해야 한다.
 - **네트워크 보안 강화**: AWS VPC 내에서 Security Group과 NACL을 통해 각 컴포넌트 간 통신을 엄격히 제어해야 한다. 예를 들어, `Validation & Signing` 워커는 `Secrets Manager`, `Redis`, `DB` 등 필수적인 서비스에만 접근할 수 있도록 네트워크 규칙을 설정해야 한다.
 - **Blockchain Endpoint 이중화 및 Fail-over**: 단일 블록체인 엔드포인트(노드)에 대한 의존성은 시스템 전체의 장애 지점(SPOF)이 될 수 있다. 여러 프로바이더(Infura, Alchemy 등)의 엔드포인트 또는 자체 운영 노드를 포함하여 다수의 엔드포인트를 구성하고, 주기적인 상태 확인(Health Check)을 통해 특정 엔드포인트에 문제가 발생했을 때 자동으로 다른 엔드포인트로 전환하는 Fail-over 로직을 구현하여 서비스 연속성을 확보해야 한다.
+
+## 7. 구현된 기술 스택 (Phase 1 완료)
+
+### 7.1 현재 구현 상태
+- **ORM**: Prisma (MySQL)
+- **API Framework**: Express.js + TypeScript
+- **Queue**: In-memory (POC) → AWS SQS (Production 예정)
+- **Testing**: Jest + Supertest
+- **Documentation**: OpenAPI 3.0 (예정)
+- **Container**: Docker + Docker Compose
+
+### 7.2 예정된 기술 스택
+- **Container Orchestration**: Amazon EKS
+- **CI/CD**: GitHub Actions / Jenkins
+- **Infrastructure as Code**: Terraform
+- **Monitoring**: Prometheus + Grafana
+- **Logging**: ELK Stack (Elasticsearch, LogStash, Kibana)
+- **APM**: AWS X-Ray 또는 Datadog
+
+## 8. 개발 및 배포 프로세스
+
+### 8.1 브랜치 전략
+- **main**: 프로덕션 브랜치
+- **develop**: 개발 통합 브랜치  
+- **feature/***: 기능 개발 브랜치
+- **hotfix/***: 긴급 수정 브랜치
+
+### 8.2 코드 리뷰 프로세스
+- PR 생성 시 자동 테스트 실행
+- 최소 1명 이상의 리뷰어 승인 필요
+- 보안 관련 변경은 보안 담당자 추가 리뷰
+- 코드 커버리지 80% 이상 유지
+
+### 8.3 배포 파이프라인
+- **개발**: feature 브랜치 → develop → 개발 환경 자동 배포
+- **스테이징**: develop → staging 브랜치 → 스테이징 환경
+- **프로덕션**: staging → main → Blue-Green 배포
+- **롤백**: 이전 버전으로 즉시 전환 가능
+
+### 8.4 환경별 설정
+- **Local**: Docker Compose + LocalStack
+- **Dev**: EKS Dev Cluster + RDS Dev
+- **Staging**: Production과 동일한 구성 (축소 버전)
+- **Production**: Multi-AZ EKS + Aurora MySQL
+
+## 9. 운영 목표 및 SLA
+
+### 9.1 가용성
+- **목표**: 99.9% uptime (월간 다운타임 < 43분)
+- **계획된 유지보수**: 월 1회, 새벽 2-4시 (KST)
+- **무중단 배포**: Blue-Green 배포로 다운타임 제로
+
+### 9.2 성능
+- **API 응답시간**: 
+  - P50 < 100ms
+  - P95 < 200ms
+  - P99 < 500ms
+- **트랜잭션 처리**: 
+  - 요청 접수 → 블록체인 전송: < 30초
+  - 전체 완료 (컨펌 포함): < 5분 (네트워크 상황에 따라 변동)
+- **동시 처리 용량**: 10,000 TPS
+
+### 9.3 복구 목표
+- **RTO (Recovery Time Objective)**: 30분
+- **RPO (Recovery Point Objective)**: 5분
+- **백업 주기**: 
+  - 데이터베이스: 실시간 복제 + 일일 스냅샷
+  - 설정 및 코드: Git 기반 버전 관리
+
+### 9.4 보안 목표
+- **취약점 스캔**: 주간 자동 스캔
+- **침투 테스트**: 분기별 1회
+- **보안 패치**: Critical - 24시간 내, High - 1주일 내
+- **접근 권한 검토**: 월별 권한 감사
+
+## 10. 장애 대응 시나리오
+
+### 10.1 장애 등급 정의
+- **P1 (Critical)**: 전체 서비스 중단, 자산 손실 위험
+- **P2 (Major)**: 주요 기능 장애, 성능 심각 저하
+- **P3 (Minor)**: 일부 기능 장애, 우회 가능
+- **P4 (Low)**: 사용성 문제, 긴급하지 않음
+
+### 10.2 대응 절차
+1. **감지**: 모니터링 알람 또는 사용자 신고
+2. **분류**: 장애 등급 판단 및 담당자 지정
+3. **대응**: 
+   - P1: 15분 내 대응 시작, 전 팀원 소집
+   - P2: 30분 내 대응 시작
+   - P3-P4: 업무 시간 내 처리
+4. **복구**: 장애 원인 제거 및 서비스 정상화
+5. **사후 분석**: RCA(Root Cause Analysis) 작성 및 재발 방지
+
+### 10.3 비상 연락망
+- On-call 엔지니어 로테이션 (주간 단위)
+- PagerDuty를 통한 알람 에스컬레이션
+- 장애 대응 War Room (Slack 채널)

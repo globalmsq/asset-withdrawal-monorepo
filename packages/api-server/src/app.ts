@@ -6,11 +6,39 @@ import { ApiResponse } from 'shared';
 import withdrawalRoutes from './routes/withdrawal';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger';
+import { initializeDatabase } from './services/database';
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// Initialize database for testing/development if not already initialized
+if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
+  try {
+    const mockDbConfig = {
+      host: 'localhost',
+      port: 3306,
+      user: 'test',
+      password: 'test',
+      database: 'test_db',
+    };
+    initializeDatabase(mockDbConfig);
+  } catch (error) {
+    // Database may already be initialized, ignore the error
+  }
+}
+
+// Security middleware with exceptions for Swagger UI
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+      },
+    },
+  })
+);
 app.use(cors());
 
 // Parsing middleware
@@ -49,10 +77,14 @@ app.use('/withdrawal', withdrawalRoutes);
  *                   example: '2025-01-03T10:00:00Z'
  */
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-  });
+  const response: ApiResponse<{ status: string }> = {
+    success: true,
+    data: {
+      status: 'ok',
+    },
+    timestamp: new Date(),
+  };
+  res.json(response);
 });
 
 // Serve raw OpenAPI spec
@@ -60,15 +92,16 @@ app.get('/api-docs.json', (req, res) => {
   res.json(swaggerSpec);
 });
 
-// API Documentation - setup swagger without complex middleware chaining
-app.get('/api-docs', (req, res) => {
-  const html = swaggerUi.generateHTML(swaggerSpec, {
+// API Documentation
+app.use(
+  '/api-docs',
+  swaggerUi.serve as any,
+  swaggerUi.setup(swaggerSpec, {
     explorer: true,
     customCss: '.swagger-ui .topbar { display: none }',
     customSiteTitle: 'Blockchain Withdrawal System API',
-  });
-  res.send(html);
-});
+  }) as any
+);
 
 // Global error handler
 app.use(

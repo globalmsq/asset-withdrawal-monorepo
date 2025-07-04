@@ -1,18 +1,19 @@
-import { PrismaClient } from '@prisma/client';
+// Import Prisma client from root node_modules
+const { PrismaClient } = require('../../../node_modules/@prisma/client');
+
+export interface DatabaseConfig {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+}
 
 export class DatabaseService {
-  private static instance: DatabaseService;
-  private prisma: PrismaClient;
+  private prisma: any;
 
-  private constructor() {
-    // Construct DATABASE_URL from individual environment variables
-    const host = process.env.MYSQL_HOST || 'localhost';
-    const port = process.env.MYSQL_PORT || '3306';
-    const user = process.env.MYSQL_USER || 'root';
-    const password = process.env.MYSQL_PASSWORD || 'pass';
-    const database = process.env.MYSQL_DATABASE || 'withdrawal_system';
-
-    const databaseUrl = `mysql://${user}:${password}@${host}:${port}/${database}`;
+  constructor(config: DatabaseConfig) {
+    const databaseUrl = `mysql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`;
 
     this.prisma = new PrismaClient({
       datasources: {
@@ -23,14 +24,7 @@ export class DatabaseService {
     });
   }
 
-  public static getInstance(): DatabaseService {
-    if (!DatabaseService.instance) {
-      DatabaseService.instance = new DatabaseService();
-    }
-    return DatabaseService.instance;
-  }
-
-  public getClient(): PrismaClient {
+  public getClient(): any {
     return this.prisma;
   }
 

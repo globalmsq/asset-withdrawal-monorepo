@@ -7,7 +7,17 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "noEmit": false,
+    "module": "commonjs",
+    "target": "es2020",
+    "baseUrl": ".",
+    "paths": {
+      "shared": ["../../libs/shared/src"],
+      "shared/*": ["../../libs/shared/src/*"],
+      "database": ["../../libs/database/src"],
+      "database/*": ["../../libs/database/src/*"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

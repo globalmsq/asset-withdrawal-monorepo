@@ -4,15 +4,12 @@ import {
   WithdrawalResponse,
   TransactionStatus,
   ApiResponse,
-  queueManager,
 } from 'shared';
-import { DatabaseService, TransactionService } from 'database';
+import { queueManager } from 'shared/queue';
+import { TransactionService } from 'database';
+import { getDatabase } from '../services/database';
 
 const router = Router();
-
-// Initialize database service
-const dbService = DatabaseService.getInstance();
-const transactionService = new TransactionService();
 
 // Initialize queues
 const txRequestQueue = queueManager.getQueue<WithdrawalRequest>('tx-request');
@@ -85,6 +82,7 @@ const txRequestQueue = queueManager.getQueue<WithdrawalRequest>('tx-request');
 router.post('/request', async (req: Request, res: Response) => {
   try {
     const { userId, amount, toAddress, tokenAddress, network } = req.body;
+    const transactionService = new TransactionService(getDatabase());
 
     // Basic validation
     if (!userId || !amount || !toAddress || !tokenAddress || !network) {
@@ -108,7 +106,7 @@ router.post('/request', async (req: Request, res: Response) => {
     }
 
     // Generate unique transaction ID
-    const transactionId = `tx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const transactionId = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
     // Create withdrawal request
     const withdrawalRequest: WithdrawalRequest = {
@@ -213,6 +211,7 @@ router.post('/request', async (req: Request, res: Response) => {
 router.get('/status/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const transactionService = new TransactionService(getDatabase());
 
     if (!id) {
       const response: ApiResponse = {
@@ -293,7 +292,7 @@ router.get('/status/:id', async (req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.get('/queue/status', (req: Request, res: Response) => {
+router.get('/queue/status', (_req: Request, res: Response) => {
   try {
     const queueStatus = {
       'tx-request': {

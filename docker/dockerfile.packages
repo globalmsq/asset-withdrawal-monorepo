@@ -1,73 +1,93 @@
-# Multi-stage Dockerfile for Nx applications with caching
+# Multi-stage Dockerfile for Nx applications
 FROM node:20-alpine AS base
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files first for better caching
+# Copy package files
 COPY package.json yarn.lock ./
+COPY packages/api-server/package.json ./packages/api-server/
+COPY libs/shared/package.json ./libs/shared/
+COPY libs/database/package.json ./libs/database/
 
 # Install all dependencies
 RUN yarn install --frozen-lockfile
 
-# Copy Nx configuration files
-COPY nx.json tsconfig.base.json ./
+# Copy source files
+COPY nx.json tsconfig.json ./
+COPY packages/ ./packages/
+COPY libs/ ./libs/
+COPY prisma/ ./prisma/
 
-# Copy workspace configuration
-COPY packages/ packages/
-COPY libs/ libs/
+# Generate Prisma client
+RUN npx prisma generate
 
-# Build stage with Nx caching
+# Build stage
 FROM base AS builder
 
-# Accept build arguments
-ARG PROJECT_NAME
-ARG BUILD_TARGET
+# Disable Nx Daemon for Docker builds
+ENV NX_DAEMON=false
 
-# Copy source code
-COPY . .
+# Build the libraries and applications
+RUN yarn nx run database:build
+RUN yarn nx run shared:build
+RUN yarn nx run api-server:build
+RUN yarn nx run helloworld:build
 
-# Build specific project or all projects
-RUN if [ -n "$BUILD_TARGET" ]; then \
-        yarn nx run $BUILD_TARGET; \
-    else \
-        yarn nx run-many --target=build --all; \
-    fi
+# Production stage for api-server
+FROM node:20-alpine AS api-server
 
-# Production stage for specific application
-FROM node:20-alpine AS production
+# Install production dependencies
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
 # Copy package files
 COPY package.json yarn.lock ./
+COPY packages/api-server/package.json ./packages/api-server/
+COPY libs/shared/package.json ./libs/shared/
+COPY libs/database/package.json ./libs/database/
 
 # Install production dependencies only
 RUN yarn install --frozen-lockfile --production
 
-# Copy built application (default to helloworld if no project specified)
-ARG PROJECT_NAME=helloworld
-COPY --from=builder /app/dist/packages/$PROJECT_NAME ./dist/packages/$PROJECT_NAME
+# Copy Prisma schema and generate client
+COPY prisma/ ./prisma/
+RUN npx prisma generate
 
-# Set default port based on project
-ARG PORT=3000
-EXPOSE $PORT
+# Copy built application
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/packages/api-server/dist ./packages/api-server/dist
+COPY --from=builder /app/libs/shared/dist ./libs/shared/dist
+COPY --from=builder /app/libs/database/dist ./libs/database/dist
 
-# Set default command based on project
-CMD ["node", "dist/packages/helloworld/main.js"]
+# Set environment variables
+ENV NODE_ENV=production
+ENV PORT=8080
 
-# Production stage for helloworld (backward compatibility)
-FROM production AS helloworld
-ARG PROJECT_NAME=helloworld
-ARG PORT=3000
-EXPOSE $PORT
-CMD ["node", "dist/packages/helloworld/main.js"]
+# Expose port
+EXPOSE 8080
 
-# Production stage for future applications
-# FROM node:20-alpine AS api
-# WORKDIR /app
-# COPY package.json yarn.lock ./
-# RUN yarn install --frozen-lockfile --production
-# COPY --from=builder /app/dist/packages/api ./dist/packages/api
-# EXPOSE 8080
-# CMD ["node", "dist/packages/api/main.js"]
+# Start the application
+CMD ["node", "packages/api-server/dist/main.js"]
+
+# Production stage for helloworld (for backward compatibility)
+FROM node:20-alpine AS helloworld
+
+WORKDIR /app
+
+# Copy built files from builder
+COPY --from=builder /app/dist/packages/helloworld ./
+
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Expose port
+EXPOSE 3000
+
+# Start the application
+CMD ["node", "main.js"]

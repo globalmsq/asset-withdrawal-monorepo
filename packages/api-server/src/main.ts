@@ -1,27 +1,55 @@
 import app from './app';
+import { loadConfig } from './config';
+import { initializeDatabase } from './services/database';
 
-const PORT = process.env.PORT || 8080;
+async function startServer() {
+  const config = loadConfig();
 
-const server = app.listen(PORT, () => {
-  console.log(`API Server running on port ${PORT}`);
-  console.log(
-    `API Documentation available at http://localhost:${PORT}/api-docs`
-  );
-});
+  // Initialize database with configuration
+  const dbService = initializeDatabase(config.database);
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+  // Connect to database (skip in development if no database available)
+  if (config.nodeEnv === 'production') {
+    try {
+      await dbService.connect();
+      console.log('Database connected successfully');
+    } catch (error) {
+      console.error('Failed to connect to database:', error);
+      process.exit(1);
+    }
+  } else {
+    console.log('Development mode: Skipping database connection');
+    console.log('Database service initialized with mock configuration');
+  }
+
+  const server = app.listen(config.port, () => {
+    console.log(`API Server running on port ${config.port}`);
+    console.log(
+      `API Documentation available at http://localhost:${config.port}/api-docs`
+    );
   });
-});
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
-  });
+  // Graceful shutdown
+  const gracefulShutdown = async () => {
+    console.log('Shutting down gracefully...');
+    server.close(async () => {
+      try {
+        await dbService.disconnect();
+        console.log('Database disconnected');
+      } catch (error) {
+        console.error('Error disconnecting database:', error);
+      }
+      console.log('Server closed');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
+}
+
+// Start the server
+startServer().catch(error => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });

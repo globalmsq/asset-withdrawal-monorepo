@@ -11,6 +11,7 @@
     "lint:fix": "eslint src --ext .ts --fix"
   },
   "dependencies": {
+    "@prisma/client": "^5.7.0",
     "shared": "workspace:*"
   },
   "devDependencies": {

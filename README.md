@@ -26,22 +26,16 @@ yarn install
 
 ### 2. Environment Configuration
 
-Each package has its own environment configuration. Copy the `env.example` file to `.env` in the appropriate package directory:
+Environment variables are configured at the application level. Copy the `env.example` file to `.env` in the API server directory:
 
 ```bash
 # API Server
 cp packages/api-server/env.example packages/api-server/.env
-
-# Database Library
-cp libs/database/env.example libs/database/.env
-
-# Shared Library
-cp libs/shared/env.example libs/shared/.env
 ```
 
-**Environment Variables by Package:**
+**Environment Variables:**
 
-- **API Server** (`packages/api-server/`):
+- **API Server** (`packages/api-server/.env`):
   - `NODE_ENV`: Development or production mode
   - `PORT`: API server port (default: 8080)
   - `MYSQL_HOST`: Database host
@@ -50,12 +44,7 @@ cp libs/shared/env.example libs/shared/.env
   - `MYSQL_PASSWORD`: Database password
   - `MYSQL_DATABASE`: Database name
 
-- **Database Library** (`libs/database/`):
-  - `MYSQL_HOST`: Database host
-  - `MYSQL_PORT`: Database port
-  - `MYSQL_USER`: Database user
-  - `MYSQL_PASSWORD`: Database password
-  - `MYSQL_DATABASE`: Database name
+**Note:** Libraries do not have their own environment files. All configuration is injected from the application level.
 
 ### 3. Create New Package
 ```bash

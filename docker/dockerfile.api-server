@@ -1,46 +1,81 @@
-# Final working Dockerfile for api-server
-FROM node:20-alpine
+# 멀티스테이지 빌드를 사용한 API 서버 Dockerfile
+# Stage 1: 의존성 설치 및 빌드
+FROM node:20-alpine AS builder
 
-# Install build dependencies
+# 빌드 도구 설치
 RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Copy everything
-COPY . .
+# 패키지 파일들 복사
+COPY package.json yarn.lock ./
+COPY apps/api-server/package.json ./apps/api-server/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+COPY prisma/schema.prisma ./prisma/
 
-# Install dependencies
+# 의존성 설치
 RUN yarn install --frozen-lockfile
 
-# Generate Prisma client
+# 소스 코드 복사
+COPY . .
+
+# Prisma 클라이언트 생성
 RUN npx prisma generate
 
-# Build libraries and application
-RUN cd packages/shared && yarn build && \
-    mv lib/lib/common.js lib/common.js && \
-    mv lib/lib/common.d.ts lib/common.d.ts && \
-    rm -rf lib/lib
+# 패키지 빌드 (순서가 중요함)
+RUN cd packages/shared && yarn build
 RUN cd packages/database && yarn build
+
+# API 서버 빌드 (TypeScript 컴파일러 사용)
 RUN cd apps/api-server && yarn build
 
-# Now the structure should be:
-# - packages/shared/lib/index.js, queue.js, types.js
-# - packages/database/lib/index.js, database.js, transaction-service.js
-# - apps/api-server/dist/main.js, app.js, etc.
+# Stage 2: 프로덕션 이미지
+FROM node:20-alpine AS production
 
-# Fix module resolution by creating symlinks
-RUN cd /app && \
-    rm -rf node_modules/shared node_modules/database && \
+# 운영 환경 설정
+RUN apk add --no-cache curl
+
+WORKDIR /app
+
+# 빌드된 파일들 복사 (올바른 경로 사용)
+COPY --from=builder /app/packages/shared/lib ./packages/shared/lib
+COPY --from=builder /app/packages/database/lib ./packages/database/lib
+COPY --from=builder /app/apps/api-server/dist ./apps/api-server/dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/prisma ./prisma
+
+# 패키지 파일들 복사
+COPY package.json yarn.lock ./
+COPY apps/api-server/package.json ./apps/api-server/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
+
+# 모듈 resolution을 위한 심링크 생성
+RUN rm -rf node_modules/shared node_modules/database && \
     ln -s ../packages/shared/lib node_modules/shared && \
     ln -s ../packages/database/lib node_modules/database
 
-# Environment variables
+# 비root 사용자 생성
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S apiserver -u 1001
+
+# 권한 설정
+RUN chown -R apiserver:nodejs /app
+
+# 비root 사용자로 전환
+USER apiserver
+
+# 환경 변수 설정
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# Expose port
+# 포트 노출
 EXPOSE 8080
 
-# Start the application
-WORKDIR /app
+# 헬스 체크
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# 애플리케이션 시작 (실제 빌드된 파일 경로 사용)
 CMD ["node", "apps/api-server/dist/apps/api-server/src/main.js"]

@@ -1,5 +1,25 @@
 import swaggerJSDoc from 'swagger-jsdoc';
 
+// 환경에 따라 다른 파일 경로 설정
+const getApiPaths = () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  if (isProduction) {
+    // 프로덕션 환경에서는 빌드된 JS 파일들을 참조 (Docker 컨테이너 내부 경로)
+    return [
+      '/app/apps/api-server/dist/apps/api-server/src/routes/*.js',
+      '/app/apps/api-server/dist/apps/api-server/src/app.js',
+    ];
+  } else if (isDevelopment) {
+    // 개발 환경에서는 TypeScript 파일들을 참조
+    return ['./src/routes/*.ts', './src/app.ts'];
+  } else {
+    // 테스트 환경 등에서는 현재 디렉토리 기준
+    return ['./src/routes/*.ts', './src/app.ts'];
+  }
+};
+
 const options: swaggerJSDoc.Options = {
   definition: {
     openapi: '3.0.3',
@@ -166,7 +186,7 @@ const options: swaggerJSDoc.Options = {
       },
     },
   },
-  apis: ['./src/routes/*.ts', './src/app.ts'], // paths to files containing OpenAPI definitions
+  apis: getApiPaths(), // 환경에 따른 동적 경로 설정
 };
 
 export const swaggerSpec = swaggerJSDoc(options);

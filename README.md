@@ -5,9 +5,9 @@ A TypeScript-based blockchain withdrawal system monorepo.
 ## 📁 Project Structure
 
 ```
-├── packages/              # Applications and packages
-│   └── helloworld/        # Example application
-├── libs/                  # Shared libraries
+├── apps/                  # Applications
+│   └── api-server/        # API server application
+├── packages/              # Shared libraries
 │   └── shared/            # Common library
 ├── docker/                # Docker configuration
 ├── docs/                  # Documentation
@@ -30,12 +30,12 @@ Environment variables are configured at the application level. Copy the `env.exa
 
 ```bash
 # API Server
-cp packages/api-server/env.example packages/api-server/.env
+cp apps/api-server/env.example apps/api-server/.env
 ```
 
 **Environment Variables:**
 
-- **API Server** (`packages/api-server/.env`):
+- **API Server** (`apps/api-server/.env`):
   - `NODE_ENV`: Development or production mode
   - `PORT`: API server port (default: 8080)
   - `MYSQL_HOST`: Database host
@@ -49,10 +49,10 @@ cp packages/api-server/env.example packages/api-server/.env
 ### 3. Create New Package
 ```bash
 # Create library
-yarn nx g @nx/js:library my-package --directory=libs/my-package
+yarn nx g @nx/js:library my-package --directory=packages/my-package
 
 # Create application
-yarn nx g @nx/js:application my-app --directory=packages/my-app
+yarn nx g @nx/js:application my-app --directory=apps/my-app
 ```
 
 ### 4. Run Development Server
@@ -105,12 +105,12 @@ yarn clean               # Clean build artifacts and cache
 ## 🏗️ Architecture
 
 ### Package Structure
-- **`packages/`**: Applications and packages
+- **`apps/`**: Applications
   - Each package can be built and tested independently
   - Example: `helloworld` application
-- **`libs/`**: Reusable libraries
+- **`packages/`**: Reusable libraries
   - Each library can be built and tested independently
-  - Module references through TypeScript path mapping (`@libs/*`)
+  - Module references through TypeScript path mapping (`@packages/*`)
 
 ### Development Tools
 - **Docker**: Containerization support in `docker/` directory
@@ -121,7 +121,7 @@ yarn clean               # Clean build artifacts and cache
 ### Adding New Package
 1. Create package using `nx g @nx/js:library` command
 2. Automatically added to paths in `tsconfig.base.json`
-3. Importable from other packages using `@libs/my-package`
+3. Importable from other packages using `@packages/my-package`
 
 ### Development Workflow
 - **Hot reload**: `yarn nx serve helloworld` - Auto-restart on code changes

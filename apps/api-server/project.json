@@ -1,7 +1,7 @@
 {
   "name": "api-server",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "packages/api-server/src",
+  "sourceRoot": "apps/api-server/src",
   "projectType": "application",
   "targets": {
     "build": {
@@ -11,13 +11,13 @@
       ],
       "options": {
         "platform": "node",
-        "outputPath": "dist/packages/api-server",
+        "outputPath": "dist/apps/api-server",
         "format": [
           "cjs"
         ],
         "bundle": false,
-        "main": "packages/api-server/src/main.ts",
-        "tsConfig": "packages/api-server/tsconfig.json",
+        "main": "apps/api-server/src/main.ts",
+        "tsConfig": "apps/api-server/tsconfig.json",
         "generatePackageJson": true,
         "skipTypeCheck": true
       }
@@ -44,7 +44,7 @@
       ],
       "options": {
         "lintFilePatterns": [
-          "packages/api-server/**/*.ts"
+          "apps/api-server/**/*.ts"
         ]
       }
     },
@@ -54,7 +54,7 @@
         "{workspaceRoot}/coverage/{projectRoot}"
       ],
       "options": {
-        "jestConfig": "packages/api-server/jest.config.ts",
+        "jestConfig": "apps/api-server/jest.config.ts",
         "passWithNoTests": true
       }
     }

@@ -13,10 +13,10 @@
     "target": "es2020",
     "baseUrl": ".",
     "paths": {
-      "shared": ["../../libs/shared/src"],
-      "shared/*": ["../../libs/shared/src/*"],
-      "database": ["../../libs/database/src"],
-      "database/*": ["../../libs/database/src/*"]
+      "shared": ["../../packages/shared/src"],
+      "shared/*": ["../../packages/shared/src/*"],
+      "database": ["../../packages/database/src"],
+      "database/*": ["../../packages/database/src/*"]
     }
   },
   "include": ["src/**/*"],

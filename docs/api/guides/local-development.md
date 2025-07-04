@@ -19,7 +19,7 @@ cd mustb-asset-withdrawal
 yarn install
 
 # Copy environment variables
-cp packages/api-server/env.example packages/api-server/.env
+cp apps/api-server/env.example apps/api-server/.env
 ```
 
 ### 2. Start Database

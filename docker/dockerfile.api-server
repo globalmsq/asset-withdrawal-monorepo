@@ -16,23 +16,23 @@ RUN yarn install --frozen-lockfile
 RUN npx prisma generate
 
 # Build libraries and application
-RUN cd libs/shared && yarn build && \
+RUN cd packages/shared && yarn build && \
     mv lib/lib/common.js lib/common.js && \
     mv lib/lib/common.d.ts lib/common.d.ts && \
     rm -rf lib/lib
-RUN cd libs/database && yarn build
-RUN cd packages/api-server && yarn build
+RUN cd packages/database && yarn build
+RUN cd apps/api-server && yarn build
 
 # Now the structure should be:
-# - libs/shared/lib/index.js, queue.js, types.js
-# - libs/database/lib/index.js, database.js, transaction-service.js
-# - packages/api-server/dist/main.js, app.js, etc.
+# - packages/shared/lib/index.js, queue.js, types.js
+# - packages/database/lib/index.js, database.js, transaction-service.js
+# - apps/api-server/dist/main.js, app.js, etc.
 
 # Fix module resolution by creating symlinks
 RUN cd /app && \
     rm -rf node_modules/shared node_modules/database && \
-    ln -s ../libs/shared/lib node_modules/shared && \
-    ln -s ../libs/database/lib node_modules/database
+    ln -s ../packages/shared/lib node_modules/shared && \
+    ln -s ../packages/database/lib node_modules/database
 
 # Environment variables
 ENV NODE_ENV=production
@@ -43,4 +43,4 @@ EXPOSE 8080
 
 # Start the application
 WORKDIR /app
-CMD ["node", "packages/api-server/dist/packages/api-server/src/main.js"]
+CMD ["node", "apps/api-server/dist/apps/api-server/src/main.js"]

@@ -1,7 +1,7 @@
 {
   "name": "shared",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "libs/shared/src",
+  "sourceRoot": "packages/shared/src",
   "projectType": "library",
   "tags": [],
   "targets": {
@@ -11,11 +11,11 @@
         "{workspaceRoot}/dist/libs/shared"
       ],
       "options": {
-        "outputPath": "dist/libs/shared",
-        "main": "libs/shared/src/index.ts",
-        "tsConfig": "libs/shared/tsconfig.json",
+        "outputPath": "dist/packages/shared",
+        "main": "packages/shared/src/index.ts",
+        "tsConfig": "packages/shared/tsconfig.json",
         "assets": [
-          "libs/shared/*.md"
+          "packages/shared/*.md"
         ]
       }
     },
@@ -25,7 +25,7 @@
         "{workspaceRoot}/coverage/{projectRoot}"
       ],
       "options": {
-        "jestConfig": "libs/shared/jest.config.ts"
+        "jestConfig": "packages/shared/jest.config.ts"
       }
     },
     "lint": {
@@ -35,7 +35,7 @@
       ],
       "options": {
         "lintFilePatterns": [
-          "libs/shared/**/*.ts"
+          "packages/shared/src/**/*.ts"
         ]
       }
     }

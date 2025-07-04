@@ -16,21 +16,21 @@ RUN yarn install --frozen-lockfile
 RUN npx prisma generate
 
 # Build libraries and application
-RUN cd libs/shared && yarn build
-RUN cd libs/database && yarn build  
-RUN cd packages/api-server && yarn build
+RUN cd packages/shared && yarn build
+RUN cd packages/database && yarn build  
+RUN cd apps/api-server && yarn build
 
 # Fix module resolution by creating symlinks
 RUN mkdir -p /app/node_modules/shared && \
     mkdir -p /app/node_modules/database && \
-    cp -r /app/libs/shared/lib/* /app/node_modules/shared/ && \
-    cp -r /app/libs/database/lib/* /app/node_modules/database/
+    cp -r /app/packages/shared/lib/* /app/node_modules/shared/ && \
+    cp -r /app/packages/database/lib/* /app/node_modules/database/
 
 # Create a wrapper script that sets up the environment
 RUN echo '#!/bin/sh' > /app/start.sh && \
-    echo 'export NODE_PATH=/app/node_modules:/app/libs' >> /app/start.sh && \
+    echo 'export NODE_PATH=/app/node_modules:/app/packages' >> /app/start.sh && \
     echo 'cd /app' >> /app/start.sh && \
-    echo 'exec node packages/api-server/dist/packages/api-server/src/main.js' >> /app/start.sh && \
+    echo 'exec node apps/api-server/dist/apps/api-server/src/main.js' >> /app/start.sh && \
     chmod +x /app/start.sh
 
 # Environment variables

@@ -51,8 +51,8 @@
   },
   "defaultBase": "main",
   "workspaceLayout": {
-    "appsDir": "packages",
-    "libsDir": "libs"
+    "appsDir": "apps",
+    "libsDir": "packages"
   },
   "plugins": [
     {

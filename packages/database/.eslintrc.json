@@ -2,7 +2,7 @@
   "extends": "../../.eslintrc.js",
   "parserOptions": {
     "project": [
-      "libs/shared/tsconfig.json"
+      "packages/database/tsconfig.json"
     ]
   }
 }

@@ -128,3 +128,9 @@ Thumbs.db
 # Nx
 .nx/cache
 .nx/workspace-data
+
+# Development logs
+dev.log
+
+# Prisma
+prisma/migrations/dev/

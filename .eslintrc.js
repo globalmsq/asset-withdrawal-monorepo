@@ -31,6 +31,9 @@ module.exports = {
     },
     {
       files: ['*.js', '*.jsx'],
+      parserOptions: {
+        ecmaVersion: 'latest',
+      },
       rules: {},
     },
   ],

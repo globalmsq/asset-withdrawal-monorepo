@@ -2,8 +2,8 @@
   "name": "blockchain-withdrawal-system-monorepo",
   "private": true,
   "workspaces": [
-    "packages/*",
-    "libs/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "bootstrap": "yarn install",

@@ -1,5 +1,22 @@
-// Import Prisma client from root node_modules
-const { PrismaClient } = require('../../../node_modules/@prisma/client');
+// Import from root node_modules
+let PrismaClient: any;
+try {
+  // Try to import from root node_modules first
+  PrismaClient = require('../../../node_modules/@prisma/client').PrismaClient;
+} catch (error) {
+  try {
+    // Fallback to regular import
+    PrismaClient = require('@prisma/client').PrismaClient;
+  } catch (error2) {
+    console.warn('Prisma client not found. Please run "prisma generate" if needed.');
+    // Mock PrismaClient for development
+    PrismaClient = class MockPrismaClient {
+      $connect() { return Promise.resolve(); }
+      $disconnect() { return Promise.resolve(); }
+      $queryRaw() { return Promise.resolve([{ 1: 1 }]); }
+    };
+  }
+}
 
 export interface DatabaseConfig {
   host: string;

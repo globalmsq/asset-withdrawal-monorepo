@@ -13,13 +13,13 @@ This document outlines the implementation plan for a blockchain withdrawal syste
 
 ## 🏗️ **Updated Architecture Overview**
 
-### 📦 **New Database Layer - libs/database**
+### 📦 **New Database Layer - packages/database**
 **Status**: ✅ **COMPLETED** - Migrated to modern Prisma ORM architecture
 
 The database layer has been completely restructured for better maintainability and type safety:
 
 #### **Key Changes:**
-- **Folder renamed**: `libs/data-access` → `libs/database`
+- **Folder renamed**: `libs/data-access` → `packages/database`
 - **Technology stack**: Raw SQL → **Prisma ORM** + MySQL
 - **Architecture**: Complex factory pattern → Simple service classes
 - **Type safety**: Manual types → Prisma-generated types
@@ -27,7 +27,7 @@ The database layer has been completely restructured for better maintainability a
 
 #### **Current Structure:**
 ```
-libs/database/
+packages/database/
 ├── src/
 │   ├── database.ts           # DatabaseService (Singleton pattern)
 │   ├── transaction-service.ts # TransactionService (CRUD operations)
@@ -303,7 +303,7 @@ Q4 (Month 10-12): Innovation & Future
 
 ## 🔧 **Technical Specifications**
 
-### **Database Layer (libs/database)**
+### **Database Layer (packages/database)**
 - **ORM**: Prisma ORM
 - **Database**: MySQL
 - **Connection**: Connection pooling via Prisma
@@ -311,14 +311,14 @@ Q4 (Month 10-12): Innovation & Future
 - **Types**: Auto-generated TypeScript types
 - **Precision**: Decimal handling for financial operations
 
-### **API Layer (packages/api-server)**
+### **API Layer (apps/api-server)**
 - **Framework**: Express.js
 - **Authentication**: JWT (to be implemented)
 - **Validation**: Express validators
 - **Error Handling**: Centralized error middleware
 - **Documentation**: OpenAPI/Swagger (to be added)
 
-### **Shared Libraries (libs/shared)**
+### **Shared Libraries (packages/shared)**
 - **Types**: Common TypeScript interfaces
 - **Utilities**: Shared helper functions
 - **Constants**: Application constants
@@ -444,7 +444,7 @@ docs/
    - Created `QueueManager` for queue management
    - Included error handling and message tracking
 
-4. **Task 1-4: Data Access Service** - `libs/database/`
+4. **Task 1-4: Data Access Service** - `packages/database/`
    - Created multi-database architecture supporting MySQL, DynamoDB, PostgreSQL, MongoDB
    - Implemented MySQL connection manager with connection pooling
    - Created `TransactionRepository` with CRUD operations using repository pattern

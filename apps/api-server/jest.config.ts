@@ -3,10 +3,10 @@ export default {
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {
-    '^.+\\.[tj]s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
+    '^.+\.[tj]s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
-  coverageDirectory: '../../coverage/packages/api-server',
+  coverageDirectory: '../../coverage/apps/api-server',
   setupFilesAfterEnv: [],
   setupFiles: ['<rootDir>/jest.setup.js'],
 };

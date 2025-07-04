@@ -1,7 +1,7 @@
 {
   "name": "database",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "libs/database/src",
+  "sourceRoot": "packages/database/src",
   "projectType": "library",
   "targets": {
     "build": {
@@ -10,9 +10,9 @@
         "{options.outputPath}"
       ],
       "options": {
-        "outputPath": "dist/libs/database",
-        "main": "libs/database/src/index.ts",
-        "tsConfig": "libs/database/tsconfig.json"
+        "outputPath": "dist/packages/database",
+        "main": "packages/database/src/index.ts",
+        "tsConfig": "packages/database/tsconfig.json"
       }
     },
     "lint": {
@@ -22,7 +22,7 @@
       ],
       "options": {
         "lintFilePatterns": [
-          "libs/database/**/*.ts"
+          "packages/database/src/**/*.ts"
         ]
       }
     },
@@ -32,7 +32,7 @@
         "{workspaceRoot}/coverage/{projectRoot}"
       ],
       "options": {
-        "jestConfig": "libs/database/jest.config.ts",
+        "jestConfig": "packages/database/jest.config.ts",
         "passWithNoTests": true
       }
     }

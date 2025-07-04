@@ -1,6 +1,33 @@
 import request from 'supertest';
 import app from '../app';
 
+jest.mock('shared', () => ({
+  ...jest.requireActual('shared'),
+  TransactionStatus: {
+    PENDING: 'pending',
+    COMPLETED: 'completed',
+    FAILED: 'failed',
+  },
+}));
+
+jest.mock('database', () => ({
+  DatabaseService: jest.fn().mockImplementation(() => ({
+    getClient: jest.fn(),
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    healthCheck: jest.fn().mockResolvedValue(true),
+  })),
+  TransactionService: jest.fn().mockImplementation(() => ({
+    createTransaction: jest.fn().mockResolvedValue({}),
+    getTransactionById: jest.fn().mockResolvedValue({
+      id: 'test-tx-id',
+      status: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }),
+  })),
+}));
+
 describe('Withdrawal API', () => {
   describe('POST /withdrawal/request', () => {
     it('should create withdrawal request', async () => {
@@ -59,6 +86,7 @@ describe('Withdrawal API', () => {
 
   describe('GET /withdrawal/status/:id', () => {
     it('should return transaction status', async () => {
+      const { TransactionService } = require('database');
       // Create a transaction first
       const withdrawalData = {
         userId: 'test-user-123',
@@ -74,6 +102,16 @@ describe('Withdrawal API', () => {
 
       const transactionId = createResponse.body.data.id;
 
+      TransactionService.mockImplementation(() => ({
+        createTransaction: jest.fn().mockResolvedValue({}),
+        getTransactionById: jest.fn().mockResolvedValue({
+          id: transactionId,
+          status: 'pending',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      }));
+
       // Get transaction status
       const response = await request(app)
         .get(`/withdrawal/status/${transactionId}`)
@@ -84,6 +122,12 @@ describe('Withdrawal API', () => {
     });
 
     it('should return 404 for non-existent transaction', async () => {
+      const { TransactionService } = require('database');
+      TransactionService.mockImplementation(() => ({
+        createTransaction: jest.fn().mockResolvedValue({}),
+        getTransactionById: jest.fn().mockResolvedValue(null),
+      }));
+
       const response = await request(app)
         .get('/withdrawal/status/non-existent-id')
         .expect(404);

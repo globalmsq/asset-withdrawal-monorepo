@@ -9,17 +9,17 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json yarn.lock ./
-COPY packages/api-server/package.json ./packages/api-server/
-COPY libs/shared/package.json ./libs/shared/
-COPY libs/database/package.json ./libs/database/
+COPY apps/api-server/package.json ./apps/api-server/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
 
 # Install all dependencies
 RUN yarn install --frozen-lockfile
 
 # Copy source files
 COPY nx.json tsconfig.json ./
+COPY apps/ ./apps/
 COPY packages/ ./packages/
-COPY libs/ ./libs/
 COPY prisma/ ./prisma/
 
 # Generate Prisma client
@@ -47,9 +47,9 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json yarn.lock ./
-COPY packages/api-server/package.json ./packages/api-server/
-COPY libs/shared/package.json ./libs/shared/
-COPY libs/database/package.json ./libs/database/
+COPY apps/api-server/package.json ./apps/api-server/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
 
 # Install production dependencies only
 RUN yarn install --frozen-lockfile --production
@@ -60,9 +60,9 @@ RUN npx prisma generate
 
 # Copy built application
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/packages/api-server/dist ./packages/api-server/dist
-COPY --from=builder /app/libs/shared/dist ./libs/shared/dist
-COPY --from=builder /app/libs/database/dist ./libs/database/dist
+COPY --from=builder /app/apps/api-server/dist ./apps/api-server/dist
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -72,7 +72,7 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Start the application
-CMD ["node", "packages/api-server/dist/main.js"]
+CMD ["node", "apps/api-server/dist/main.js"]
 
 # Production stage for helloworld (for backward compatibility)
 FROM node:20-alpine AS helloworld
@@ -80,7 +80,7 @@ FROM node:20-alpine AS helloworld
 WORKDIR /app
 
 # Copy built files from builder
-COPY --from=builder /app/dist/packages/helloworld ./
+COPY --from=builder /app/dist/apps/helloworld ./
 
 # Set environment
 ENV NODE_ENV=production

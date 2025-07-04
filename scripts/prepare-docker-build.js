@@ -11,7 +11,7 @@ if (!fs.existsSync(buildDir)) {
 
 // Copy package.json and modify it
 const rootPackageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
-const apiServerPackageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'packages', 'api-server', 'package.json'), 'utf8'));
+const apiServerPackageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'apps', 'api-server', 'package.json'), 'utf8'));
 
 // Replace workspace dependencies with file paths
 if (apiServerPackageJson.dependencies) {
@@ -66,7 +66,7 @@ const copyAndTransform = (src, dest) => {
 
 // Copy api-server source
 copyAndTransform(
-  path.join(__dirname, '..', 'packages', 'api-server', 'src'),
+  path.join(__dirname, '..', 'apps', 'api-server', 'src'),
   srcDir
 );
 

@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { ApiResponse } from 'shared';
+import { ApiResponse, AppError, ErrorCode } from 'shared';
 import withdrawalRoutes from './routes/withdrawal';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger';
@@ -111,10 +111,27 @@ app.use(
     res: express.Response,
     next: express.NextFunction
   ) => {
-    console.error('Error:', err.message);
+    console.error('Error:', err);
+    
+    // Handle AppError instances
+    if (err instanceof AppError) {
+      const response: ApiResponse = {
+        success: false,
+        error: err.message,
+        code: err.code,
+        details: err.details,
+        timestamp: new Date(),
+      };
+      return res.status(err.statusCode).json(response);
+    }
+    
+    // Handle other errors
     const response: ApiResponse = {
       success: false,
-      error: err.message || 'Internal server error',
+      error: process.env.NODE_ENV === 'production' 
+        ? 'Internal server error' 
+        : err.message || 'Internal server error',
+      code: ErrorCode.UNKNOWN_ERROR,
       timestamp: new Date(),
     };
     res.status(500).json(response);

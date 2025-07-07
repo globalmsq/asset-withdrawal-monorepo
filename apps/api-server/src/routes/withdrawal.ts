@@ -13,6 +13,25 @@ const router = Router();
 // Initialize queues
 const txRequestQueue = queueManager.getQueue<WithdrawalRequest>('tx-request');
 
+// Helper function to determine currency from token address
+function getCurrencyFromTokenAddress(tokenAddress: string): string {
+  // ETH native token (zero address)
+  if (tokenAddress === '0x0000000000000000000000000000000000000000') {
+    return 'ETH';
+  }
+
+  // Common token addresses (you can extend this list)
+  const tokenMap: { [key: string]: string } = {
+    // Ethereum mainnet
+    '0xdAC17F958D2ee523a2206206994597C13D831ec7': 'USDT', // Tether
+    '0x6B175474E89094C44Da98b954EedeAC495271d0F': 'DAI', // Dai Stablecoin
+    '0xA0b86a33E6441C0D16C8fA7b13A4e8Da1D44ce9c': 'USDC', // USD Coin
+    // Add more token addresses as needed
+  };
+
+  return tokenMap[tokenAddress] || 'TOKEN'; // Default to 'TOKEN' if not found
+}
+
 /**
  * @swagger
  * /withdrawal/request:
@@ -123,7 +142,10 @@ router.post('/request', async (req: Request, res: Response) => {
     await transactionService.createTransaction({
       userId,
       amount: parseFloat(amount),
-      currency: tokenAddress, // Temporarily use tokenAddress as currency
+      currency: getCurrencyFromTokenAddress(tokenAddress),
+      tokenAddress,
+      toAddress,
+      network,
       status: TransactionStatus.PENDING,
     });
 

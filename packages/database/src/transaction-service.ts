@@ -8,6 +8,9 @@ export interface Transaction {
   userId: string;
   amount: number;
   currency: string;
+  tokenAddress?: string | null;
+  toAddress?: string | null;
+  network?: string | null;
   status: string;
   txHash?: string | null;
   blockNumber?: number | null;
@@ -23,6 +26,9 @@ interface PrismaTransaction {
   userId: string;
   amount: Decimal;
   currency: string;
+  tokenAddress: string | null;
+  toAddress: string | null;
+  network: string | null;
   status: string;
   txHash: string | null;
   blockNumber: number | null;
@@ -47,6 +53,9 @@ export class TransactionService {
       userId: prismaTx.userId,
       amount: prismaTx.amount.toNumber(),
       currency: prismaTx.currency,
+      tokenAddress: prismaTx.tokenAddress,
+      toAddress: prismaTx.toAddress,
+      network: prismaTx.network,
       status: prismaTx.status,
       txHash: prismaTx.txHash,
       blockNumber: prismaTx.blockNumber,
@@ -61,6 +70,9 @@ export class TransactionService {
     userId: string;
     amount: number;
     currency: string;
+    tokenAddress?: string;
+    toAddress?: string;
+    network?: string;
     status: string;
   }): Promise<Transaction> {
     // Return mock data in development mode
@@ -70,6 +82,9 @@ export class TransactionService {
         userId: data.userId,
         amount: data.amount,
         currency: data.currency,
+        tokenAddress: data.tokenAddress || null,
+        toAddress: data.toAddress || null,
+        network: data.network || null,
         status: data.status,
         txHash: null,
         blockNumber: null,
@@ -85,6 +100,9 @@ export class TransactionService {
         userId: data.userId,
         amount: new Decimal(data.amount),
         currency: data.currency,
+        tokenAddress: data.tokenAddress,
+        toAddress: data.toAddress,
+        network: data.network,
         status: data.status,
       },
     })) as PrismaTransaction;
@@ -101,7 +119,10 @@ export class TransactionService {
               id: id,
               userId: 'mock-user-123',
               amount: 0.5,
-              currency: '0x0000000000000000000000000000000000000000',
+              currency: 'ETH',
+              tokenAddress: '0x0000000000000000000000000000000000000000',
+              toAddress: '0x742d35Cc6634C0532925a3b8D17B1B6f1C7e2c4A',
+              network: 'ethereum',
               status: 'completed',
               txHash: '0x123abc...',
               blockNumber: 12345,

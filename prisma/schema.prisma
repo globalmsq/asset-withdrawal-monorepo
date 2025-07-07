@@ -15,6 +15,9 @@ model Transaction {
   userId        String
   amount        Decimal  @db.Decimal(18, 8)
   currency      String   @db.VarChar(10)
+  tokenAddress  String?  @db.VarChar(42) // Ethereum address
+  toAddress     String?  @db.VarChar(42) // Recipient address
+  network       String?  @db.VarChar(20) // ethereum, polygon, etc.
   status        String   @db.VarChar(20) // pending, completed, failed
   txHash        String?  @db.VarChar(66)
   blockNumber   Int?

@@ -2,6 +2,29 @@ import app from './app';
 import { loadConfig } from './config';
 import { initializeDatabase } from './services/database';
 
+async function connectWithRetry(dbService: any, maxRetries = 10, delay = 5000) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await dbService.connect();
+      console.log('Database connected successfully');
+      return;
+    } catch (error) {
+      console.log(
+        `Database connection attempt ${i + 1}/${maxRetries} failed:`,
+        error instanceof Error ? error.message : String(error)
+      );
+
+      if (i === maxRetries - 1) {
+        console.error('Failed to connect to database after maximum retries');
+        process.exit(1);
+      }
+
+      console.log(`Retrying in ${delay / 1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 async function startServer() {
   const config = loadConfig();
 
@@ -10,13 +33,7 @@ async function startServer() {
 
   // Connect to database (skip in development if no database available)
   if (config.nodeEnv === 'production') {
-    try {
-      await dbService.connect();
-      console.log('Database connected successfully');
-    } catch (error) {
-      console.error('Failed to connect to database:', error);
-      process.exit(1);
-    }
+    await connectWithRetry(dbService);
   } else {
     console.log('Development mode: Skipping database connection');
     console.log('Database service initialized with mock configuration');

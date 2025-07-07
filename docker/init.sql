@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS `transactions` (
     `userId` VARCHAR(191) NOT NULL,
     `amount` DECIMAL(18, 8) NOT NULL,
     `currency` VARCHAR(10) NOT NULL,
+    `tokenAddress` VARCHAR(42) NULL,
+    `toAddress` VARCHAR(42) NULL,
+    `network` VARCHAR(20) NULL,
     `status` VARCHAR(20) NOT NULL,
     `txHash` VARCHAR(66) NULL,
     `blockNumber` INTEGER NULL,
@@ -21,7 +24,9 @@ CREATE TABLE IF NOT EXISTS `transactions` (
     PRIMARY KEY (`id`),
     INDEX `idx_userId` (`userId`),
     INDEX `idx_status` (`status`),
-    INDEX `idx_createdAt` (`createdAt`)
+    INDEX `idx_createdAt` (`createdAt`),
+    INDEX `idx_tokenAddress` (`tokenAddress`),
+    INDEX `idx_network` (`network`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- users 테이블 생성

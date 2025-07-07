@@ -45,6 +45,10 @@ const options: swaggerJSDoc.Options = {
     ],
     tags: [
       {
+        name: 'auth',
+        description: 'Authentication and authorization',
+      },
+      {
         name: 'withdrawal',
         description: 'Withdrawal request operations',
       },
@@ -58,19 +62,12 @@ const options: swaggerJSDoc.Options = {
         WithdrawalRequest: {
           type: 'object',
           required: [
-            'userId',
             'amount',
             'toAddress',
             'tokenAddress',
             'network',
           ],
           properties: {
-            userId: {
-              type: 'string',
-              description:
-                'Unique identifier of the user making the withdrawal',
-              example: 'user-123456',
-            },
             amount: {
               type: 'string',
               description:
@@ -181,7 +178,86 @@ const options: swaggerJSDoc.Options = {
           scheme: 'bearer',
           bearerFormat: 'JWT',
           description:
-            'JWT token for API authentication (to be implemented in Phase 4)',
+            'JWT token for API authentication',
+        },
+        LoginRequest: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'User email address',
+              example: 'user@example.com',
+            },
+            password: {
+              type: 'string',
+              format: 'password',
+              description: 'User password',
+              example: 'securePassword123',
+            },
+          },
+        },
+        LoginResponse: {
+          type: 'object',
+          properties: {
+            token: {
+              type: 'string',
+              description: 'JWT authentication token',
+              example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+            },
+            user: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'User ID',
+                  example: 'user-123456',
+                },
+                email: {
+                  type: 'string',
+                  format: 'email',
+                  description: 'User email',
+                  example: 'user@example.com',
+                },
+                role: {
+                  type: 'string',
+                  enum: ['USER', 'ADMIN'],
+                  description: 'User role',
+                  example: 'USER',
+                },
+              },
+            },
+            expiresIn: {
+              type: 'number',
+              description: 'Token expiration time in seconds',
+              example: 86400,
+            },
+          },
+        },
+        RegisterRequest: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: {
+              type: 'string',
+              format: 'email',
+              description: 'User email address',
+              example: 'newuser@example.com',
+            },
+            password: {
+              type: 'string',
+              format: 'password',
+              description: 'User password (min 8 chars)',
+              minLength: 8,
+              example: 'securePassword123',
+            },
+            wallet: {
+              type: 'string',
+              description: 'Optional Ethereum wallet address',
+              example: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            },
+          },
         },
       },
     },

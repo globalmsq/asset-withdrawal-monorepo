@@ -10,4 +10,8 @@ export default {
   setupFilesAfterEnv: [],
   setupFiles: ['<rootDir>/jest.setup.js'],
   testPathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/node_modules/'],
+  moduleNameMapper: {
+    '^shared$': '<rootDir>/../../packages/shared/src',
+    '^database$': '<rootDir>/../../packages/database/src',
+  },
 };

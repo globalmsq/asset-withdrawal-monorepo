@@ -55,3 +55,31 @@ export interface ApiResponse<T = any> {
   details?: any;
   timestamp: Date;
 }
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  role: UserRole;
+}
+
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  USER = 'USER'
+}
+
+export interface AuthTokenPayload {
+  userId: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: AuthUser;
+  expiresIn: number;
+}

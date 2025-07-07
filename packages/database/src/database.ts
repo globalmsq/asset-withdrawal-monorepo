@@ -27,18 +27,30 @@ export interface DatabaseConfig {
 }
 
 export class DatabaseService {
+  private static instance: DatabaseService;
   private prisma: any;
 
-  constructor(config: DatabaseConfig) {
-    const databaseUrl = `mysql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`;
-
-    this.prisma = new PrismaClient({
-      datasources: {
-        db: {
-          url: databaseUrl,
+  constructor(config?: DatabaseConfig) {
+    if (config) {
+      const databaseUrl = `mysql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`;
+      this.prisma = new PrismaClient({
+        datasources: {
+          db: {
+            url: databaseUrl,
+          },
         },
-      },
-    });
+      });
+    } else {
+      // Use default DATABASE_URL from environment
+      this.prisma = new PrismaClient();
+    }
+  }
+
+  public static getInstance(config?: DatabaseConfig): DatabaseService {
+    if (!DatabaseService.instance) {
+      DatabaseService.instance = new DatabaseService(config);
+    }
+    return DatabaseService.instance;
   }
 
   public getClient(): any {

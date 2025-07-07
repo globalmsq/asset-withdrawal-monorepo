@@ -66,6 +66,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.11.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "tslib": "^2.3.0"
   }
 }

@@ -4,7 +4,7 @@
 -- 데이터베이스 사용
 USE withdrawal_system;
 
--- transactions 테이블 생성
+-- transactions 테이블 생성 (Prisma 스키마와 완전히 일치)
 CREATE TABLE IF NOT EXISTS `transactions` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
@@ -21,21 +21,20 @@ CREATE TABLE IF NOT EXISTS `transactions` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
-    PRIMARY KEY (`id`),
-    INDEX `idx_userId` (`userId`),
-    INDEX `idx_status` (`status`),
-    INDEX `idx_createdAt` (`createdAt`),
-    INDEX `idx_tokenAddress` (`tokenAddress`),
-    INDEX `idx_network` (`network`)
+    PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- users 테이블 생성
+-- users 테이블 생성 (Prisma 스키마와 완전히 일치)
 CREATE TABLE IF NOT EXISTS `users` (
     `id` VARCHAR(191) NOT NULL,
-    `wallet` VARCHAR(42) NOT NULL,
+    `email` VARCHAR(255) NOT NULL,
+    `password` VARCHAR(255) NOT NULL,
+    `role` VARCHAR(20) NOT NULL DEFAULT 'USER',
+    `wallet` VARCHAR(42) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
+    UNIQUE INDEX `users_email_key`(`email`),
     UNIQUE INDEX `users_wallet_key`(`wallet`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

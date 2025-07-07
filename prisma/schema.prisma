@@ -31,7 +31,10 @@ model Transaction {
 
 model User {
   id        String   @id @default(cuid())
-  wallet    String   @unique @db.VarChar(42)
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  role      String   @default("USER") @db.VarChar(20)
+  wallet    String?  @unique @db.VarChar(42)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

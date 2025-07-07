@@ -1,5 +1,45 @@
-import request from 'supertest';
-import app from '../app';
+// Mock all dependencies before any imports
+jest.mock('database', () => ({
+  UserService: jest.fn(() => ({
+    createUser: jest.fn(),
+    findByEmail: jest.fn(),
+    findById: jest.fn(),
+    updateUser: jest.fn(),
+    deleteUser: jest.fn(),
+    findMany: jest.fn(),
+  })),
+  DatabaseService: jest.fn().mockImplementation(() => ({
+    getClient: jest.fn(),
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+    healthCheck: jest.fn().mockResolvedValue(true),
+  })),
+  TransactionService: jest.fn().mockImplementation(() => ({
+    createTransaction: jest.fn().mockResolvedValue({}),
+    getTransactionById: jest.fn().mockResolvedValue({
+      id: 'test-tx-id',
+      status: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }),
+  })),
+}));
+
+jest.mock('../services/auth.service');
+
+jest.mock('../middleware/auth.middleware', () => ({
+  authenticate: jest.fn((req, res, next) => {
+    // Set a default user for authenticated requests
+    req.user = {
+      userId: 'test-user-123',
+      email: 'test@example.com',
+      role: 'USER'
+    };
+    next();
+  }),
+  authorize: jest.fn(() => (req: any, res: any, next: any) => next()),
+  AuthRequest: {}
+}));
 
 jest.mock('shared', () => ({
   ...jest.requireActual('shared'),
@@ -21,23 +61,9 @@ jest.mock('shared', () => ({
   },
 }));
 
-jest.mock('database', () => ({
-  DatabaseService: jest.fn().mockImplementation(() => ({
-    getClient: jest.fn(),
-    connect: jest.fn(),
-    disconnect: jest.fn(),
-    healthCheck: jest.fn().mockResolvedValue(true),
-  })),
-  TransactionService: jest.fn().mockImplementation(() => ({
-    createTransaction: jest.fn().mockResolvedValue({}),
-    getTransactionById: jest.fn().mockResolvedValue({
-      id: 'test-tx-id',
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }),
-  })),
-}));
+import request from 'supertest';
+import app from '../app';
+import { TransactionService } from 'database';
 
 describe('Withdrawal API', () => {
   describe('POST /withdrawal/request', () => {

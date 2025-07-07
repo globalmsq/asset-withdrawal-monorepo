@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import { ApiResponse, AppError, ErrorCode } from 'shared';
 import withdrawalRoutes from './routes/withdrawal';
+import authRoutes from './routes/auth';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger';
 
@@ -32,6 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined'));
 
 // Routes
+app.use('/auth', authRoutes);
 app.use('/withdrawal', withdrawalRoutes);
 
 /**

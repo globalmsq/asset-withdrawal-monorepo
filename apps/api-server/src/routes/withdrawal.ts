@@ -7,6 +7,7 @@ import {
   queueManager,
 } from 'shared';
 import { getDatabase } from '../services/database';
+import { AuthRequest, authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -97,21 +98,31 @@ function getCurrencyFromTokenAddress(tokenAddress: string): string {
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.post('/request', async (req: Request, res: Response) => {
+router.post('/request', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { userId, amount, toAddress, tokenAddress, network } = req.body;
+    const { amount, toAddress, tokenAddress, network } = req.body;
+    const userId = req.user?.userId;
     const { TransactionService } = await import('database');
     const transactionService = new TransactionService(getDatabase());
 
     // Basic validation
-    if (!userId || !amount || !toAddress || !tokenAddress || !network) {
+    if (!amount || !toAddress || !tokenAddress || !network) {
       const response: ApiResponse = {
         success: false,
         error:
-          'Missing required fields: userId, amount, toAddress, tokenAddress, network',
+          'Missing required fields: amount, toAddress, tokenAddress, network',
         timestamp: new Date(),
       };
       return res.status(400).json(response);
+    }
+
+    if (!userId) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'User authentication failed',
+        timestamp: new Date(),
+      };
+      return res.status(401).json(response);
     }
 
     // Validate amount
@@ -230,7 +241,7 @@ router.post('/request', async (req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.get('/status/:id', async (req: Request, res: Response) => {
+router.get('/status/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { TransactionService } = await import('database');

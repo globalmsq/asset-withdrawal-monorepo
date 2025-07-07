@@ -16,12 +16,19 @@ services:
     restart: unless-stopped
     networks:
       - withdrawal-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # API Server
   api-server:
     container_name: withdrawal-api-server
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
     build:
       context: ..

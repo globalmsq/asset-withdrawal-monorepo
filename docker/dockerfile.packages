@@ -25,7 +25,8 @@ COPY prisma/ ./prisma/
 # Generate Prisma client
 RUN npx prisma generate
 
-# Build all packages and apps
+# Build all packages and apps (disable Nx daemon for Docker builds)
+ENV NX_DAEMON=false
 RUN yarn nx run database:build
 RUN yarn nx run shared:build
 RUN yarn nx run api-server:build
@@ -35,11 +36,15 @@ FROM node:20-alpine AS api-server
 
 WORKDIR /app
 
-# Copy built files and dependencies from base stage
-COPY --from=base /app/dist ./dist
-COPY --from=base /app/node_modules ./node_modules
+# Copy source files and dependencies from base stage
 COPY --from=base /app/package.json ./package.json
+COPY --from=base /app/yarn.lock ./yarn.lock
+COPY --from=base /app/nx.json ./nx.json
+COPY --from=base /app/tsconfig.json ./tsconfig.json
+COPY --from=base /app/apps ./apps
+COPY --from=base /app/packages ./packages
 COPY --from=base /app/prisma ./prisma
+COPY --from=base /app/node_modules ./node_modules
 
 # Copy Prisma client
 COPY --from=base /app/node_modules/.prisma ./node_modules/.prisma
@@ -52,5 +57,6 @@ ENV PORT=8080
 # Expose port
 EXPOSE 8080
 
-# Start the application using built JS files
-CMD ["node", "dist/apps/api-server/src/main.js"]
+# Change to api-server directory and start the application
+WORKDIR /app/apps/api-server
+CMD ["npm", "start"]

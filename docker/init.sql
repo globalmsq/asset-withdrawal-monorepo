@@ -1,10 +1,10 @@
--- MySQL 초기화 스크립트 for Withdrawal System
--- 이 스크립트는 Docker 컨테이너 시작 시 실행됩니다.
+-- MySQL initialization script for Withdrawal System
+-- This script runs when the Docker container starts.
 
--- 데이터베이스 사용
+-- Use database
 USE withdrawal_system;
 
--- transactions 테이블 생성 (Prisma 스키마와 완전히 일치)
+-- Create transactions table (fully matches Prisma schema)
 CREATE TABLE IF NOT EXISTS `transactions` (
     `id` VARCHAR(191) NOT NULL,
     `userId` VARCHAR(191) NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `transactions` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- users 테이블 생성 (Prisma 스키마와 완전히 일치)
+-- Create users table (fully matches Prisma schema)
 CREATE TABLE IF NOT EXISTS `users` (
     `id` VARCHAR(191) NOT NULL,
     `email` VARCHAR(255) NOT NULL,
@@ -39,14 +39,13 @@ CREATE TABLE IF NOT EXISTS `users` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- 개발용 샘플 데이터 (선택사항)
--- INSERT INTO `users` (`id`, `wallet`, `createdAt`, `updatedAt`) VALUES
--- ('user1', '0x1234567890abcdef1234567890abcdef12345678', NOW(), NOW()),
--- ('user2', '0xabcdef1234567890abcdef1234567890abcdef12', NOW(), NOW());
+-- Development sample data (optional)
+INSERT INTO `users` (`id`, `email`, `password`, `role`, `wallet`, `createdAt`, `updatedAt`) VALUES
+('test-user-001', 'test@test.com', '$2b$10$0RRGARpzNxCcTXn0Q4kpve9nCkiV2vEIbos8FoaT2fHWVBvSxDkXe', 'USER', '0x1234567890abcdef1234567890abcdef12345678', NOW(), NOW());
 
--- 권한 설정
+-- Grant permissions
 GRANT ALL PRIVILEGES ON withdrawal_system.* TO 'withdrawal_user'@'%';
 FLUSH PRIVILEGES;
 
--- 초기화 완료 메시지
+-- Initialization complete message
 SELECT 'Database initialization completed successfully!' AS message;

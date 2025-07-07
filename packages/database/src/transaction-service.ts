@@ -95,7 +95,7 @@ export class TransactionService {
       };
     }
 
-    const prismaTx = (await this.prisma.transaction.create({
+    const prismaTx = await this.prisma.transaction.create({
       data: {
         userId: data.userId,
         amount: new Decimal(data.amount),
@@ -105,7 +105,7 @@ export class TransactionService {
         network: data.network,
         status: data.status,
       },
-    })) as PrismaTransaction;
+    });
     return this.convertToTransaction(prismaTx);
   }
 

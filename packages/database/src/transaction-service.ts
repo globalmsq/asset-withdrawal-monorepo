@@ -5,7 +5,6 @@ import { DatabaseService } from './database';
 // Service layer types (converted to number)
 export interface Transaction {
   id: string;
-  userId: string | bigint;
   amount: number;
   currency: string;
   tokenAddress?: string | null;
@@ -23,7 +22,6 @@ export interface Transaction {
 // Prisma generated type definition
 interface PrismaTransaction {
   id: bigint;
-  userId: bigint;
   amount: Decimal;
   currency: string;
   tokenAddress: string | null;
@@ -50,7 +48,6 @@ export class TransactionService {
   private convertToTransaction(prismaTx: PrismaTransaction): Transaction {
     return {
       id: prismaTx.id.toString(),
-      userId: prismaTx.userId,
       amount: prismaTx.amount.toNumber(),
       currency: prismaTx.currency,
       tokenAddress: prismaTx.tokenAddress,
@@ -67,7 +64,6 @@ export class TransactionService {
   }
 
   async createTransaction(data: {
-    userId: string | bigint;
     amount: number;
     currency: string;
     tokenAddress?: string;
@@ -79,7 +75,6 @@ export class TransactionService {
     if (this.isDevelopment) {
       return {
         id: `mock-tx-${Date.now()}`,
-        userId: data.userId,
         amount: data.amount,
         currency: data.currency,
         tokenAddress: data.tokenAddress || null,
@@ -97,8 +92,6 @@ export class TransactionService {
 
     const prismaTx = await this.prisma.transaction.create({
       data: {
-        userId:
-          typeof data.userId === 'string' ? BigInt(data.userId) : data.userId,
         amount: new Decimal(data.amount),
         currency: data.currency,
         tokenAddress: data.tokenAddress,
@@ -119,7 +112,6 @@ export class TransactionService {
           ? null
           : {
               id: idStr,
-              userId: 'mock-user-123',
               amount: 0.5,
               currency: 'ETH',
               tokenAddress: '0x0000000000000000000000000000000000000000',
@@ -143,17 +135,6 @@ export class TransactionService {
     return prismaTx ? this.convertToTransaction(prismaTx) : null;
   }
 
-  async getTransactionsByUserId(
-    userId: string | bigint
-  ): Promise<Transaction[]> {
-    const prismaTxs = (await this.prisma.transaction.findMany({
-      where: { userId: typeof userId === 'string' ? BigInt(userId) : userId },
-      orderBy: { createdAt: 'desc' },
-    })) as PrismaTransaction[];
-    return prismaTxs.map((tx: PrismaTransaction) =>
-      this.convertToTransaction(tx)
-    );
-  }
 
   async updateTransaction(
     id: string | bigint,

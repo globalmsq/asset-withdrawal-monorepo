@@ -27,20 +27,6 @@ jest.mock('database', () => ({
 
 jest.mock('../services/auth.service');
 
-jest.mock('../middleware/auth.middleware', () => ({
-  authenticate: jest.fn((req, res, next) => {
-    // Set a default user for authenticated requests
-    req.user = {
-      userId: 'test-user-123',
-      email: 'test@example.com',
-      role: 'USER',
-    };
-    next();
-  }),
-  authorize: jest.fn(() => (req: any, res: any, next: any) => next()),
-  AuthRequest: {},
-}));
-
 jest.mock('shared', () => ({
   ...jest.requireActual('shared'),
   TransactionStatus: {
@@ -56,6 +42,8 @@ jest.mock('shared', () => ({
       nack: jest.fn().mockResolvedValue(false),
       getQueueSize: jest.fn().mockReturnValue(0),
       getProcessingSize: jest.fn().mockReturnValue(0),
+      getQueueItems: jest.fn().mockReturnValue([]),
+      getProcessingItems: jest.fn().mockReturnValue([]),
     }),
     getAllQueues: jest.fn().mockReturnValue(new Map()),
   },
@@ -69,7 +57,6 @@ describe('Withdrawal API', () => {
   describe('POST /withdrawal/request', () => {
     it('should create withdrawal request', async () => {
       const withdrawalData = {
-        userId: 'test-user-123',
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
@@ -88,7 +75,6 @@ describe('Withdrawal API', () => {
 
     it('should return 400 for missing fields', async () => {
       const withdrawalData = {
-        userId: 'test-user-123',
         amount: '0.5',
         // Missing required fields
       };
@@ -104,7 +90,6 @@ describe('Withdrawal API', () => {
 
     it('should return 400 for invalid amount', async () => {
       const invalidData = {
-        userId: 'user123',
         amount: 'invalid',
         toAddress: '0x742D35Cc6634C0532925a3b8D45a0E5e7F3d1234',
         tokenAddress: '0xA0b86991c431e60e50074006c5a5B4234e5f50D',
@@ -126,7 +111,6 @@ describe('Withdrawal API', () => {
       const { TransactionService } = require('database');
       // Create a transaction first
       const withdrawalData = {
-        userId: 'test-user-123',
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
@@ -184,6 +168,33 @@ describe('Withdrawal API', () => {
       expect(response.body.data).toHaveProperty('tx-request');
       expect(response.body.data['tx-request']).toHaveProperty('size');
       expect(response.body.data['tx-request']).toHaveProperty('processing');
+    });
+  });
+
+  describe('GET /withdrawal/queue/items', () => {
+    it('should return queue items', async () => {
+      // Create a withdrawal request first
+      const withdrawalData = {
+        amount: '0.5',
+        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        tokenAddress: '0x0000000000000000000000000000000000000000',
+        network: 'ethereum',
+      };
+
+      await request(app)
+        .post('/withdrawal/request')
+        .send(withdrawalData);
+
+      // Get queue items
+      const response = await request(app)
+        .get('/withdrawal/queue/items')
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty('pending');
+      expect(response.body.data).toHaveProperty('processing');
+      expect(Array.isArray(response.body.data.pending)).toBe(true);
+      expect(Array.isArray(response.body.data.processing)).toBe(true);
     });
   });
 });

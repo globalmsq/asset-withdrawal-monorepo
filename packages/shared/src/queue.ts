@@ -59,6 +59,14 @@ export class InMemoryQueue<T = any> {
     return this.processingQueue.length;
   }
 
+  getQueueItems(): QueueMessage<T>[] {
+    return [...this.queue];
+  }
+
+  getProcessingItems(): QueueMessage<T>[] {
+    return [...this.processingQueue];
+  }
+
   private generateId(): string {
     return `${this.name}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }

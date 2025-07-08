@@ -46,8 +46,10 @@ services:
       - MYSQL_PASSWORD=pass
     networks:
       - withdrawal-network
-    volumes:
-      - ../prisma:/app/prisma:ro
+    # volumes:
+    #   - ../prisma:/app/prisma:ro
+    #   - ../apps:/app/apps:ro
+    #   - ../packages:/app/packages:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

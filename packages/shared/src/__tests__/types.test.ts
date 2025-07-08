@@ -29,7 +29,6 @@ describe('Types', () => {
     it('should match expected structure', () => {
       const mockRequest: WithdrawalRequest = {
         id: 'test-id',
-        userId: 'user-123',
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
@@ -38,7 +37,6 @@ describe('Types', () => {
       };
 
       expect(mockRequest.id).toBe('test-id');
-      expect(mockRequest.userId).toBe('user-123');
       expect(mockRequest.amount).toBe('0.5');
       expect(mockRequest.toAddress).toBe(
         '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd'
@@ -113,7 +111,6 @@ describe('Types', () => {
     it('should match expected structure', () => {
       const mockTransaction: DatabaseTransaction = {
         id: 'tx-123',
-        userId: 'user-123',
         amount: '1.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
@@ -124,7 +121,6 @@ describe('Types', () => {
       };
 
       expect(mockTransaction.id).toBe('tx-123');
-      expect(mockTransaction.userId).toBe('user-123');
       expect(mockTransaction.amount).toBe('1.5');
       expect(mockTransaction.status).toBe(TransactionStatus.PENDING);
       expect(mockTransaction.createdAt).toBeInstanceOf(Date);
@@ -134,7 +130,6 @@ describe('Types', () => {
     it('should support optional fields', () => {
       const mockTransaction: DatabaseTransaction = {
         id: 'tx-123',
-        userId: 'user-123',
         amount: '1.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',

@@ -9,7 +9,6 @@ export enum TransactionStatus {
 
 export interface WithdrawalRequest {
   id: string;
-  userId: string;
   amount: string;
   toAddress: string;
   tokenAddress: string;
@@ -35,7 +34,6 @@ export interface QueueMessage<T = any> {
 
 export interface DatabaseTransaction {
   id: string;
-  userId: string;
   amount: string;
   toAddress: string;
   tokenAddress: string;

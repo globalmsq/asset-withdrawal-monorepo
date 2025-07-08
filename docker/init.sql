@@ -22,7 +22,6 @@ CREATE TABLE IF NOT EXISTS `users` (
 -- Create transactions table (fully matches Prisma schema)
 CREATE TABLE IF NOT EXISTS `transactions` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `userId` BIGINT UNSIGNED NOT NULL,
     `amount` DECIMAL(18, 8) NOT NULL,
     `currency` VARCHAR(10) NOT NULL,
     `tokenAddress` VARCHAR(42) NULL,
@@ -36,8 +35,7 @@ CREATE TABLE IF NOT EXISTS `transactions` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
-    PRIMARY KEY (`id`),
-    CONSTRAINT `transactions_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+    PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Development sample data (optional)

@@ -7,7 +7,6 @@ import {
   queueManager,
 } from 'shared';
 import { getDatabase } from '../services/database';
-import { AuthRequest, authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -52,7 +51,6 @@ function getCurrencyFromTokenAddress(tokenAddress: string): string {
  *             ethereumWithdrawal:
  *               summary: Ethereum withdrawal example
  *               value:
- *                 userId: "user-123456"
  *                 amount: "0.5"
  *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
  *                 tokenAddress: "0x0000000000000000000000000000000000000000"
@@ -83,7 +81,7 @@ function getCurrencyFromTokenAddress(tokenAddress: string): string {
  *                 summary: Missing required fields
  *                 value:
  *                   success: false
- *                   error: "Missing required fields: userId, amount, toAddress, tokenAddress, network"
+ *                   error: "Missing required fields: amount, toAddress, tokenAddress, network"
  *                   timestamp: "2025-01-03T10:00:00Z"
  *               invalidAmount:
  *                 summary: Invalid amount
@@ -100,11 +98,9 @@ function getCurrencyFromTokenAddress(tokenAddress: string): string {
  */
 router.post(
   '/request',
-  authenticate,
-  async (req: AuthRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     try {
       const { amount, toAddress, tokenAddress, network } = req.body;
-      const userId = req.user?.userId;
       const { TransactionService } = await import('database');
       const transactionService = new TransactionService(getDatabase());
 
@@ -117,15 +113,6 @@ router.post(
           timestamp: new Date(),
         };
         return res.status(400).json(response);
-      }
-
-      if (!userId) {
-        const response: ApiResponse = {
-          success: false,
-          error: 'User authentication failed',
-          timestamp: new Date(),
-        };
-        return res.status(401).json(response);
       }
 
       // Validate amount
@@ -144,7 +131,6 @@ router.post(
       // Create withdrawal request
       const withdrawalRequest: WithdrawalRequest = {
         id: transactionId,
-        userId: userId,
         amount,
         toAddress,
         tokenAddress,
@@ -154,7 +140,6 @@ router.post(
 
       // Save to database using Prisma
       await transactionService.createTransaction({
-        userId: userId,
         amount: parseFloat(amount),
         currency: getCurrencyFromTokenAddress(tokenAddress),
         tokenAddress,
@@ -247,8 +232,7 @@ router.post(
  */
 router.get(
   '/status/:id',
-  authenticate,
-  async (req: AuthRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { TransactionService } = await import('database');
@@ -352,6 +336,82 @@ router.get('/queue/status', (_req: Request, res: Response) => {
     res.json(response);
   } catch (error) {
     console.error('Error getting queue status:', error);
+    const response: ApiResponse = {
+      success: false,
+      error: 'Internal server error',
+      timestamp: new Date(),
+    };
+    res.status(500).json(response);
+  }
+});
+
+/**
+ * @swagger
+ * /withdrawal/queue/items:
+ *   get:
+ *     tags:
+ *       - withdrawal
+ *     summary: Get queue items
+ *     description: Returns all items currently in the withdrawal request queue (for debugging)
+ *     operationId: getQueueItems
+ *     responses:
+ *       '200':
+ *         description: Queue items retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *             example:
+ *               success: true
+ *               data:
+ *                 pending:
+ *                   - id: "tx-request-1234567890-abc123"
+ *                     data:
+ *                       id: "tx-1234567890-abc123def"
+ *                       userId: "user-123456"
+ *                       amount: "0.5"
+ *                       toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                       tokenAddress: "0x0000000000000000000000000000000000000000"
+ *                       network: "ethereum"
+ *                       createdAt: "2025-01-03T10:00:00Z"
+ *                     timestamp: "2025-01-03T10:00:00Z"
+ *                     retryCount: 0
+ *                 processing:
+ *                   - id: "tx-request-1234567890-def456"
+ *                     data:
+ *                       id: "tx-1234567890-def456ghi"
+ *                       userId: "user-789012"
+ *                       amount: "1.0"
+ *                       toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                       tokenAddress: "0x0000000000000000000000000000000000000000"
+ *                       network: "ethereum"
+ *                       createdAt: "2025-01-03T09:55:00Z"
+ *                     timestamp: "2025-01-03T09:55:00Z"
+ *                     retryCount: 1
+ *               timestamp: "2025-01-03T10:00:00Z"
+ *       '500':
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiErrorResponse'
+ */
+router.get('/queue/items', (_req: Request, res: Response) => {
+  try {
+    const queueItems = {
+      pending: txRequestQueue.getQueueItems(),
+      processing: txRequestQueue.getProcessingItems(),
+    };
+
+    const response: ApiResponse = {
+      success: true,
+      data: queueItems,
+      timestamp: new Date(),
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error getting queue items:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Internal server error',

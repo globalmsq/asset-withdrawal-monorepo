@@ -4,7 +4,7 @@
 
 - [ ] Create test file for AuthService (`auth.service.test.ts`)
   - Test `hashPassword` method
-  - Test `comparePassword` method  
+  - Test `comparePassword` method
   - Test `generateToken` method
   - Test `verifyToken` method
   - Test `getExpiresInSeconds` method

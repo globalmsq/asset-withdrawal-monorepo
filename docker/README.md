@@ -1,9 +1,11 @@
 # Docker 구성 가이드
 
 ## 개요
+
 이 디렉토리는 Withdrawal System을 로컬 환경에서 Docker를 사용하여 실행하기 위한 구성 파일들을 포함합니다.
 
 ## 파일 구조
+
 - `docker-compose.yaml`: 프로덕션 환경용 Docker Compose 설정
 - `docker-compose.dev.yaml`: 개발 환경용 Docker Compose 설정 (MySQL만 포함)
 - `dockerfile.api-server`: API 서버용 Dockerfile
@@ -12,6 +14,7 @@
 ## 로컬 실행 방법
 
 ### 1. 전체 시스템 실행 (MySQL + API 서버)
+
 ```bash
 # 프로젝트 루트 디렉토리에서 실행
 docker-compose -f docker/docker-compose.yaml up -d
@@ -21,12 +24,14 @@ docker-compose -f docker/docker-compose.yaml up --build -d
 ```
 
 ### 2. 개발 환경 (MySQL만 실행)
+
 ```bash
 # 로컬에서 API 서버를 직접 실행하고 싶은 경우
 docker-compose -f docker/docker-compose.dev.yaml up -d
 ```
 
 ### 3. 로그 확인
+
 ```bash
 # 모든 서비스 로그 확인
 docker-compose -f docker/docker-compose.yaml logs -f
@@ -37,6 +42,7 @@ docker-compose -f docker/docker-compose.yaml logs -f mysql
 ```
 
 ### 4. 서비스 상태 확인
+
 ```bash
 # 컨테이너 상태 확인
 docker-compose -f docker/docker-compose.yaml ps
@@ -46,6 +52,7 @@ docker-compose -f docker/docker-compose.yaml exec api-server curl http://localho
 ```
 
 ### 5. 중지 및 정리
+
 ```bash
 # 서비스 중지
 docker-compose -f docker/docker-compose.yaml down
@@ -60,11 +67,13 @@ docker-compose -f docker/docker-compose.yaml down --rmi all
 ## 접속 정보
 
 ### API 서버
+
 - URL: http://localhost:8080
 - API 문서: http://localhost:8080/api-docs
 - 헬스 체크: http://localhost:8080/health
 
 ### MySQL 데이터베이스
+
 - Host: localhost
 - Port: 3306
 - Database: withdrawal_system
@@ -99,6 +108,7 @@ environment:
 ## 문제 해결
 
 ### 포트 충돌
+
 ```bash
 # 포트 사용 중인 프로세스 확인
 lsof -i :8080
@@ -110,6 +120,7 @@ ports:
 ```
 
 ### 데이터베이스 연결 오류
+
 ```bash
 # MySQL 컨테이너 상태 확인
 docker-compose -f docker/docker-compose.yaml logs mysql
@@ -119,6 +130,7 @@ docker-compose -f docker/docker-compose.yaml exec mysql mysql -u root -p
 ```
 
 ### 빌드 오류
+
 ```bash
 # 이미지 재빌드
 docker-compose -f docker/docker-compose.yaml build --no-cache

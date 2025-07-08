@@ -8,13 +8,13 @@ This guide explains how to handle errors when using the Withdrawal API.
 
 The API uses standard HTTP status codes to indicate the success or failure of requests:
 
-| Status Code | Description |
-|-------------|-------------|
-| 200 | Success - Request completed successfully |
-| 201 | Created - Resource created successfully |
-| 400 | Bad Request - Invalid request parameters |
-| 404 | Not Found - Resource not found |
-| 500 | Internal Server Error - Server error |
+| Status Code | Description                              |
+| ----------- | ---------------------------------------- |
+| 200         | Success - Request completed successfully |
+| 201         | Created - Resource created successfully  |
+| 400         | Bad Request - Invalid request parameters |
+| 404         | Not Found - Resource not found           |
+| 500         | Internal Server Error - Server error     |
 
 ## Error Response Format
 
@@ -35,6 +35,7 @@ All error responses follow this format:
 **Status Code:** 400
 
 **Example:**
+
 ```json
 {
   "success": false,
@@ -50,6 +51,7 @@ All error responses follow this format:
 **Status Code:** 400
 
 **Example:**
+
 ```json
 {
   "success": false,
@@ -58,7 +60,8 @@ All error responses follow this format:
 }
 ```
 
-**How to fix:** 
+**How to fix:**
+
 - Amount must be a valid number
 - Amount must be greater than 0
 - Amount should be provided as a string to avoid floating-point precision issues
@@ -68,6 +71,7 @@ All error responses follow this format:
 **Status Code:** 404
 
 **Example:**
+
 ```json
 {
   "success": false,
@@ -83,6 +87,7 @@ All error responses follow this format:
 **Status Code:** 500
 
 **Example:**
+
 ```json
 {
   "success": false,
@@ -92,6 +97,7 @@ All error responses follow this format:
 ```
 
 **How to fix:** This indicates a server-side issue. Please:
+
 1. Retry the request after a short delay
 2. If the error persists, contact support
 
@@ -105,11 +111,11 @@ try {
   const response = await fetch('/withdrawal/request', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   });
-  
+
   const result = await response.json();
-  
+
   if (!result.success) {
     console.error('API Error:', result.error);
     // Handle error appropriately
@@ -135,20 +141,20 @@ def submit_withdrawal_with_retry(data, max_retries=3):
                 'http://localhost:8080/withdrawal/request',
                 json=data
             )
-            
+
             if response.status_code == 500:
                 # Wait before retrying (exponential backoff)
                 wait_time = 2 ** attempt
                 time.sleep(wait_time)
                 continue
-                
+
             return response.json()
-            
+
         except requests.exceptions.RequestException as e:
             if attempt == max_retries - 1:
                 raise
             time.sleep(2 ** attempt)
-    
+
     raise Exception("Max retries exceeded")
 ```
 
@@ -162,7 +168,7 @@ console.error({
   timestamp: new Date().toISOString(),
   requestId: response.headers.get('x-request-id'),
   error: result.error,
-  params: { userId, amount, network }
+  params: { userId, amount, network },
 });
 ```
 
@@ -186,6 +192,7 @@ To minimize errors, validate input before sending requests:
 ## Support
 
 If you encounter persistent errors or need assistance:
+
 1. Check the API documentation
 2. Review server logs if available
 3. Contact the development team with error details

@@ -5,7 +5,7 @@ import { DatabaseService } from './database';
 // Service layer types (converted to number)
 export interface Transaction {
   id: string;
-  userId: string;
+  userId: string | bigint;
   amount: number;
   currency: string;
   tokenAddress?: string | null;
@@ -22,8 +22,8 @@ export interface Transaction {
 
 // Prisma generated type definition
 interface PrismaTransaction {
-  id: string;
-  userId: string;
+  id: bigint;
+  userId: bigint;
   amount: Decimal;
   currency: string;
   tokenAddress: string | null;
@@ -49,7 +49,7 @@ export class TransactionService {
 
   private convertToTransaction(prismaTx: PrismaTransaction): Transaction {
     return {
-      id: prismaTx.id,
+      id: prismaTx.id.toString(),
       userId: prismaTx.userId,
       amount: prismaTx.amount.toNumber(),
       currency: prismaTx.currency,
@@ -67,7 +67,7 @@ export class TransactionService {
   }
 
   async createTransaction(data: {
-    userId: string;
+    userId: string | bigint;
     amount: number;
     currency: string;
     tokenAddress?: string;
@@ -97,7 +97,8 @@ export class TransactionService {
 
     const prismaTx = await this.prisma.transaction.create({
       data: {
-        userId: data.userId,
+        userId:
+          typeof data.userId === 'string' ? BigInt(data.userId) : data.userId,
         amount: new Decimal(data.amount),
         currency: data.currency,
         tokenAddress: data.tokenAddress,
@@ -109,14 +110,15 @@ export class TransactionService {
     return this.convertToTransaction(prismaTx);
   }
 
-  async getTransactionById(id: string): Promise<Transaction | null> {
+  async getTransactionById(id: string | bigint): Promise<Transaction | null> {
     // Return mock data in development mode
     if (this.isDevelopment) {
-      if (id.startsWith('mock-tx-') || id === 'non-existent-id') {
-        return id === 'non-existent-id'
+      const idStr = typeof id === 'string' ? id : id.toString();
+      if (idStr.startsWith('mock-tx-') || idStr === 'non-existent-id') {
+        return idStr === 'non-existent-id'
           ? null
           : {
-              id: id,
+              id: idStr,
               userId: 'mock-user-123',
               amount: 0.5,
               currency: 'ETH',
@@ -136,14 +138,16 @@ export class TransactionService {
     }
 
     const prismaTx = (await this.prisma.transaction.findUnique({
-      where: { id },
+      where: { id: typeof id === 'string' ? BigInt(id) : id },
     })) as PrismaTransaction | null;
     return prismaTx ? this.convertToTransaction(prismaTx) : null;
   }
 
-  async getTransactionsByUserId(userId: string): Promise<Transaction[]> {
+  async getTransactionsByUserId(
+    userId: string | bigint
+  ): Promise<Transaction[]> {
     const prismaTxs = (await this.prisma.transaction.findMany({
-      where: { userId },
+      where: { userId: typeof userId === 'string' ? BigInt(userId) : userId },
       orderBy: { createdAt: 'desc' },
     })) as PrismaTransaction[];
     return prismaTxs.map((tx: PrismaTransaction) =>
@@ -152,7 +156,7 @@ export class TransactionService {
   }
 
   async updateTransaction(
-    id: string,
+    id: string | bigint,
     data: {
       status?: string;
       txHash?: string;
@@ -162,7 +166,7 @@ export class TransactionService {
     }
   ): Promise<Transaction> {
     const prismaTx = (await this.prisma.transaction.update({
-      where: { id },
+      where: { id: typeof id === 'string' ? BigInt(id) : id },
       data: {
         ...data,
         fee: data.fee ? new Decimal(data.fee) : undefined,
@@ -171,9 +175,9 @@ export class TransactionService {
     return this.convertToTransaction(prismaTx);
   }
 
-  async deleteTransaction(id: string): Promise<Transaction> {
+  async deleteTransaction(id: string | bigint): Promise<Transaction> {
     const prismaTx = (await this.prisma.transaction.delete({
-      where: { id },
+      where: { id: typeof id === 'string' ? BigInt(id) : id },
     })) as PrismaTransaction;
     return this.convertToTransaction(prismaTx);
   }

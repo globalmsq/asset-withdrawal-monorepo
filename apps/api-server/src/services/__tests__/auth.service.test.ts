@@ -50,7 +50,10 @@ describe('AuthService', () => {
 
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-      const result = await authService.comparePassword(password, hashedPassword);
+      const result = await authService.comparePassword(
+        password,
+        hashedPassword
+      );
 
       expect(bcrypt.compare).toHaveBeenCalledWith(password, hashedPassword);
       expect(result).toBe(true);
@@ -62,7 +65,10 @@ describe('AuthService', () => {
 
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      const result = await authService.comparePassword(password, hashedPassword);
+      const result = await authService.comparePassword(
+        password,
+        hashedPassword
+      );
 
       expect(bcrypt.compare).toHaveBeenCalledWith(password, hashedPassword);
       expect(result).toBe(false);
@@ -77,11 +83,9 @@ describe('AuthService', () => {
 
       const result = authService.generateToken(mockPayload);
 
-      expect(jwt.sign).toHaveBeenCalledWith(
-        mockPayload,
-        expect.any(String),
-        { expiresIn: '24h' }
-      );
+      expect(jwt.sign).toHaveBeenCalledWith(mockPayload, expect.any(String), {
+        expiresIn: '24h',
+      });
       expect(result).toBe(mockToken);
     });
   });
@@ -106,7 +110,9 @@ describe('AuthService', () => {
         throw error;
       });
 
-      expect(() => authService.verifyToken(mockToken)).toThrow('Invalid or expired token');
+      expect(() => authService.verifyToken(mockToken)).toThrow(
+        'Invalid or expired token'
+      );
     });
 
     it('should throw error for expired token', () => {
@@ -117,7 +123,9 @@ describe('AuthService', () => {
         throw error;
       });
 
-      expect(() => authService.verifyToken(mockToken)).toThrow('Invalid or expired token');
+      expect(() => authService.verifyToken(mockToken)).toThrow(
+        'Invalid or expired token'
+      );
     });
   });
 

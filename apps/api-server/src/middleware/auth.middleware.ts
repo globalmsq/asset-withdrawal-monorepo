@@ -6,27 +6,31 @@ export interface AuthRequest extends Request {
   user?: AuthTokenPayload;
 }
 
-export const authenticate = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authenticate = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader) {
       return res.status(401).json({
         success: false,
         error: 'Authorization header missing',
         code: 'AUTH_HEADER_MISSING',
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 
     const [bearer, token] = authHeader.split(' ');
-    
+
     if (bearer !== 'Bearer' || !token) {
       return res.status(401).json({
         success: false,
         error: 'Invalid authorization format',
         code: 'INVALID_AUTH_FORMAT',
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 
@@ -38,7 +42,7 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
       success: false,
       error: 'Invalid or expired token',
       code: 'INVALID_TOKEN',
-      timestamp: new Date()
+      timestamp: new Date(),
     });
   }
 };
@@ -50,7 +54,7 @@ export const authorize = (...roles: UserRole[]) => {
         success: false,
         error: 'Authentication required',
         code: 'AUTH_REQUIRED',
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 
@@ -59,7 +63,7 @@ export const authorize = (...roles: UserRole[]) => {
         success: false,
         error: 'Insufficient permissions',
         code: 'FORBIDDEN',
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 

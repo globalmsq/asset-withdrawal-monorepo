@@ -8,12 +8,20 @@ try {
     // Fallback to regular import
     PrismaClient = require('@prisma/client').PrismaClient;
   } catch (error2) {
-    console.warn('Prisma client not found. Please run "prisma generate" if needed.');
+    console.warn(
+      'Prisma client not found. Please run "prisma generate" if needed.'
+    );
     // Mock PrismaClient for development
     PrismaClient = class MockPrismaClient {
-      $connect() { return Promise.resolve(); }
-      $disconnect() { return Promise.resolve(); }
-      $queryRaw() { return Promise.resolve([{ 1: 1 }]); }
+      $connect() {
+        return Promise.resolve();
+      }
+      $disconnect() {
+        return Promise.resolve();
+      }
+      $queryRaw() {
+        return Promise.resolve([{ 1: 1 }]);
+      }
     };
   }
 }

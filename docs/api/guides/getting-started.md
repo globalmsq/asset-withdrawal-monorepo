@@ -13,6 +13,7 @@ http://localhost:8080
 ## API Documentation
 
 Interactive API documentation is available at:
+
 - Swagger UI: `http://localhost:8080/api-docs`
 - OpenAPI Spec: `http://localhost:8080/api-docs.json`
 

@@ -16,7 +16,7 @@ router.post('/register', async (req: Request, res: Response) => {
         success: false,
         error: 'Email and password are required',
         code: 'VALIDATION_ERROR',
-        timestamp: new Date()
+        timestamp: new Date(),
       } as ApiResponse);
     }
 
@@ -26,7 +26,7 @@ router.post('/register', async (req: Request, res: Response) => {
         success: false,
         error: 'User already exists',
         code: 'USER_EXISTS',
-        timestamp: new Date()
+        timestamp: new Date(),
       } as ApiResponse);
     }
 
@@ -35,13 +35,13 @@ router.post('/register', async (req: Request, res: Response) => {
       email,
       password: hashedPassword,
       role: UserRole.USER,
-      wallet
+      wallet,
     });
 
     const token = authService.generateToken({
-      userId: user.id,
+      userId: user.id.toString(),
       email: user.email,
-      role: user.role as UserRole
+      role: user.role as UserRole,
     });
 
     const response: ApiResponse<LoginResponse> = {
@@ -49,13 +49,13 @@ router.post('/register', async (req: Request, res: Response) => {
       data: {
         token,
         user: {
-          id: user.id,
+          id: user.id.toString(),
           email: user.email,
-          role: user.role as UserRole
+          role: user.role as UserRole,
         },
-        expiresIn: authService.getExpiresInSeconds()
+        expiresIn: authService.getExpiresInSeconds(),
       },
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     res.status(201).json(response);
@@ -65,7 +65,7 @@ router.post('/register', async (req: Request, res: Response) => {
       success: false,
       error: 'Registration failed',
       code: 'REGISTRATION_ERROR',
-      timestamp: new Date()
+      timestamp: new Date(),
     } as ApiResponse);
   }
 });
@@ -79,7 +79,7 @@ router.post('/login', async (req: Request, res: Response) => {
         success: false,
         error: 'Email and password are required',
         code: 'VALIDATION_ERROR',
-        timestamp: new Date()
+        timestamp: new Date(),
       } as ApiResponse);
     }
 
@@ -89,24 +89,27 @@ router.post('/login', async (req: Request, res: Response) => {
         success: false,
         error: 'Invalid credentials',
         code: 'INVALID_CREDENTIALS',
-        timestamp: new Date()
+        timestamp: new Date(),
       } as ApiResponse);
     }
 
-    const isPasswordValid = await authService.comparePassword(password, user.password);
+    const isPasswordValid = await authService.comparePassword(
+      password,
+      user.password
+    );
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
         error: 'Invalid credentials',
         code: 'INVALID_CREDENTIALS',
-        timestamp: new Date()
+        timestamp: new Date(),
       } as ApiResponse);
     }
 
     const token = authService.generateToken({
-      userId: user.id,
+      userId: user.id.toString(),
       email: user.email,
-      role: user.role as UserRole
+      role: user.role as UserRole,
     });
 
     const response: ApiResponse<LoginResponse> = {
@@ -114,13 +117,13 @@ router.post('/login', async (req: Request, res: Response) => {
       data: {
         token,
         user: {
-          id: user.id,
+          id: user.id.toString(),
           email: user.email,
-          role: user.role as UserRole
+          role: user.role as UserRole,
         },
-        expiresIn: authService.getExpiresInSeconds()
+        expiresIn: authService.getExpiresInSeconds(),
       },
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     res.json(response);
@@ -130,7 +133,7 @@ router.post('/login', async (req: Request, res: Response) => {
       success: false,
       error: 'Login failed',
       code: 'LOGIN_ERROR',
-      timestamp: new Date()
+      timestamp: new Date(),
     } as ApiResponse);
   }
 });
@@ -142,7 +145,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
         success: false,
         error: 'User not authenticated',
         code: 'NOT_AUTHENTICATED',
-        timestamp: new Date()
+        timestamp: new Date(),
       } as ApiResponse);
     }
 
@@ -152,20 +155,20 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
         success: false,
         error: 'User not found',
         code: 'USER_NOT_FOUND',
-        timestamp: new Date()
+        timestamp: new Date(),
       } as ApiResponse);
     }
 
     res.json({
       success: true,
       data: {
-        id: user.id,
+        id: user.id.toString(),
         email: user.email,
         role: user.role,
         wallet: user.wallet,
-        createdAt: user.createdAt
+        createdAt: user.createdAt,
       },
-      timestamp: new Date()
+      timestamp: new Date(),
     } as ApiResponse);
   } catch (error) {
     console.error('Get user error:', error);
@@ -173,7 +176,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
       success: false,
       error: 'Failed to get user info',
       code: 'GET_USER_ERROR',
-      timestamp: new Date()
+      timestamp: new Date(),
     } as ApiResponse);
   }
 });

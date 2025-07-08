@@ -17,10 +17,10 @@ jest.mock('../../middleware/auth.middleware', () => ({
       success: false,
       error: 'Authorization header missing',
       code: 'AUTH_HEADER_MISSING',
-      timestamp: new Date()
+      timestamp: new Date(),
     });
   }),
-  AuthRequest: {}
+  AuthRequest: {},
 }));
 
 import request from 'supertest';
@@ -36,7 +36,8 @@ app.use(express.json());
 app.use('/auth', authRoutes);
 
 // Store the mock instance created during module initialization
-const mockUserServiceInstance = (UserService as jest.Mock).mock.results[0]?.value;
+const mockUserServiceInstance = (UserService as jest.Mock).mock.results[0]
+  ?.value;
 
 describe('Auth Routes', () => {
   let mockUserService: any;
@@ -162,7 +163,9 @@ describe('Auth Routes', () => {
 
     it('should handle registration errors', async () => {
       mockUserService.findByEmail.mockResolvedValue(null);
-      (authService.hashPassword as jest.Mock).mockRejectedValue(new Error('Hash error'));
+      (authService.hashPassword as jest.Mock).mockRejectedValue(
+        new Error('Hash error')
+      );
 
       const response = await request(app)
         .post('/auth/register')
@@ -327,14 +330,16 @@ describe('Auth Routes', () => {
       };
 
       // Configure authenticate middleware to pass through with user
-      (authenticate as jest.Mock).mockImplementationOnce((req: any, res, next) => {
-        req.user = {
-          userId: user.id,
-          email: user.email,
-          role: user.role,
-        };
-        next();
-      });
+      (authenticate as jest.Mock).mockImplementationOnce(
+        (req: any, res, next) => {
+          req.user = {
+            userId: user.id,
+            email: user.email,
+            role: user.role,
+          };
+          next();
+        }
+      );
 
       mockUserService.findById.mockResolvedValue(user);
 
@@ -360,14 +365,16 @@ describe('Auth Routes', () => {
 
     it('should return 404 when user not found', async () => {
       // Configure authenticate middleware to pass through with user
-      (authenticate as jest.Mock).mockImplementationOnce((req: any, res, next) => {
-        req.user = {
-          userId: 'nonexistent',
-          email: 'test@example.com',
-          role: UserRole.USER,
-        };
-        next();
-      });
+      (authenticate as jest.Mock).mockImplementationOnce(
+        (req: any, res, next) => {
+          req.user = {
+            userId: 'nonexistent',
+            email: 'test@example.com',
+            role: UserRole.USER,
+          };
+          next();
+        }
+      );
 
       mockUserService.findById.mockResolvedValue(null);
 

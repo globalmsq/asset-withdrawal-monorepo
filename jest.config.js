@@ -6,9 +6,6 @@ module.exports = {
   testMatch: ['<rootDir>/src/**/*.test.ts'],
   // Configure to generate coverage report in the root
   coverageDirectory: '<rootDir>/../../coverage',
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageReporters: ['json-summary', 'text', 'lcov'],
 };

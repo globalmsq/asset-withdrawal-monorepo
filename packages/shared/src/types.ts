@@ -1,10 +1,10 @@
 export enum TransactionStatus {
   PENDING = 'PENDING',
-  VALIDATING = 'VALIDATING', 
+  VALIDATING = 'VALIDATING',
   SIGNED = 'SIGNED',
   BROADCASTING = 'BROADCASTING',
   COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED'
+  FAILED = 'FAILED',
 }
 
 export interface WithdrawalRequest {
@@ -64,7 +64,7 @@ export interface AuthUser {
 
 export enum UserRole {
   ADMIN = 'ADMIN',
-  USER = 'USER'
+  USER = 'USER',
 }
 
 export interface AuthTokenPayload {

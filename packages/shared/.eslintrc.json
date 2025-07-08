@@ -1,8 +1,6 @@
 {
   "extends": "../../.eslintrc.js",
   "parserOptions": {
-    "project": [
-      "packages/shared/tsconfig.json"
-    ]
+    "project": ["packages/shared/tsconfig.json"]
   }
 }

@@ -14,6 +14,7 @@
     "lint:fix": "nx run-many --target=lint --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "test": "nx run-many --target=test",
+    "typecheck": "nx run-many --target=typecheck",
     "coverage": "nx run-many --target=test --coverage",
     "depcheck": "nx run-many --target=depcheck",
     "prepare": "husky install",

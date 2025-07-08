@@ -5,11 +5,13 @@ A simple database library using MySQL + Prisma ORM.
 ## Setup
 
 1. Set up environment variables:
+
    ```bash
    cp env.example .env
    ```
 
 2. Configure MySQL environment variables:
+
    ```bash
    # Set the following variables in .env file
    MYSQL_HOST=localhost
@@ -20,6 +22,7 @@ A simple database library using MySQL + Prisma ORM.
    ```
 
 3. Generate Prisma client:
+
    ```bash
    npx prisma generate
    ```
@@ -56,16 +59,18 @@ const transaction = await transactionService.createTransaction({
   userId: 'user123',
   amount: 100.5,
   currency: 'ETH',
-  status: 'pending'
+  status: 'pending',
 });
 
 // Get user transactions
-const userTransactions = await transactionService.getTransactionsByUserId('user123');
+const userTransactions =
+  await transactionService.getTransactionsByUserId('user123');
 ```
 
 ## Environment Variables
 
 ### Development Environment
+
 ```bash
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
@@ -75,6 +80,7 @@ MYSQL_DATABASE=withdrawal_system
 ```
 
 ### Production Environment
+
 ```bash
 MYSQL_HOST=your-production-host.com
 MYSQL_PORT=3306
@@ -84,7 +90,9 @@ MYSQL_DATABASE=withdrawal_system
 ```
 
 ### Docker Compose Environment
+
 When using Docker Compose, use the service name as the host:
+
 ```bash
 MYSQL_HOST=mysql  # docker-compose service name
 MYSQL_PORT=3306
@@ -96,6 +104,7 @@ MYSQL_DATABASE=withdrawal_system
 ## Schema
 
 Currently supported models:
+
 - **Transaction**: Withdrawal transaction information
 - **User**: User information
 

@@ -24,6 +24,7 @@ Creates a new withdrawal request for processing.
 **Endpoint:** `POST /withdrawal/request`
 
 **Request Body:**
+
 ```json
 {
   "userId": "user-123456",
@@ -35,6 +36,7 @@ Creates a new withdrawal request for processing.
 ```
 
 **Parameters:**
+
 - `userId` (string, required): Unique identifier of the user
 - `amount` (string, required): Amount to withdraw (string to preserve precision)
 - `toAddress` (string, required): Destination wallet address
@@ -42,6 +44,7 @@ Creates a new withdrawal request for processing.
 - `network` (string, required): Blockchain network (ethereum, polygon, bsc, arbitrum)
 
 **Success Response (201):**
+
 ```json
 {
   "success": true,
@@ -56,6 +59,7 @@ Creates a new withdrawal request for processing.
 ```
 
 **Error Responses:**
+
 - **400 Bad Request**: Missing required fields or invalid amount
   ```json
   {
@@ -67,6 +71,7 @@ Creates a new withdrawal request for processing.
 - **500 Internal Server Error**: Server processing error
 
 **Example using cURL:**
+
 ```bash
 curl -X POST http://localhost:8080/withdrawal/request \
   -H "Content-Type: application/json" \
@@ -86,9 +91,11 @@ Retrieves the current status of a withdrawal request.
 **Endpoint:** `GET /withdrawal/status/{id}`
 
 **Path Parameters:**
+
 - `id` (string, required): Transaction ID returned from the request endpoint
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -104,6 +111,7 @@ Retrieves the current status of a withdrawal request.
 ```
 
 **Transaction Statuses:**
+
 - `pending`: Request received and queued
 - `validating`: Validating user balance and parameters
 - `signing`: Creating blockchain transaction
@@ -112,11 +120,13 @@ Retrieves the current status of a withdrawal request.
 - `failed`: Transaction failed (check error field)
 
 **Error Responses:**
+
 - **400 Bad Request**: Transaction ID is required
 - **404 Not Found**: Transaction not found
 - **500 Internal Server Error**: Server processing error
 
 **Example using cURL:**
+
 ```bash
 curl http://localhost:8080/withdrawal/status/tx-1234567890-abc123def
 ```
@@ -128,6 +138,7 @@ Returns the current status of withdrawal request queues (for debugging/monitorin
 **Endpoint:** `GET /withdrawal/queue/status`
 
 **Success Response (200):**
+
 ```json
 {
   "success": true,
@@ -142,10 +153,12 @@ Returns the current status of withdrawal request queues (for debugging/monitorin
 ```
 
 **Response Fields:**
+
 - `size`: Number of requests waiting in queue
 - `processing`: Number of requests currently being processed
 
 **Example using cURL:**
+
 ```bash
 curl http://localhost:8080/withdrawal/queue/status
 ```
@@ -163,6 +176,7 @@ All errors follow a consistent format:
 ```
 
 Common error scenarios:
+
 - Invalid or missing parameters
 - Transaction not found
 - Internal server errors
@@ -179,6 +193,7 @@ Not yet implemented. Future versions will support webhook notifications for tran
 ## Testing
 
 You can test the API using:
+
 - cURL (examples provided above)
 - Postman collection (import from `http://localhost:8080/api-docs.json`)
 - [Swagger UI](http://localhost:8080/api-docs) (interactive testing)

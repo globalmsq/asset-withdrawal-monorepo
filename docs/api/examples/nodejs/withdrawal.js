@@ -11,13 +11,16 @@ async function submitWithdrawal() {
       amount: '0.5',
       toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
       tokenAddress: '0x0000000000000000000000000000000000000000',
-      network: 'ethereum'
+      network: 'ethereum',
     });
 
     console.log('Withdrawal request submitted:', response.data);
     return response.data.data.id;
   } catch (error) {
-    console.error('Error submitting withdrawal:', error.response?.data || error.message);
+    console.error(
+      'Error submitting withdrawal:',
+      error.response?.data || error.message
+    );
     throw error;
   }
 }
@@ -25,11 +28,16 @@ async function submitWithdrawal() {
 // Check withdrawal status
 async function checkStatus(transactionId) {
   try {
-    const response = await axios.get(`${API_BASE_URL}/withdrawal/status/${transactionId}`);
+    const response = await axios.get(
+      `${API_BASE_URL}/withdrawal/status/${transactionId}`
+    );
     console.log('Withdrawal status:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Error checking status:', error.response?.data || error.message);
+    console.error(
+      'Error checking status:',
+      error.response?.data || error.message
+    );
     throw error;
   }
 }
@@ -39,10 +47,10 @@ async function checkStatus(transactionId) {
   try {
     // Submit withdrawal
     const txId = await submitWithdrawal();
-    
+
     // Wait 2 seconds
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     // Check status
     await checkStatus(txId);
   } catch (error) {

@@ -5,16 +5,16 @@ export enum ErrorCode {
   INVALID_AMOUNT = 'INVALID_AMOUNT',
   INVALID_ADDRESS = 'INVALID_ADDRESS',
   INVALID_NETWORK = 'INVALID_NETWORK',
-  
+
   // Resource errors (404)
   TRANSACTION_NOT_FOUND = 'TRANSACTION_NOT_FOUND',
   USER_NOT_FOUND = 'USER_NOT_FOUND',
-  
+
   // Business logic errors (422)
   INSUFFICIENT_BALANCE = 'INSUFFICIENT_BALANCE',
   WITHDRAWAL_LIMIT_EXCEEDED = 'WITHDRAWAL_LIMIT_EXCEEDED',
   DUPLICATE_REQUEST = 'DUPLICATE_REQUEST',
-  
+
   // Server errors (500)
   DATABASE_ERROR = 'DATABASE_ERROR',
   BLOCKCHAIN_ERROR = 'BLOCKCHAIN_ERROR',
@@ -43,7 +43,9 @@ export class ValidationError extends AppError {
 
 export class NotFoundError extends AppError {
   constructor(resource: string, id?: string) {
-    const message = id ? `${resource} with id ${id} not found` : `${resource} not found`;
+    const message = id
+      ? `${resource} with id ${id} not found`
+      : `${resource} not found`;
     super(ErrorCode.TRANSACTION_NOT_FOUND, message, 404);
   }
 }

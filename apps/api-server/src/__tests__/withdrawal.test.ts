@@ -33,12 +33,12 @@ jest.mock('../middleware/auth.middleware', () => ({
     req.user = {
       userId: 'test-user-123',
       email: 'test@example.com',
-      role: 'USER'
+      role: 'USER',
     };
     next();
   }),
   authorize: jest.fn(() => (req: any, res: any, next: any) => next()),
-  AuthRequest: {}
+  AuthRequest: {},
 }));
 
 jest.mock('shared', () => ({

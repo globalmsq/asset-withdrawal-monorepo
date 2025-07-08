@@ -61,12 +61,7 @@ const options: swaggerJSDoc.Options = {
       schemas: {
         WithdrawalRequest: {
           type: 'object',
-          required: [
-            'amount',
-            'toAddress',
-            'tokenAddress',
-            'network',
-          ],
+          required: ['amount', 'toAddress', 'tokenAddress', 'network'],
           properties: {
             amount: {
               type: 'string',
@@ -177,8 +172,7 @@ const options: swaggerJSDoc.Options = {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
-          description:
-            'JWT token for API authentication',
+          description: 'JWT token for API authentication',
         },
         LoginRequest: {
           type: 'object',

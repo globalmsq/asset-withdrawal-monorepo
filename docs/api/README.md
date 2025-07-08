@@ -43,28 +43,30 @@ docs/api/
 
 ### Core Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/withdrawal/request` | Submit a new withdrawal request |
-| GET | `/withdrawal/status/:id` | Check withdrawal status |
-| GET | `/withdrawal/queue/status` | Get queue status (debugging) |
+| Method | Endpoint                   | Description                     |
+| ------ | -------------------------- | ------------------------------- |
+| POST   | `/withdrawal/request`      | Submit a new withdrawal request |
+| GET    | `/withdrawal/status/:id`   | Check withdrawal status         |
+| GET    | `/withdrawal/queue/status` | Get queue status (debugging)    |
 
 ### Health Check
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | API health check |
+| Method | Endpoint  | Description      |
+| ------ | --------- | ---------------- |
+| GET    | `/health` | API health check |
 
 ## Request/Response Format
 
 All API requests and responses use JSON format.
 
 ### Request Headers
+
 ```
 Content-Type: application/json
 ```
 
 ### Response Format
+
 ```json
 {
   "success": true,
@@ -86,6 +88,7 @@ Rate limiting is not currently implemented but is planned for future releases.
 ## Support
 
 For questions or issues:
+
 1. Check the [documentation](./guides/)
 2. Review [error handling guide](./guides/error-handling.md)
 3. Contact the development team

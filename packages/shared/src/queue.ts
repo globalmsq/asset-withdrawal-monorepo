@@ -12,7 +12,7 @@ export class InMemoryQueue<T = any> {
       id: this.generateId(),
       data,
       timestamp: new Date(),
-      retryCount: 0
+      retryCount: 0,
     };
 
     this.queue.push(message);
@@ -41,7 +41,7 @@ export class InMemoryQueue<T = any> {
     if (index !== -1) {
       const message = this.processingQueue[index];
       this.processingQueue.splice(index, 1);
-      
+
       if (message.retryCount < this.maxRetries) {
         message.retryCount++;
         this.queue.push(message);

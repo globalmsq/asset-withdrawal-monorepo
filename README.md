@@ -20,6 +20,7 @@ A TypeScript-based blockchain withdrawal system monorepo.
 ## 🚀 Getting Started
 
 ### 1. Install Dependencies
+
 ```bash
 yarn install
 ```
@@ -47,6 +48,7 @@ cp apps/api-server/env.example apps/api-server/.env
 **Note:** Libraries do not have their own environment files. All configuration is injected from the application level.
 
 ### 3. Create New Package
+
 ```bash
 # Create library
 yarn nx g @nx/js:library my-package --directory=packages/my-package
@@ -56,6 +58,7 @@ yarn nx g @nx/js:application my-app --directory=apps/my-app
 ```
 
 ### 4. Run Development Server
+
 ```bash
 # Run all apps
 yarn dev
@@ -71,6 +74,7 @@ yarn nx serve helloworld --env NODE_ENV=development
 ```
 
 **Features:**
+
 - 🔄 **Auto-reload**: Server automatically restarts when code changes
 - 🚀 **Fast build**: Uses esbuild for quick compilation
 - 🔧 **Development mode**: Source maps enabled for debugging
@@ -105,6 +109,7 @@ yarn clean               # Clean build artifacts and cache
 ## 🏗️ Architecture
 
 ### Package Structure
+
 - **`apps/`**: Applications
   - Each package can be built and tested independently
   - Example: `helloworld` application
@@ -113,28 +118,33 @@ yarn clean               # Clean build artifacts and cache
   - Module references through TypeScript path mapping (`@packages/*`)
 
 ### Development Tools
+
 - **Docker**: Containerization support in `docker/` directory
 - **Documentation**: Project docs in `docs/` directory
 
 ## 🔧 Development Guide
 
 ### Adding New Package
+
 1. Create package using `nx g @nx/js:library` command
 2. Automatically added to paths in `tsconfig.base.json`
 3. Importable from other packages using `@packages/my-package`
 
 ### Development Workflow
+
 - **Hot reload**: `yarn nx serve helloworld` - Auto-restart on code changes
 - **Build**: `yarn nx build helloworld` - Production build
 - **Test**: `yarn nx test helloworld` - Run tests
 - **Lint**: `yarn nx lint helloworld` - Check code quality
 
 ### Code Style
+
 - Code style enforcement using ESLint + Prettier
 - Automatic linting and formatting before commit (husky + lint-staged)
 - TypeScript strict mode enabled
 
 ### Testing
+
 - Unit testing using Jest
 - Independent test execution for each package
 - Code coverage report generation with `yarn coverage`
@@ -153,14 +163,17 @@ yarn clean               # Clean build artifacts and cache
 ## 📝 Conventions
 
 ### Package Naming
+
 - Use kebab-case
 - Clear and descriptive names
 
 ### Branch Naming
+
 - `feature/feature-name`
 - `fix/bug-name`
 - `refactor/refactoring-name`
 
 ### Commit Messages
+
 - Follow [Conventional Commits](https://www.conventionalcommits.org/) rules
 - Use `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:` etc.

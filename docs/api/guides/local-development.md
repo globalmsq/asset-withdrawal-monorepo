@@ -107,11 +107,13 @@ python withdrawal.py
 If you see "Failed to connect to database":
 
 1. Check if MySQL is running:
+
    ```bash
    docker compose -f docker-compose.dev.yaml ps
    ```
 
 2. Verify environment variables in `.env`:
+
    ```
    # API Server Configuration
    NODE_ENV=development
@@ -149,6 +151,7 @@ kill -9 <PID>
 For different environments, update the environment variables:
 
 **Development:**
+
 ```env
 NODE_ENV=development
 PORT=8080
@@ -156,6 +159,7 @@ HOST=0.0.0.0
 ```
 
 **Production:**
+
 ```env
 NODE_ENV=production
 PORT=8080
@@ -163,6 +167,7 @@ HOST=0.0.0.0
 ```
 
 **Docker Environment:**
+
 ```env
 NODE_ENV=production
 PORT=8080

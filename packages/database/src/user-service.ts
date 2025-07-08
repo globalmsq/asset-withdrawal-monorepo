@@ -25,22 +25,25 @@ export class UserService {
     });
   }
 
-  async findById(id: string): Promise<User | null> {
+  async findById(id: string | bigint): Promise<User | null> {
+    const numericId = typeof id === 'string' ? BigInt(id) : id;
     return this.db.getClient().user.findUnique({
-      where: { id },
+      where: { id: numericId },
     });
   }
 
-  async updateUser(id: string, data: Partial<User>): Promise<User> {
+  async updateUser(id: string | bigint, data: Partial<User>): Promise<User> {
+    const numericId = typeof id === 'string' ? BigInt(id) : id;
     return this.db.getClient().user.update({
-      where: { id },
+      where: { id: numericId },
       data,
     });
   }
 
-  async deleteUser(id: string): Promise<User> {
+  async deleteUser(id: string | bigint): Promise<User> {
+    const numericId = typeof id === 'string' ? BigInt(id) : id;
     return this.db.getClient().user.delete({
-      where: { id },
+      where: { id: numericId },
     });
   }
 

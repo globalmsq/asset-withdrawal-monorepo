@@ -98,96 +98,100 @@ function getCurrencyFromTokenAddress(tokenAddress: string): string {
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.post('/request', authenticate, async (req: AuthRequest, res: Response) => {
-  try {
-    const { amount, toAddress, tokenAddress, network } = req.body;
-    const userId = req.user?.userId;
-    const { TransactionService } = await import('database');
-    const transactionService = new TransactionService(getDatabase());
+router.post(
+  '/request',
+  authenticate,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { amount, toAddress, tokenAddress, network } = req.body;
+      const userId = req.user?.userId;
+      const { TransactionService } = await import('database');
+      const transactionService = new TransactionService(getDatabase());
 
-    // Basic validation
-    if (!amount || !toAddress || !tokenAddress || !network) {
-      const response: ApiResponse = {
-        success: false,
-        error:
-          'Missing required fields: amount, toAddress, tokenAddress, network',
+      // Basic validation
+      if (!amount || !toAddress || !tokenAddress || !network) {
+        const response: ApiResponse = {
+          success: false,
+          error:
+            'Missing required fields: amount, toAddress, tokenAddress, network',
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
+
+      if (!userId) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'User authentication failed',
+          timestamp: new Date(),
+        };
+        return res.status(401).json(response);
+      }
+
+      // Validate amount
+      if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Invalid amount',
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
+
+      // Generate unique transaction ID
+      const transactionId = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
+      // Create withdrawal request
+      const withdrawalRequest: WithdrawalRequest = {
+        id: transactionId,
+        userId: userId,
+        amount,
+        toAddress,
+        tokenAddress,
+        network,
+        createdAt: new Date(),
+      };
+
+      // Save to database using Prisma
+      await transactionService.createTransaction({
+        userId: userId,
+        amount: parseFloat(amount),
+        currency: getCurrencyFromTokenAddress(tokenAddress),
+        tokenAddress,
+        toAddress,
+        network,
+        status: TransactionStatus.PENDING,
+      });
+
+      // Add to queue for processing
+      await txRequestQueue.enqueue(withdrawalRequest);
+
+      // Create response
+      const withdrawalResponse: WithdrawalResponse = {
+        id: transactionId,
+        status: TransactionStatus.PENDING,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const response: ApiResponse<WithdrawalResponse> = {
+        success: true,
+        data: withdrawalResponse,
         timestamp: new Date(),
       };
-      return res.status(400).json(response);
-    }
 
-    if (!userId) {
+      res.status(201).json(response);
+    } catch (error) {
+      console.error('Error processing withdrawal request:', error);
       const response: ApiResponse = {
         success: false,
-        error: 'User authentication failed',
+        error: 'Internal server error',
         timestamp: new Date(),
       };
-      return res.status(401).json(response);
+      res.status(500).json(response);
     }
-
-    // Validate amount
-    if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Invalid amount',
-        timestamp: new Date(),
-      };
-      return res.status(400).json(response);
-    }
-
-    // Generate unique transaction ID
-    const transactionId = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-
-    // Create withdrawal request
-    const withdrawalRequest: WithdrawalRequest = {
-      id: transactionId,
-      userId,
-      amount,
-      toAddress,
-      tokenAddress,
-      network,
-      createdAt: new Date(),
-    };
-
-    // Save to database using Prisma
-    await transactionService.createTransaction({
-      userId,
-      amount: parseFloat(amount),
-      currency: getCurrencyFromTokenAddress(tokenAddress),
-      tokenAddress,
-      toAddress,
-      network,
-      status: TransactionStatus.PENDING,
-    });
-
-    // Add to queue for processing
-    await txRequestQueue.enqueue(withdrawalRequest);
-
-    // Create response
-    const withdrawalResponse: WithdrawalResponse = {
-      id: transactionId,
-      status: TransactionStatus.PENDING,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    const response: ApiResponse<WithdrawalResponse> = {
-      success: true,
-      data: withdrawalResponse,
-      timestamp: new Date(),
-    };
-
-    res.status(201).json(response);
-  } catch (error) {
-    console.error('Error processing withdrawal request:', error);
-    const response: ApiResponse = {
-      success: false,
-      error: 'Internal server error',
-      timestamp: new Date(),
-    };
-    res.status(500).json(response);
   }
-});
+);
 
 /**
  * @swagger
@@ -241,60 +245,64 @@ router.post('/request', authenticate, async (req: AuthRequest, res: Response) =>
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.get('/status/:id', authenticate, async (req: AuthRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-    const { TransactionService } = await import('database');
-    const transactionService = new TransactionService(getDatabase());
+router.get(
+  '/status/:id',
+  authenticate,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { TransactionService } = await import('database');
+      const transactionService = new TransactionService(getDatabase());
 
-    if (!id) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Transaction ID is required',
+      if (!id) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Transaction ID is required',
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
+
+      // Find transaction in database using Prisma
+      const transaction = await transactionService.getTransactionById(id);
+
+      if (!transaction) {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Transaction not found',
+          timestamp: new Date(),
+        };
+        return res.status(404).json(response);
+      }
+
+      // Create response
+      const withdrawalResponse: WithdrawalResponse = {
+        id: transaction.id,
+        status: transaction.status as TransactionStatus,
+        transactionHash: transaction.txHash || undefined,
+        error: undefined, // Error field needs to be added separately
+        createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt,
+      };
+
+      const response: ApiResponse<WithdrawalResponse> = {
+        success: true,
+        data: withdrawalResponse,
         timestamp: new Date(),
       };
-      return res.status(400).json(response);
-    }
 
-    // Find transaction in database using Prisma
-    const transaction = await transactionService.getTransactionById(id);
-
-    if (!transaction) {
+      res.json(response);
+    } catch (error) {
+      console.error('Error getting withdrawal status:', error);
       const response: ApiResponse = {
         success: false,
-        error: 'Transaction not found',
+        error: 'Internal server error',
         timestamp: new Date(),
       };
-      return res.status(404).json(response);
+      res.status(500).json(response);
     }
-
-    // Create response
-    const withdrawalResponse: WithdrawalResponse = {
-      id: transaction.id,
-      status: transaction.status as TransactionStatus,
-      transactionHash: transaction.txHash || undefined,
-      error: undefined, // Error field needs to be added separately
-      createdAt: transaction.createdAt,
-      updatedAt: transaction.updatedAt,
-    };
-
-    const response: ApiResponse<WithdrawalResponse> = {
-      success: true,
-      data: withdrawalResponse,
-      timestamp: new Date(),
-    };
-
-    res.json(response);
-  } catch (error) {
-    console.error('Error getting withdrawal status:', error);
-    const response: ApiResponse = {
-      success: false,
-      error: 'Internal server error',
-      timestamp: new Date(),
-    };
-    res.status(500).json(response);
   }
-});
+);
 
 /**
  * @swagger

@@ -37,7 +37,11 @@ describe('Auth Middleware', () => {
 
       (authService.verifyToken as jest.Mock).mockReturnValue(mockPayload);
 
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      authenticate(
+        mockRequest as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      );
 
       expect(authService.verifyToken).toHaveBeenCalledWith(mockToken);
       expect(mockRequest.user).toEqual(mockPayload);
@@ -46,7 +50,11 @@ describe('Auth Middleware', () => {
     });
 
     it('should return 401 when authorization header is missing', () => {
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      authenticate(
+        mockRequest as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      );
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith({
@@ -63,7 +71,11 @@ describe('Auth Middleware', () => {
         authorization: 'InvalidFormat token',
       };
 
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      authenticate(
+        mockRequest as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      );
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith({
@@ -80,7 +92,11 @@ describe('Auth Middleware', () => {
         authorization: 'Bearer ',
       };
 
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      authenticate(
+        mockRequest as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      );
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith({
@@ -102,7 +118,11 @@ describe('Auth Middleware', () => {
         throw new Error('Invalid token');
       });
 
-      authenticate(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      authenticate(
+        mockRequest as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      );
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith({
@@ -124,7 +144,11 @@ describe('Auth Middleware', () => {
       };
 
       const middleware = authorize(UserRole.ADMIN, UserRole.USER);
-      middleware(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      middleware(
+        mockRequest as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      );
 
       expect(nextFunction).toHaveBeenCalled();
       expect(mockResponse.status).not.toHaveBeenCalled();
@@ -132,7 +156,11 @@ describe('Auth Middleware', () => {
 
     it('should return 401 when user is not authenticated', () => {
       const middleware = authorize(UserRole.ADMIN);
-      middleware(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      middleware(
+        mockRequest as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      );
 
       expect(mockResponse.status).toHaveBeenCalledWith(401);
       expect(mockResponse.json).toHaveBeenCalledWith({
@@ -152,7 +180,11 @@ describe('Auth Middleware', () => {
       };
 
       const middleware = authorize(UserRole.ADMIN);
-      middleware(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      middleware(
+        mockRequest as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      );
 
       expect(mockResponse.status).toHaveBeenCalledWith(403);
       expect(mockResponse.json).toHaveBeenCalledWith({
@@ -172,7 +204,11 @@ describe('Auth Middleware', () => {
       };
 
       const middleware = authorize(UserRole.ADMIN, UserRole.USER);
-      middleware(mockRequest as AuthRequest, mockResponse as Response, nextFunction);
+      middleware(
+        mockRequest as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      );
 
       expect(nextFunction).toHaveBeenCalled();
       expect(mockResponse.status).not.toHaveBeenCalled();

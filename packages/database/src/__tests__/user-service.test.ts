@@ -45,7 +45,7 @@ describe('UserService', () => {
       };
 
       const createdUser: User = {
-        id: 'user123',
+        id: BigInt(123),
         ...userData,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -68,7 +68,7 @@ describe('UserService', () => {
       };
 
       const createdUser: User = {
-        id: 'user123',
+        id: BigInt(123),
         email: userData.email,
         password: userData.password,
         role: 'USER',
@@ -92,7 +92,7 @@ describe('UserService', () => {
     it('should find user by email', async () => {
       const email = 'test@example.com';
       const user: User = {
-        id: 'user123',
+        id: BigInt(123),
         email,
         password: 'hashedPassword',
         role: 'USER',
@@ -127,9 +127,9 @@ describe('UserService', () => {
 
   describe('findById', () => {
     it('should find user by id', async () => {
-      const id = 'user123';
+      const id = '123';
       const user: User = {
-        id,
+        id: BigInt(123),
         email: 'test@example.com',
         password: 'hashedPassword',
         role: 'USER',
@@ -143,20 +143,20 @@ describe('UserService', () => {
       const result = await userService.findById(id);
 
       expect(mockPrismaClient.user.findUnique).toHaveBeenCalledWith({
-        where: { id },
+        where: { id: BigInt(123) },
       });
       expect(result).toEqual(user);
     });
 
     it('should return null when user not found', async () => {
-      const id = 'nonexistent';
+      const id = '999';
 
       mockPrismaClient.user.findUnique.mockResolvedValue(null);
 
       const result = await userService.findById(id);
 
       expect(mockPrismaClient.user.findUnique).toHaveBeenCalledWith({
-        where: { id },
+        where: { id: BigInt(999) },
       });
       expect(result).toBeNull();
     });
@@ -164,14 +164,14 @@ describe('UserService', () => {
 
   describe('updateUser', () => {
     it('should update user data', async () => {
-      const id = 'user123';
+      const id = '123';
       const updateData = {
         email: 'newemail@example.com',
         wallet: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
       };
 
       const updatedUser: User = {
-        id,
+        id: BigInt(123),
         email: updateData.email,
         password: 'hashedPassword',
         role: 'USER',
@@ -185,7 +185,7 @@ describe('UserService', () => {
       const result = await userService.updateUser(id, updateData);
 
       expect(mockPrismaClient.user.update).toHaveBeenCalledWith({
-        where: { id },
+        where: { id: BigInt(123) },
         data: updateData,
       });
       expect(result).toEqual(updatedUser);
@@ -194,9 +194,9 @@ describe('UserService', () => {
 
   describe('deleteUser', () => {
     it('should delete a user', async () => {
-      const id = 'user123';
+      const id = '123';
       const deletedUser: User = {
-        id,
+        id: BigInt(123),
         email: 'test@example.com',
         password: 'hashedPassword',
         role: 'USER',
@@ -210,7 +210,7 @@ describe('UserService', () => {
       const result = await userService.deleteUser(id);
 
       expect(mockPrismaClient.user.delete).toHaveBeenCalledWith({
-        where: { id },
+        where: { id: BigInt(123) },
       });
       expect(result).toEqual(deletedUser);
     });
@@ -220,7 +220,7 @@ describe('UserService', () => {
     it('should find users with pagination', async () => {
       const users: User[] = [
         {
-          id: 'user1',
+          id: BigInt(1),
           email: 'user1@example.com',
           password: 'hashedPassword',
           role: 'USER',
@@ -229,7 +229,7 @@ describe('UserService', () => {
           updatedAt: new Date(),
         },
         {
-          id: 'user2',
+          id: BigInt(2),
           email: 'user2@example.com',
           password: 'hashedPassword',
           role: 'ADMIN',
@@ -256,7 +256,7 @@ describe('UserService', () => {
     it('should find users with role filter', async () => {
       const adminUsers: User[] = [
         {
-          id: 'admin1',
+          id: BigInt(1),
           email: 'admin@example.com',
           password: 'hashedPassword',
           role: 'ADMIN',

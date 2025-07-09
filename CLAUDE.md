@@ -146,7 +146,7 @@ interface IQueue<T> {
 ### Polygon Network Integration
 
 #### Supported Networks
-- **Mumbai Testnet** (Chain ID: 80001) - Development
+- **Amoy Testnet** (Chain ID: 80002) - Development
 - **Polygon Mainnet** (Chain ID: 137) - Production
 
 #### Transaction Types
@@ -183,9 +183,9 @@ AWS_ACCESS_KEY_ID=test         # LocalStack default
 AWS_SECRET_ACCESS_KEY=test     # LocalStack default
 
 # Polygon Configuration  
-POLYGON_NETWORK=mumbai         # 'mumbai' or 'mainnet'
-POLYGON_RPC_URL=https://polygon-mumbai.g.alchemy.com/v2/YOUR_KEY
-POLYGON_CHAIN_ID=80001         # 80001 for Mumbai, 137 for Mainnet
+POLYGON_NETWORK=amoy           # 'amoy' or 'mainnet'
+POLYGON_RPC_URL=https://rpc-amoy.polygon.technology
+POLYGON_CHAIN_ID=80002         # 80002 for Amoy, 137 for Mainnet
 
 # Application Ports
 WITHDRAWAL_API_PORT=3000

@@ -85,10 +85,10 @@
   - [ ] Alert notification (stub)
 
 #### 1.3 Polygon Blockchain Integration
-- [ ] Ethers.js setup for Polygon
-  - [ ] Polygon RPC provider configuration
-  - [ ] Mumbai testnet configuration
-  - [ ] Mainnet configuration (disabled by default)
+- [x] Ethers.js setup for Polygon
+  - [x] Polygon RPC provider configuration
+  - [x] Amoy testnet configuration
+  - [x] Mainnet configuration (disabled by default)
 - [ ] Transaction signing module
   - [ ] EIP-1559 support for Polygon
   - [ ] Polygon-specific gas optimization
@@ -255,7 +255,7 @@
 
 ### Blockchain Focus
 - **Primary Network**: Polygon (MATIC)
-- **Testnet**: Mumbai
+- **Testnet**: Amoy
 - **Supported Tokens**: ERC-20 on Polygon
 - **No multi-chain support** in Phase 1
 
@@ -279,8 +279,8 @@ AWS_ENDPOINT=http://localhost:4566  # LocalStack endpoint
 AWS_REGION=us-east-1
 
 # Polygon Configuration
-POLYGON_RPC_URL=https://polygon-mumbai.g.alchemy.com/v2/YOUR_KEY
-POLYGON_CHAIN_ID=80001  # Mumbai testnet
+POLYGON_RPC_URL=https://rpc-amoy.polygon.technology
+POLYGON_CHAIN_ID=80002  # Amoy testnet
 ```
 
 ## Risk Management

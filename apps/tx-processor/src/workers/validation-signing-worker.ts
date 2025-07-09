@@ -4,9 +4,14 @@ import { BaseWorker, WorkerConfig } from './base-worker';
 import { WithdrawalRequest, SignedTransaction } from '../types';
 import { Logger } from '../utils/logger';
 import { config } from '../config';
+import { PolygonProvider, TransactionSigner, SecretsManager } from '../services/blockchain';
 
 export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, SignedTransaction> {
   private transactionService: TransactionService;
+  private polygonProvider: PolygonProvider;
+  private transactionSigner: TransactionSigner;
+  private secretsManager: SecretsManager;
+  private isInitialized: boolean = false;
 
   constructor(
     workerConfig: WorkerConfig,
@@ -15,6 +20,26 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
   ) {
     super(workerConfig, inputQueue, outputQueue);
     this.transactionService = new TransactionService();
+    this.polygonProvider = new PolygonProvider();
+    this.secretsManager = new SecretsManager();
+    this.transactionSigner = new TransactionSigner(this.polygonProvider);
+  }
+
+  async start(): Promise<void> {
+    // Initialize wallet with private key from Secrets Manager
+    if (!this.isInitialized) {
+      try {
+        const privateKey = await this.secretsManager.getPrivateKey();
+        await this.transactionSigner.setPrivateKey(privateKey);
+        this.isInitialized = true;
+        this.logger.info(`Worker wallet initialized: ${this.transactionSigner.getAddress()}`);
+      } catch (error) {
+        this.logger.error('Failed to initialize wallet', error);
+        throw error;
+      }
+    }
+    
+    await super.start();
   }
 
   protected async process(
@@ -30,13 +55,10 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
       // Step 2: Check balance (mock for now)
       await this.checkBalance(withdrawalRequest);
 
-      // Step 3: Build transaction
-      const transaction = await this.buildTransaction(withdrawalRequest);
+      // Step 3: Build and sign transaction
+      const signedTx = await this.buildTransaction(withdrawalRequest);
 
-      // Step 4: Sign transaction (mock for now)
-      const signedTx = await this.signTransaction(transaction);
-
-      // Step 5: Update transaction status in database
+      // Step 4: Update transaction status in database
       await this.transactionService.updateStatus(withdrawalRequest.id, 'SIGNED');
 
       this.logger.info(`Successfully signed transaction for withdrawal ${withdrawalRequest.id}`);
@@ -73,32 +95,56 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
   }
 
   private async checkBalance(request: WithdrawalRequest): Promise<void> {
-    // TODO: Implement actual balance check using Redis or blockchain
-    // For now, mock implementation
+    if (!this.transactionSigner.getAddress()) {
+      throw new Error('Wallet not initialized');
+    }
+
+    // Check native token balance for gas fees
+    const walletAddress = this.transactionSigner.getAddress()!;
+    const balance = await this.polygonProvider.getBalance(walletAddress);
+    
+    // Estimate gas cost
+    const gasPrice = await this.polygonProvider.getGasPrice();
+    const estimatedGasLimit = 100000n; // Reasonable estimate for token transfer
+    const estimatedGasCost = gasPrice * estimatedGasLimit;
+    
+    if (balance < estimatedGasCost) {
+      throw new Error(
+        `Insufficient balance for gas. Required: ${estimatedGasCost.toString()}, Available: ${balance.toString()}`
+      );
+    }
+
+    // TODO: Check token balance if ERC-20 transfer
     this.logger.debug(`Balance check passed for withdrawal ${request.id}`);
   }
 
-  private async buildTransaction(request: WithdrawalRequest): Promise<any> {
-    // TODO: Implement actual transaction building with ethers.js
-    // For now, return mock transaction
-    return {
-      withdrawalId: request.id,
-      from: '0x1234567890123456789012345678901234567890', // Mock wallet address
-      to: request.address,
-      value: request.amount,
-      chainId: config.polygon.chainId,
-      gasPrice: '30000000000', // 30 Gwei
-      gasLimit: '100000',
-      nonce: 0, // TODO: Get actual nonce
-    };
+  private async buildTransaction(request: WithdrawalRequest): Promise<SignedTransaction> {
+    // Check if it's a token transfer or native currency
+    if (request.tokenAddress && request.tokenAddress !== '0x0000000000000000000000000000000000000000') {
+      // ERC-20 token transfer
+      // TODO: Get token decimals from contract
+      const decimals = 18; // Default for most tokens
+      return await this.transactionSigner.signERC20Transfer(
+        request.tokenAddress,
+        request.address,
+        request.amount,
+        decimals,
+        request.id
+      );
+    } else {
+      // Native MATIC transfer
+      return await this.transactionSigner.signTransaction(
+        {
+          to: request.address,
+          value: request.amount,
+        },
+        request.id
+      );
+    }
   }
 
   private async signTransaction(transaction: any): Promise<SignedTransaction> {
-    // TODO: Implement actual transaction signing
-    // For now, return mock signed transaction
-    return {
-      ...transaction,
-      signedTx: '0x' + 'f'.repeat(256), // Mock signed transaction
-    };
+    // This method is no longer needed as signing is done in buildTransaction
+    return transaction;
   }
 }

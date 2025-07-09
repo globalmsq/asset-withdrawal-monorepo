@@ -27,9 +27,9 @@ export const config = {
 
   // Polygon configuration
   polygon: {
-    network: process.env.POLYGON_NETWORK || 'mumbai',
-    rpcUrl: process.env.POLYGON_RPC_URL || 'https://rpc-mumbai.maticvigil.com',
-    chainId: Number(process.env.POLYGON_CHAIN_ID) || 80001,
+    network: process.env.POLYGON_NETWORK || 'amoy',
+    rpcUrl: process.env.POLYGON_RPC_URL || 'https://rpc-amoy.polygon.technology',
+    chainId: Number(process.env.POLYGON_CHAIN_ID) || 80002,
     confirmations: Number(process.env.POLYGON_CONFIRMATIONS) || 3,
   },
 

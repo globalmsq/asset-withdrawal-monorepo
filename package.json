@@ -26,16 +26,17 @@
     "@babel/core": "^7.27.7",
     "@babel/preset-env": "^7.27.2",
     "@babel/preset-typescript": "^7.27.1",
-    "@nx/esbuild": "^21.2.1",
+    "@nx/esbuild": "21.2.2",
     "@nx/eslint": "21.2.1",
     "@nx/eslint-plugin": "21.2.1",
     "@nx/jest": "21.2.1",
-    "@nx/js": "21.2.1",
-    "@nx/node": "^21.2.1",
+    "@nx/js": "21.2.2",
+    "@nx/node": "21.2.2",
     "@nx/workspace": "21.2.1",
     "@swc-node/register": "~1.9.1",
     "@swc/core": "~1.5.7",
     "@swc/helpers": "~0.5.11",
+    "@types/express": "^4.17.21",
     "@types/jest": "^29.5.12",
     "@types/node": "^24.0.8",
     "@typescript-eslint/eslint-plugin": "^7.7.1",
@@ -68,6 +69,7 @@
   "dependencies": {
     "@prisma/client": "^6.11.0",
     "@types/jsonwebtoken": "^9.0.10",
+    "express": "^4.21.2",
     "tslib": "^2.3.0"
   }
 }

@@ -40,8 +40,14 @@ export class TransactionService {
   private prisma: PrismaClient;
   private isDevelopment: boolean;
 
-  constructor(dbService: DatabaseService) {
-    this.prisma = dbService.getClient();
+  constructor(dbService?: DatabaseService) {
+    if (dbService) {
+      this.prisma = dbService.getClient();
+    } else {
+      // Create a default DatabaseService if not provided
+      const defaultDbService = new DatabaseService();
+      this.prisma = defaultDbService.getClient();
+    }
     this.isDevelopment = process.env.NODE_ENV !== 'production';
   }
 
@@ -171,5 +177,16 @@ export class TransactionService {
     return prismaTxs.map((tx: PrismaTransaction) =>
       this.convertToTransaction(tx)
     );
+  }
+
+  async updateStatus(id: string | bigint, status: string): Promise<Transaction> {
+    return this.updateTransaction(id, { status });
+  }
+
+  async updateTransactionHash(
+    id: string | bigint,
+    txHash: string
+  ): Promise<Transaction> {
+    return this.updateTransaction(id, { txHash });
   }
 }

@@ -22,5 +22,6 @@
     "**/.nx": true,
     "**/dist": true,
     "**/coverage": true
-  }
+  },
+  "nxConsole.generateAiAgentRules": true
 }

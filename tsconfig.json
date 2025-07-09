@@ -15,8 +15,8 @@
     "skipDefaultLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@asset-withdrawal/shared": ["packages/shared/src/index.ts"],
-      "@asset-withdrawal/database": ["packages/database/src/index.ts"]
+      "@asset-withdrawal/database": ["packages/database/src/index.ts"],
+      "@asset-withdrawal/shared": ["packages/shared/src/index.ts"]
     },
     "strict": true,
     "esModuleInterop": true,

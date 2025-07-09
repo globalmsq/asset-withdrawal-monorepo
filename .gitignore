@@ -49,6 +49,9 @@ bower_components
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# IDE - Cursor
+.cursor/
+
 # misc
 /.sass-cache
 /connect.lock

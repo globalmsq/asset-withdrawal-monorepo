@@ -1,6 +1,13 @@
 # Blockchain Withdrawal System - Development Plan
 
-## Current Implementation Status (2025-07-08)
+## Development Conditions
+1. **Queue System**: AWS SQS (LocalStack for local development)
+2. **Blockchain Focus**: Polygon network only
+3. **App Naming**: Purpose-specific naming required
+4. **Database**: No migration files until explicitly requested
+5. **Architecture**: Microservices with separate worker apps
+
+## Current Implementation Status (2025-07-09)
 
 ### ✅ Completed Features
 - **Withdrawal API**
@@ -47,46 +54,66 @@
 
 ### Phase 1: Core Withdrawal Processing System
 
-#### 1.1 Queue Worker Implementation (Week 1)
-- [ ] Validation & Signing Worker implementation
-  - [ ] Poll messages from TX Request Queue
-  - [ ] Balance check logic (Redis integration)
-  - [ ] Transaction validation logic
-  - [ ] Move to Invalid DLQ on failure
-- [ ] Transaction Sender Worker implementation
-  - [ ] Poll messages from Signed TX Queue
-  - [ ] Broadcast to blockchain network
-  - [ ] Move to TX DLQ on failure
-- [ ] DLQ Handler implementation
-  - [ ] Error analysis and classification
-  - [ ] Determine retry eligibility
-  - [ ] Alert notification logic
+#### 1.1 Queue Infrastructure Setup
+- [ ] LocalStack Integration
+  - [ ] Create docker-compose.localstack.yaml
+  - [ ] LocalStack initialization scripts
+  - [ ] SQS queue creation (tx-request, signed-tx, dlq queues)
+- [ ] Queue Abstraction Layer
+  - [ ] IQueue interface definition
+  - [ ] LocalStackSQSQueue implementation
+  - [ ] AWSSQSQueue implementation (stub for future)
+  - [ ] Queue factory pattern for environment-based selection
 
-#### 1.2 Blockchain Integration (Week 2)
-- [ ] Web3/Ethers.js library integration
-- [ ] Transaction signing module implementation
-  - [ ] EIP-1559 transaction support
-  - [ ] Legacy transaction support
-- [ ] Multi-network support
-  - [ ] Ethereum Mainnet/Goerli
-  - [ ] BSC Mainnet/Testnet
-  - [ ] Polygon Mainnet/Mumbai
-- [ ] Gas estimation and optimization logic
-- [ ] Nonce management system
-- [ ] Secret Manager integration (private key management)
+#### 1.2 Worker Application Architecture
+- [ ] Create `tx-processor` app
+  - [ ] Base Worker abstract class
+  - [ ] Worker lifecycle management
+  - [ ] Health check endpoints
+- [ ] Validation & Signing Worker
+  - [ ] Poll messages from tx-request queue (SQS)
+  - [ ] Balance validation (mock for now, Redis later)
+  - [ ] Transaction validation for Polygon
+  - [ ] Move to invalid-dlq on failure
+- [ ] Transaction Sender Worker
+  - [ ] Poll messages from signed-tx queue
+  - [ ] Broadcast to Polygon network
+  - [ ] Move to tx-dlq on failure
+- [ ] DLQ Handler
+  - [ ] Error classification system
+  - [ ] Retry eligibility logic
+  - [ ] Alert notification (stub)
 
-#### 1.3 Transaction Tracker (Week 3)
-- [ ] Blockchain status monitoring service
-  - [ ] Query status by transaction hash
-  - [ ] Track confirmation count
-  - [ ] Detect reorganizations
-- [ ] Cron Job implementation
-  - [ ] 5-minute interval status check
-  - [ ] Alert for 30+ minute pending transactions
-  - [ ] Automatic retry for failed transactions
-- [ ] Database status synchronization
-  - [ ] PENDING → CONFIRMED transition
-  - [ ] FAILED status handling
+#### 1.3 Polygon Blockchain Integration
+- [ ] Ethers.js setup for Polygon
+  - [ ] Polygon RPC provider configuration
+  - [ ] Mumbai testnet configuration
+  - [ ] Mainnet configuration (disabled by default)
+- [ ] Transaction signing module
+  - [ ] EIP-1559 support for Polygon
+  - [ ] Polygon-specific gas optimization
+  - [ ] Transaction builder for ERC-20 transfers
+- [ ] Polygon network management
+  - [ ] Gas price oracle integration
+  - [ ] Nonce management with Polygon considerations
+  - [ ] Transaction acceleration support
+- [ ] Key management
+  - [ ] LocalStack Secrets Manager (development)
+  - [ ] AWS Secrets Manager integration (production stub)
+
+#### 1.4 Transaction Monitor Service
+- [ ] Create `tx-monitor` app
+  - [ ] Polygon transaction status tracking
+  - [ ] Confirmation count monitoring
+  - [ ] Chain reorganization detection
+- [ ] Monitoring implementation
+  - [ ] Poll pending transactions every 5 minutes
+  - [ ] Alert for stuck transactions (30+ minutes)
+  - [ ] Automatic retry mechanism
+- [ ] Status synchronization
+  - [ ] Update transaction status in database
+  - [ ] PENDING → CONFIRMED workflow
+  - [ ] FAILED transaction handling
 
 ### Phase 2: Admin System Development
 
@@ -209,36 +236,52 @@
 - [ ] Permission checking logic
 - [ ] Usage tracking
 
-## API Authentication Strategy
+## Architecture Overview
 
-### Development Approach
-1. **Current Development (Phase 1-3)**: No authentication for withdrawal APIs
-   - Focus on core functionality implementation
-   - Faster development and testing cycle
-   - APIs accessible only from internal network/development environment
+### Microservices Structure
+1. **withdrawal-api**: Handles withdrawal requests and status queries
+2. **tx-processor**: Processes and signs transactions
+3. **tx-monitor**: Monitors blockchain transaction status
+4. **admin-api** (Phase 2): Administrative operations and monitoring
 
-2. **Future Implementation (Phase 4)**: Add API key authentication
-   - Implement API key system for system-to-system communication
-   - Gradual migration with optional authentication period
-   - Full authentication enforcement in production
+### Queue Architecture
+- **Development**: LocalStack SQS
+- **Production**: AWS SQS
+- **Queues**:
+  - `tx-request-queue`: New withdrawal requests
+  - `signed-tx-queue`: Signed transactions ready for broadcast
+  - `invalid-dlq`: Invalid/failed validation requests
+  - `tx-dlq`: Failed transaction broadcasts
 
-### Authentication Architecture
-- **User Authentication (JWT) - Already Implemented**
-  - Purpose: Admin Dashboard access and system configuration
-  - Endpoints: /auth/*, /admin/*
-  - Lifetime: 24 hours (configurable)
-  - Used by: System administrators
+### Blockchain Focus
+- **Primary Network**: Polygon (MATIC)
+- **Testnet**: Mumbai
+- **Supported Tokens**: ERC-20 on Polygon
+- **No multi-chain support** in Phase 1
 
-- **API Authentication (API Key) - To Be Implemented**
-  - Purpose: External system access to withdrawal APIs
-  - Endpoints: /withdrawal/*, /webhook/*
-  - Lifetime: Long-lived (revocable)
-  - Used by: External systems calling withdrawal APIs
+## Development Guidelines
 
-### Implementation Timeline
-- **Now**: Continue without authentication on withdrawal APIs
-- **Phase 4**: Design and implement API key system
-- **Before Production**: Make API keys mandatory for all external calls
+### LocalStack Setup
+```bash
+# Start LocalStack with docker-compose
+docker-compose -f docker/docker-compose.yaml up -d
+docker-compose -f docker/docker-compose.localstack.yaml up -d
+
+# Initialize SQS queues
+./docker/scripts/init-localstack.sh
+```
+
+### Environment Configuration
+```env
+# Queue Configuration
+QUEUE_TYPE=localstack  # or 'aws' for production
+AWS_ENDPOINT=http://localhost:4566  # LocalStack endpoint
+AWS_REGION=us-east-1
+
+# Polygon Configuration
+POLYGON_RPC_URL=https://polygon-mumbai.g.alchemy.com/v2/YOUR_KEY
+POLYGON_CHAIN_ID=80001  # Mumbai testnet
+```
 
 ## Risk Management
 

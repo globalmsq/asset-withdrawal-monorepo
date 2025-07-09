@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is a blockchain asset withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests, processes transactions securely, and tracks them on various blockchain networks.
+This is a Polygon-focused blockchain withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests on the Polygon network, processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status.
 
 ## Development Workflow
 
@@ -44,17 +44,24 @@ This is a blockchain asset withdrawal system built with TypeScript, Express, and
 - Validate all user inputs thoroughly
 - Check user permissions before performing sensitive operations
 
-### 3. Testing Requirements
+### 3. Database Guidelines
+
+- **NO MIGRATION GENERATION**: Do not create Prisma migration files
+- Schema changes should be documented in plan.md only
+- Migration files will be created only when explicitly requested
+- Use existing schema for development
+
+### 4. Testing Requirements
 
 - Write tests for all new endpoints using Jest and Supertest
 - Test both success and error cases
-- Mock external dependencies (database, blockchain services)
+- Mock external dependencies (database, blockchain services, SQS)
 - Run tests before marking any task as complete:
   ```bash
   npm test
   ```
 
-### 4. Before Completing Tasks
+### 5. Before Completing Tasks
 
 Always run these commands to ensure code quality:
 
@@ -64,7 +71,7 @@ npm run typecheck   # Check TypeScript types
 npm test           # Run all tests
 ```
 
-### 5. Documentation
+### 6. Documentation
 
 - Update API documentation if you modify endpoints
 - Keep inline comments minimal - code should be self-explanatory
@@ -91,30 +98,102 @@ npm run db:reset    # Reset database (careful!)
 ### Docker
 
 ```bash
-docker-compose up -d     # Start all services
-docker-compose down      # Stop all services
-docker-compose logs -f   # View logs
+# Start core services (MySQL)
+docker-compose -f docker/docker-compose.yaml up -d
+
+# Start LocalStack for SQS
+docker-compose -f docker/docker-compose.localstack.yaml up -d
+
+# Initialize LocalStack queues
+./docker/scripts/init-localstack.sh
+
+# View logs
+docker-compose -f docker/docker-compose.yaml logs -f
 ```
 
 ## Architecture Notes
 
-### Monorepo Structure
+### Microservices Structure
 
-- `/apps/api-server`: Main API application
-- `/packages/database`: Database service layer
-- `/packages/shared`: Shared types and utilities
+- `/apps/withdrawal-api`: Handles withdrawal requests
+- `/apps/tx-processor`: Processes and signs transactions
+- `/apps/tx-monitor`: Monitors transaction status
+- `/packages/database`: Shared database service layer
+- `/packages/shared`: Shared types, utilities, and queue interfaces
+
+### Queue System Architecture
+
+#### Development Environment (LocalStack)
+- Uses LocalStack to emulate AWS SQS
+- Queues created automatically via initialization script
+- Access via `http://localhost:4566`
+
+#### Production Environment (AWS SQS)
+- Direct AWS SQS integration
+- IAM roles for queue access
+- Dead Letter Queues for error handling
+
+#### Queue Interface
+```typescript
+interface IQueue<T> {
+  sendMessage(data: T): Promise<void>;
+  receiveMessages(maxMessages?: number): Promise<Message<T>[]>;
+  deleteMessage(receiptHandle: string): Promise<void>;
+  getQueueUrl(): string;
+}
+```
+
+### Polygon Network Integration
+
+#### Supported Networks
+- **Mumbai Testnet** (Chain ID: 80001) - Development
+- **Polygon Mainnet** (Chain ID: 137) - Production
+
+#### Transaction Types
+- ERC-20 token transfers only
+- EIP-1559 transaction format
+- Gas optimization for Polygon network
+
+### App Naming Convention
+
+Apps should be named based on their primary function:
+- `{action}-{target}`: e.g., `withdrawal-api`, `tx-processor`
+- Avoid generic names like `api-server` or `worker`
+- Each app should have a single, well-defined responsibility
 
 ### Key Technologies
 
 - **Prisma**: ORM for MySQL database
-- **Express**: Web framework
+- **Express**: Web framework  
 - **JWT**: Authentication
+- **Ethers.js**: Polygon blockchain interaction
+- **AWS SDK**: SQS queue management
+- **LocalStack**: Local AWS service emulation
 - **Nx**: Monorepo management
 - **Docker**: Containerization
 
 ### Environment Variables
 
-Check `.env.example` for required environment variables. Never commit `.env` files.
+```bash
+# Queue Configuration
+QUEUE_TYPE=localstack          # 'localstack' or 'aws'
+AWS_ENDPOINT=http://localhost:4566
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=test         # LocalStack default
+AWS_SECRET_ACCESS_KEY=test     # LocalStack default
+
+# Polygon Configuration  
+POLYGON_NETWORK=mumbai         # 'mumbai' or 'mainnet'
+POLYGON_RPC_URL=https://polygon-mumbai.g.alchemy.com/v2/YOUR_KEY
+POLYGON_CHAIN_ID=80001         # 80001 for Mumbai, 137 for Mainnet
+
+# Application Ports
+WITHDRAWAL_API_PORT=3000
+TX_PROCESSOR_PORT=3001
+TX_MONITOR_PORT=3002
+```
+
+Never commit `.env` files.
 
 ## Common Tasks
 

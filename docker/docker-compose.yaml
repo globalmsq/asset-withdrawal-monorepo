@@ -1,3 +1,8 @@
+x-localstack-account: &localstack-account
+  AWS_DEFAULT_REGION: ap-northeast-2
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
 services:
   # MySQL Database
   mysql:
@@ -11,7 +16,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mysql-data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     restart: unless-stopped
     networks:
@@ -23,22 +28,19 @@ services:
       retries: 5
       start_period: 30s
 
-  # LocalStack for AWS services emulation
   localstack:
     image: localstack/localstack:latest
     container_name: withdrawal-localstack
-    environment:
-      - SERVICES=sqs,secretsmanager
-      - DEFAULT_REGION=us-east-1
-      - AWS_DEFAULT_REGION=us-east-1
-      - DOCKER_HOST=unix:///var/run/docker.sock
-      - DATA_DIR=/tmp/localstack/data
     ports:
-      - "4566:4566"
-      - "4510-4559:4510-4559"
+      - 4566:4566
+      - 4510-4559:4510-4559
+    environment:
+      <<: *localstack-account
+      DEBUG: 1
+      SERVICES: sqs,secretsmanager
     volumes:
-      - "${TMPDIR:-/tmp}/localstack:/tmp/localstack"
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
       - ./scripts/init-localstack.sh:/etc/localstack/init/ready.d/init-aws.sh
     networks:
       - withdrawal-network
@@ -66,13 +68,15 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - NODE_ENV=production
-      - PORT=8080
-      - MYSQL_HOST=mysql
-      - MYSQL_PORT=3306
-      - MYSQL_DATABASE=withdrawal_system
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=pass
+      <<: *localstack-account
+      NODE_ENV: production
+      PORT: 8080
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: withdrawal_system
+      MYSQL_USER: root
+      MYSQL_PASSWORD: pass
+      AWS_ENDPOINT: http://localstack:4566
     networks:
       - withdrawal-network
     # volumes:
@@ -91,5 +95,7 @@ networks:
     driver: bridge
 
 volumes:
-  mysql_data:
+  mysql-data:
+    driver: local
+  localstack-data:
     driver: local

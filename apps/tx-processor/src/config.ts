@@ -4,7 +4,6 @@ export const config = {
   
   // Queue configuration
   queue: {
-    type: process.env.QUEUE_TYPE || 'in_memory',
     region: process.env.AWS_REGION || 'us-east-1',
     endpoint: process.env.AWS_ENDPOINT,
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,

@@ -3,7 +3,6 @@ process.env.NODE_ENV = 'test';
 
 // Set default test environment variables
 process.env.PORT = '3001';
-process.env.QUEUE_TYPE = 'localstack';
 process.env.AWS_REGION = 'us-east-1';
 process.env.AWS_ENDPOINT = 'http://localhost:4566';
 process.env.AWS_ACCESS_KEY_ID = 'test';

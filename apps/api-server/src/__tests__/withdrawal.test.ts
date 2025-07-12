@@ -34,18 +34,13 @@ jest.mock('shared', () => ({
     COMPLETED: 'completed',
     FAILED: 'failed',
   },
-  queueManager: {
-    getQueue: jest.fn().mockReturnValue({
-      enqueue: jest.fn().mockResolvedValue('mock-message-id'),
-      dequeue: jest.fn().mockResolvedValue(null),
-      ack: jest.fn().mockResolvedValue(true),
-      nack: jest.fn().mockResolvedValue(false),
-      getQueueSize: jest.fn().mockReturnValue(0),
-      getProcessingSize: jest.fn().mockReturnValue(0),
-      getQueueItems: jest.fn().mockReturnValue([]),
-      getProcessingItems: jest.fn().mockReturnValue([]),
+  QueueFactory: {
+    createFromEnv: jest.fn().mockReturnValue({
+      sendMessage: jest.fn().mockResolvedValue(undefined),
+      receiveMessages: jest.fn().mockResolvedValue([]),
+      deleteMessage: jest.fn().mockResolvedValue(undefined),
+      getQueueUrl: jest.fn().mockResolvedValue('https://sqs.us-east-1.amazonaws.com/123456789012/test-queue'),
     }),
-    getAllQueues: jest.fn().mockReturnValue(new Map()),
   },
 }));
 
@@ -56,6 +51,12 @@ import { TransactionService } from 'database';
 describe('Withdrawal API', () => {
   describe('POST /withdrawal/request', () => {
     it('should create withdrawal request', async () => {
+      const { TransactionService } = require('database');
+      TransactionService.mockImplementation(() => ({
+        createTransaction: jest.fn().mockResolvedValue({ id: 'test-tx-id' }),
+        getTransactionById: jest.fn().mockResolvedValue(null),
+      }));
+
       const withdrawalData = {
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
@@ -109,6 +110,14 @@ describe('Withdrawal API', () => {
   describe('GET /withdrawal/status/:id', () => {
     it('should return transaction status', async () => {
       const { TransactionService } = require('database');
+      const transactionId = 'test-tx-id';
+      
+      // Mock for the POST request first
+      TransactionService.mockImplementation(() => ({
+        createTransaction: jest.fn().mockResolvedValue({ id: transactionId }),
+        getTransactionById: jest.fn().mockResolvedValue(null),
+      }));
+      
       // Create a transaction first
       const withdrawalData = {
         amount: '0.5',
@@ -121,12 +130,13 @@ describe('Withdrawal API', () => {
         .post('/withdrawal/request')
         .send(withdrawalData);
 
-      const transactionId = createResponse.body.data.id;
+      const createdId = createResponse.body.data.id;
 
+      // Now mock for the GET request
       TransactionService.mockImplementation(() => ({
         createTransaction: jest.fn().mockResolvedValue({}),
         getTransactionById: jest.fn().mockResolvedValue({
-          id: transactionId,
+          id: createdId,
           status: 'pending',
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -135,11 +145,11 @@ describe('Withdrawal API', () => {
 
       // Get transaction status
       const response = await request(app)
-        .get(`/withdrawal/status/${transactionId}`)
+        .get(`/withdrawal/status/${createdId}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.id).toBe(transactionId);
+      expect(response.body.data.id).toBe(createdId);
     });
 
     it('should return 404 for non-existent transaction', async () => {
@@ -159,42 +169,30 @@ describe('Withdrawal API', () => {
   });
 
   describe('GET /withdrawal/queue/status', () => {
-    it('should return queue status', async () => {
+    it('should return queue status info', async () => {
       const response = await request(app)
         .get('/withdrawal/queue/status')
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('tx-request');
-      expect(response.body.data['tx-request']).toHaveProperty('size');
-      expect(response.body.data['tx-request']).toHaveProperty('processing');
+      expect(response.body.data).toHaveProperty('message');
+      expect(response.body.data.message).toContain('CloudWatch');
+      expect(response.body.data).toHaveProperty('queueUrl');
+      expect(response.body.data).toHaveProperty('endpoint');
     });
   });
 
   describe('GET /withdrawal/queue/items', () => {
-    it('should return queue items', async () => {
-      // Create a withdrawal request first
-      const withdrawalData = {
-        amount: '0.5',
-        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        tokenAddress: '0x0000000000000000000000000000000000000000',
-        network: 'ethereum',
-      };
-
-      await request(app)
-        .post('/withdrawal/request')
-        .send(withdrawalData);
-
-      // Get queue items
+    it('should return queue items info', async () => {
       const response = await request(app)
         .get('/withdrawal/queue/items')
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('pending');
-      expect(response.body.data).toHaveProperty('processing');
-      expect(Array.isArray(response.body.data.pending)).toBe(true);
-      expect(Array.isArray(response.body.data.processing)).toBe(true);
+      expect(response.body.data).toHaveProperty('message');
+      expect(response.body.data.message).toContain('AWS Console or CLI');
+      expect(response.body.data).toHaveProperty('note');
+      expect(response.body.data.note).toContain('aws sqs receive-message');
     });
   });
 });

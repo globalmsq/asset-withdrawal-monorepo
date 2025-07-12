@@ -1,5 +1,5 @@
 import app from './app';
-import { loadConfig } from './config';
+import { config } from './config';
 import { initializeDatabase } from './services/database';
 
 async function connectWithRetry(dbService: any, maxRetries = 10, delay = 5000) {
@@ -26,10 +26,9 @@ async function connectWithRetry(dbService: any, maxRetries = 10, delay = 5000) {
 }
 
 async function startServer() {
-  const config = loadConfig();
 
   // Initialize database with configuration
-  const dbService = await initializeDatabase(config.database);
+  const dbService = await initializeDatabase(config.mysql);
 
   // Connect to database (skip in development if no database available)
   if (config.nodeEnv === 'production') {
@@ -39,9 +38,9 @@ async function startServer() {
     console.log('Database service initialized with mock configuration');
   }
 
-  const server = app.listen(config.port, config.host, () => {
-    console.log(`API Server running on ${config.host}:${config.port}`);
-    const displayUrl = config.host === '0.0.0.0' ? 'localhost' : config.host;
+  const server = app.listen(config.port, () => {
+    console.log(`API Server running on port ${config.port}`);
+    const displayUrl = 'localhost';
     console.log(
       `API Documentation available at http://${displayUrl}:${config.port}/api-docs`
     );

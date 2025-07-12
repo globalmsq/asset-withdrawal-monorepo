@@ -4,14 +4,29 @@ import {
   WithdrawalResponse,
   TransactionStatus,
   ApiResponse,
-  queueManager,
+  QueueFactory,
+  IQueue,
 } from 'shared';
 import { getDatabase } from '../services/database';
+import { config } from '../config';
 
 const router = Router();
 
 // Initialize queues
-const txRequestQueue = queueManager.getQueue<WithdrawalRequest>('tx-request');
+let txRequestQueue: IQueue<WithdrawalRequest>;
+
+// Initialize queue on startup
+(async () => {
+  txRequestQueue = QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
+  
+  // Initialize queue URL for SQS
+  try {
+    await txRequestQueue.getQueueUrl();
+    console.log('Queue initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize queue:', error);
+  }
+})();
 
 // Helper function to determine currency from token address
 function getCurrencyFromTokenAddress(tokenAddress: string): string {
@@ -149,7 +164,7 @@ router.post(
       });
 
       // Add to queue for processing
-      await txRequestQueue.enqueue(withdrawalRequest);
+      await txRequestQueue.sendMessage(withdrawalRequest);
 
       // Create response
       const withdrawalResponse: WithdrawalResponse = {
@@ -318,24 +333,28 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.get('/queue/status', (_req: Request, res: Response) => {
+router.get('/queue/status', async (_req: Request, res: Response) => {
   try {
-    const queueStatus = {
-      'tx-request': {
-        size: txRequestQueue.getQueueSize(),
-        processing: txRequestQueue.getProcessingSize(),
-      },
-    };
-
+    // Queue status is not available with SQS
+    let queueUrl = 'Not initialized';
+    try {
+      queueUrl = await txRequestQueue.getQueueUrl();
+    } catch (e) {
+      // Queue might not be initialized yet
+    }
+    
     const response: ApiResponse = {
       success: true,
-      data: queueStatus,
+      data: { 
+        message: 'Queue status monitoring is available through AWS CloudWatch',
+        queueUrl: queueUrl,
+        endpoint: config.queue.endpoint || 'AWS SQS'
+      },
       timestamp: new Date(),
     };
-
     res.json(response);
   } catch (error) {
-    console.error('Error getting queue status:', error);
+    console.error('Error in queue status:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Internal server error',
@@ -397,28 +416,16 @@ router.get('/queue/status', (_req: Request, res: Response) => {
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
 router.get('/queue/items', (_req: Request, res: Response) => {
-  try {
-    const queueItems = {
-      pending: txRequestQueue.getQueueItems(),
-      processing: txRequestQueue.getProcessingItems(),
-    };
-
-    const response: ApiResponse = {
-      success: true,
-      data: queueItems,
-      timestamp: new Date(),
-    };
-
-    res.json(response);
-  } catch (error) {
-    console.error('Error getting queue items:', error);
-    const response: ApiResponse = {
-      success: false,
-      error: 'Internal server error',
-      timestamp: new Date(),
-    };
-    res.status(500).json(response);
-  }
+  // Queue items are not directly accessible with SQS
+  const response: ApiResponse = {
+    success: true,
+    data: { 
+      message: 'Queue messages can be viewed through AWS Console or CLI',
+      note: 'Use AWS CLI: aws sqs receive-message --queue-url <url> --max-number-of-messages 10'
+    },
+    timestamp: new Date(),
+  };
+  res.json(response);
 });
 
 export default router;

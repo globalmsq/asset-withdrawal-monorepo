@@ -1,34 +1,13 @@
-import { IQueue, QueueConfig, QueueType } from './interfaces';
-import { LocalStackSQSQueue } from './localstack-sqs-queue';
-import { AWSSQSQueue } from './aws-sqs-queue';
-import { InMemoryQueueAdapter } from './in-memory-queue-adapter';
+import { IQueue, QueueConfig } from './interfaces';
+import { SQSQueue } from './sqs-queue';
 
 export class QueueFactory {
-  static create<T>(type: QueueType, config: QueueConfig): IQueue<T> {
-    switch (type) {
-      case QueueType.LOCALSTACK:
-        return new LocalStackSQSQueue<T>({
-          ...config,
-          endpoint: config.endpoint || 'http://localhost:4566',
-          region: config.region || 'us-east-1',
-          accessKeyId: config.accessKeyId || 'test',
-          secretAccessKey: config.secretAccessKey || 'test',
-        });
-      
-      case QueueType.AWS:
-        return new AWSSQSQueue<T>(config);
-      
-      case QueueType.IN_MEMORY:
-        return new InMemoryQueueAdapter<T>(config.queueName);
-      
-      default:
-        throw new Error(`Unsupported queue type: ${type}`);
-    }
+  static create<T>(config: QueueConfig): IQueue<T> {
+    // Always use SQS, endpoint determines if it's LocalStack or AWS
+    return new SQSQueue<T>(config);
   }
 
   static createFromEnv<T>(queueName: string): IQueue<T> {
-    const queueType = (process.env.QUEUE_TYPE || 'in_memory') as QueueType;
-    
     const config: QueueConfig = {
       queueName,
       region: process.env.AWS_REGION || 'us-east-1',
@@ -37,6 +16,6 @@ export class QueueFactory {
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     };
 
-    return this.create<T>(queueType, config);
+    return this.create<T>(config);
   }
 }

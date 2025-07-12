@@ -1,4 +1,4 @@
-import { QueueFactory, QueueType } from '@asset-withdrawal/shared';
+import { QueueFactory } from '@asset-withdrawal/shared';
 import { Logger } from '../utils/logger';
 import { BaseWorker, WorkerStatus } from '../workers/base-worker';
 import { ValidationSigningWorker } from '../workers/validation-signing-worker';
@@ -24,17 +24,8 @@ export class WorkerManager {
     this.logger.info('Initializing workers...');
 
     // Create queues
-    const queueType = config.queue.type as QueueType;
-    
-    const txRequestQueue = QueueFactory.create<WithdrawalRequest>(queueType, {
-      queueName: 'tx-request-queue',
-      ...config.queue,
-    });
-
-    const signedTxQueue = QueueFactory.create<SignedTransaction>(queueType, {
-      queueName: 'signed-tx-queue',
-      ...config.queue,
-    });
+    const txRequestQueue = QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
+    const signedTxQueue = QueueFactory.createFromEnv<SignedTransaction>('signed-tx-queue');
 
     // Initialize Validation & Signing Worker
     if (config.workers.validationSigning.enabled) {

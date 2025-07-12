@@ -7,7 +7,7 @@
 4. **Database**: No migration files until explicitly requested
 5. **Architecture**: Microservices with separate worker apps
 
-## Current Implementation Status (2025-07-10)
+## Current Implementation Status (2025-07-11)
 
 ### ✅ Completed Features
 - **Withdrawal API** (api-server app)
@@ -16,14 +16,16 @@
   - POST /withdrawal/request - Submit withdrawal request
   - GET /withdrawal/status/:id - Check withdrawal status
   - GET /withdrawal/history - Get user's withdrawal history
-  - GET /withdrawal/queue/status - Check queue status (debug)
+  - GET /withdrawal/queue/status - Check queue status (returns CloudWatch info for SQS)
+  - GET /withdrawal/queue/items - Queue items info (AWS CLI guidance)
   - Swagger API documentation (/api-docs)
 - **Queue System**
   - LocalStack SQS integration (LocalStackSQSQueue class)
   - AWS SQS stub for production
   - In-memory Queue for testing
-  - Queue factory pattern (QueueFactory)
+  - Queue factory pattern (QueueFactory) with environment-based selection
   - Multiple queue support (tx-request, signed-tx, DLQs)
+  - Async queue initialization with proper error handling
 - **Transaction Processing** (tx-processor app)
   - Validation & Signing Worker
   - Transaction Sender Worker
@@ -59,6 +61,9 @@
   - Docker Compose setup (MySQL + LocalStack)
   - Comprehensive Jest test environment
   - TypeScript strict mode
+  - Environment-based configuration with dotenv
+  - Docker Compose with shared environment variables (x-anchors)
+  - Region configuration (ap-northeast-2)
 
 ### ❌ Not Implemented
 - DLQ Handler for error recovery
@@ -300,11 +305,18 @@ docker-compose -f docker/docker-compose.localstack.yaml up -d
 # Queue Configuration
 QUEUE_TYPE=localstack  # or 'aws' for production
 AWS_ENDPOINT=http://localhost:4566  # LocalStack endpoint
-AWS_REGION=us-east-1
+AWS_REGION=ap-northeast-2  # Updated from us-east-1
+AWS_ACCESS_KEY_ID=test  # LocalStack default
+AWS_SECRET_ACCESS_KEY=test  # LocalStack default
 
 # Polygon Configuration
 POLYGON_RPC_URL=https://rpc-amoy.polygon.technology
 POLYGON_CHAIN_ID=80002  # Amoy testnet
+
+# Application Ports
+WITHDRAWAL_API_PORT=3000
+TX_PROCESSOR_PORT=3001
+TX_MONITOR_PORT=3002
 ```
 
 ## Risk Management
@@ -347,25 +359,42 @@ POLYGON_CHAIN_ID=80002  # Amoy testnet
 
 This plan is based on the architecture defined in introduce.md and reflects the current implementation status with phased progression. Each phase is independently testable and designed for gradual transition to production environment.
 
-## Implementation Review (2025-07-10)
+## Implementation Review (2025-07-11)
 
-### Summary of Changes
-- Updated current implementation status to reflect completed features
-- Phase 1 core withdrawal processing system is now complete (M1 milestone achieved)
+### Summary of Recent Changes
+- **Configuration Refactoring**: Simplified api-server configuration by removing complex validation and using a direct config object with dotenv
+- **Queue Integration Enhancement**: Updated withdrawal routes to use QueueFactory pattern with async initialization
+- **AWS Region Update**: Changed from us-east-1 to ap-northeast-2 for all AWS services
+- **Docker Compose Improvements**: Added x-anchors for shared environment variables and better volume management
+- **LocalStack Enhancement**: Updated initialization script with region support
+
+### Key Technical Improvements
+1. **Simplified Configuration Management**
+   - Removed complex AppConfig interface and validation functions
+   - Direct config object with environment variable loading via dotenv
+   - Added queue configuration support (type, region, endpoint, credentials)
+
+2. **Queue System Updates**
+   - Async queue initialization in withdrawal routes
+   - Proper error handling for queue initialization failures
+   - Updated queue status endpoints to reflect SQS limitations
+   - Clear guidance for monitoring queues via AWS CloudWatch and CLI
+
+3. **Infrastructure Enhancements**
+   - Docker Compose uses YAML anchors for shared LocalStack credentials
+   - Improved volume naming (mysql-data, localstack-data)
+   - Better environment variable management in docker-compose
+   - LocalStack script supports configurable AWS region
+
+### Current State (2025-07-11)
+- Phase 1 core withdrawal processing system is complete (M1 milestone achieved)
 - All three microservices (api-server, tx-processor, tx-monitor) are fully implemented
-- Queue system with LocalStack SQS integration is operational
+- Queue system with LocalStack SQS integration is operational with improved configuration
 - Polygon blockchain integration with Amoy testnet is functional
-- Comprehensive test coverage across all services
-
-### Key Achievements
-1. **Complete microservices architecture** with proper separation of concerns
-2. **Full queue-based workflow** from withdrawal request to transaction completion
-3. **Polygon-specific optimizations** including EIP-1559 support and gas management
-4. **Robust error handling** with DLQ support for failed transactions
-5. **Comprehensive testing** with mocked dependencies
+- Infrastructure is better prepared for production deployment
 
 ### Next Steps
 - Phase 2: Admin API development for transaction management
 - DLQ handler implementation for automatic error recovery
-- Production AWS infrastructure preparation
-- Performance optimization and security hardening
+- Production AWS infrastructure preparation with ap-northeast-2 region
+- Complete AWS SQS production implementation in QueueFactory

@@ -26,7 +26,7 @@ export interface IQueue<T> {
   sendMessage(data: T, options?: SendMessageOptions): Promise<string>;
   receiveMessages(options?: ReceiveMessageOptions): Promise<Message<T>[]>;
   deleteMessage(receiptHandle: string): Promise<void>;
-  getQueueUrl(): string;
+  getQueueUrl(): Promise<string>;
   getQueueName(): string;
 }
 
@@ -36,10 +36,4 @@ export interface QueueConfig {
   endpoint?: string;
   accessKeyId?: string;
   secretAccessKey?: string;
-}
-
-export enum QueueType {
-  LOCALSTACK = 'localstack',
-  AWS = 'aws',
-  IN_MEMORY = 'in_memory'
 }

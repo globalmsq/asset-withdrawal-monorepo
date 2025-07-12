@@ -7,21 +7,35 @@ import {
 } from '@aws-sdk/client-sqs';
 import { IQueue, Message, SendMessageOptions, ReceiveMessageOptions, QueueConfig } from './interfaces';
 
-export class LocalStackSQSQueue<T> implements IQueue<T> {
+export class SQSQueue<T> implements IQueue<T> {
   private client: SQSClient;
   private queueUrl?: string;
   private queueName: string;
 
   constructor(private config: QueueConfig) {
     this.queueName = config.queueName;
-    this.client = new SQSClient({
+    
+    const clientConfig: any = {
       region: config.region || 'us-east-1',
-      endpoint: config.endpoint || 'http://localhost:4566',
-      credentials: {
+    };
+
+    // If endpoint is provided, we're using LocalStack
+    if (config.endpoint) {
+      clientConfig.endpoint = config.endpoint;
+      clientConfig.credentials = {
         accessKeyId: config.accessKeyId || 'test',
         secretAccessKey: config.secretAccessKey || 'test',
-      },
-    });
+      };
+    } else if (config.accessKeyId && config.secretAccessKey) {
+      // For AWS, only set credentials if explicitly provided
+      clientConfig.credentials = {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+      };
+    }
+    // Otherwise, AWS SDK will use default credential chain (IAM roles, etc.)
+
+    this.client = new SQSClient(clientConfig);
   }
 
   async sendMessage(data: T, options?: SendMessageOptions): Promise<string> {
@@ -78,11 +92,8 @@ export class LocalStackSQSQueue<T> implements IQueue<T> {
     await this.client.send(command);
   }
 
-  getQueueUrl(): string {
-    if (!this.queueUrl) {
-      throw new Error('Queue URL not initialized. Call getOrCreateQueueUrl first.');
-    }
-    return this.queueUrl;
+  async getQueueUrl(): Promise<string> {
+    return await this.getOrCreateQueueUrl();
   }
 
   getQueueName(): string {
@@ -103,7 +114,11 @@ export class LocalStackSQSQueue<T> implements IQueue<T> {
       return this.queueUrl;
     } catch (error: any) {
       if (error.name === 'QueueDoesNotExist') {
-        throw new Error(`Queue ${this.queueName} does not exist. Please run init-localstack.sh`);
+        if (this.config.endpoint) {
+          throw new Error(`Queue ${this.queueName} does not exist. Please run init-localstack.sh`);
+        } else {
+          throw new Error(`Queue ${this.queueName} does not exist in AWS SQS.`);
+        }
       }
       throw error;
     }

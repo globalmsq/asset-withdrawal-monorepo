@@ -28,15 +28,15 @@ describe('Types', () => {
   describe('WithdrawalRequest interface', () => {
     it('should match expected structure', () => {
       const mockRequest: WithdrawalRequest = {
-        id: 'test-id',
+        id: 'tx-1234567890-abc123def',
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
-        network: 'ethereum',
+        network: 'polygon',
         createdAt: new Date(),
       };
 
-      expect(mockRequest.id).toBe('test-id');
+      expect(mockRequest.id).toBe('tx-1234567890-abc123def');
       expect(mockRequest.amount).toBe('0.5');
       expect(mockRequest.toAddress).toBe(
         '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd'
@@ -44,8 +44,21 @@ describe('Types', () => {
       expect(mockRequest.tokenAddress).toBe(
         '0x0000000000000000000000000000000000000000'
       );
-      expect(mockRequest.network).toBe('ethereum');
+      expect(mockRequest.network).toBe('polygon');
       expect(mockRequest.createdAt).toBeInstanceOf(Date);
+    });
+
+    it('should work without optional createdAt field', () => {
+      const mockRequest: WithdrawalRequest = {
+        id: 'tx-1234567890-abc123def',
+        amount: '0.5',
+        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        tokenAddress: '0x0000000000000000000000000000000000000000',
+        network: 'polygon',
+      };
+
+      expect(mockRequest.id).toBe('tx-1234567890-abc123def');
+      expect(mockRequest.createdAt).toBeUndefined();
     });
   });
 
@@ -114,7 +127,7 @@ describe('Types', () => {
         amount: '1.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
-        network: 'ethereum',
+        network: 'polygon',
         status: TransactionStatus.PENDING,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -133,7 +146,7 @@ describe('Types', () => {
         amount: '1.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
-        network: 'ethereum',
+        network: 'polygon',
         status: TransactionStatus.FAILED,
         transactionHash: '0x456def',
         error: 'Transaction failed',

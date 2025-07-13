@@ -4,8 +4,9 @@ import {
   ReceiveMessageCommand,
   DeleteMessageCommand,
   GetQueueUrlCommand,
+  GetQueueAttributesCommand,
 } from '@aws-sdk/client-sqs';
-import { IQueue, Message, SendMessageOptions, ReceiveMessageOptions, QueueConfig } from './interfaces';
+import { IQueue, Message, SendMessageOptions, ReceiveMessageOptions, QueueConfig, QueueAttributes } from './interfaces';
 
 export class SQSQueue<T> implements IQueue<T> {
   private client: SQSClient;
@@ -98,6 +99,38 @@ export class SQSQueue<T> implements IQueue<T> {
 
   getQueueName(): string {
     return this.queueName;
+  }
+
+  async getQueueAttributes(): Promise<QueueAttributes> {
+    const queueUrl = await this.getOrCreateQueueUrl();
+    
+    try {
+      const command = new GetQueueAttributesCommand({
+        QueueUrl: queueUrl,
+        AttributeNames: [
+          'ApproximateNumberOfMessages',
+          'ApproximateNumberOfMessagesNotVisible',
+          'ApproximateNumberOfMessagesDelayed'
+        ]
+      });
+      
+      const response = await this.client.send(command);
+      const attributes = response.Attributes || {};
+      
+      return {
+        approximateNumberOfMessages: parseInt(attributes.ApproximateNumberOfMessages || '0', 10),
+        approximateNumberOfMessagesNotVisible: parseInt(attributes.ApproximateNumberOfMessagesNotVisible || '0', 10),
+        approximateNumberOfMessagesDelayed: parseInt(attributes.ApproximateNumberOfMessagesDelayed || '0', 10)
+      };
+    } catch (error) {
+      console.error('Error getting queue attributes:', error);
+      // Return zeros if there's an error
+      return {
+        approximateNumberOfMessages: 0,
+        approximateNumberOfMessagesNotVisible: 0,
+        approximateNumberOfMessagesDelayed: 0
+      };
+    }
   }
 
   private async getOrCreateQueueUrl(): Promise<string> {

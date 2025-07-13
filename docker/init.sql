@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 -- Create transactions table (fully matches Prisma schema)
 CREATE TABLE IF NOT EXISTS `transactions` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `requestId` VARCHAR(50) NULL,
     `amount` DECIMAL(18, 8) NOT NULL,
     `currency` VARCHAR(10) NOT NULL,
     `tokenAddress` VARCHAR(42) NULL,
@@ -35,6 +36,27 @@ CREATE TABLE IF NOT EXISTS `transactions` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
+    INDEX `transactions_requestId_idx`(`requestId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Create withdrawal_requests table (fully matches Prisma schema)
+CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `requestId` VARCHAR(50) NOT NULL,
+    `amount` VARCHAR(50) NOT NULL,
+    `currency` VARCHAR(10) NOT NULL,
+    `toAddress` VARCHAR(42) NOT NULL,
+    `tokenAddress` VARCHAR(42) NOT NULL,
+    `network` VARCHAR(20) NOT NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    `errorMessage` TEXT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `withdrawal_requests_requestId_key`(`requestId`),
+    INDEX `withdrawal_requests_status_idx`(`status`),
+    INDEX `withdrawal_requests_requestId_idx`(`requestId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

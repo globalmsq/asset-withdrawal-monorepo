@@ -10,24 +10,6 @@ datasource db {
   url      = "mysql://root:pass@localhost:3306/withdrawal_system"
 }
 
-model Transaction {
-  id            BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
-  amount        Decimal  @db.Decimal(18, 8)
-  currency      String   @db.VarChar(10)
-  tokenAddress  String?  @db.VarChar(42) // Ethereum address
-  toAddress     String?  @db.VarChar(42) // Recipient address
-  network       String?  @db.VarChar(20) // ethereum, polygon, etc.
-  status        String   @db.VarChar(20) // pending, completed, failed
-  txHash        String?  @db.VarChar(66)
-  blockNumber   Int?
-  confirmations Int      @default(0)
-  fee           Decimal? @db.Decimal(18, 8)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@map("transactions")
-}
-
 model User {
   id           BigInt        @id @default(autoincrement()) @db.UnsignedBigInt
   email        String        @unique @db.VarChar(255)
@@ -38,4 +20,42 @@ model User {
   updatedAt    DateTime      @updatedAt
 
   @@map("users")
+}
+
+model WithdrawalRequest {
+  id            BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  requestId     String       @unique @db.VarChar(50) // tx-timestamp-random format
+  amount        String       @db.VarChar(50)
+  currency      String       @db.VarChar(10)
+  toAddress     String       @db.VarChar(42)
+  tokenAddress  String       @db.VarChar(42)
+  network       String       @db.VarChar(20)
+  status        String       @default("PENDING") @db.VarChar(20) // PENDING, VALIDATING, SIGNING, BROADCASTING, COMPLETED, FAILED
+  errorMessage  String?      @db.Text
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@index([status])
+  @@index([requestId])
+  @@map("withdrawal_requests")
+}
+
+model Transaction {
+  id                 BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  requestId          String?             @db.VarChar(50) // Link to withdrawal request
+  amount             Decimal             @db.Decimal(18, 8)
+  currency           String              @db.VarChar(10)
+  tokenAddress       String?             @db.VarChar(42) // Ethereum address
+  toAddress          String?             @db.VarChar(42) // Recipient address
+  network            String?             @db.VarChar(20) // ethereum, polygon, etc.
+  status             String              @db.VarChar(20) // pending, completed, failed
+  txHash             String?             @db.VarChar(66)
+  blockNumber        Int?
+  confirmations      Int                 @default(0)
+  fee                Decimal?            @db.Decimal(18, 8)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([requestId])
+  @@map("transactions")
 }

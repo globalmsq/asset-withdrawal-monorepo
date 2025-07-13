@@ -6,10 +6,10 @@ const getApiPaths = () => {
   const isDevelopment = process.env.NODE_ENV === 'development';
 
   if (isProduction) {
-    // 프로덕션 환경에서는 빌드된 JS 파일들을 참조 (Docker 컨테이너 내부 경로)
+    // 프로덕션 환경에서도 TypeScript 파일들을 참조 (Docker에서 ts-node 사용)
     return [
-      '/app/apps/api-server/dist/apps/api-server/src/routes/*.js',
-      '/app/apps/api-server/dist/apps/api-server/src/app.js',
+      '/app/apps/api-server/src/routes/*.ts',
+      '/app/apps/api-server/src/app.ts',
     ];
   } else if (isDevelopment) {
     // 개발 환경에서는 TypeScript 파일들을 참조

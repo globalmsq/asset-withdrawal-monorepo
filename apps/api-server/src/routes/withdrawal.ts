@@ -116,8 +116,6 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { amount, toAddress, tokenAddress, network } = req.body;
-      const { TransactionService } = await import('database');
-      const transactionService = new TransactionService(getDatabase());
 
       // Basic validation
       if (!amount || !toAddress || !tokenAddress || !network) {
@@ -140,38 +138,70 @@ router.post(
         return res.status(400).json(response);
       }
 
-      // Generate unique transaction ID
-      const transactionId = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      // Validate network (only polygon supported)
+      if (network !== 'polygon') {
+        const response: ApiResponse = {
+          success: false,
+          error: 'Only polygon network is supported',
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
 
-      // Create withdrawal request
+      // Generate unique request ID
+      const requestId = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+      
+      // Get database and save withdrawal request
+      const dbService = getDatabase();
+      let db;
+      if ('getClient' in dbService && typeof dbService.getClient === 'function') {
+        db = dbService.getClient();
+      } else {
+        db = dbService;
+      }
+
+      // Create withdrawal request in database
+      console.log('Creating withdrawal request with ID:', requestId);
+      console.log('Database client type:', typeof db, 'has withdrawalRequest:', 'withdrawalRequest' in db);
+      
+      let savedRequest;
+      try {
+        savedRequest = await db.withdrawalRequest.create({
+          data: {
+            requestId: requestId,
+            amount: amount,
+            currency: getCurrencyFromTokenAddress(tokenAddress),
+            toAddress: toAddress,
+            tokenAddress: tokenAddress,
+            network: network,
+            status: 'PENDING'
+          }
+        });
+        console.log('Withdrawal request saved with ID:', savedRequest.id, 'requestId:', savedRequest.requestId);
+      } catch (dbError: any) {
+        console.error('Database error:', dbError);
+        throw dbError;
+      }
+
+      // Prepare message for SQS
       const withdrawalRequest: WithdrawalRequest = {
-        id: transactionId,
-        amount,
-        toAddress,
-        tokenAddress,
-        network,
-        createdAt: new Date(),
+        id: requestId,
+        amount: amount,
+        toAddress: toAddress,
+        tokenAddress: tokenAddress,
+        network: network,
+        createdAt: savedRequest.createdAt,
       };
-
-      // Save to database using Prisma
-      await transactionService.createTransaction({
-        amount: parseFloat(amount),
-        currency: getCurrencyFromTokenAddress(tokenAddress),
-        tokenAddress,
-        toAddress,
-        network,
-        status: TransactionStatus.PENDING,
-      });
 
       // Add to queue for processing
       await txRequestQueue.sendMessage(withdrawalRequest);
 
       // Create response
       const withdrawalResponse: WithdrawalResponse = {
-        id: transactionId,
+        id: requestId,
         status: TransactionStatus.PENDING,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: savedRequest.createdAt,
+        updatedAt: savedRequest.updatedAt,
       };
 
       const response: ApiResponse<WithdrawalResponse> = {
@@ -250,8 +280,6 @@ router.get(
   async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { TransactionService } = await import('database');
-      const transactionService = new TransactionService(getDatabase());
 
       if (!id) {
         const response: ApiResponse = {
@@ -262,26 +290,49 @@ router.get(
         return res.status(400).json(response);
       }
 
-      // Find transaction in database using Prisma
-      const transaction = await transactionService.getTransactionById(id);
+      // Get database instance and find withdrawal request
+      const dbService = getDatabase();
+      console.log('dbService type:', typeof dbService, 'has getClient:', 'getClient' in dbService);
+      
+      let db;
+      if ('getClient' in dbService && typeof dbService.getClient === 'function') {
+        db = dbService.getClient();
+      } else {
+        // dbService might already be the Prisma client
+        db = dbService;
+      }
+      
+      console.log('Searching for withdrawal request with requestId:', id);
+      
+      const withdrawalRequest = await db.withdrawalRequest.findUnique({
+        where: { requestId: id }
+      });
 
-      if (!transaction) {
+      if (!withdrawalRequest) {
         const response: ApiResponse = {
           success: false,
-          error: 'Transaction not found',
+          error: 'Withdrawal request not found',
           timestamp: new Date(),
         };
         return res.status(404).json(response);
       }
 
+      // Check if there's a related transaction
+      let transaction = null;
+      if (withdrawalRequest.status === 'COMPLETED' || withdrawalRequest.status === 'BROADCASTING') {
+        transaction = await db.transaction.findFirst({
+          where: { requestId: id }
+        });
+      }
+
       // Create response
       const withdrawalResponse: WithdrawalResponse = {
-        id: transaction.id,
-        status: transaction.status as TransactionStatus,
-        transactionHash: transaction.txHash || undefined,
-        error: undefined, // Error field needs to be added separately
-        createdAt: transaction.createdAt,
-        updatedAt: transaction.updatedAt,
+        id: withdrawalRequest.requestId,
+        status: withdrawalRequest.status as TransactionStatus,
+        transactionHash: transaction?.txHash || undefined,
+        error: withdrawalRequest.errorMessage || undefined,
+        createdAt: withdrawalRequest.createdAt,
+        updatedAt: withdrawalRequest.updatedAt,
       };
 
       const response: ApiResponse<WithdrawalResponse> = {
@@ -291,11 +342,17 @@ router.get(
       };
 
       res.json(response);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error getting withdrawal status:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        id: req.params.id
+      });
       const response: ApiResponse = {
         success: false,
-        error: 'Internal server error',
+        error: error.message || 'Internal server error',
         timestamp: new Date(),
       };
       res.status(500).json(response);
@@ -335,21 +392,61 @@ router.get(
  */
 router.get('/queue/status', async (_req: Request, res: Response) => {
   try {
-    // Queue status is not available with SQS
-    let queueUrl = 'Not initialized';
+    // Initialize response data
+    const queueStatus = {
+      'tx-request': {
+        size: 0,
+        processing: 0
+      }
+    };
+    
     try {
-      queueUrl = await txRequestQueue.getQueueUrl();
-    } catch (e) {
-      // Queue might not be initialized yet
+      if (!txRequestQueue) {
+        throw new Error('Queue not initialized');
+      }
+      
+      // Get queue attributes for accurate message count
+      if (txRequestQueue.getQueueAttributes) {
+        const attributes = await txRequestQueue.getQueueAttributes();
+        queueStatus['tx-request'].size = attributes.approximateNumberOfMessages || 0;
+        // Note: approximateNumberOfMessagesNotVisible includes messages being processed
+      } else {
+        // Fallback if getQueueAttributes is not implemented
+        console.warn('getQueueAttributes not implemented, using fallback method');
+        const messages = await txRequestQueue.receiveMessages({
+          maxMessages: 10,
+          waitTimeSeconds: 0,
+          visibilityTimeout: 0
+        });
+        queueStatus['tx-request'].size = messages.length;
+      }
+      
+      // Get database stats for processing count
+      const dbService = getDatabase();
+      let db;
+      if ('getClient' in dbService && typeof dbService.getClient === 'function') {
+        db = dbService.getClient();
+      } else {
+        db = dbService;
+      }
+      const processingCount = await db.withdrawalRequest.count({
+        where: {
+          status: {
+            in: ['VALIDATING', 'SIGNING', 'BROADCASTING']
+          }
+        }
+      });
+      
+      queueStatus['tx-request'].processing = processingCount;
+      
+    } catch (e: any) {
+      console.error('Error getting queue status:', e);
+      // Return zeros if there's an error
     }
     
     const response: ApiResponse = {
       success: true,
-      data: { 
-        message: 'Queue status monitoring is available through AWS CloudWatch',
-        queueUrl: queueUrl,
-        endpoint: config.queue.endpoint || 'AWS SQS'
-      },
+      data: queueStatus,
       timestamp: new Date(),
     };
     res.json(response);
@@ -415,17 +512,61 @@ router.get('/queue/status', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.get('/queue/items', (_req: Request, res: Response) => {
-  // Queue items are not directly accessible with SQS
-  const response: ApiResponse = {
-    success: true,
-    data: { 
-      message: 'Queue messages can be viewed through AWS Console or CLI',
-      note: 'Use AWS CLI: aws sqs receive-message --queue-url <url> --max-number-of-messages 10'
-    },
-    timestamp: new Date(),
-  };
-  res.json(response);
+router.get('/queue/items', async (_req: Request, res: Response) => {
+  try {
+    let messages: any[] = [];
+    let error = null;
+    let queueUrl = 'Not initialized';
+    
+    try {
+      if (!txRequestQueue) {
+        throw new Error('Queue not initialized');
+      }
+      
+      // Get queue URL first
+      queueUrl = await txRequestQueue.getQueueUrl();
+      
+      // Receive messages without deleting them
+      // Setting visibilityTimeout to 0 makes messages immediately visible again
+      const receivedMessages = await txRequestQueue.receiveMessages({
+        maxMessages: 10,
+        waitTimeSeconds: 0, // Don't wait for messages
+        visibilityTimeout: 0 // Make messages immediately visible again
+      });
+      
+      messages = receivedMessages.map(msg => ({
+        id: msg.id,
+        body: msg.body,
+        attributes: msg.attributes || {},
+        receiptHandle: msg.receiptHandle.substring(0, 20) + '...' // Truncate for security
+      }));
+      
+    } catch (e: any) {
+      error = e.message || 'Failed to retrieve queue messages';
+      console.error('Error retrieving queue messages:', e);
+    }
+    
+    const response: ApiResponse = {
+      success: true,
+      data: {
+        queueUrl: queueUrl,
+        messageCount: messages.length,
+        messages: messages,
+        error: error,
+        note: error ? 'Failed to retrieve messages' : 'Messages retrieved (not deleted from queue)'
+      },
+      timestamp: new Date(),
+    };
+    res.json(response);
+  } catch (error) {
+    console.error('Error in queue items:', error);
+    const response: ApiResponse = {
+      success: false,
+      error: 'Internal server error',
+      timestamp: new Date(),
+    };
+    res.status(500).json(response);
+  }
 });
 
 export default router;

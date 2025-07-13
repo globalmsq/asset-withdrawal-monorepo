@@ -77,6 +77,7 @@ services:
       MYSQL_USER: root
       MYSQL_PASSWORD: pass
       AWS_ENDPOINT: http://localstack:4566
+      AWS_REGION: ap-northeast-2
     networks:
       - withdrawal-network
     # volumes:

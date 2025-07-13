@@ -9,7 +9,38 @@ jest.mock('database', () => ({
     findMany: jest.fn(),
   })),
   DatabaseService: jest.fn().mockImplementation(() => ({
-    getClient: jest.fn(),
+    getClient: jest.fn().mockReturnValue({
+      withdrawalRequest: {
+        create: jest.fn().mockResolvedValue({
+          id: 1,
+          requestId: 'tx-1234567890-abc123def',
+          amount: '0.5',
+          currency: 'ETH',
+          toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+          tokenAddress: '0x0000000000000000000000000000000000000000',
+          network: 'polygon',
+          status: 'PENDING',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+        findUnique: jest.fn().mockResolvedValue({
+          id: 1,
+          requestId: 'tx-1234567890-abc123def',
+          amount: '0.5',
+          currency: 'ETH',
+          toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+          tokenAddress: '0x0000000000000000000000000000000000000000',
+          network: 'polygon',
+          status: 'PENDING',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+        count: jest.fn().mockResolvedValue(2),
+      },
+      transaction: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    }),
     connect: jest.fn(),
     disconnect: jest.fn(),
     healthCheck: jest.fn().mockResolvedValue(true),
@@ -46,22 +77,26 @@ jest.mock('shared', () => ({
 
 import request from 'supertest';
 import app from '../app';
-import { TransactionService } from 'database';
+import { DatabaseService } from 'database';
+
+// Mock the database service getter
+jest.mock('../services/database', () => ({
+  getDatabase: jest.fn(() => require('database').DatabaseService.mock.instances[0]),
+  initializeDatabase: jest.fn(),
+}));
 
 describe('Withdrawal API', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('POST /withdrawal/request', () => {
     it('should create withdrawal request', async () => {
-      const { TransactionService } = require('database');
-      TransactionService.mockImplementation(() => ({
-        createTransaction: jest.fn().mockResolvedValue({ id: 'test-tx-id' }),
-        getTransactionById: jest.fn().mockResolvedValue(null),
-      }));
-
       const withdrawalData = {
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
-        network: 'ethereum',
+        network: 'polygon',
       };
 
       const response = await request(app)
@@ -71,7 +106,7 @@ describe('Withdrawal API', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.id).toBeDefined();
-      expect(response.body.data.status).toBe('pending');
+      expect(response.body.data.status).toBe('PENDING');
     });
 
     it('should return 400 for missing fields', async () => {
@@ -94,7 +129,7 @@ describe('Withdrawal API', () => {
         amount: 'invalid',
         toAddress: '0x742D35Cc6634C0532925a3b8D45a0E5e7F3d1234',
         tokenAddress: '0xA0b86991c431e60e50074006c5a5B4234e5f50D',
-        network: 'ethereum',
+        network: 'polygon',
       };
 
       const response = await request(app)
@@ -105,94 +140,95 @@ describe('Withdrawal API', () => {
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBe('Invalid amount');
     });
-  });
 
-  describe('GET /withdrawal/status/:id', () => {
-    it('should return transaction status', async () => {
-      const { TransactionService } = require('database');
-      const transactionId = 'test-tx-id';
-      
-      // Mock for the POST request first
-      TransactionService.mockImplementation(() => ({
-        createTransaction: jest.fn().mockResolvedValue({ id: transactionId }),
-        getTransactionById: jest.fn().mockResolvedValue(null),
-      }));
-      
-      // Create a transaction first
-      const withdrawalData = {
+    it('should return 400 for unsupported network', async () => {
+      const invalidData = {
         amount: '0.5',
-        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        toAddress: '0x742D35Cc6634C0532925a3b8D45a0E5e7F3d1234',
         tokenAddress: '0x0000000000000000000000000000000000000000',
         network: 'ethereum',
       };
 
-      const createResponse = await request(app)
-        .post('/withdrawal/request')
-        .send(withdrawalData);
-
-      const createdId = createResponse.body.data.id;
-
-      // Now mock for the GET request
-      TransactionService.mockImplementation(() => ({
-        createTransaction: jest.fn().mockResolvedValue({}),
-        getTransactionById: jest.fn().mockResolvedValue({
-          id: createdId,
-          status: 'pending',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }),
-      }));
-
-      // Get transaction status
       const response = await request(app)
-        .get(`/withdrawal/status/${createdId}`)
+        .post('/withdrawal/request')
+        .send(invalidData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Only polygon network is supported');
+    });
+  });
+
+  describe('GET /withdrawal/status/:id', () => {
+    it('should return withdrawal request status', async () => {
+      const requestId = 'tx-1234567890-abc123def';
+
+      const response = await request(app)
+        .get(`/withdrawal/status/${requestId}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.id).toBe(createdId);
+      expect(response.body.data.id).toBe(requestId);
+      expect(response.body.data.status).toBe('PENDING');
     });
 
-    it('should return 404 for non-existent transaction', async () => {
-      const { TransactionService } = require('database');
-      TransactionService.mockImplementation(() => ({
-        createTransaction: jest.fn().mockResolvedValue({}),
-        getTransactionById: jest.fn().mockResolvedValue(null),
-      }));
+    it('should return 404 for non-existent withdrawal request', async () => {
+      const { DatabaseService } = require('database');
+      const mockClient = DatabaseService.mock.instances[0].getClient();
+      mockClient.withdrawalRequest.findUnique.mockResolvedValueOnce(null);
 
       const response = await request(app)
         .get('/withdrawal/status/non-existent-id')
         .expect(404);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Transaction not found');
+      expect(response.body.error).toBe('Withdrawal request not found');
     });
   });
 
   describe('GET /withdrawal/queue/status', () => {
-    it('should return queue status info', async () => {
+    it('should return queue status with tx-request counts', async () => {
       const response = await request(app)
         .get('/withdrawal/queue/status')
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('message');
-      expect(response.body.data.message).toContain('CloudWatch');
-      expect(response.body.data).toHaveProperty('queueUrl');
-      expect(response.body.data).toHaveProperty('endpoint');
+      expect(response.body.data).toHaveProperty('tx-request');
+      expect(response.body.data['tx-request']).toHaveProperty('size');
+      expect(response.body.data['tx-request']).toHaveProperty('processing');
+      expect(response.body.data['tx-request'].processing).toBe(2); // Mocked count value
     });
   });
 
   describe('GET /withdrawal/queue/items', () => {
-    it('should return queue items info', async () => {
+    it('should return queue items', async () => {
+      const { QueueFactory } = require('shared');
+      const mockQueue = QueueFactory.createFromEnv();
+      mockQueue.receiveMessages.mockResolvedValueOnce([
+        {
+          id: 'msg-1',
+          body: {
+            id: 'tx-1234567890-abc123def',
+            amount: '0.5',
+            toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            tokenAddress: '0x0000000000000000000000000000000000000000',
+            network: 'polygon',
+          },
+          receiptHandle: 'receipt-handle-123456789012345678901234567890',
+          attributes: {},
+        },
+      ]);
+
       const response = await request(app)
         .get('/withdrawal/queue/items')
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('message');
-      expect(response.body.data.message).toContain('AWS Console or CLI');
-      expect(response.body.data).toHaveProperty('note');
-      expect(response.body.data.note).toContain('aws sqs receive-message');
+      expect(response.body.data).toHaveProperty('queueUrl');
+      expect(response.body.data).toHaveProperty('messageCount');
+      expect(response.body.data).toHaveProperty('messages');
+      expect(response.body.data.messageCount).toBe(1);
+      expect(response.body.data.messages[0].id).toBe('msg-1');
     });
   });
 });

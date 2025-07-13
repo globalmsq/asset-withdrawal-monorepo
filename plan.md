@@ -386,6 +386,80 @@ This plan is based on the architecture defined in introduce.md and reflects the 
    - Better environment variable management in docker-compose
    - LocalStack script supports configurable AWS region
 
+## Database Schema Update (2025-07-13)
+
+### Major Architecture Change: Added WithdrawalRequest Model
+The system was missing a critical model to track withdrawal requests separately from blockchain transactions. This has been fixed by introducing the WithdrawalRequest model.
+
+```prisma
+model WithdrawalRequest {
+  id            BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  requestId     String       @unique @db.VarChar(50) // tx-timestamp-random format
+  amount        String       @db.VarChar(50)
+  currency      String       @db.VarChar(10)
+  toAddress     String       @db.VarChar(42)
+  tokenAddress  String       @db.VarChar(42)
+  network       String       @db.VarChar(20)
+  status        String       @default("PENDING") @db.VarChar(20)
+  errorMessage  String?      @db.Text
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  @@index([status])
+  @@index([requestId])
+  @@map("withdrawal_requests")
+}
+```
+
+### Updated Withdrawal Request Flow
+1. **Request Creation**: 
+   - User submits withdrawal request via POST /withdrawal/request
+   - System generates unique requestId (format: `tx-{timestamp}-{random}`)
+   - Creates WithdrawalRequest record in DB with PENDING status
+   - Sends request to SQS tx-request-queue
+   
+2. **Processing**: 
+   - tx-processor picks message from SQS
+   - Updates WithdrawalRequest status: PENDING → VALIDATING → SIGNING → BROADCASTING
+   - Validates balance, network, and transaction parameters
+   
+3. **Transaction Creation**: 
+   - Only when txHash is generated (after blockchain broadcast)
+   - Creates Transaction record with actual blockchain transaction data
+   - Links via requestId field
+   
+4. **Completion**: 
+   - tx-monitor tracks blockchain confirmations
+   - Updates WithdrawalRequest status to COMPLETED/FAILED
+   - Records error messages if failed
+
+### API Endpoint Updates Implemented
+1. **POST /withdrawal/request**: 
+   - Saves WithdrawalRequest to DB before sending to SQS
+   - Determines currency from tokenAddress (ETH for zero address)
+   - Returns requestId for status tracking
+   
+2. **GET /withdrawal/status/:id**: 
+   - Queries WithdrawalRequest table using requestId
+   - Joins with Transaction table for txHash if available
+   - Returns comprehensive status information
+   
+3. **GET /withdrawal/queue/status**: 
+   - Shows accurate queue size using AWS GetQueueAttributes
+   - Counts processing requests from DB (VALIDATING/SIGNING/BROADCASTING states)
+   - Returns structured response with tx-request metrics
+   
+4. **GET /withdrawal/queue/items**: 
+   - Retrieves actual messages from SQS queue
+   - Uses non-destructive read (visibilityTimeout: 0)
+   - Shows queue URL and message details
+
+### Configuration Updates
+- Removed userId field from WithdrawalRequest model
+- Fixed Swagger documentation for Docker environment
+- Updated all test files to match new schema
+- Added proper AWS_REGION configuration in docker-compose
+
 ### Current State (2025-07-11)
 - Phase 1 core withdrawal processing system is complete (M1 milestone achieved)
 - All three microservices (api-server, tx-processor, tx-monitor) are fully implemented

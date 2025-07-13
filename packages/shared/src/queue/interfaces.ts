@@ -22,12 +22,19 @@ export interface ReceiveMessageOptions {
   visibilityTimeout?: number;
 }
 
+export interface QueueAttributes {
+  approximateNumberOfMessages?: number;
+  approximateNumberOfMessagesNotVisible?: number;
+  approximateNumberOfMessagesDelayed?: number;
+}
+
 export interface IQueue<T> {
   sendMessage(data: T, options?: SendMessageOptions): Promise<string>;
   receiveMessages(options?: ReceiveMessageOptions): Promise<Message<T>[]>;
   deleteMessage(receiptHandle: string): Promise<void>;
   getQueueUrl(): Promise<string>;
   getQueueName(): string;
+  getQueueAttributes?(): Promise<QueueAttributes>;
 }
 
 export interface QueueConfig {

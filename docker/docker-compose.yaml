@@ -38,6 +38,7 @@ services:
       <<: *localstack-account
       DEBUG: 1
       SERVICES: sqs,secretsmanager
+      EXTRA_CORS_ALLOWED_ORIGINS: "*"
     volumes:
       - localstack-data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
@@ -51,6 +52,19 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+
+  sqs-admin:
+    image: pacovk/sqs-admin
+    ports:
+      - 3999:3999
+    environment:
+      <<: *localstack-account
+      SQS_ENDPOINT_URL: http://localstack:4566
+      SQS_AWS_REGION: ap-northeast-2
+    depends_on:
+      - localstack
+    networks:
+      - withdrawal-network
 
   # API Server
   api-server:

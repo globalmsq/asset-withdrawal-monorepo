@@ -98,10 +98,10 @@ npm run db:reset    # Reset database (careful!)
 ### Docker
 
 ```bash
-# Start core services (MySQL)
+# Start all services (MySQL, LocalStack, SQS Admin UI)
 docker-compose -f docker/docker-compose.yaml up -d
 
-# Start LocalStack for SQS
+# Start LocalStack for SQS (if using separate file)
 docker-compose -f docker/docker-compose.localstack.yaml up -d
 
 # Initialize LocalStack queues
@@ -110,6 +110,20 @@ docker-compose -f docker/docker-compose.localstack.yaml up -d
 # View logs
 docker-compose -f docker/docker-compose.yaml logs -f
 ```
+
+### SQS Admin UI
+
+A web UI for monitoring and managing SQS queues in development environment:
+
+- **Access URL**: http://localhost:3999
+- **Key Features**:
+  - View queue list and monitor message counts
+  - Inspect and search message contents
+  - Send test messages manually
+  - Delete and reprocess messages
+  - Manage Dead Letter Queues
+
+This tool is useful for visually monitoring queue states and debugging during development.
 
 ## Architecture Notes
 

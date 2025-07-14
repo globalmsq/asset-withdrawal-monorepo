@@ -473,16 +473,16 @@ router.get('/status/:id', async (req: Request, res: Response) => {
 
 /**
  * @swagger
- * /withdrawal/queue/status:
+ * /withdrawal/request-queue/status:
  *   get:
  *     tags:
  *       - withdrawal
- *     summary: Get queue status
- *     description: Returns the current status of withdrawal request queues (for debugging)
- *     operationId: getQueueStatus
+ *     summary: Get withdrawal request queue status
+ *     description: Returns the current status of the withdrawal request queue (for debugging)
+ *     operationId: getRequestQueueStatus
  *     responses:
  *       '200':
- *         description: Queue status retrieved successfully
+ *         description: Request queue status retrieved successfully
  *         content:
  *           application/json:
  *             schema:
@@ -490,9 +490,8 @@ router.get('/status/:id', async (req: Request, res: Response) => {
  *             example:
  *               success: true
  *               data:
- *                 tx-request:
- *                   size: 5
- *                   processing: 2
+ *                 size: 5
+ *                 processing: 2
  *               timestamp: "2025-01-03T10:00:00Z"
  *       '500':
  *         description: Internal server error
@@ -501,26 +500,23 @@ router.get('/status/:id', async (req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.get('/queue/status', async (_req: Request, res: Response) => {
+router.get('/request-queue/status', async (_req: Request, res: Response) => {
   try {
     // Initialize response data
     const queueStatus = {
-      'tx-request': {
-        size: 0,
-        processing: 0,
-      },
+      size: 0,
+      processing: 0,
     };
 
     try {
       if (!txRequestQueue) {
-        throw new Error('Queue not initialized');
+        throw new Error('Request queue not initialized');
       }
 
       // Get queue attributes for accurate message count
       if (txRequestQueue.getQueueAttributes) {
         const attributes = await txRequestQueue.getQueueAttributes();
-        queueStatus['tx-request'].size =
-          attributes.approximateNumberOfMessages || 0;
+        queueStatus.size = attributes.approximateNumberOfMessages || 0;
         // Note: approximateNumberOfMessagesNotVisible includes messages being processed
       } else {
         // Fallback if getQueueAttributes is not implemented
@@ -532,7 +528,7 @@ router.get('/queue/status', async (_req: Request, res: Response) => {
           waitTimeSeconds: 0,
           visibilityTimeout: 0,
         });
-        queueStatus['tx-request'].size = messages.length;
+        queueStatus.size = messages.length;
       }
 
       // Get database stats for processing count
@@ -554,9 +550,9 @@ router.get('/queue/status', async (_req: Request, res: Response) => {
         },
       });
 
-      queueStatus['tx-request'].processing = processingCount;
+      queueStatus.processing = processingCount;
     } catch (e: any) {
-      console.error('Error getting queue status:', e);
+      console.error('Error getting request queue status:', e);
       // Return zeros if there's an error
     }
 
@@ -567,7 +563,7 @@ router.get('/queue/status', async (_req: Request, res: Response) => {
     };
     res.json(response);
   } catch (error) {
-    console.error('Error in queue status:', error);
+    console.error('Error in request queue status:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Internal server error',
@@ -579,16 +575,16 @@ router.get('/queue/status', async (_req: Request, res: Response) => {
 
 /**
  * @swagger
- * /withdrawal/queue/items:
+ * /withdrawal/tx-queue/status:
  *   get:
  *     tags:
  *       - withdrawal
- *     summary: Get queue items
- *     description: Returns all items currently in the withdrawal request queue (for debugging)
- *     operationId: getQueueItems
+ *     summary: Get transaction queue status
+ *     description: Returns the current status of the signed transaction queue (for debugging)
+ *     operationId: getTxQueueStatus
  *     responses:
  *       '200':
- *         description: Queue items retrieved successfully
+ *         description: Transaction queue status retrieved successfully
  *         content:
  *           application/json:
  *             schema:
@@ -596,30 +592,8 @@ router.get('/queue/status', async (_req: Request, res: Response) => {
  *             example:
  *               success: true
  *               data:
- *                 pending:
- *                   - id: "sqs-message-id-1"
- *                     data:
- *                       id: "41d4-e29b-550e8400-a716-446655440000"
- *                       amount: "50"
- *                       toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
- *                       tokenAddress: "0x6A8Ec2d9BfBDD20A7F5A4E89D640F7E7cebA4499"
- *                       symbol: "MSQ"
- *                       network: "polygon"
- *                       createdAt: "2025-01-03T10:00:00Z"
- *                     timestamp: "2025-01-03T10:00:00Z"
- *                     retryCount: 0
- *                 processing:
- *                   - id: "sqs-message-id-2"
- *                     data:
- *                       id: "42a5-f3c1-660f9500-b827-557766558801"
- *                       amount: "1.0"
- *                       toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
- *                       tokenAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
- *                       symbol: "USDT"
- *                       network: "polygon"
- *                       createdAt: "2025-01-03T09:55:00Z"
- *                     timestamp: "2025-01-03T09:55:00Z"
- *                     retryCount: 1
+ *                 size: 3
+ *                 broadcasting: 1
  *               timestamp: "2025-01-03T10:00:00Z"
  *       '500':
  *         description: Internal server error
@@ -628,55 +602,66 @@ router.get('/queue/status', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/ApiErrorResponse'
  */
-router.get('/queue/items', async (_req: Request, res: Response) => {
+router.get('/tx-queue/status', async (_req: Request, res: Response) => {
   try {
-    let messages: any[] = [];
-    let error = null;
-    let queueUrl = 'Not initialized';
+    // Initialize response data
+    const queueStatus = {
+      size: 0,
+      broadcasting: 0,
+    };
 
     try {
-      if (!txRequestQueue) {
-        throw new Error('Queue not initialized');
+      // Initialize signed tx queue
+      const signedTxQueue = QueueFactory.createFromEnv<any>('signed-tx-queue');
+
+      // Get queue attributes for accurate message count
+      if (signedTxQueue.getQueueAttributes) {
+        const attributes = await signedTxQueue.getQueueAttributes();
+        queueStatus.size = attributes.approximateNumberOfMessages || 0;
+      } else {
+        // Fallback if getQueueAttributes is not implemented
+        console.warn(
+          'getQueueAttributes not implemented for signed tx queue, using fallback method'
+        );
+        const messages = await signedTxQueue.receiveMessages({
+          maxMessages: 10,
+          waitTimeSeconds: 0,
+          visibilityTimeout: 0,
+        });
+        queueStatus.size = messages.length;
       }
 
-      // Get queue URL first
-      queueUrl = await txRequestQueue.getQueueUrl();
-
-      // Receive messages without deleting them
-      // Setting visibilityTimeout to 0 makes messages immediately visible again
-      const receivedMessages = await txRequestQueue.receiveMessages({
-        maxMessages: 10,
-        waitTimeSeconds: 0, // Don't wait for messages
-        visibilityTimeout: 0, // Make messages immediately visible again
+      // Get database stats for broadcasting count
+      const dbService = getDatabase();
+      let db;
+      if (
+        'getClient' in dbService &&
+        typeof dbService.getClient === 'function'
+      ) {
+        db = dbService.getClient();
+      } else {
+        db = dbService;
+      }
+      const broadcastingCount = await db.withdrawalRequest.count({
+        where: {
+          status: 'BROADCASTING',
+        },
       });
 
-      messages = receivedMessages.map(msg => ({
-        id: msg.id,
-        body: msg.body,
-        attributes: msg.attributes || {},
-        receiptHandle: msg.receiptHandle.substring(0, 20) + '...', // Truncate for security
-      }));
+      queueStatus.broadcasting = broadcastingCount;
     } catch (e: any) {
-      error = e.message || 'Failed to retrieve queue messages';
-      console.error('Error retrieving queue messages:', e);
+      console.error('Error getting tx queue status:', e);
+      // Return zeros if there's an error
     }
 
     const response: ApiResponse = {
       success: true,
-      data: {
-        queueUrl: queueUrl,
-        messageCount: messages.length,
-        messages: messages,
-        error: error,
-        note: error
-          ? 'Failed to retrieve messages'
-          : 'Messages retrieved (not deleted from queue)',
-      },
+      data: queueStatus,
       timestamp: new Date(),
     };
     res.json(response);
   } catch (error) {
-    console.error('Error in queue items:', error);
+    console.error('Error in tx queue status:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Internal server error',
@@ -685,5 +670,6 @@ router.get('/queue/items', async (_req: Request, res: Response) => {
     res.status(500).json(response);
   }
 });
+
 
 export default router;

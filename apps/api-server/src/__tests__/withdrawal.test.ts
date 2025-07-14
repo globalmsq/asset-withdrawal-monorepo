@@ -64,6 +64,8 @@ const mockDatabaseInstance = {
       count: jest.fn().mockImplementation(args => {
         if (args?.where?.status?.in) {
           return Promise.resolve(2);
+        } else if (args?.where?.status === 'BROADCASTING') {
+          return Promise.resolve(1);
         }
         return Promise.resolve(2);
       }),
@@ -240,57 +242,31 @@ describe('Withdrawal API', () => {
     });
   });
 
-  describe('GET /withdrawal/queue/status', () => {
-    it('should return queue status with tx-request counts', async () => {
+  describe('GET /withdrawal/request-queue/status', () => {
+    it('should return request queue status', async () => {
       const response = await request(app)
-        .get('/withdrawal/queue/status')
+        .get('/withdrawal/request-queue/status')
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('tx-request');
-      expect(response.body.data['tx-request']).toHaveProperty('size');
-      expect(response.body.data['tx-request']).toHaveProperty('processing');
-      expect(response.body.data['tx-request'].processing).toBe(2); // Mocked count value
+      expect(response.body.data).toHaveProperty('size');
+      expect(response.body.data).toHaveProperty('processing');
+      expect(response.body.data.processing).toBe(2); // Mocked count value
     });
   });
 
-  describe('GET /withdrawal/queue/items', () => {
-    beforeEach(() => {
-      // Update the mock for this specific test
-      const { QueueFactory } = require('shared');
-      const mockQueue = QueueFactory.createFromEnv();
-
-      // Set up the mock to return messages for this test
-      mockQueue.receiveMessages.mockResolvedValueOnce([
-        {
-          id: 'msg-1',
-          body: {
-            id: 'tx-1234567890-abc123def',
-            amount: '100',
-            toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-            symbol: 'USDT',
-            network: 'polygon',
-          },
-          receiptHandle: 'receipt-handle-123456789012345678901234567890',
-          attributes: {},
-        },
-      ]);
-    });
-
-    it('should return queue items', async () => {
+  describe('GET /withdrawal/tx-queue/status', () => {
+    it('should return transaction queue status', async () => {
       const response = await request(app)
-        .get('/withdrawal/queue/items')
+        .get('/withdrawal/tx-queue/status')
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('queueUrl');
-      expect(response.body.data).toHaveProperty('messageCount');
-      expect(response.body.data).toHaveProperty('messages');
-      expect(response.body.data.messageCount).toBe(1);
-      expect(response.body.data.messages[0].id).toBe('msg-1');
+      expect(response.body.data).toHaveProperty('size');
+      expect(response.body.data).toHaveProperty('broadcasting');
     });
   });
+
 });
 
 describe('Health Check', () => {

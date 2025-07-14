@@ -65,7 +65,6 @@ export function validateWithdrawalRequest(data: any): FieldValidationError[] {
 
   // Required fields
   const requiredFields = [
-    'userId',
     'amount',
     'toAddress',
     'tokenAddress',

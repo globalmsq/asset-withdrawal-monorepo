@@ -162,11 +162,10 @@ def test_withdrawal_flow():
     submit_resp = requests.post(
         "http://localhost:8080/withdrawal/request",
         json={
-            "userId": "integration-test",
             "amount": "0.5",
             "toAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd",
             "tokenAddress": "0x0000000000000000000000000000000000000000",
-            "network": "ethereum"
+            "network": "polygon"
         }
     )
     assert submit_resp.status_code == 201
@@ -202,11 +201,10 @@ async function testConcurrent() {
   for (let i = 0; i < 10; i++) {
     promises.push(
       submitWithdrawal({
-        userId: `concurrent-test-${i}`,
         amount: '0.1',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
-        network: 'ethereum',
+        network: 'polygon',
       })
     );
   }

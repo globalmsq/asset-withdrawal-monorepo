@@ -326,7 +326,6 @@ describe('isValidNetwork', () => {
 
 describe('validateWithdrawalRequest', () => {
   const validRequestData = {
-    userId: 'user-123',
     amount: '1.5',
     toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
     tokenAddress: '0x0000000000000000000000000000000000000000',
@@ -340,8 +339,7 @@ describe('validateWithdrawalRequest', () => {
 
   it('should return errors for missing required fields', () => {
     const invalidData = {
-      userId: 'user-123',
-      // missing other required fields
+      // missing all required fields
     };
 
     const errors = validateWithdrawalRequest(invalidData);
@@ -409,7 +407,6 @@ describe('validateWithdrawalRequest', () => {
 
   it('should return multiple errors for multiple invalid fields', () => {
     const invalidData = {
-      userId: 'user-123',
       amount: 'invalid',
       toAddress: 'invalid-address',
       tokenAddress: 'invalid-token',
@@ -428,7 +425,6 @@ describe('validateWithdrawalRequest', () => {
 
   it('should handle Bitcoin network validation correctly', () => {
     const bitcoinData = {
-      userId: 'user-123',
       amount: '0.5',
       toAddress: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
       tokenAddress: 'BTC', // Bitcoin doesn't use token addresses like EVM chains

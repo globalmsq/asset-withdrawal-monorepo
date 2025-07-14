@@ -78,11 +78,10 @@ curl http://localhost:8080/health
 curl -X POST http://localhost:8080/withdrawal/request \
   -H "Content-Type: application/json" \
   -d '{
-    "userId": "test-user",
     "amount": "1.5",
     "toAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd",
     "tokenAddress": "0x0000000000000000000000000000000000000000",
-    "network": "ethereum"
+    "network": "polygon"
   }'
 ```
 

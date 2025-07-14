@@ -27,17 +27,15 @@ Creates a new withdrawal request for processing.
 
 ```json
 {
-  "userId": "user-123456",
   "amount": "0.5",
   "toAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd",
   "tokenAddress": "0x0000000000000000000000000000000000000000",
-  "network": "ethereum"
+  "network": "polygon"
 }
 ```
 
 **Parameters:**
 
-- `userId` (string, required): Unique identifier of the user
 - `amount` (string, required): Amount to withdraw (string to preserve precision)
 - `toAddress` (string, required): Destination wallet address
 - `tokenAddress` (string, required): Token contract address (use 0x0 for native token)
@@ -64,7 +62,7 @@ Creates a new withdrawal request for processing.
   ```json
   {
     "success": false,
-    "error": "Missing required fields: userId, amount, toAddress, tokenAddress, network",
+    "error": "Missing required fields: amount, toAddress, tokenAddress, network",
     "timestamp": "2025-01-03T10:00:00Z"
   }
   ```
@@ -76,11 +74,10 @@ Creates a new withdrawal request for processing.
 curl -X POST http://localhost:8080/withdrawal/request \
   -H "Content-Type: application/json" \
   -d '{
-    "userId": "user-123456",
     "amount": "0.5",
     "toAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd",
     "tokenAddress": "0x0000000000000000000000000000000000000000",
-    "network": "ethereum"
+    "network": "polygon"
   }'
 ```
 

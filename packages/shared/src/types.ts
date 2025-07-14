@@ -14,7 +14,6 @@ export interface WithdrawalRequest {
   tokenAddress: string;
   symbol?: string;
   network: string;
-  blockchain?: string;
   createdAt?: Date;
 }
 

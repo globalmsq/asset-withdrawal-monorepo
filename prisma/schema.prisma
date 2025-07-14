@@ -30,7 +30,6 @@ model WithdrawalRequest {
   toAddress     String       @db.VarChar(42)
   tokenAddress  String       @db.VarChar(42)
   network       String       @db.VarChar(50) // Combined blockchain_network format
-  blockchain    String?      @db.VarChar(20) // polygon, bsc, etc.
   status        String       @default("PENDING") @db.VarChar(20) // PENDING, VALIDATING, SIGNING, BROADCASTING, COMPLETED, FAILED
   errorMessage  String?      @db.Text
   createdAt     DateTime     @default(now())

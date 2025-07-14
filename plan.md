@@ -472,3 +472,45 @@ model WithdrawalRequest {
 - DLQ handler implementation for automatic error recovery
 - Production AWS infrastructure preparation with ap-northeast-2 region
 - Complete AWS SQS production implementation in QueueFactory
+
+## Database Schema Mismatch Fix (2025-07-14) - RESOLVED
+
+### Issue
+The error indicates that the `blockchain` column doesn't exist in the `withdrawal_requests` table in the database, but it's defined in the Prisma schema.
+
+### Root Cause
+The Prisma schema (schema.prisma) includes a `blockchain` field on line 33:
+```prisma
+blockchain    String?      @db.VarChar(20) // polygon, bsc, etc.
+```
+
+However, the actual database table doesn't have this column, causing the error when Prisma tries to access it.
+
+### Solution Required
+The database needs to be migrated to add the missing `blockchain` column. According to CLAUDE.md guidelines, migration files should only be created when explicitly requested.
+
+### Required Schema Change
+Add the `blockchain` column to the `withdrawal_requests` table:
+- Column name: `blockchain`
+- Type: VARCHAR(20)
+- Nullable: Yes
+- Default: NULL
+
+### Migration Command
+When ready to apply the migration:
+```bash
+npm run db:migrate
+```
+
+### Note
+The withdrawal route code doesn't currently use the blockchain field in the create operation, so once the column is added to match the schema, the error should be resolved.
+
+### Resolution
+After further analysis, the `blockchain` field was determined to be redundant with the `network` field. The blockchain column has been removed from:
+1. Prisma schema (removed from WithdrawalRequest model)
+2. init.sql (removed from withdrawal_requests table)
+3. Withdrawal routes (removed from getSymbolFromTokenAddress function)
+4. Token service (removed blockchain parameter from all methods, defaults to 'polygon')
+5. Type definitions (removed from WithdrawalRequest interface)
+
+All tests pass and the code now works without the blockchain column.

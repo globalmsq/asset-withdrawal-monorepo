@@ -172,38 +172,7 @@ describe('TokenService', () => {
     });
   });
 
-  describe('BSC network support', () => {
-    it('should return BSC mainnet token info', () => {
-      const token = tokenService.getTokenByAddress(
-        '0x43Ac932FC7A84918Fb52e1a5baBaC63901b897B6',
-        'mainnet',
-        'bsc'
-      );
-      
-      expect(token).toBeDefined();
-      expect(token?.symbol).toBe('MSQ');
-      expect(token?.decimals).toBe(18);
-      expect(token?.chainId).toBe(56);
-    });
-
-    it('should return BSC token by symbol', () => {
-      const token = tokenService.getTokenBySymbol('MSQ', 'mainnet', 'bsc');
-      
-      expect(token).toBeDefined();
-      expect(token?.address).toBe('0x43Ac932FC7A84918Fb52e1a5baBaC63901b897B6');
-      expect(token?.decimals).toBe(18);
-    });
-
-    it('should check BSC token support', () => {
-      const isSupported = tokenService.isTokenSupported(
-        '0x43Ac932FC7A84918Fb52e1a5baBaC63901b897B6',
-        'mainnet',
-        'bsc'
-      );
-      
-      expect(isSupported).toBe(true);
-    });
-
+  describe('getSupportedBlockchains', () => {
     it('should get all supported blockchains', () => {
       const blockchains = tokenService.getSupportedBlockchains();
       

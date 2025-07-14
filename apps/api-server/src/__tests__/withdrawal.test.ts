@@ -43,9 +43,9 @@ const mockWithdrawalRequest = {
   id: 1,
   requestId: '41d4-e29b-550e8400-a716-446655440000',
   amount: '0.5',
-  symbol: 'ETH',
+  symbol: 'USDT',
   toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-  tokenAddress: '0x0000000000000000000000000000000000000000',
+  tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
   network: 'polygon',
   status: 'pending',
   createdAt: new Date(),
@@ -88,8 +88,8 @@ describe('Withdrawal API', () => {
       const withdrawalData = {
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        tokenAddress: '0x0000000000000000000000000000000000000000',
-        symbol: 'MATIC',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        symbol: 'USDT',
         network: 'polygon',
       };
 
@@ -174,7 +174,7 @@ describe('Withdrawal API', () => {
       const withdrawalData = {
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        tokenAddress: '0x0000000000000000000000000000000000000000',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         network: 'polygon',
       };
 
@@ -186,6 +186,23 @@ describe('Withdrawal API', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data.id).toBeDefined();
       expect(response.body.data.status).toBe('pending');
+    });
+
+    it('should return 400 for native token transfer', async () => {
+      const nativeTokenData = {
+        amount: '0.5',
+        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        tokenAddress: '0x0000000000000000000000000000000000000000',
+        network: 'polygon',
+      };
+
+      const response = await request(app)
+        .post('/withdrawal/request')
+        .send(nativeTokenData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed.');
     });
   });
 
@@ -241,9 +258,10 @@ describe('Withdrawal API', () => {
           id: 'msg-1',
           body: {
             id: 'tx-1234567890-abc123def',
-            amount: '0.5',
+            amount: '100',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            tokenAddress: '0x0000000000000000000000000000000000000000',
+            tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+            symbol: 'USDT',
             network: 'polygon',
           },
           receiptHandle: 'receipt-handle-123456789012345678901234567890',

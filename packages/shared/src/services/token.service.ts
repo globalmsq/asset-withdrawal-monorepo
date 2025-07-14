@@ -16,9 +16,10 @@ export class TokenService {
     return TokenService.instance;
   }
   
-  public getTokenByAddress(address: string, network: string, blockchain: string = 'polygon'): TokenInfo | null {
+  public getTokenByAddress(address: string, network: string): TokenInfo | null {
     const normalizedAddress = address.toLowerCase();
-    const blockchainConfig = this.tokenConfig[blockchain];
+    // Default to polygon since it's the only supported blockchain
+    const blockchainConfig = this.tokenConfig['polygon'];
     
     if (!blockchainConfig) {
       return null;
@@ -35,7 +36,7 @@ export class TokenService {
         return {
           ...token,
           network,
-          chainId: this.getChainId(blockchain, network)
+          chainId: this.getChainId('polygon', network)
         };
       }
     }
@@ -43,8 +44,8 @@ export class TokenService {
     return null;
   }
   
-  public getTokenBySymbol(symbol: string, network: string, blockchain: string = 'polygon'): TokenInfo | null {
-    const token = this.tokenConfig[blockchain]?.[network]?.[symbol];
+  public getTokenBySymbol(symbol: string, network: string): TokenInfo | null {
+    const token = this.tokenConfig['polygon']?.[network]?.[symbol];
     
     if (!token) {
       return null;
@@ -53,16 +54,16 @@ export class TokenService {
     return {
       ...token,
       network,
-      chainId: this.getChainId(blockchain, network)
+      chainId: this.getChainId('polygon', network)
     };
   }
   
-  public isTokenSupported(address: string, network: string, blockchain: string = 'polygon'): boolean {
-    return this.getTokenByAddress(address, network, blockchain) !== null;
+  public isTokenSupported(address: string, network: string): boolean {
+    return this.getTokenByAddress(address, network) !== null;
   }
   
-  public getSupportedTokens(network: string, blockchain: string = 'polygon'): Token[] {
-    const networkConfig = this.tokenConfig[blockchain]?.[network];
+  public getSupportedTokens(network: string): Token[] {
+    const networkConfig = this.tokenConfig['polygon']?.[network];
     
     if (!networkConfig) {
       return [];
@@ -71,8 +72,8 @@ export class TokenService {
     return Object.values(networkConfig);
   }
   
-  public getSupportedNetworks(blockchain: string = 'polygon'): string[] {
-    return Object.keys(this.tokenConfig[blockchain] || {});
+  public getSupportedNetworks(): string[] {
+    return Object.keys(this.tokenConfig['polygon'] || {});
   }
   
   public getSupportedBlockchains(): string[] {

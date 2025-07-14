@@ -43,12 +43,12 @@ CREATE TABLE IF NOT EXISTS `transactions` (
 -- Create withdrawal_requests table (fully matches Prisma schema)
 CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `requestId` VARCHAR(50) NOT NULL,
+    `requestId` VARCHAR(36) NOT NULL,
     `amount` VARCHAR(50) NOT NULL,
     `symbol` VARCHAR(10) NOT NULL,
     `toAddress` VARCHAR(42) NOT NULL,
     `tokenAddress` VARCHAR(42) NOT NULL,
-    `network` VARCHAR(20) NOT NULL,
+    `network` VARCHAR(50) NOT NULL,
     `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     `errorMessage` TEXT NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
     UNIQUE INDEX `withdrawal_requests_requestId_key`(`requestId`),
     INDEX `withdrawal_requests_status_idx`(`status`),
     INDEX `withdrawal_requests_requestId_idx`(`requestId`),
+    INDEX `withdrawal_requests_createdAt_idx`(`createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

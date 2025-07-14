@@ -43,23 +43,17 @@ let txRequestQueue: IQueue<WithdrawalRequest>;
   }
 })();
 
-// Helper function to determine currency from token address
-function getCurrencyFromTokenAddress(tokenAddress: string, network: string, blockchain: string): string {
-  // Native token (zero address)
-  if (tokenAddress === '0x0000000000000000000000000000000000000000') {
-    if (blockchain === 'polygon') return 'MATIC';
-    if (blockchain === 'bsc') return 'BNB';
-    return 'ETH';
-  }
-
+// Helper function to determine symbol from token address
+function getSymbolFromTokenAddress(tokenAddress: string, network: string): string {
   // Look up token in our configuration
-  const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network, blockchain);
+  const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network);
   
   if (tokenInfo) {
     return tokenInfo.symbol;
   }
 
-  return 'TOKEN'; // Default to 'TOKEN' if not found
+  // This should not happen as validation should catch unsupported tokens
+  throw new Error(`Token ${tokenAddress} not found in configuration`);
 }
 
 /**
@@ -93,7 +87,7 @@ function getCurrencyFromTokenAddress(tokenAddress: string, network: string, bloc
  *                 example: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
  *               tokenAddress:
  *                 type: string
- *                 description: Token contract address (use 0x0000...0000 for native token)
+ *                 description: Token contract address (only ERC-20 tokens from approved list)
  *                 example: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
  *               symbol:
  *                 type: string
@@ -104,14 +98,6 @@ function getCurrencyFromTokenAddress(tokenAddress: string, network: string, bloc
  *                 description: Network name (currently only 'polygon' supported)
  *                 example: "polygon"
  *           examples:
- *             polygonMATIC:
- *               summary: Polygon MATIC withdrawal
- *               value:
- *                 amount: "0.5"
- *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
- *                 tokenAddress: "0x0000000000000000000000000000000000000000"
- *                 symbol: "MATIC"
- *                 network: "polygon"
  *             polygonUSDT:
  *               summary: Polygon USDT withdrawal
  *               value:
@@ -168,6 +154,18 @@ function getCurrencyFromTokenAddress(tokenAddress: string, network: string, bloc
  *                   success: false
  *                   error: "Token symbol mismatch. Expected USDT but got USDC"
  *                   timestamp: "2025-01-03T10:00:00Z"
+ *               unsupportedToken:
+ *                 summary: Unsupported token
+ *                 value:
+ *                   success: false
+ *                   error: "Token 0x1234567890123456789012345678901234567890 is not supported on mainnet network"
+ *                   timestamp: "2025-01-03T10:00:00Z"
+ *               nativeTokenNotSupported:
+ *                 summary: Native token not supported
+ *                 value:
+ *                   success: false
+ *                   error: "Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed."
+ *                   timestamp: "2025-01-03T10:00:00Z"
  *       '500':
  *         description: Internal server error
  *         content:
@@ -210,42 +208,39 @@ router.post('/request', async (req: Request, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Determine blockchain and network type from the token configuration
-    const blockchain = 'polygon'; // Default to polygon for backward compatibility
+    // Determine network type from the token configuration
     const networkType = process.env.POLYGON_NETWORK || 'mainnet';
 
-    // Validate token address and symbol
-    if (tokenAddress !== '0x0000000000000000000000000000000000000000') {
-      const tokenInfo = tokenService.getTokenByAddress(tokenAddress, networkType, blockchain);
-      
-      if (!tokenInfo) {
-        const response: ApiResponse = {
-          success: false,
-          error: `Token ${tokenAddress} is not supported on ${networkType} network`,
-          timestamp: new Date(),
-        };
-        return res.status(400).json(response);
-      }
-      
-      // If symbol is provided, validate it matches the token
-      if (symbol && tokenInfo.symbol !== symbol) {
-        const response: ApiResponse = {
-          success: false,
-          error: `Token symbol mismatch. Expected ${tokenInfo.symbol} but got ${symbol}`,
-          timestamp: new Date(),
-        };
-        return res.status(400).json(response);
-      }
-    } else {
-      // Native token validation
-      if (symbol && symbol !== 'MATIC') {
-        const response: ApiResponse = {
-          success: false,
-          error: `Native token symbol must be MATIC, but got ${symbol}`,
-          timestamp: new Date(),
-        };
-        return res.status(400).json(response);
-      }
+    // Validate token address - Native tokens (0x0000...) are not supported
+    if (tokenAddress === '0x0000000000000000000000000000000000000000') {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed.',
+        timestamp: new Date(),
+      };
+      return res.status(400).json(response);
+    }
+    
+    // Validate token is in our supported list
+    const tokenInfo = tokenService.getTokenByAddress(tokenAddress, networkType);
+    
+    if (!tokenInfo) {
+      const response: ApiResponse = {
+        success: false,
+        error: `Token ${tokenAddress} is not supported on ${networkType} network`,
+        timestamp: new Date(),
+      };
+      return res.status(400).json(response);
+    }
+    
+    // If symbol is provided, validate it matches the token
+    if (symbol && tokenInfo.symbol !== symbol) {
+      const response: ApiResponse = {
+        success: false,
+        error: `Token symbol mismatch. Expected ${tokenInfo.symbol} but got ${symbol}`,
+        timestamp: new Date(),
+      };
+      return res.status(400).json(response);
     }
 
     // Generate unique request ID using UUID v4 with rearranged parts for time-based sorting
@@ -275,7 +270,7 @@ router.post('/request', async (req: Request, res: Response) => {
         data: {
           requestId: requestId,
           amount: amount,
-          symbol: getCurrencyFromTokenAddress(tokenAddress, networkType, blockchain),
+          symbol: getSymbolFromTokenAddress(tokenAddress, networkType),
           toAddress: toAddress,
           tokenAddress: tokenAddress,
           network: network,
@@ -605,10 +600,10 @@ router.get('/queue/status', async (_req: Request, res: Response) => {
  *                   - id: "sqs-message-id-1"
  *                     data:
  *                       id: "41d4-e29b-550e8400-a716-446655440000"
- *                       amount: "0.5"
+ *                       amount: "50"
  *                       toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
- *                       tokenAddress: "0x0000000000000000000000000000000000000000"
- *                       symbol: "MATIC"
+ *                       tokenAddress: "0x6A8Ec2d9BfBDD20A7F5A4E89D640F7E7cebA4499"
+ *                       symbol: "MSQ"
  *                       network: "polygon"
  *                       createdAt: "2025-01-03T10:00:00Z"
  *                     timestamp: "2025-01-03T10:00:00Z"

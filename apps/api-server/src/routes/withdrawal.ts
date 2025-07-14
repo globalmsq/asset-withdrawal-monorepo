@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 import {
   WithdrawalRequest,
   WithdrawalResponse,
@@ -12,6 +13,18 @@ import { getDatabase } from '../services/database';
 import { config } from '../config';
 
 const router = Router();
+
+// Function to rearrange UUID parts for better time-based sorting
+// Original UUID format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx (1-2-3-4-5)
+// Rearranged format:   4xxx-xxxx-xxxxxxxx-yxxx-xxxxxxxxxxxx (3-2-1-4-5)
+function rearrangeUuid(uuid: string): string {
+  const parts = uuid.split('-');
+  if (parts.length !== 5) {
+    throw new Error('Invalid UUID format');
+  }
+  // Rearrange from [1,2,3,4,5] to [3,2,1,4,5]
+  return `${parts[2]}-${parts[1]}-${parts[0]}-${parts[3]}-${parts[4]}`;
+}
 
 // Initialize queues
 let txRequestQueue: IQueue<WithdrawalRequest>;
@@ -56,14 +69,40 @@ function getCurrencyFromTokenAddress(tokenAddress: string, network: string, bloc
  *     tags:
  *       - withdrawal
  *     summary: Submit withdrawal request
- *     description: Creates a new withdrawal request for processing
+ *     description: Creates a new withdrawal request for processing. Returns a UUID v4 requestId with rearranged parts (3-2-1-4-5) for time-based sorting.
  *     operationId: createWithdrawalRequest
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/WithdrawalRequest'
+ *             type: object
+ *             required:
+ *               - amount
+ *               - toAddress
+ *               - tokenAddress
+ *               - network
+ *             properties:
+ *               amount:
+ *                 type: string
+ *                 description: Amount to withdraw
+ *                 example: "100"
+ *               toAddress:
+ *                 type: string
+ *                 description: Destination wallet address
+ *                 example: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *               tokenAddress:
+ *                 type: string
+ *                 description: Token contract address (use 0x0000...0000 for native token)
+ *                 example: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+ *               symbol:
+ *                 type: string
+ *                 description: Token symbol (optional, but must match if provided)
+ *                 example: "USDT"
+ *               network:
+ *                 type: string
+ *                 description: Network name (currently only 'polygon' supported)
+ *                 example: "polygon"
  *           examples:
  *             polygonMATIC:
  *               summary: Polygon MATIC withdrawal
@@ -99,7 +138,7 @@ function getCurrencyFromTokenAddress(tokenAddress: string, network: string, bloc
  *             example:
  *               success: true
  *               data:
- *                 id: "tx-1234567890-abc123def"
+ *                 id: "41d4-e29b-550e8400-a716-446655440000"
  *                 status: "pending"
  *                 createdAt: "2025-01-03T10:00:00Z"
  *                 updatedAt: "2025-01-03T10:00:00Z"
@@ -209,8 +248,8 @@ router.post('/request', async (req: Request, res: Response) => {
       }
     }
 
-    // Generate unique request ID
-    const requestId = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    // Generate unique request ID using UUID v4 with rearranged parts for time-based sorting
+    const requestId = rearrangeUuid(uuidv4());
 
     // Get database and save withdrawal request
     const dbService = getDatabase();
@@ -307,10 +346,11 @@ router.post('/request', async (req: Request, res: Response) => {
  *       - name: id
  *         in: path
  *         required: true
- *         description: Transaction ID
+ *         description: Transaction ID (UUID v4 with rearranged parts)
  *         schema:
  *           type: string
- *           example: "tx-1234567890-abc123def"
+ *           pattern: '^[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{12}$'
+ *           example: "41d4-e29b-550e8400-a716-446655440000"
  *     responses:
  *       '200':
  *         description: Withdrawal status retrieved successfully
@@ -321,7 +361,7 @@ router.post('/request', async (req: Request, res: Response) => {
  *             example:
  *               success: true
  *               data:
- *                 id: "tx-1234567890-abc123def"
+ *                 id: "41d4-e29b-550e8400-a716-446655440000"
  *                 status: "completed"
  *                 transactionHash: "0x123abc..."
  *                 createdAt: "2025-01-03T10:00:00Z"
@@ -562,23 +602,25 @@ router.get('/queue/status', async (_req: Request, res: Response) => {
  *               success: true
  *               data:
  *                 pending:
- *                   - id: "tx-request-1234567890-abc123"
+ *                   - id: "sqs-message-id-1"
  *                     data:
- *                       id: "tx-1234567890-abc123def"
+ *                       id: "41d4-e29b-550e8400-a716-446655440000"
  *                       amount: "0.5"
  *                       toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
  *                       tokenAddress: "0x0000000000000000000000000000000000000000"
+ *                       symbol: "MATIC"
  *                       network: "polygon"
  *                       createdAt: "2025-01-03T10:00:00Z"
  *                     timestamp: "2025-01-03T10:00:00Z"
  *                     retryCount: 0
  *                 processing:
- *                   - id: "tx-request-1234567890-def456"
+ *                   - id: "sqs-message-id-2"
  *                     data:
- *                       id: "tx-1234567890-def456ghi"
+ *                       id: "42a5-f3c1-660f9500-b827-557766558801"
  *                       amount: "1.0"
  *                       toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
- *                       tokenAddress: "0x0000000000000000000000000000000000000000"
+ *                       tokenAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+ *                       symbol: "USDT"
  *                       network: "polygon"
  *                       createdAt: "2025-01-03T09:55:00Z"
  *                     timestamp: "2025-01-03T09:55:00Z"

@@ -24,12 +24,14 @@ model User {
 
 model WithdrawalRequest {
   id            BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
-  requestId     String       @unique @db.VarChar(50) // tx-timestamp-random format
+  requestId     String       @unique @db.VarChar(36) // UUID v4 with rearranged parts (3-2-1-4-5)
   amount        String       @db.VarChar(50)
   currency      String       @db.VarChar(10)
+  symbol        String?      @db.VarChar(10) // Token symbol (optional)
   toAddress     String       @db.VarChar(42)
   tokenAddress  String       @db.VarChar(42)
-  network       String       @db.VarChar(20)
+  network       String       @db.VarChar(50) // Combined blockchain_network format
+  blockchain    String?      @db.VarChar(20) // polygon, bsc, etc.
   status        String       @default("PENDING") @db.VarChar(20) // PENDING, VALIDATING, SIGNING, BROADCASTING, COMPLETED, FAILED
   errorMessage  String?      @db.Text
   createdAt     DateTime     @default(now())
@@ -37,12 +39,13 @@ model WithdrawalRequest {
   
   @@index([status])
   @@index([requestId])
+  @@index([createdAt]) // Better time-based queries with rearranged UUID
   @@map("withdrawal_requests")
 }
 
 model Transaction {
   id                 BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
-  requestId          String?             @db.VarChar(50) // Link to withdrawal request
+  requestId          String?             @db.VarChar(36) // Link to withdrawal request (UUID format)
   amount             Decimal             @db.Decimal(18, 8)
   currency           String              @db.VarChar(10)
   tokenAddress       String?             @db.VarChar(42) // Ethereum address

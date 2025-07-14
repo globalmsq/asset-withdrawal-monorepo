@@ -1,60 +1,9 @@
 // Mock all dependencies before any imports
-jest.mock('database', () => ({
-  UserService: jest.fn(() => ({
-    createUser: jest.fn(),
-    findByEmail: jest.fn(),
-    findById: jest.fn(),
-    updateUser: jest.fn(),
-    deleteUser: jest.fn(),
-    findMany: jest.fn(),
-  })),
-  DatabaseService: jest.fn().mockImplementation(() => ({
-    getClient: jest.fn().mockReturnValue({
-      withdrawalRequest: {
-        create: jest.fn().mockResolvedValue({
-          id: 1,
-          requestId: 'tx-1234567890-abc123def',
-          amount: '0.5',
-          currency: 'ETH',
-          toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-          tokenAddress: '0x0000000000000000000000000000000000000000',
-          network: 'polygon',
-          status: 'pending',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }),
-        findUnique: jest.fn().mockResolvedValue({
-          id: 1,
-          requestId: 'tx-1234567890-abc123def',
-          amount: '0.5',
-          currency: 'ETH',
-          toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-          tokenAddress: '0x0000000000000000000000000000000000000000',
-          network: 'polygon',
-          status: 'pending',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }),
-        count: jest.fn().mockResolvedValue(2),
-      },
-      transaction: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-    }),
-    connect: jest.fn(),
-    disconnect: jest.fn(),
-    healthCheck: jest.fn().mockResolvedValue(true),
-  })),
-  TransactionService: jest.fn().mockImplementation(() => ({
-    createTransaction: jest.fn().mockResolvedValue({}),
-    getTransactionById: jest.fn().mockResolvedValue({
-      id: 'test-tx-id',
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }),
-  })),
+jest.mock('uuid', () => ({
+  v4: jest.fn(() => '550e8400-e29b-41d4-a716-446655440000')
 }));
+
+jest.mock('database');
 
 jest.mock('../services/auth.service');
 
@@ -88,42 +37,30 @@ jest.mock('shared', () => ({
 
 import request from 'supertest';
 import app from '../app';
-import { DatabaseService } from 'database';
 
 // Mock the database service getter
+const mockWithdrawalRequest = {
+  id: 1,
+  requestId: '41d4-e29b-550e8400-a716-446655440000',
+  amount: '0.5',
+  currency: 'ETH',
+  toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+  tokenAddress: '0x0000000000000000000000000000000000000000',
+  network: 'polygon',
+  status: 'pending',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
+
 const mockDatabaseInstance = {
   getClient: jest.fn().mockReturnValue({
     withdrawalRequest: {
-      create: jest.fn().mockResolvedValue({
-        id: 1,
-        requestId: 'tx-1234567890-abc123def',
-        amount: '0.5',
-        currency: 'ETH',
-        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        tokenAddress: '0x0000000000000000000000000000000000000000',
-        network: 'polygon',
-        status: 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }),
-      findUnique: jest.fn().mockResolvedValue({
-        id: 1,
-        requestId: 'tx-1234567890-abc123def',
-        amount: '0.5',
-        currency: 'ETH',
-        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        tokenAddress: '0x0000000000000000000000000000000000000000',
-        network: 'polygon',
-        status: 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }),
+      create: jest.fn().mockResolvedValue(mockWithdrawalRequest),
+      findUnique: jest.fn().mockResolvedValue(mockWithdrawalRequest),
       count: jest.fn().mockImplementation((args) => {
-        // Return 2 for processing status count
         if (args?.where?.status?.in) {
           return Promise.resolve(2);
         }
-        // Return 2 for other counts
         return Promise.resolve(2);
       }),
     },
@@ -254,7 +191,7 @@ describe('Withdrawal API', () => {
 
   describe('GET /withdrawal/status/:id', () => {
     it('should return withdrawal request status', async () => {
-      const requestId = 'tx-1234567890-abc123def';
+      const requestId = '41d4-e29b-550e8400-a716-446655440000';
 
       const response = await request(app)
         .get(`/withdrawal/status/${requestId}`)

@@ -178,7 +178,7 @@ Apps should be named based on their primary function:
 ### Key Technologies
 
 - **Prisma**: ORM for MySQL database
-- **Express**: Web framework  
+- **Express**: Web framework
 - **JWT**: Authentication
 - **Ethers.js**: Polygon blockchain interaction
 - **AWS SDK**: SQS queue management
@@ -192,11 +192,11 @@ Apps should be named based on their primary function:
 # Queue Configuration
 QUEUE_TYPE=localstack          # 'localstack' or 'aws'
 AWS_ENDPOINT=http://localhost:4566
-AWS_REGION=us-east-1
+AWS_REGION=ap-northeast-2
 AWS_ACCESS_KEY_ID=test         # LocalStack default
 AWS_SECRET_ACCESS_KEY=test     # LocalStack default
 
-# Polygon Configuration  
+# Polygon Configuration
 POLYGON_NETWORK=amoy           # 'amoy' or 'mainnet'
 POLYGON_RPC_URL=https://rpc-amoy.polygon.technology
 POLYGON_CHAIN_ID=80002         # 80002 for Amoy, 137 for Mainnet

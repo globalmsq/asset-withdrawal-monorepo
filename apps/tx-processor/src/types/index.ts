@@ -1,12 +1,11 @@
 export interface WithdrawalRequest {
   id: string;
-  userId: string;
-  address: string;
   amount: string;
+  toAddress: string;
+  tokenAddress: string;
+  symbol?: string;
   network: string;
-  tokenAddress?: string;
-  status: string;
-  createdAt: Date;
+  createdAt?: Date;
 }
 
 export interface SignedTransaction {

@@ -1,6 +1,6 @@
 // Mock all dependencies before any imports
 jest.mock('uuid', () => ({
-  v4: jest.fn(() => '550e8400-e29b-41d4-a716-446655440000')
+  v4: jest.fn(() => '550e8400-e29b-41d4-a716-446655440000'),
 }));
 
 jest.mock('database');
@@ -19,7 +19,11 @@ jest.mock('shared', () => ({
       sendMessage: jest.fn().mockResolvedValue(undefined),
       receiveMessages: jest.fn().mockResolvedValue([]),
       deleteMessage: jest.fn().mockResolvedValue(undefined),
-      getQueueUrl: jest.fn().mockResolvedValue('https://sqs.us-east-1.amazonaws.com/123456789012/test-queue'),
+      getQueueUrl: jest
+        .fn()
+        .mockResolvedValue(
+          'https://sqs.ap-northeast-2.amazonaws.com/123456789012/test-queue'
+        ),
     }),
   },
   tokenService: {
@@ -57,7 +61,7 @@ const mockDatabaseInstance = {
     withdrawalRequest: {
       create: jest.fn().mockResolvedValue(mockWithdrawalRequest),
       findUnique: jest.fn().mockResolvedValue(mockWithdrawalRequest),
-      count: jest.fn().mockImplementation((args) => {
+      count: jest.fn().mockImplementation(args => {
         if (args?.where?.status?.in) {
           return Promise.resolve(2);
         }
@@ -202,7 +206,9 @@ describe('Withdrawal API', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed.');
+      expect(response.body.error).toBe(
+        'Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed.'
+      );
     });
   });
 
@@ -221,7 +227,9 @@ describe('Withdrawal API', () => {
 
     it('should return 404 for non-existent withdrawal request', async () => {
       // Update the mock to return null for this specific test
-      mockDatabaseInstance.getClient().withdrawalRequest.findUnique.mockResolvedValueOnce(null);
+      mockDatabaseInstance
+        .getClient()
+        .withdrawalRequest.findUnique.mockResolvedValueOnce(null);
 
       const response = await request(app)
         .get('/withdrawal/status/non-existent-id')
@@ -251,7 +259,7 @@ describe('Withdrawal API', () => {
       // Update the mock for this specific test
       const { QueueFactory } = require('shared');
       const mockQueue = QueueFactory.createFromEnv();
-      
+
       // Set up the mock to return messages for this test
       mockQueue.receiveMessages.mockResolvedValueOnce([
         {
@@ -271,7 +279,6 @@ describe('Withdrawal API', () => {
     });
 
     it('should return queue items', async () => {
-
       const response = await request(app)
         .get('/withdrawal/queue/items')
         .expect(200);

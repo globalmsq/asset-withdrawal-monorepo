@@ -305,7 +305,7 @@ docker-compose -f docker/docker-compose.localstack.yaml up -d
 # Queue Configuration
 QUEUE_TYPE=localstack  # or 'aws' for production
 AWS_ENDPOINT=http://localhost:4566  # LocalStack endpoint
-AWS_REGION=ap-northeast-2  # Updated from us-east-1
+AWS_REGION=ap-northeast-2  # Updated from ap-northeast-2
 AWS_ACCESS_KEY_ID=test  # LocalStack default
 AWS_SECRET_ACCESS_KEY=test  # LocalStack default
 
@@ -364,7 +364,7 @@ This plan is based on the architecture defined in introduce.md and reflects the 
 ### Summary of Recent Changes
 - **Configuration Refactoring**: Simplified api-server configuration by removing complex validation and using a direct config object with dotenv
 - **Queue Integration Enhancement**: Updated withdrawal routes to use QueueFactory pattern with async initialization
-- **AWS Region Update**: Changed from us-east-1 to ap-northeast-2 for all AWS services
+- **AWS Region Update**: Changed from ap-northeast-2 to ap-northeast-2 for all AWS services
 - **Docker Compose Improvements**: Added x-anchors for shared environment variables and better volume management
 - **LocalStack Enhancement**: Updated initialization script with region support
 
@@ -404,7 +404,7 @@ model WithdrawalRequest {
   errorMessage  String?      @db.Text
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
-  
+
   @@index([status])
   @@index([requestId])
   @@map("withdrawal_requests")
@@ -412,44 +412,44 @@ model WithdrawalRequest {
 ```
 
 ### Updated Withdrawal Request Flow
-1. **Request Creation**: 
+1. **Request Creation**:
    - User submits withdrawal request via POST /withdrawal/request
    - System generates unique requestId (format: `tx-{timestamp}-{random}`)
    - Creates WithdrawalRequest record in DB with PENDING status
    - Sends request to SQS tx-request-queue
-   
-2. **Processing**: 
+
+2. **Processing**:
    - tx-processor picks message from SQS
    - Updates WithdrawalRequest status: PENDING → VALIDATING → SIGNING → BROADCASTING
    - Validates balance, network, and transaction parameters
-   
-3. **Transaction Creation**: 
+
+3. **Transaction Creation**:
    - Only when txHash is generated (after blockchain broadcast)
    - Creates Transaction record with actual blockchain transaction data
    - Links via requestId field
-   
-4. **Completion**: 
+
+4. **Completion**:
    - tx-monitor tracks blockchain confirmations
    - Updates WithdrawalRequest status to COMPLETED/FAILED
    - Records error messages if failed
 
 ### API Endpoint Updates Implemented
-1. **POST /withdrawal/request**: 
+1. **POST /withdrawal/request**:
    - Saves WithdrawalRequest to DB before sending to SQS
    - Determines currency from tokenAddress (ETH for zero address)
    - Returns requestId for status tracking
-   
-2. **GET /withdrawal/status/:id**: 
+
+2. **GET /withdrawal/status/:id**:
    - Queries WithdrawalRequest table using requestId
    - Joins with Transaction table for txHash if available
    - Returns comprehensive status information
-   
-3. **GET /withdrawal/queue/status**: 
+
+3. **GET /withdrawal/queue/status**:
    - Shows accurate queue size using AWS GetQueueAttributes
    - Counts processing requests from DB (VALIDATING/SIGNING/BROADCASTING states)
    - Returns structured response with tx-request metrics
-   
-4. **GET /withdrawal/queue/items**: 
+
+4. **GET /withdrawal/queue/items**:
    - Retrieves actual messages from SQS queue
    - Uses non-destructive read (visibilityTimeout: 0)
    - Shows queue URL and message details

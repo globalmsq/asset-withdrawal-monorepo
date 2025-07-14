@@ -76,13 +76,13 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
 
   private async validateRequest(request: WithdrawalRequest): Promise<void> {
     // Validate network
-    if (request.network !== 'POLYGON') {
+    if (request.network !== 'polygon') {
       throw new Error(`Unsupported network: ${request.network}`);
     }
 
     // Validate address format
-    if (!request.address.match(/^0x[a-fA-F0-9]{40}$/)) {
-      throw new Error(`Invalid address format: ${request.address}`);
+    if (!request.toAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+      throw new Error(`Invalid address format: ${request.toAddress}`);
     }
 
     // Validate amount
@@ -126,7 +126,7 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
       const decimals = 18; // Default for most tokens
       return await this.transactionSigner.signERC20Transfer(
         request.tokenAddress,
-        request.address,
+        request.toAddress,
         request.amount,
         decimals,
         request.id
@@ -135,7 +135,7 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
       // Native MATIC transfer
       return await this.transactionSigner.signTransaction(
         {
-          to: request.address,
+          to: request.toAddress,
           value: request.amount,
         },
         request.id

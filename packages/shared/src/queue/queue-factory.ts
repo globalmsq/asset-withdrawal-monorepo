@@ -10,7 +10,7 @@ export class QueueFactory {
   static createFromEnv<T>(queueName: string): IQueue<T> {
     const config: QueueConfig = {
       queueName,
-      region: process.env.AWS_REGION || 'us-east-1',
+      region: process.env.AWS_REGION || 'ap-northeast-2',
       endpoint: process.env.AWS_ENDPOINT,
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,

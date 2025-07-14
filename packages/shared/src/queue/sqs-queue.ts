@@ -6,7 +6,14 @@ import {
   GetQueueUrlCommand,
   GetQueueAttributesCommand,
 } from '@aws-sdk/client-sqs';
-import { IQueue, Message, SendMessageOptions, ReceiveMessageOptions, QueueConfig, QueueAttributes } from './interfaces';
+import {
+  IQueue,
+  Message,
+  SendMessageOptions,
+  ReceiveMessageOptions,
+  QueueConfig,
+  QueueAttributes,
+} from './interfaces';
 
 export class SQSQueue<T> implements IQueue<T> {
   private client: SQSClient;
@@ -15,9 +22,9 @@ export class SQSQueue<T> implements IQueue<T> {
 
   constructor(private config: QueueConfig) {
     this.queueName = config.queueName;
-    
+
     const clientConfig: any = {
-      region: config.region || 'us-east-1',
+      region: config.region || 'ap-northeast-2',
     };
 
     // If endpoint is provided, we're using LocalStack
@@ -41,7 +48,7 @@ export class SQSQueue<T> implements IQueue<T> {
 
   async sendMessage(data: T, options?: SendMessageOptions): Promise<string> {
     const queueUrl = await this.getOrCreateQueueUrl();
-    
+
     const command = new SendMessageCommand({
       QueueUrl: queueUrl,
       MessageBody: JSON.stringify(data),
@@ -53,19 +60,21 @@ export class SQSQueue<T> implements IQueue<T> {
     return response.MessageId!;
   }
 
-  async receiveMessages(options?: ReceiveMessageOptions): Promise<Message<T>[]> {
+  async receiveMessages(
+    options?: ReceiveMessageOptions
+  ): Promise<Message<T>[]> {
     const queueUrl = await this.getOrCreateQueueUrl();
-    
+
     const command = new ReceiveMessageCommand({
       QueueUrl: queueUrl,
       MaxNumberOfMessages: options?.maxMessages || 1,
       WaitTimeSeconds: options?.waitTimeSeconds || 0,
-      VisibilityTimeout: options?.visibilityTimeout || 30,
+      VisibilityTimeout: options?.visibilityTimeout || 300,
       MessageAttributeNames: ['All'],
     });
 
     const response = await this.client.send(command);
-    
+
     if (!response.Messages) {
       return [];
     }
@@ -74,17 +83,21 @@ export class SQSQueue<T> implements IQueue<T> {
       id: msg.MessageId!,
       body: JSON.parse(msg.Body!) as T,
       receiptHandle: msg.ReceiptHandle!,
-      attributes: msg.MessageAttributes ? 
-        Object.entries(msg.MessageAttributes).reduce((acc, [key, value]) => {
-          acc[key] = value.StringValue || '';
-          return acc;
-        }, {} as Record<string, string>) : undefined,
+      attributes: msg.MessageAttributes
+        ? Object.entries(msg.MessageAttributes).reduce(
+            (acc, [key, value]) => {
+              acc[key] = value.StringValue || '';
+              return acc;
+            },
+            {} as Record<string, string>
+          )
+        : undefined,
     }));
   }
 
   async deleteMessage(receiptHandle: string): Promise<void> {
     const queueUrl = await this.getOrCreateQueueUrl();
-    
+
     const command = new DeleteMessageCommand({
       QueueUrl: queueUrl,
       ReceiptHandle: receiptHandle,
@@ -103,24 +116,33 @@ export class SQSQueue<T> implements IQueue<T> {
 
   async getQueueAttributes(): Promise<QueueAttributes> {
     const queueUrl = await this.getOrCreateQueueUrl();
-    
+
     try {
       const command = new GetQueueAttributesCommand({
         QueueUrl: queueUrl,
         AttributeNames: [
           'ApproximateNumberOfMessages',
           'ApproximateNumberOfMessagesNotVisible',
-          'ApproximateNumberOfMessagesDelayed'
-        ]
+          'ApproximateNumberOfMessagesDelayed',
+        ],
       });
-      
+
       const response = await this.client.send(command);
       const attributes = response.Attributes || {};
-      
+
       return {
-        approximateNumberOfMessages: parseInt(attributes.ApproximateNumberOfMessages || '0', 10),
-        approximateNumberOfMessagesNotVisible: parseInt(attributes.ApproximateNumberOfMessagesNotVisible || '0', 10),
-        approximateNumberOfMessagesDelayed: parseInt(attributes.ApproximateNumberOfMessagesDelayed || '0', 10)
+        approximateNumberOfMessages: parseInt(
+          attributes.ApproximateNumberOfMessages || '0',
+          10
+        ),
+        approximateNumberOfMessagesNotVisible: parseInt(
+          attributes.ApproximateNumberOfMessagesNotVisible || '0',
+          10
+        ),
+        approximateNumberOfMessagesDelayed: parseInt(
+          attributes.ApproximateNumberOfMessagesDelayed || '0',
+          10
+        ),
       };
     } catch (error) {
       console.error('Error getting queue attributes:', error);
@@ -128,7 +150,7 @@ export class SQSQueue<T> implements IQueue<T> {
       return {
         approximateNumberOfMessages: 0,
         approximateNumberOfMessagesNotVisible: 0,
-        approximateNumberOfMessagesDelayed: 0
+        approximateNumberOfMessagesDelayed: 0,
       };
     }
   }
@@ -148,7 +170,9 @@ export class SQSQueue<T> implements IQueue<T> {
     } catch (error: any) {
       if (error.name === 'QueueDoesNotExist') {
         if (this.config.endpoint) {
-          throw new Error(`Queue ${this.queueName} does not exist. Please run init-localstack.sh`);
+          throw new Error(
+            `Queue ${this.queueName} does not exist. Please run init-localstack.sh`
+          );
         } else {
           throw new Error(`Queue ${this.queueName} does not exist in AWS SQS.`);
         }

@@ -1,10 +1,12 @@
 export const config = {
   host: process.env.HOST || 'localhost',
-  port: process.env.TX_PROCESSOR_PORT ? Number(process.env.TX_PROCESSOR_PORT) : 3001,
-  
+  port: process.env.TX_PROCESSOR_PORT
+    ? Number(process.env.TX_PROCESSOR_PORT)
+    : 3001,
+
   // Queue configuration
   queue: {
-    region: process.env.AWS_REGION || 'us-east-1',
+    region: process.env.AWS_REGION || 'ap-northeast-2',
     endpoint: process.env.AWS_ENDPOINT,
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
@@ -27,11 +29,14 @@ export const config = {
   // Polygon configuration
   polygon: {
     network: process.env.POLYGON_NETWORK || 'amoy',
-    rpcUrl: process.env.POLYGON_RPC_URL || 'https://rpc-amoy.polygon.technology',
+    rpcUrl:
+      process.env.POLYGON_RPC_URL || 'https://rpc-amoy.polygon.technology',
     chainId: Number(process.env.POLYGON_CHAIN_ID) || 80002,
     confirmations: Number(process.env.POLYGON_CONFIRMATIONS) || 3,
   },
 
   // Database URL (from shared database package)
-  databaseUrl: process.env.DATABASE_URL || 'mysql://root:pass@localhost:3306/withdrawal_system',
+  databaseUrl:
+    process.env.DATABASE_URL ||
+    'mysql://root:pass@localhost:3306/withdrawal_system',
 };

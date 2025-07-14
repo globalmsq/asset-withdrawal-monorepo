@@ -6,6 +6,7 @@ import {
   ApiResponse,
   QueueFactory,
   IQueue,
+  tokenService,
 } from 'shared';
 import { getDatabase } from '../services/database';
 import { config } from '../config';
@@ -30,22 +31,20 @@ let txRequestQueue: IQueue<WithdrawalRequest>;
 })();
 
 // Helper function to determine currency from token address
-function getCurrencyFromTokenAddress(tokenAddress: string): string {
-  // ETH native token (zero address)
+function getCurrencyFromTokenAddress(tokenAddress: string, network: string): string {
+  // Native token (zero address)
   if (tokenAddress === '0x0000000000000000000000000000000000000000') {
-    return 'ETH';
+    return network === 'polygon' ? 'MATIC' : 'ETH';
   }
 
-  // Common token addresses (you can extend this list)
-  const tokenMap: { [key: string]: string } = {
-    // Ethereum mainnet
-    '0xdAC17F958D2ee523a2206206994597C13D831ec7': 'USDT', // Tether
-    '0x6B175474E89094C44Da98b954EedeAC495271d0F': 'DAI', // Dai Stablecoin
-    '0xA0b86a33E6441C0D16C8fA7b13A4e8Da1D44ce9c': 'USDC', // USD Coin
-    // Add more token addresses as needed
-  };
+  // Look up token in our configuration
+  const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network === 'polygon' ? 'mainnet' : network);
+  
+  if (tokenInfo) {
+    return tokenInfo.symbol;
+  }
 
-  return tokenMap[tokenAddress] || 'TOKEN'; // Default to 'TOKEN' if not found
+  return 'TOKEN'; // Default to 'TOKEN' if not found
 }
 
 /**
@@ -147,6 +146,18 @@ router.post('/request', async (req: Request, res: Response) => {
       return res.status(400).json(response);
     }
 
+    // Validate token address
+    const networkName = process.env.POLYGON_NETWORK || 'mainnet';
+    if (tokenAddress !== '0x0000000000000000000000000000000000000000' && 
+        !tokenService.isTokenSupported(tokenAddress, networkName)) {
+      const response: ApiResponse = {
+        success: false,
+        error: `Token ${tokenAddress} is not supported on ${networkName} network`,
+        timestamp: new Date(),
+      };
+      return res.status(400).json(response);
+    }
+
     // Generate unique request ID
     const requestId = `tx-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
@@ -174,7 +185,7 @@ router.post('/request', async (req: Request, res: Response) => {
         data: {
           requestId: requestId,
           amount: amount,
-          currency: getCurrencyFromTokenAddress(tokenAddress),
+          currency: getCurrencyFromTokenAddress(tokenAddress, network),
           toAddress: toAddress,
           tokenAddress: tokenAddress,
           network: network,

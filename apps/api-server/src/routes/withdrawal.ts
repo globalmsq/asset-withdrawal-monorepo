@@ -275,7 +275,7 @@ router.post('/request', async (req: Request, res: Response) => {
         data: {
           requestId: requestId,
           amount: amount,
-          currency: getCurrencyFromTokenAddress(tokenAddress, networkType, blockchain),
+          symbol: getCurrencyFromTokenAddress(tokenAddress, networkType, blockchain),
           toAddress: toAddress,
           tokenAddress: tokenAddress,
           network: network,

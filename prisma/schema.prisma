@@ -26,8 +26,7 @@ model WithdrawalRequest {
   id            BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
   requestId     String       @unique @db.VarChar(36) // UUID v4 with rearranged parts (3-2-1-4-5)
   amount        String       @db.VarChar(50)
-  currency      String       @db.VarChar(10)
-  symbol        String?      @db.VarChar(10) // Token symbol (optional)
+  symbol        String       @db.VarChar(10) // Token symbol
   toAddress     String       @db.VarChar(42)
   tokenAddress  String       @db.VarChar(42)
   network       String       @db.VarChar(50) // Combined blockchain_network format
@@ -47,7 +46,7 @@ model Transaction {
   id                 BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
   requestId          String?             @db.VarChar(36) // Link to withdrawal request (UUID format)
   amount             Decimal             @db.Decimal(18, 8)
-  currency           String              @db.VarChar(10)
+  symbol             String              @db.VarChar(10) // Token symbol
   tokenAddress       String?             @db.VarChar(42) // Ethereum address
   toAddress          String?             @db.VarChar(42) // Recipient address
   network            String?             @db.VarChar(20) // ethereum, polygon, etc.

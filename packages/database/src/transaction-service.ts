@@ -6,7 +6,7 @@ import { DatabaseService } from './database';
 export interface Transaction {
   id: string;
   amount: number;
-  currency: string;
+  symbol: string;
   tokenAddress?: string | null;
   toAddress?: string | null;
   network?: string | null;
@@ -23,7 +23,7 @@ export interface Transaction {
 interface PrismaTransaction {
   id: bigint;
   amount: Decimal;
-  currency: string;
+  symbol: string;
   tokenAddress: string | null;
   toAddress: string | null;
   network: string | null;
@@ -55,7 +55,7 @@ export class TransactionService {
     return {
       id: prismaTx.id.toString(),
       amount: prismaTx.amount.toNumber(),
-      currency: prismaTx.currency,
+      symbol: prismaTx.symbol,
       tokenAddress: prismaTx.tokenAddress,
       toAddress: prismaTx.toAddress,
       network: prismaTx.network,
@@ -71,7 +71,7 @@ export class TransactionService {
 
   async createTransaction(data: {
     amount: number;
-    currency: string;
+    symbol: string;
     tokenAddress?: string;
     toAddress?: string;
     network?: string;
@@ -82,7 +82,7 @@ export class TransactionService {
       return {
         id: `mock-tx-${Date.now()}`,
         amount: data.amount,
-        currency: data.currency,
+        symbol: data.symbol,
         tokenAddress: data.tokenAddress || null,
         toAddress: data.toAddress || null,
         network: data.network || null,
@@ -99,7 +99,7 @@ export class TransactionService {
     const prismaTx = await this.prisma.transaction.create({
       data: {
         amount: new Decimal(data.amount),
-        currency: data.currency,
+        symbol: data.symbol,
         tokenAddress: data.tokenAddress,
         toAddress: data.toAddress,
         network: data.network,
@@ -119,7 +119,7 @@ export class TransactionService {
           : {
               id: idStr,
               amount: 0.5,
-              currency: 'ETH',
+              symbol: 'ETH',
               tokenAddress: '0x0000000000000000000000000000000000000000',
               toAddress: '0x742d35Cc6634C0532925a3b8D17B1B6f1C7e2c4A',
               network: 'ethereum',

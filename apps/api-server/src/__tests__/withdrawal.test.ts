@@ -43,7 +43,7 @@ const mockWithdrawalRequest = {
   id: 1,
   requestId: '41d4-e29b-550e8400-a716-446655440000',
   amount: '0.5',
-  currency: 'ETH',
+  symbol: 'ETH',
   toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
   tokenAddress: '0x0000000000000000000000000000000000000000',
   network: 'polygon',

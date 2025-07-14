@@ -122,5 +122,20 @@ export function validateWithdrawalRequest(data: any): FieldValidationError[] {
     });
   }
 
+  // Validate symbol if provided
+  if (data.symbol && typeof data.symbol !== 'string') {
+    errors.push({
+      field: 'symbol',
+      message: 'Symbol must be a string',
+    });
+  }
+
+  if (data.symbol && (data.symbol.length < 1 || data.symbol.length > 10)) {
+    errors.push({
+      field: 'symbol',
+      message: 'Symbol must be between 1 and 10 characters',
+    });
+  }
+
   return errors;
 }

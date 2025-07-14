@@ -31,14 +31,16 @@ let txRequestQueue: IQueue<WithdrawalRequest>;
 })();
 
 // Helper function to determine currency from token address
-function getCurrencyFromTokenAddress(tokenAddress: string, network: string): string {
+function getCurrencyFromTokenAddress(tokenAddress: string, network: string, blockchain: string): string {
   // Native token (zero address)
   if (tokenAddress === '0x0000000000000000000000000000000000000000') {
-    return network === 'polygon' ? 'MATIC' : 'ETH';
+    if (blockchain === 'polygon') return 'MATIC';
+    if (blockchain === 'bsc') return 'BNB';
+    return 'ETH';
   }
 
   // Look up token in our configuration
-  const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network === 'polygon' ? 'mainnet' : network);
+  const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network, blockchain);
   
   if (tokenInfo) {
     return tokenInfo.symbol;
@@ -63,12 +65,29 @@ function getCurrencyFromTokenAddress(tokenAddress: string, network: string): str
  *           schema:
  *             $ref: '#/components/schemas/WithdrawalRequest'
  *           examples:
- *             ethereumWithdrawal:
- *               summary: Ethereum withdrawal example
+ *             polygonMATIC:
+ *               summary: Polygon MATIC withdrawal
  *               value:
  *                 amount: "0.5"
  *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
  *                 tokenAddress: "0x0000000000000000000000000000000000000000"
+ *                 symbol: "MATIC"
+ *                 network: "polygon"
+ *             polygonUSDT:
+ *               summary: Polygon USDT withdrawal
+ *               value:
+ *                 amount: "100"
+ *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 tokenAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
+ *                 symbol: "USDT"
+ *                 network: "polygon"
+ *             polygonMSQ:
+ *               summary: Polygon MSQ withdrawal with symbol validation
+ *               value:
+ *                 amount: "50"
+ *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 tokenAddress: "0x6A8Ec2d9BfBDD20A7F5A4E89D640F7E7cebA4499"
+ *                 symbol: "MSQ"
  *                 network: "polygon"
  *     responses:
  *       '201':
@@ -104,6 +123,12 @@ function getCurrencyFromTokenAddress(tokenAddress: string, network: string): str
  *                   success: false
  *                   error: "Invalid amount"
  *                   timestamp: "2025-01-03T10:00:00Z"
+ *               symbolMismatch:
+ *                 summary: Token symbol mismatch
+ *                 value:
+ *                   success: false
+ *                   error: "Token symbol mismatch. Expected USDT but got USDC"
+ *                   timestamp: "2025-01-03T10:00:00Z"
  *       '500':
  *         description: Internal server error
  *         content:
@@ -113,7 +138,7 @@ function getCurrencyFromTokenAddress(tokenAddress: string, network: string): str
  */
 router.post('/request', async (req: Request, res: Response) => {
   try {
-    const { amount, toAddress, tokenAddress, network } = req.body;
+    const { amount, toAddress, tokenAddress, symbol, network } = req.body;
 
     // Basic validation
     if (!amount || !toAddress || !tokenAddress || !network) {
@@ -136,7 +161,7 @@ router.post('/request', async (req: Request, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Validate network (only polygon supported)
+    // Validate network (only polygon supported for backward compatibility)
     if (network !== 'polygon') {
       const response: ApiResponse = {
         success: false,
@@ -146,16 +171,42 @@ router.post('/request', async (req: Request, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Validate token address
-    const networkName = process.env.POLYGON_NETWORK || 'mainnet';
-    if (tokenAddress !== '0x0000000000000000000000000000000000000000' && 
-        !tokenService.isTokenSupported(tokenAddress, networkName)) {
-      const response: ApiResponse = {
-        success: false,
-        error: `Token ${tokenAddress} is not supported on ${networkName} network`,
-        timestamp: new Date(),
-      };
-      return res.status(400).json(response);
+    // Determine blockchain and network type from the token configuration
+    const blockchain = 'polygon'; // Default to polygon for backward compatibility
+    const networkType = process.env.POLYGON_NETWORK || 'mainnet';
+
+    // Validate token address and symbol
+    if (tokenAddress !== '0x0000000000000000000000000000000000000000') {
+      const tokenInfo = tokenService.getTokenByAddress(tokenAddress, networkType, blockchain);
+      
+      if (!tokenInfo) {
+        const response: ApiResponse = {
+          success: false,
+          error: `Token ${tokenAddress} is not supported on ${networkType} network`,
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
+      
+      // If symbol is provided, validate it matches the token
+      if (symbol && tokenInfo.symbol !== symbol) {
+        const response: ApiResponse = {
+          success: false,
+          error: `Token symbol mismatch. Expected ${tokenInfo.symbol} but got ${symbol}`,
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
+    } else {
+      // Native token validation
+      if (symbol && symbol !== 'MATIC') {
+        const response: ApiResponse = {
+          success: false,
+          error: `Native token symbol must be MATIC, but got ${symbol}`,
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
     }
 
     // Generate unique request ID
@@ -185,7 +236,7 @@ router.post('/request', async (req: Request, res: Response) => {
         data: {
           requestId: requestId,
           amount: amount,
-          currency: getCurrencyFromTokenAddress(tokenAddress, network),
+          currency: getCurrencyFromTokenAddress(tokenAddress, networkType, blockchain),
           toAddress: toAddress,
           tokenAddress: tokenAddress,
           network: network,
@@ -209,6 +260,7 @@ router.post('/request', async (req: Request, res: Response) => {
       amount: amount,
       toAddress: toAddress,
       tokenAddress: tokenAddress,
+      symbol: symbol,
       network: network,
       createdAt: savedRequest.createdAt,
     };

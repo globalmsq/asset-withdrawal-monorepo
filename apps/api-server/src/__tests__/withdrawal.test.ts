@@ -73,6 +73,17 @@ jest.mock('shared', () => ({
       getQueueUrl: jest.fn().mockResolvedValue('https://sqs.us-east-1.amazonaws.com/123456789012/test-queue'),
     }),
   },
+  tokenService: {
+    getTokenByAddress: jest.fn().mockImplementation((address, network) => {
+      if (address === '0xc2132D05D31c914a87C6611C10748AEb04B58e8F') {
+        return { address, symbol: 'USDT', decimals: 6, name: 'Tether USD' };
+      }
+      return null;
+    }),
+    isTokenSupported: jest.fn().mockReturnValue(true),
+    getSupportedBlockchains: jest.fn().mockReturnValue(['polygon', 'bsc']),
+    getSupportedNetworks: jest.fn().mockReturnValue(['mainnet', 'amoy']),
+  },
 }));
 
 import request from 'supertest';
@@ -141,6 +152,7 @@ describe('Withdrawal API', () => {
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
+        symbol: 'MATIC',
         network: 'polygon',
       };
 
@@ -201,6 +213,42 @@ describe('Withdrawal API', () => {
 
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBe('Only polygon network is supported');
+    });
+
+    it('should return 400 for symbol mismatch', async () => {
+      const invalidData = {
+        amount: '0.5',
+        toAddress: '0x742D35Cc6634C0532925a3b8D45a0E5e7F3d1234',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', // USDT address
+        symbol: 'USDC', // Wrong symbol
+        network: 'polygon',
+      };
+
+      const response = await request(app)
+        .post('/withdrawal/request')
+        .send(invalidData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('Token symbol mismatch');
+    });
+
+    it('should accept withdrawal request without symbol', async () => {
+      const withdrawalData = {
+        amount: '0.5',
+        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        tokenAddress: '0x0000000000000000000000000000000000000000',
+        network: 'polygon',
+      };
+
+      const response = await request(app)
+        .post('/withdrawal/request')
+        .send(withdrawalData)
+        .expect(201);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.id).toBeDefined();
+      expect(response.body.data.status).toBe('pending');
     });
   });
 

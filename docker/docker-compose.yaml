@@ -79,6 +79,7 @@ services:
       context: ..
       dockerfile: docker/dockerfile.packages
       target: api-server
+    command: ["yarn", "dev"]
     ports:
       - "8080:8080"
     environment:
@@ -94,10 +95,10 @@ services:
       AWS_REGION: ap-northeast-2
     networks:
       - withdrawal-network
-    # volumes:
-    #   - ../prisma:/app/prisma:ro
-    #   - ../apps:/app/apps:ro
-    #   - ../packages:/app/packages:ro
+    volumes:
+      - ../prisma:/app/prisma:ro
+      - ../apps:/app/apps:ro
+      - ../packages:/app/packages:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

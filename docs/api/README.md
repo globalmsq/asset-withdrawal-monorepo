@@ -43,11 +43,12 @@ docs/api/
 
 ### Core Endpoints
 
-| Method | Endpoint                   | Description                     |
-| ------ | -------------------------- | ------------------------------- |
-| POST   | `/withdrawal/request`      | Submit a new withdrawal request |
-| GET    | `/withdrawal/status/:id`   | Check withdrawal status         |
-| GET    | `/withdrawal/queue/status` | Get queue status (debugging)    |
+| Method | Endpoint                           | Description                            |
+| ------ | ---------------------------------- | -------------------------------------- |
+| POST   | `/withdrawal/request`              | Submit a new withdrawal request        |
+| GET    | `/withdrawal/status/:id`           | Check withdrawal status                |
+| GET    | `/withdrawal/request-queue/status` | Get request queue status (debugging)   |
+| GET    | `/withdrawal/tx-queue/status`      | Get transaction queue status (debugging) |
 
 ### Health Check
 

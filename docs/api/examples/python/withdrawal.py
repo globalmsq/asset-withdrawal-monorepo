@@ -43,18 +43,32 @@ def check_status(transaction_id):
             print(f"Response: {e.response.json()}")
         raise
 
-def get_queue_status():
-    """Get queue status (for debugging)"""
-    url = f"{API_BASE_URL}/withdrawal/queue/status"
+def get_request_queue_status():
+    """Get request queue status (for debugging)"""
+    url = f"{API_BASE_URL}/withdrawal/request-queue/status"
 
     try:
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
-        print(f"Queue status: {json.dumps(data, indent=2)}")
+        print(f"Request queue status: {json.dumps(data, indent=2)}")
         return data
     except requests.exceptions.RequestException as e:
-        print(f"Error getting queue status: {e}")
+        print(f"Error getting request queue status: {e}")
+        raise
+
+def get_tx_queue_status():
+    """Get transaction queue status (for debugging)"""
+    url = f"{API_BASE_URL}/withdrawal/tx-queue/status"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        print(f"Transaction queue status: {json.dumps(data, indent=2)}")
+        return data
+    except requests.exceptions.RequestException as e:
+        print(f"Error getting transaction queue status: {e}")
         raise
 
 if __name__ == "__main__":
@@ -69,7 +83,8 @@ if __name__ == "__main__":
         check_status(tx_id)
 
         # Check queue status
-        get_queue_status()
+        get_request_queue_status()
+        get_tx_queue_status()
 
     except Exception as e:
         print(f"Example failed: {e}")

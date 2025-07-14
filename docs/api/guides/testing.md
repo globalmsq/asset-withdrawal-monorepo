@@ -145,8 +145,11 @@ SELECT status, COUNT(*) FROM transactions GROUP BY status;
 Monitor queue status during testing:
 
 ```bash
-# Check queue status
-curl http://localhost:8080/withdrawal/queue/status
+# Check request queue status
+curl http://localhost:8080/withdrawal/request-queue/status
+
+# Check transaction queue status
+curl http://localhost:8080/withdrawal/tx-queue/status
 ```
 
 ## Integration Testing

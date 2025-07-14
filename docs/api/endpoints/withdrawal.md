@@ -128,11 +128,11 @@ Retrieves the current status of a withdrawal request.
 curl http://localhost:8080/withdrawal/status/tx-1234567890-abc123def
 ```
 
-### 3. Get Queue Status
+### 3. Get Request Queue Status
 
-Returns the current status of withdrawal request queues (for debugging/monitoring).
+Returns the current status of the withdrawal request queue (for debugging/monitoring).
 
-**Endpoint:** `GET /withdrawal/queue/status`
+**Endpoint:** `GET /withdrawal/request-queue/status`
 
 **Success Response (200):**
 
@@ -140,10 +140,8 @@ Returns the current status of withdrawal request queues (for debugging/monitorin
 {
   "success": true,
   "data": {
-    "tx-request": {
-      "size": 5,
-      "processing": 2
-    }
+    "size": 5,
+    "processing": 2
   },
   "timestamp": "2025-01-03T10:00:00Z"
 }
@@ -152,12 +150,42 @@ Returns the current status of withdrawal request queues (for debugging/monitorin
 **Response Fields:**
 
 - `size`: Number of requests waiting in queue
-- `processing`: Number of requests currently being processed
+- `processing`: Number of requests currently being processed (VALIDATING, SIGNING, or BROADCASTING states)
 
 **Example using cURL:**
 
 ```bash
-curl http://localhost:8080/withdrawal/queue/status
+curl http://localhost:8080/withdrawal/request-queue/status
+```
+
+### 4. Get Transaction Queue Status
+
+Returns the current status of the signed transaction queue (for debugging/monitoring).
+
+**Endpoint:** `GET /withdrawal/tx-queue/status`
+
+**Success Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "size": 3,
+    "broadcasting": 1
+  },
+  "timestamp": "2025-01-03T10:00:00Z"
+}
+```
+
+**Response Fields:**
+
+- `size`: Number of signed transactions waiting in queue
+- `broadcasting`: Number of transactions currently being broadcast
+
+**Example using cURL:**
+
+```bash
+curl http://localhost:8080/withdrawal/tx-queue/status
 ```
 
 ## Error Handling

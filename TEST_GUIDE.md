@@ -168,8 +168,11 @@ export TX_ID="<transaction-id-from-response>"
 curl -X GET "$API_URL/withdrawal/status/$TX_ID" \
   -H "Authorization: Bearer $JWT_TOKEN"
 
-# Check queue status
-curl $API_URL/withdrawal/queue/status
+# Check request queue status
+curl $API_URL/withdrawal/request-queue/status
+
+# Check transaction queue status
+curl $API_URL/withdrawal/tx-queue/status
 ```
 
 ### Step 8: Check Worker Status

@@ -19,7 +19,7 @@ jest.mock('database', () => ({
           toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
           tokenAddress: '0x0000000000000000000000000000000000000000',
           network: 'polygon',
-          status: 'PENDING',
+          status: 'pending',
           createdAt: new Date(),
           updatedAt: new Date(),
         }),
@@ -31,7 +31,7 @@ jest.mock('database', () => ({
           toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
           tokenAddress: '0x0000000000000000000000000000000000000000',
           network: 'polygon',
-          status: 'PENDING',
+          status: 'pending',
           createdAt: new Date(),
           updatedAt: new Date(),
         }),
@@ -80,8 +80,53 @@ import app from '../app';
 import { DatabaseService } from 'database';
 
 // Mock the database service getter
+const mockDatabaseInstance = {
+  getClient: jest.fn().mockReturnValue({
+    withdrawalRequest: {
+      create: jest.fn().mockResolvedValue({
+        id: 1,
+        requestId: 'tx-1234567890-abc123def',
+        amount: '0.5',
+        currency: 'ETH',
+        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        tokenAddress: '0x0000000000000000000000000000000000000000',
+        network: 'polygon',
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      findUnique: jest.fn().mockResolvedValue({
+        id: 1,
+        requestId: 'tx-1234567890-abc123def',
+        amount: '0.5',
+        currency: 'ETH',
+        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        tokenAddress: '0x0000000000000000000000000000000000000000',
+        network: 'polygon',
+        status: 'pending',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+      count: jest.fn().mockImplementation((args) => {
+        // Return 2 for processing status count
+        if (args?.where?.status?.in) {
+          return Promise.resolve(2);
+        }
+        // Return 2 for other counts
+        return Promise.resolve(2);
+      }),
+    },
+    transaction: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
+  }),
+  connect: jest.fn(),
+  disconnect: jest.fn(),
+  healthCheck: jest.fn().mockResolvedValue(true),
+};
+
 jest.mock('../services/database', () => ({
-  getDatabase: jest.fn(() => require('database').DatabaseService.mock.instances[0]),
+  getDatabase: jest.fn(() => mockDatabaseInstance),
   initializeDatabase: jest.fn(),
 }));
 
@@ -106,7 +151,7 @@ describe('Withdrawal API', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.id).toBeDefined();
-      expect(response.body.data.status).toBe('PENDING');
+      expect(response.body.data.status).toBe('pending');
     });
 
     it('should return 400 for missing fields', async () => {
@@ -169,13 +214,12 @@ describe('Withdrawal API', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.data.id).toBe(requestId);
-      expect(response.body.data.status).toBe('PENDING');
+      expect(response.body.data.status).toBe('pending');
     });
 
     it('should return 404 for non-existent withdrawal request', async () => {
-      const { DatabaseService } = require('database');
-      const mockClient = DatabaseService.mock.instances[0].getClient();
-      mockClient.withdrawalRequest.findUnique.mockResolvedValueOnce(null);
+      // Update the mock to return null for this specific test
+      mockDatabaseInstance.getClient().withdrawalRequest.findUnique.mockResolvedValueOnce(null);
 
       const response = await request(app)
         .get('/withdrawal/status/non-existent-id')
@@ -201,9 +245,12 @@ describe('Withdrawal API', () => {
   });
 
   describe('GET /withdrawal/queue/items', () => {
-    it('should return queue items', async () => {
+    beforeEach(() => {
+      // Update the mock for this specific test
       const { QueueFactory } = require('shared');
       const mockQueue = QueueFactory.createFromEnv();
+      
+      // Set up the mock to return messages for this test
       mockQueue.receiveMessages.mockResolvedValueOnce([
         {
           id: 'msg-1',
@@ -218,6 +265,9 @@ describe('Withdrawal API', () => {
           attributes: {},
         },
       ]);
+    });
+
+    it('should return queue items', async () => {
 
       const response = await request(app)
         .get('/withdrawal/queue/items')

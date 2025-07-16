@@ -31,7 +31,7 @@ export class Logger {
     this.winston = winston.createLogger({
       level: config.logging.level,
       format: winston.format.combine(
-        winston.format.timestamp(),
+        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         winston.format.errors({ stack: true }),
         winston.format.json()
       ),
@@ -52,7 +52,7 @@ export class Logger {
     this.auditLogger = winston.createLogger({
       level: 'info',
       format: winston.format.combine(
-        winston.format.timestamp(),
+        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         winston.format.json()
       ),
       transports: [

@@ -3,6 +3,8 @@ export { DatabaseService } from './database';
 export type { DatabaseConfig } from './database';
 export { TransactionService } from './transaction-service';
 export { UserService } from './user-service';
+export { WithdrawalRequestService } from './withdrawal-request-service';
+export type { WithdrawalRequest } from './withdrawal-request-service';
 
 // Prisma client export for direct use if needed
 export { PrismaClient } from '@prisma/client';

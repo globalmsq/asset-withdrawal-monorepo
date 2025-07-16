@@ -21,10 +21,16 @@ export abstract class BaseWorker<TInput, TOutput = void> {
     name: string,
     inputQueueUrl: string,
     outputQueueUrl: string | undefined,
-    sqsConfig: SQSClientConfig
+    sqsConfig: SQSClientConfig,
+    logger?: Logger
   ) {
     this.name = name;
-    this.logger = new Logger({} as any); // Logger will be provided by signing worker
+    this.logger = logger || new Logger({
+      logging: { 
+        level: 'info',
+        auditLogPath: './logs/audit.log'
+      }
+    } as any); // Logger will be provided by signing worker
     
     const region = typeof sqsConfig.region === 'string' ? sqsConfig.region : 'ap-northeast-2';
     const endpoint = typeof sqsConfig.endpoint === 'string' ? sqsConfig.endpoint : undefined;
@@ -37,8 +43,11 @@ export abstract class BaseWorker<TInput, TOutput = void> {
       secretAccessKey = sqsConfig.credentials.secretAccessKey;
     }
     
+    // Extract queue name from URL (last part after /)
+    const inputQueueName = inputQueueUrl.split('/').pop() || inputQueueUrl;
+    
     this.inputQueue = QueueFactory.create<TInput>({
-      queueName: inputQueueUrl,
+      queueName: inputQueueName,
       region,
       endpoint,
       accessKeyId,
@@ -46,8 +55,9 @@ export abstract class BaseWorker<TInput, TOutput = void> {
     });
     
     if (outputQueueUrl) {
+      const outputQueueName = outputQueueUrl.split('/').pop() || outputQueueUrl;
       this.outputQueue = QueueFactory.create<TOutput>({
-        queueName: outputQueueUrl,
+        queueName: outputQueueName,
         region,
         endpoint,
         accessKeyId,

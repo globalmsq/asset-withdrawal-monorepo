@@ -117,7 +117,8 @@ services:
     restart: unless-stopped
     build:
       context: ..
-      dockerfile: apps/signing-service/Dockerfile
+      dockerfile: docker/dockerfile.packages
+      target: signing-service
     ports:
       - 3005:3005
     environment:

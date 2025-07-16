@@ -4,9 +4,9 @@
   "description": "Secure transaction signing service for asset withdrawals",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
     "build": "tsc",
-    "start": "node dist/main.js",
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "lint": "cd ../.. && yarn nx run signing-service:lint"
@@ -15,6 +15,7 @@
     "database": "workspace:*",
     "shared": "workspace:*",
     "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "dotenv": "^16.0.0",
     "ethers": "^6.0.0",
     "winston": "^3.0.0",
     "zod": "^3.0.0"

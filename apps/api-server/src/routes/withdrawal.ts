@@ -29,8 +29,13 @@ function rearrangeUuid(uuid: string): string {
 // Initialize queues
 let txRequestQueue: IQueue<WithdrawalRequest>;
 
-// Initialize queue on startup
-(async () => {
+// Delay queue initialization to ensure env vars are loaded
+async function initializeQueue() {
+  console.log('Initializing queue with environment:');
+  console.log('AWS_ENDPOINT:', process.env.AWS_ENDPOINT);
+  console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID);
+  console.log('AWS_REGION:', process.env.AWS_REGION);
+  
   txRequestQueue =
     QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
 
@@ -41,7 +46,16 @@ let txRequestQueue: IQueue<WithdrawalRequest>;
   } catch (error) {
     console.error('Failed to initialize queue:', error);
   }
-})();
+}
+
+// Initialize on first use
+let queueInitialized = false;
+async function ensureQueueInitialized() {
+  if (!queueInitialized) {
+    await initializeQueue();
+    queueInitialized = true;
+  }
+}
 
 // Helper function to determine symbol from token address
 function getSymbolFromTokenAddress(tokenAddress: string, network: string): string {
@@ -299,7 +313,8 @@ router.post('/request', async (req: Request, res: Response) => {
       createdAt: savedRequest.createdAt,
     };
 
-    // Add to queue for processing
+    // Ensure queue is initialized and add to queue for processing
+    await ensureQueueInitialized();
     await txRequestQueue.sendMessage(withdrawalRequest);
 
     // Create response
@@ -509,6 +524,7 @@ router.get('/request-queue/status', async (_req: Request, res: Response) => {
     };
 
     try {
+      await ensureQueueInitialized();
       if (!txRequestQueue) {
         throw new Error('Request queue not initialized');
       }
@@ -612,6 +628,7 @@ router.get('/tx-queue/status', async (_req: Request, res: Response) => {
 
     try {
       // Initialize signed tx queue
+      await ensureQueueInitialized();
       const signedTxQueue = QueueFactory.createFromEnv<any>('signed-tx-queue');
 
       // Get queue attributes for accurate message count

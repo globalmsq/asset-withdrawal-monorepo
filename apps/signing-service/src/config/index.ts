@@ -45,7 +45,7 @@ export function loadConfig(): Config {
   const config = {
     nodeEnv: process.env.NODE_ENV || 'development',
     
-    encryptionKey: process.env.SIGNING_SERVICE_ENCRYPTION_KEY || 'development-encryption-key-change-me',
+    encryptionKey: process.env.SIGNING_SERVICE_ENCRYPTION_KEY || 'dev-encryption-key-exactly-32chr',
     
     aws: {
       region: process.env.AWS_REGION || 'ap-northeast-2',
@@ -59,8 +59,8 @@ export function loadConfig(): Config {
     },
     
     queue: {
-      txRequestQueueUrl: process.env.TX_REQUEST_QUEUE_URL || 'http://localhost:4566/000000000000/tx-request-queue',
-      signedTxQueueUrl: process.env.SIGNED_TX_QUEUE_URL || 'http://localhost:4566/000000000000/signed-tx-queue',
+      txRequestQueueUrl: process.env.TX_REQUEST_QUEUE_URL || 'http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/tx-request-queue',
+      signedTxQueueUrl: process.env.SIGNED_TX_QUEUE_URL || 'http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue',
     },
     
     polygon: {

@@ -56,12 +56,12 @@ TX_DLQ_ARN=$(awslocal sqs get-queue-attributes \
 awslocal sqs set-queue-attributes \
   --queue-url http://localhost:4566/000000000000/tx-request-queue \
   --region $REGION \
-  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${INVALID_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"}"
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${INVALID_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
 
 awslocal sqs set-queue-attributes \
   --queue-url http://localhost:4566/000000000000/signed-tx-queue \
   --region $REGION \
-  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${TX_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"3\\\"}\"}"
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${TX_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
 
 echo "SQS queues created successfully:"
 echo "- tx-request-queue (DLQ: invalid-dlq)"

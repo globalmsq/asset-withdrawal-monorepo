@@ -1,3 +1,8 @@
+// Load environment variables first
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
 import app from './app';
 import { config } from './config';
 import { initializeDatabase } from './services/database';

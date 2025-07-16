@@ -1,3 +1,9 @@
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+
+// Load environment variables
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
 import { loadConfig } from './config';
 import { Logger } from './utils/logger';
 import { SecureSecretsManager } from './services/secrets-manager';

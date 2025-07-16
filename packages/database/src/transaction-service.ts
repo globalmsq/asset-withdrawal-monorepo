@@ -189,4 +189,51 @@ export class TransactionService {
   ): Promise<Transaction> {
     return this.updateTransaction(id, { txHash });
   }
+
+  // Methods for working with requestId (withdrawal request UUID)
+  async getTransactionByRequestId(requestId: string): Promise<Transaction | null> {
+    const prismaTx = await this.prisma.transaction.findFirst({
+      where: { requestId },
+    }) as PrismaTransaction | null;
+    return prismaTx ? this.convertToTransaction(prismaTx) : null;
+  }
+
+  async updateStatusByRequestId(requestId: string, status: string): Promise<Transaction> {
+    // First find the transaction by requestId
+    const transaction = await this.prisma.transaction.findFirst({
+      where: { requestId },
+    });
+    
+    if (!transaction) {
+      throw new Error(`Transaction not found for requestId: ${requestId}`);
+    }
+    
+    // Then update using the id
+    const prismaTx = (await this.prisma.transaction.update({
+      where: { id: transaction.id },
+      data: { status },
+    })) as PrismaTransaction;
+    return this.convertToTransaction(prismaTx);
+  }
+
+  async updateTransactionHashByRequestId(
+    requestId: string,
+    txHash: string
+  ): Promise<Transaction> {
+    // First find the transaction by requestId
+    const transaction = await this.prisma.transaction.findFirst({
+      where: { requestId },
+    });
+    
+    if (!transaction) {
+      throw new Error(`Transaction not found for requestId: ${requestId}`);
+    }
+    
+    // Then update using the id
+    const prismaTx = (await this.prisma.transaction.update({
+      where: { id: transaction.id },
+      data: { txHash },
+    })) as PrismaTransaction;
+    return this.convertToTransaction(prismaTx);
+  }
 }

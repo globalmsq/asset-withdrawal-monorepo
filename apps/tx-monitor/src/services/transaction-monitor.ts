@@ -31,12 +31,12 @@ export class TransactionMonitor {
 
   async initialize(): Promise<void> {
     this.logger.info('Initializing Transaction Monitor...');
-    
+
     // Verify provider connection
     try {
       const network = await this.provider.getNetwork();
       this.logger.info(`Connected to network: ${network.name} (chainId: ${network.chainId})`);
-      
+
       if (network.chainId !== BigInt(config.blockchain.chainId)) {
         throw new Error(`Chain ID mismatch. Expected ${config.blockchain.chainId}, got ${network.chainId}`);
       }
@@ -76,7 +76,7 @@ export class TransactionMonitor {
     }
 
     this.isRunning = false;
-    
+
     if (this.pollInterval) {
       clearInterval(this.pollInterval);
       this.pollInterval = null;
@@ -96,7 +96,7 @@ export class TransactionMonitor {
     try {
       // Get pending transactions
       const allPendingTransactions = await this.transactionService.getTransactionsByStatus('PENDING');
-      
+
       // Limit to batch size
       const pendingTransactions = allPendingTransactions.slice(0, config.monitoring.batchSize);
 
@@ -132,7 +132,7 @@ export class TransactionMonitor {
       if (!receipt) {
         // Transaction not found yet, check if it's been too long
         const waitTime = Date.now() - tx.sentAt.getTime();
-        
+
         if (waitTime > config.monitoring.maxWaitTime) {
           this.logger.warn(`Transaction ${tx.transactionHash} not found after ${waitTime}ms, marking as failed`);
           await this.transactionService.updateStatus(tx.id, 'FAILED');
@@ -140,7 +140,7 @@ export class TransactionMonitor {
         } else {
           this.logger.debug(`Transaction ${tx.transactionHash} not found yet, will retry`);
         }
-        
+
         return;
       }
 
@@ -183,10 +183,9 @@ export class TransactionMonitor {
     }
   }
 
-
   async getStatus(): Promise<MonitorStatus> {
     const pendingTransactions = await this.transactionService.getTransactionsByStatus('PENDING');
-    
+
     return {
       isRunning: this.isRunning,
       lastPollTime: this.lastPollTime,

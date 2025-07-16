@@ -117,20 +117,20 @@ export class TransactionService {
         return idStr === 'non-existent-id'
           ? null
           : {
-              id: idStr,
-              amount: 0.5,
-              symbol: 'ETH',
-              tokenAddress: '0x0000000000000000000000000000000000000000',
-              toAddress: '0x742d35Cc6634C0532925a3b8D17B1B6f1C7e2c4A',
-              network: 'ethereum',
-              status: 'completed',
-              txHash: '0x123abc...',
-              blockNumber: 12345,
-              confirmations: 6,
-              fee: 0.001,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
+            id: idStr,
+            amount: 0.5,
+            symbol: 'ETH',
+            tokenAddress: '0x0000000000000000000000000000000000000000',
+            toAddress: '0x742d35Cc6634C0532925a3b8D17B1B6f1C7e2c4A',
+            network: 'ethereum',
+            status: 'completed',
+            txHash: '0x123abc...',
+            blockNumber: 12345,
+            confirmations: 6,
+            fee: 0.001,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
       }
       return null;
     }

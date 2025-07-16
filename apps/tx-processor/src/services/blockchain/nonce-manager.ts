@@ -33,7 +33,7 @@ export class NonceManager {
       const nonce = this.currentNonce;
       this.pendingNonces.add(nonce);
       this.currentNonce++;
-      
+
       this.logger.debug(`Allocated nonce ${nonce} for address ${this.address}`);
       return nonce;
     });
@@ -43,12 +43,12 @@ export class NonceManager {
     return this.withLock(async () => {
       if (nonce !== undefined) {
         this.pendingNonces.delete(nonce);
-        
+
         // If this was the highest nonce, we can decrement current nonce
         if (this.currentNonce !== null && nonce === this.currentNonce - 1) {
           this.currentNonce--;
         }
-        
+
         this.logger.debug(`Released nonce ${nonce}`);
       } else if (this.currentNonce !== null && this.currentNonce > 0) {
         // Release the last allocated nonce
@@ -84,14 +84,14 @@ export class NonceManager {
   private async refreshNonce(): Promise<void> {
     try {
       const onChainNonce = await this.provider.getTransactionCount(this.address, 'pending');
-      
+
       // If we have pending nonces, use the highest one + 1
       const maxPendingNonce = Math.max(...Array.from(this.pendingNonces), -1);
       const nextNonce = Math.max(onChainNonce, maxPendingNonce + 1);
-      
+
       this.currentNonce = nextNonce;
       this.lastFetchTime = Date.now();
-      
+
       this.logger.info(`Refreshed nonce: ${this.currentNonce} for address ${this.address}`);
     } catch (error) {
       this.logger.error('Failed to refresh nonce', error);
@@ -102,7 +102,7 @@ export class NonceManager {
   private async withLock<T>(fn: () => Promise<T>): Promise<T> {
     const currentLock = this.lock;
     let releaseLock: () => void;
-    
+
     this.lock = new Promise((resolve) => {
       releaseLock = resolve;
     });
@@ -120,7 +120,7 @@ export class NonceManager {
     currentNonce: number | null;
     pendingCount: number;
     lastFetchTime: number;
-  } {
+    } {
     return {
       address: this.address,
       currentNonce: this.currentNonce,

@@ -12,9 +12,9 @@ app.use(express.json());
 app.get('/health', (req, res) => {
   const workerManager = WorkerManager.getInstance();
   const status = workerManager.getStatus();
-  
+
   const isHealthy = status.workers.every(w => w.status === 'running' || w.status === 'stopped');
-  
+
   res.status(isHealthy ? 200 : 503).json({
     status: isHealthy ? 'healthy' : 'unhealthy',
     timestamp: new Date().toISOString(),

@@ -22,7 +22,7 @@ export class SecretsManager {
   constructor(customConfig?: Partial<SecretConfig>) {
     const region = customConfig?.region || config.queue.region;
     const endpoint = customConfig?.endpoint || config.queue.endpoint;
-    
+
     const clientConfig: any = {
       region,
     };
@@ -42,7 +42,7 @@ export class SecretsManager {
 
   async getPrivateKey(secretName?: string): Promise<string> {
     const name = secretName || 'polygon-wallet-key';
-    
+
     try {
       // Check cache first
       const cached = this.secretCache.get(name);
@@ -57,7 +57,7 @@ export class SecretsManager {
       });
 
       const response = await this.client.send(command);
-      
+
       if (!response.SecretString) {
         throw new Error('Secret value is empty');
       }
@@ -91,13 +91,13 @@ export class SecretsManager {
       return privateKey;
     } catch (error) {
       this.logger.error(`Failed to get private key from secret ${name}`, error);
-      
+
       // In development, return a test private key
       if (process.env.NODE_ENV !== 'production') {
         this.logger.warn('Using test private key for development');
         return '0x0000000000000000000000000000000000000000000000000000000000000001';
       }
-      
+
       throw error;
     }
   }
@@ -115,7 +115,7 @@ export class SecretsManager {
       });
 
       const response = await this.client.send(command);
-      
+
       if (!response.SecretString) {
         throw new Error('Secret value is empty');
       }

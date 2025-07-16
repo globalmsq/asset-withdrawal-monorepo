@@ -38,7 +38,7 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
         throw error;
       }
     }
-    
+
     await super.start();
   }
 
@@ -66,10 +66,10 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
       return signedTx;
     } catch (error) {
       this.logger.error(`Failed to process withdrawal ${withdrawalRequest.id}`, error);
-      
+
       // Update status to FAILED in database
       await this.transactionService.updateStatus(withdrawalRequest.id, 'FAILED');
-      
+
       throw error;
     }
   }
@@ -102,12 +102,12 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
     // Check native token balance for gas fees
     const walletAddress = this.transactionSigner.getAddress()!;
     const balance = await this.polygonProvider.getBalance(walletAddress);
-    
+
     // Estimate gas cost
     const gasPrice = await this.polygonProvider.getGasPrice();
     const estimatedGasLimit = 100000n; // Reasonable estimate for token transfer
     const estimatedGasCost = gasPrice * estimatedGasLimit;
-    
+
     if (balance < estimatedGasCost) {
       throw new Error(
         `Insufficient balance for gas. Required: ${estimatedGasCost.toString()}, Available: ${balance.toString()}`

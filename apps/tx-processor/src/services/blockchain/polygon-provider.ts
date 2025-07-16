@@ -46,11 +46,11 @@ export class PolygonProvider {
   async getGasPrice(): Promise<bigint> {
     try {
       const gasPrice = await this.provider.getFeeData();
-      
+
       // For Polygon, we typically want to use a slightly higher gas price for faster confirmation
       const baseGasPrice = gasPrice.gasPrice || ethers.parseUnits('30', 'gwei');
       const adjustedGasPrice = baseGasPrice * 110n / 100n; // 10% higher
-      
+
       this.logger.debug(`Gas price: ${ethers.formatUnits(adjustedGasPrice, 'gwei')} Gwei`);
       return adjustedGasPrice;
     } catch (error) {

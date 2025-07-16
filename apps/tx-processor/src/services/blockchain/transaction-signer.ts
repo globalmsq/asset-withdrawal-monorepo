@@ -54,10 +54,10 @@ export class TransactionSigner {
     try {
       // Get nonce
       const nonce = request.nonce ?? await this.nonceManager.getNextNonce();
-      
+
       // Get gas price if not provided
       const gasPrice = request.gasPrice ?? await this.provider.getGasPrice();
-      
+
       // Prepare transaction
       const tx: ethers.TransactionRequest = {
         to: request.to,

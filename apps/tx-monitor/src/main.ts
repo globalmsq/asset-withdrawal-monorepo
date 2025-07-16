@@ -12,7 +12,7 @@ app.use(express.json());
 app.get('/health', async (req, res) => {
   const monitor = TransactionMonitor.getInstance();
   const status = await monitor.getStatus();
-  
+
   res.status(status.isRunning ? 200 : 503).json({
     status: status.isRunning ? 'healthy' : 'unhealthy',
     timestamp: new Date().toISOString(),

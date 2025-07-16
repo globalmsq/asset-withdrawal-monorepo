@@ -101,17 +101,17 @@ export abstract class BaseWorker<TInput, TOutput = void> {
   protected async processMessage(message: Message<TInput>): Promise<void> {
     try {
       this.logger.debug(`Processing message ${message.id}`);
-      
+
       const result = await this.process(message.body, message.id);
-      
+
       // Send to output queue if configured and result is provided
       if (this.outputQueue && result !== undefined) {
         await this.outputQueue.sendMessage(result as TOutput);
       }
-      
+
       // Delete message from input queue
       await this.inputQueue.deleteMessage(message.receiptHandle);
-      
+
       this.processedCount++;
       this.lastProcessedAt = new Date();
       this.logger.debug(`Message ${message.id} processed successfully`);
@@ -119,7 +119,7 @@ export abstract class BaseWorker<TInput, TOutput = void> {
       this.logger.error(`Error processing message ${message.id}`, error);
       this.lastError = error instanceof Error ? error.message : 'Unknown error';
       this.errorCount++;
-      
+
       // Message will be returned to queue after visibility timeout
       // or moved to DLQ after max receive count
     }

@@ -31,9 +31,9 @@ export class SigningWorker extends BaseWorker<
         endpoint: config.aws.endpoint,
         credentials: config.aws.endpoint
           ? {
-              accessKeyId: config.aws.accessKeyId || 'test',
-              secretAccessKey: config.aws.secretAccessKey || 'test',
-            }
+            accessKeyId: config.aws.accessKeyId || 'test',
+            secretAccessKey: config.aws.secretAccessKey || 'test',
+          }
           : undefined,
       },
       logger

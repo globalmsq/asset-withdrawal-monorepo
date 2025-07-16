@@ -69,11 +69,19 @@ echo "- signed-tx-queue (DLQ: tx-dlq)"
 echo "- invalid-dlq"
 echo "- tx-dlq"
 
-# Create test secret in Secrets Manager (for development)
+# Create test secrets in Secrets Manager (for development)
+# Create polygon-wallet-key for backward compatibility
 awslocal secretsmanager create-secret \
   --name polygon-wallet-key \
   --region $REGION \
   --secret-string '{"privateKey":"0x0000000000000000000000000000000000000000000000000000000000000001"}' \
-  2>/dev/null || echo "Secret already exists"
+  2>/dev/null || echo "Secret 'polygon-wallet-key' already exists"
+
+# Create signing-service private key (matches SIGNING_SERVICE_PRIVATE_KEY_SECRET default value)
+awslocal secretsmanager create-secret \
+  --name signing-service/private-key \
+  --region $REGION \
+  --secret-string '0x0000000000000000000000000000000000000000000000000000000000000001' \
+  2>/dev/null || echo "Secret 'signing-service/private-key' already exists"
 
 echo "LocalStack initialization complete!"

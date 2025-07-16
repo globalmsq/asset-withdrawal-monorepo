@@ -21,7 +21,6 @@ const configSchema = z.object({
   
   // Queue
   queue: z.object({
-    type: z.enum(['localstack', 'aws']).default('localstack'),
     txRequestQueueUrl: z.string(),
     signedTxQueueUrl: z.string(),
   }),
@@ -60,7 +59,6 @@ export function loadConfig(): Config {
     },
     
     queue: {
-      type: (process.env.QUEUE_TYPE || 'localstack') as 'localstack' | 'aws',
       txRequestQueueUrl: process.env.TX_REQUEST_QUEUE_URL || 'http://localhost:4566/000000000000/tx-request-queue',
       signedTxQueueUrl: process.env.SIGNED_TX_QUEUE_URL || 'http://localhost:4566/000000000000/signed-tx-queue',
     },

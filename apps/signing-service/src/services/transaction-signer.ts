@@ -78,8 +78,30 @@ export class TransactionSigner {
           ERC20_ABI,
           this.wallet
         );
+        // Normalize address with error handling
+        let normalizedTo: string;
+        try {
+          // Trim any whitespace and convert to lowercase first
+          const cleanedTo = to.trim().toLowerCase();
+          normalizedTo = ethers.getAddress(cleanedTo);
+        } catch (error) {
+          this.logger.error('Failed to normalize address', {
+            to,
+            toLength: to.length,
+            toHex: Buffer.from(to).toString('hex'),
+            error: error instanceof Error ? error.message : String(error),
+          });
+          // Fallback: use the address as-is if it's a valid format
+          if (to.match(/^0x[a-fA-F0-9]{40}$/)) {
+            this.logger.warn('Using address without checksum validation', { to });
+            normalizedTo = to;
+          } else {
+            throw error;
+          }
+        }
+        
         const data = tokenContract.interface.encodeFunctionData('transfer', [
-          to,
+          normalizedTo,
           amount,
         ]);
 

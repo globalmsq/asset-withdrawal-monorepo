@@ -1,0 +1,7 @@
+{
+  "name": "withdrawal-api-example",
+  "$schema": "../../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "docs/api/examples/nodejs",
+  "projectType": "application",
+  "targets": {}
+}

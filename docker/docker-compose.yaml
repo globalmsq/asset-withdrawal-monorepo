@@ -106,6 +106,63 @@ services:
       retries: 3
       start_period: 40s
 
+  # Signing Service
+  signing-service:
+    container_name: withdrawal-signing-service
+    depends_on:
+      mysql:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    restart: unless-stopped
+    build:
+      context: ..
+      dockerfile: apps/signing-service/Dockerfile
+    ports:
+      - 3005:3005
+    environment:
+      <<: *localstack-account
+      NODE_ENV: production
+      SIGNING_SERVICE_PORT: 3005
+
+      # Security (change in production)
+      SIGNING_SERVICE_ENCRYPTION_KEY: development-encryption-key-change-in-production-32
+
+      # AWS
+      AWS_ENDPOINT: http://localstack:4566
+      AWS_REGION: ap-northeast-2
+
+      # Secrets Manager
+      SIGNING_SERVICE_PRIVATE_KEY_SECRET: signing-service/private-key
+      SIGNING_SERVICE_API_KEYS_SECRET: signing-service/api-keys
+
+      # Queue Configuration
+      QUEUE_TYPE: localstack
+      TX_REQUEST_QUEUE_URL: http://localstack:4566/000000000000/tx-request-queue
+      SIGNED_TX_QUEUE_URL: http://localstack:4566/000000000000/signed-tx-queue
+
+      # Polygon Configuration
+      POLYGON_NETWORK: amoy
+      POLYGON_RPC_URL: https://rpc-amoy.polygon.technology
+      POLYGON_CHAIN_ID: 80002
+
+      # Database
+      DATABASE_URL: mysql://root:pass@mysql:3306/withdrawal_system
+
+      # Logging
+      SIGNING_SERVICE_LOG_LEVEL: info
+      SIGNING_SERVICE_AUDIT_LOG_PATH: /app/logs/audit.log
+    networks:
+      - withdrawal-network
+    volumes:
+      - signing-service-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 networks:
   withdrawal-network:
     driver: bridge
@@ -114,4 +171,6 @@ volumes:
   mysql-data:
     driver: local
   localstack-data:
+    driver: local
+  signing-service-logs:
     driver: local

@@ -31,7 +31,6 @@ async function connectWithRetry(dbService: any, maxRetries = 10, delay = 5000) {
 }
 
 async function startServer() {
-
   // Initialize database with configuration
   const dbService = await initializeDatabase(config.mysql);
 

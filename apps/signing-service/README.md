@@ -8,7 +8,7 @@ A secure transaction signing worker service for the asset withdrawal system. Thi
   - Encrypted private key storage in memory
   - Detailed audit logging for all signing operations
   - AWS Secrets Manager integration
-  
+
 - **Reliability**
   - Graceful shutdown handling
   - Automatic secrets refresh

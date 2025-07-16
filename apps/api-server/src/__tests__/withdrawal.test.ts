@@ -266,7 +266,6 @@ describe('Withdrawal API', () => {
       expect(response.body.data).toHaveProperty('broadcasting');
     });
   });
-
 });
 
 describe('Health Check', () => {

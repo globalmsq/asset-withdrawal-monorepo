@@ -19,14 +19,14 @@ export interface AuditLog {
 export class Logger {
   private winston: winston.Logger;
   private auditLogger: winston.Logger;
-  
+
   constructor(config: Config) {
     // Ensure log directory exists
     const logDir = path.dirname(config.logging.auditLogPath);
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
-    
+
     // Main application logger
     this.winston = winston.createLogger({
       level: config.logging.level,
@@ -40,14 +40,16 @@ export class Logger {
           format: winston.format.combine(
             winston.format.colorize(),
             winston.format.printf(({ timestamp, level, message, ...meta }) => {
-              const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : '';
+              const metaStr = Object.keys(meta).length
+                ? JSON.stringify(meta)
+                : '';
               return `${timestamp} [${level}]: ${message} ${metaStr}`;
             })
           ),
         }),
       ],
     });
-    
+
     // Audit logger for security events
     this.auditLogger = winston.createLogger({
       level: 'info',
@@ -65,26 +67,26 @@ export class Logger {
       ],
     });
   }
-  
+
   info(message: string, meta?: any): void {
     this.winston.info(message, meta);
   }
-  
+
   warn(message: string, meta?: any): void {
     this.winston.warn(message, meta);
   }
-  
+
   error(message: string, error?: Error | any, meta?: any): void {
     this.winston.error(message, { error: error?.stack || error, ...meta });
   }
-  
+
   debug(message: string, meta?: any): void {
     this.winston.debug(message, meta);
   }
-  
+
   audit(log: AuditLog): void {
     this.auditLogger.info('AUDIT', log);
-    
+
     // Also log to main logger for visibility
     const { timestamp, action, success, error } = log;
     const level = success ? 'info' : 'warn';
@@ -96,7 +98,7 @@ export class Logger {
       transactionId: log.transactionId,
     });
   }
-  
+
   auditSuccess(action: string, details: Partial<AuditLog>): void {
     this.audit({
       timestamp: new Date(),
@@ -105,8 +107,12 @@ export class Logger {
       ...details,
     });
   }
-  
-  auditFailure(action: string, error: string, details: Partial<AuditLog>): void {
+
+  auditFailure(
+    action: string,
+    error: string,
+    details: Partial<AuditLog>
+  ): void {
     this.audit({
       timestamp: new Date(),
       action,

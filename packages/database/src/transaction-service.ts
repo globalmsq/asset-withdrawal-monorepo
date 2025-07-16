@@ -141,7 +141,6 @@ export class TransactionService {
     return prismaTx ? this.convertToTransaction(prismaTx) : null;
   }
 
-
   async updateTransaction(
     id: string | bigint,
     data: {
@@ -179,7 +178,10 @@ export class TransactionService {
     );
   }
 
-  async updateStatus(id: string | bigint, status: string): Promise<Transaction> {
+  async updateStatus(
+    id: string | bigint,
+    status: string
+  ): Promise<Transaction> {
     return this.updateTransaction(id, { status });
   }
 
@@ -191,23 +193,28 @@ export class TransactionService {
   }
 
   // Methods for working with requestId (withdrawal request UUID)
-  async getTransactionByRequestId(requestId: string): Promise<Transaction | null> {
-    const prismaTx = await this.prisma.transaction.findFirst({
+  async getTransactionByRequestId(
+    requestId: string
+  ): Promise<Transaction | null> {
+    const prismaTx = (await this.prisma.transaction.findFirst({
       where: { requestId },
-    }) as PrismaTransaction | null;
+    })) as PrismaTransaction | null;
     return prismaTx ? this.convertToTransaction(prismaTx) : null;
   }
 
-  async updateStatusByRequestId(requestId: string, status: string): Promise<Transaction> {
+  async updateStatusByRequestId(
+    requestId: string,
+    status: string
+  ): Promise<Transaction> {
     // First find the transaction by requestId
     const transaction = await this.prisma.transaction.findFirst({
       where: { requestId },
     });
-    
+
     if (!transaction) {
       throw new Error(`Transaction not found for requestId: ${requestId}`);
     }
-    
+
     // Then update using the id
     const prismaTx = (await this.prisma.transaction.update({
       where: { id: transaction.id },
@@ -224,11 +231,11 @@ export class TransactionService {
     const transaction = await this.prisma.transaction.findFirst({
       where: { requestId },
     });
-    
+
     if (!transaction) {
       throw new Error(`Transaction not found for requestId: ${requestId}`);
     }
-    
+
     // Then update using the id
     const prismaTx = (await this.prisma.transaction.update({
       where: { id: transaction.id },

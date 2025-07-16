@@ -64,12 +64,7 @@ export function validateWithdrawalRequest(data: any): FieldValidationError[] {
   const errors: FieldValidationError[] = [];
 
   // Required fields
-  const requiredFields = [
-    'amount',
-    'toAddress',
-    'tokenAddress',
-    'network',
-  ];
+  const requiredFields = ['amount', 'toAddress', 'tokenAddress', 'network'];
   for (const field of requiredFields) {
     if (!data[field]) {
       errors.push({ field, message: `${field} is required` });

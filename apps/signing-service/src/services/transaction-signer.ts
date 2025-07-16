@@ -19,7 +19,7 @@ export interface SigningRequest {
 export class TransactionSigner {
   private wallet: ethers.Wallet | null = null;
   private nonceManager: NonceManager;
-  
+
   constructor(
     private polygonProvider: PolygonProvider,
     private secretsManager: SecureSecretsManager,
@@ -27,19 +27,19 @@ export class TransactionSigner {
   ) {
     this.nonceManager = new NonceManager(polygonProvider, logger);
   }
-  
+
   async initialize(): Promise<void> {
     try {
       // Get private key from secrets manager
       const privateKey = this.secretsManager.getPrivateKey();
-      
+
       // Create wallet instance
       const provider = this.polygonProvider.getProvider();
       this.wallet = new ethers.Wallet(privateKey, provider);
-      
+
       // Initialize nonce manager with wallet address
       await this.nonceManager.initialize(this.wallet.address);
-      
+
       this.logger.info('Transaction signer initialized', {
         address: this.wallet.address,
         chainId: this.polygonProvider.chainId,
@@ -49,33 +49,40 @@ export class TransactionSigner {
       throw error;
     }
   }
-  
+
   async getAddress(): Promise<string> {
     if (!this.wallet) {
       throw new Error('Wallet not initialized');
     }
     return this.wallet.address;
   }
-  
+
   async signTransaction(request: SigningRequest): Promise<SignedTransaction> {
     if (!this.wallet) {
       throw new Error('Wallet not initialized');
     }
-    
+
     const { to, amount, tokenAddress, transactionId } = request;
-    
+
     try {
       // Get nonce
       const nonce = await this.nonceManager.getNextNonce();
-      
+
       // Build transaction
       let transaction: ethers.TransactionRequest;
-      
+
       if (tokenAddress) {
         // ERC-20 token transfer
-        const tokenContract = new ethers.Contract(tokenAddress, ERC20_ABI, this.wallet);
-        const data = tokenContract.interface.encodeFunctionData('transfer', [to, amount]);
-        
+        const tokenContract = new ethers.Contract(
+          tokenAddress,
+          ERC20_ABI,
+          this.wallet
+        );
+        const data = tokenContract.interface.encodeFunctionData('transfer', [
+          to,
+          amount,
+        ]);
+
         transaction = {
           to: tokenAddress,
           data,
@@ -91,26 +98,26 @@ export class TransactionSigner {
           chainId: this.polygonProvider.chainId,
         };
       }
-      
+
       // Estimate gas
       const gasEstimate = await this.wallet.estimateGas(transaction);
-      const gasLimit = gasEstimate * 120n / 100n; // Add 20% buffer
-      
+      const gasLimit = (gasEstimate * 120n) / 100n; // Add 20% buffer
+
       // Get gas price (EIP-1559)
       const feeData = await this.wallet.provider!.getFeeData();
       let maxFeePerGas = feeData.maxFeePerGas;
       let maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
-      
+
       if (!maxFeePerGas || !maxPriorityFeePerGas) {
         // Fallback for Polygon
         maxFeePerGas = ethers.parseUnits('50', 'gwei');
         maxPriorityFeePerGas = ethers.parseUnits('30', 'gwei');
       }
-      
+
       // Adjust gas price for Polygon (10% higher)
-      maxFeePerGas = maxFeePerGas * 110n / 100n;
-      maxPriorityFeePerGas = maxPriorityFeePerGas * 110n / 100n;
-      
+      maxFeePerGas = (maxFeePerGas * 110n) / 100n;
+      maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
+
       // Complete transaction object
       transaction = {
         ...transaction,
@@ -119,14 +126,14 @@ export class TransactionSigner {
         maxPriorityFeePerGas,
         type: 2, // EIP-1559
       };
-      
+
       // Sign transaction
       const signedTx = await this.wallet.signTransaction(transaction);
       const parsedTx = ethers.Transaction.from(signedTx);
-      
+
       // Mark nonce as pending
       this.nonceManager.markNoncePending(nonce);
-      
+
       const result: SignedTransaction = {
         transactionId,
         hash: parsedTx.hash!,
@@ -136,20 +143,20 @@ export class TransactionSigner {
         maxFeePerGas: maxFeePerGas.toString(),
         maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
       };
-      
+
       this.logger.info('Transaction signed successfully', {
         transactionId,
         hash: result.hash,
         nonce: result.nonce,
       });
-      
+
       return result;
     } catch (error) {
       this.logger.error('Failed to sign transaction', error, { transactionId });
       throw error;
     }
   }
-  
+
   async cleanup(): Promise<void> {
     // Clear sensitive data
     this.wallet = null;

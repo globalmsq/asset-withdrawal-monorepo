@@ -35,7 +35,7 @@ async function initializeQueue() {
   console.log('AWS_ENDPOINT:', process.env.AWS_ENDPOINT);
   console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID);
   console.log('AWS_REGION:', process.env.AWS_REGION);
-  
+
   txRequestQueue =
     QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
 
@@ -58,10 +58,13 @@ async function ensureQueueInitialized() {
 }
 
 // Helper function to determine symbol from token address
-function getSymbolFromTokenAddress(tokenAddress: string, network: string): string {
+function getSymbolFromTokenAddress(
+  tokenAddress: string,
+  network: string
+): string {
   // Look up token in our configuration
   const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network);
-  
+
   if (tokenInfo) {
     return tokenInfo.symbol;
   }
@@ -229,15 +232,16 @@ router.post('/request', async (req: Request, res: Response) => {
     if (tokenAddress === '0x0000000000000000000000000000000000000000') {
       const response: ApiResponse = {
         success: false,
-        error: 'Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed.',
+        error:
+          'Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed.',
         timestamp: new Date(),
       };
       return res.status(400).json(response);
     }
-    
+
     // Validate token is in our supported list
     const tokenInfo = tokenService.getTokenByAddress(tokenAddress, networkType);
-    
+
     if (!tokenInfo) {
       const response: ApiResponse = {
         success: false,
@@ -246,7 +250,7 @@ router.post('/request', async (req: Request, res: Response) => {
       };
       return res.status(400).json(response);
     }
-    
+
     // If symbol is provided, validate it matches the token
     if (symbol && tokenInfo.symbol !== symbol) {
       const response: ApiResponse = {
@@ -687,6 +691,5 @@ router.get('/tx-queue/status', async (_req: Request, res: Response) => {
     res.status(500).json(response);
   }
 });
-
 
 export default router;

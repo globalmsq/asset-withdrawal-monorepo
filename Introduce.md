@@ -365,14 +365,14 @@ function getCurrencyFromTokenAddress(tokenAddress: string): string {
   if (tokenAddress === '0x0000000000000000000000000000000000000000') {
     return 'ETH';
   }
-  
+
   // Token address mapping
   const tokenMap: { [key: string]: string } = {
     '0xdAC17F958D2ee523a2206206994597C13D831ec7': 'USDT',
     '0x6B175474E89094C44Da98b954EedeAC495271d0F': 'DAI',
     '0xA0b86a33E6441C0D16C8fA7b13A4e8Da1D44ce9c': 'USDC'
   };
-  
+
   return tokenMap[tokenAddress] || 'TOKEN';
 }
 ```

@@ -84,7 +84,7 @@ docker-compose -f docker/docker-compose.yaml logs -f
 # Generate Prisma client (required for TypeScript/Node.js to interact with DB)
 npm run db:generate
 
-# Note: 
+# Note:
 # - Database tables are created automatically by init.sql when Docker starts
 # - init.sql creates tables in MySQL, db:generate creates Prisma Client for your code
 # - Sample user is created: test@test.com / Test123!@# (see init.sql)
@@ -232,7 +232,7 @@ exit
 Watch logs in each terminal to see the flow:
 
 - **API Server**: Request received, transaction created
-- **TX Processor**: 
+- **TX Processor**:
   - ValidationSigningWorker: Validates and signs transaction
   - TransactionSenderWorker: Broadcasts to blockchain
 - **TX Monitor**: Polls for transaction confirmation
@@ -256,19 +256,19 @@ Watch logs in each terminal to see the flow:
    ```bash
    # Start specific worker
    curl -X POST http://localhost:3001/workers/validation-signing/start
-   
+
    # Stop specific worker
    curl -X POST http://localhost:3001/workers/validation-signing/stop
    ```
 
 ### Common Issues:
 
-1. **Port conflicts**: 
+1. **Port conflicts**:
    - API Server: 8080 (Docker) or 3000 (local)
    - MySQL: 3306
    - LocalStack: 4566
 
-2. **Database connection**: 
+2. **Database connection**:
    - Docker services use `mysql` as hostname
    - Local services use `localhost`
 

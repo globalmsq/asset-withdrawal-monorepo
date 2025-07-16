@@ -155,7 +155,7 @@ Client → api-server → tx-request-queue → signing-service → signed-tx-que
 
 ### Core Services
 
-1. **api-server**: 
+1. **api-server**:
    - Handles HTTP requests for withdrawals
    - Validates requests and stores in database
    - Sends messages to tx-request-queue

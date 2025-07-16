@@ -1,6 +1,6 @@
-import { SecureSecretsManager } from './secrets-manager';
-import { Config } from '../config';
-import { Logger } from '../utils/logger';
+import { SecureSecretsManager } from '../secrets-manager';
+import { Config } from '../../config';
+import { Logger } from '../../utils/logger';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
 
 jest.mock('@aws-sdk/client-secrets-manager');
@@ -54,7 +54,7 @@ describe('SecureSecretsManager', () => {
       const mockPrivateKey =
         '0x0000000000000000000000000000000000000000000000000000000000000001';
 
-      mockClient.send.mockResolvedValueOnce({
+      (mockClient.send as jest.Mock).mockResolvedValueOnce({
         SecretString: mockPrivateKey,
       });
 
@@ -73,7 +73,7 @@ describe('SecureSecretsManager', () => {
     it('should fail if private key has invalid format', async () => {
       const invalidPrivateKey = 'invalid-key';
 
-      mockClient.send.mockResolvedValueOnce({
+      (mockClient.send as jest.Mock).mockResolvedValueOnce({
         SecretString: invalidPrivateKey,
       });
 
@@ -94,7 +94,7 @@ describe('SecureSecretsManager', () => {
       const mockPrivateKey =
         '0x0000000000000000000000000000000000000000000000000000000000000001';
 
-      mockClient.send.mockResolvedValueOnce({
+      (mockClient.send as jest.Mock).mockResolvedValueOnce({
         SecretString: mockPrivateKey,
       });
 

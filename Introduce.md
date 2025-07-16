@@ -6,47 +6,42 @@ This document defines the architecture of a blockchain withdrawal system designe
 
 ## 2. Architecture Diagram and Data Flow
 
-- **Request Reception**: Client withdrawal requests are received through the `TX Request API` and queued in the `TX Request Queue`.
-- **Validation & Signing**: The `Validation & Signing TX` component processes requests sequentially from the queue. It verifies user balances in `Redis` and loads private keys from `Secret Manager` to sign transactions. Invalid requests (e.g., insufficient balance, address errors) are moved to the `Invalid Dead Letter Queue`.
-- **Transaction Broadcasting**: Signed transactions are forwarded to the `Signed TX Queue`. The `Transaction Senders` component retrieves transactions from this queue and broadcasts them to the blockchain network. Failed transmissions are isolated in the `TX Dead Letter Queue`.
-- **Status Tracking & Monitoring**: `Cron`-based `Transaction Status Check` and `Verify Sent Transactions` jobs work with the `Transaction Tracker` to continuously monitor transaction status on the blockchain and update final results in the database.
+- **Request Reception**: Client withdrawal requests are received through the `api-server` and queued in the `tx-request-queue`.
+- **Transaction Signing**: The `signing-service` processes requests sequentially from the queue. It validates request parameters (placeholder logic, to be implemented) and loads private keys from `AWS Secrets Manager` to sign transactions. Invalid requests are moved to the `Invalid Dead Letter Queue`.
+- **Transaction Broadcasting**: Signed transactions are forwarded to the `signed-tx-queue`. The `tx-broadcaster` (planned) will retrieve transactions from this queue and broadcast them to the blockchain network. Failed transmissions will be isolated in the `TX Dead Letter Queue`.
 - **Admin Functions**: `Admin Front` provides system status and transaction processing monitoring through `Admin API` and `TX Status API`.
 - **Monitoring & Alerting**: `Prometheus`, `Grafana`, and `LogStash` collect and visualize system-wide metrics and logs, while `Alert Manager` sends notifications to the operations team when predefined thresholds are exceeded.
+
+### Future Implementation
+- **Status Tracking & Monitoring**: `tx-monitor` service with cron-based transaction status checking to monitor blockchain confirmations and update final results in the database.
 
 ```mermaid
 graph TD
     %% Request Flow
-    MSQ[MSQ/User] --> TX_Request_API[TX Request API]
-    TX_Request_API --> TX_Request_Queue[(TX Request Queue)]
+    Client[Client] --> api_server[api-server]
+    api_server --> tx_request_queue[(tx-request-queue)]
 
     %% Processing Core
-    TX_Request_Queue --> Validation_Signing_TX{Validation & Signing TX}
+    tx_request_queue --> signing_service{signing-service}
 
     subgraph "Dependencies"
         direction LR
-        Secret_Manager[Secret Manager] --> Validation_Signing_TX
-        Redis[Redis] --> Validation_Signing_TX
+        Secrets_Manager[AWS Secrets Manager] --> signing_service
     end
 
-    Validation_Signing_TX --> Invalid_DLQ[(Invalid DLQ)]
-    Validation_Signing_TX --> Signed_TX_Queue[(Signed TX Queue)]
+    signing_service --> invalid_dlq[(invalid-dlq)]
+    signing_service --> signed_tx_queue[(signed-tx-queue)]
 
-    %% Broadcast Flow
-    Signed_TX_Queue --> Transaction_Senders{Transaction Senders}
-    Transaction_Senders --> Blockchain([Blockchain])
-    Transaction_Senders --> TX_DLQ[(TX DLQ)]
-    TX_DLQ --> Handle_Error[Handle Error]
+    %% Broadcast Flow (Planned)
+    signed_tx_queue -.-> tx_broadcaster{tx-broadcaster}
+    tx_broadcaster -.-> Blockchain([Blockchain])
+    tx_broadcaster -.-> tx_dlq[(tx-dlq)]
+    tx_dlq -.-> Handle_Error[Handle Error]
 
-    %% Tracking & DB Update
-    subgraph "Tracking & Database"
-        direction TB
-        Transaction_Tracker{Transaction Tracker}
-        DB[(Database)]
-        Cron_Jobs[Cron: Status Check] --> Transaction_Tracker
-        Transaction_Tracker -- Reads --> Blockchain
-        Transaction_Tracker -- Updates --> DB
-        Validation_Signing_TX -- Writes --> DB
-    end
+    %% Database Updates
+    DB[(Database)]
+    signing_service -- Updates Status --> DB
+    api_server -- Writes Request --> DB
 
     %% Admin & Monitoring (Side Panels)
     subgraph "Admin & Status"
@@ -65,6 +60,9 @@ graph TD
         Alert_Manager
     end
 
+    style tx_broadcaster stroke-dasharray: 5 5
+    style Handle_Error stroke-dasharray: 5 5
+
 ```
 
 [https://www.figma.com/board/HvHzZrTw4E2pgQH7DBAju4/Blockchain-Withdrawal-System?node-id=0-1&t=hocJvQMkWSxOoMDD-1](https://www.figma.com/board/HvHzZrTw4E2pgQH7DBAju4/Blockchain-Withdrawal-System?node-id=0-1&t=hocJvQMkWSxOoMDD-1)
@@ -73,31 +71,31 @@ graph TD
 
 ### 3.1. API and Admin Interface
 
-- **TX Request API**: Gateway that receives withdrawal requests from external sources. It validates basic request format before forwarding to the `TX Request Queue`.
-- **TX Status API / Admin API**: APIs used to query transaction status and modify system settings from the admin interface.
-- **Admin Front**: Web-based admin interface where developers and operators can view withdrawal history, error transactions, and take necessary actions.
+- **api-server**: Gateway that receives withdrawal requests from external sources. It validates basic request format before forwarding to the `tx-request-queue`. Provides endpoints for withdrawal requests and status queries.
+- **TX Status API / Admin API**: APIs used to query transaction status and modify system settings from the admin interface (planned).
+- **Admin Front**: Web-based admin interface where developers and operators can view withdrawal history, error transactions, and take necessary actions (planned).
 
 ### 3.2. Message Queues (Amazon SQS)
 
-- **TX Request Queue**: Primary queue storing withdrawal requests awaiting processing.
-- **Signed TX Queue**: Queue holding signed transactions awaiting blockchain transmission.
-- **Invalid Dead Letter Queue**: DLQ (Dead-Letter Queue) isolating requests that failed validation and signing.
-- **TX Dead Letter Queue**: DLQ isolating transactions that failed blockchain transmission.
+- **tx-request-queue**: Primary queue storing withdrawal requests awaiting processing.
+- **signed-tx-queue**: Queue holding signed transactions awaiting blockchain transmission.
+- **invalid-dlq**: DLQ (Dead-Letter Queue) isolating requests that failed validation and signing.
+- **tx-dlq**: DLQ isolating transactions that failed blockchain transmission.
 
 ### 3.3. Withdrawal Processing Workers
 
-- **Validation & Signing TX**: Core worker processing requests from the `TX Request Queue`. It verifies balances in `Redis`, retrieves keys from `Secret Manager`, and signs transactions.
-- **Transaction Senders**: Responsible for retrieving signed transactions from the `Signed TX Queue` and broadcasting them to the blockchain network.
+- **signing-service**: Core worker processing requests from the `tx-request-queue`. It performs validation (placeholder logic, to be implemented), retrieves private keys from `AWS Secrets Manager`, signs transactions, and forwards them to the `signed-tx-queue`. This is a pure worker service without any HTTP API endpoints.
+- **tx-broadcaster** (planned): Will be responsible for retrieving signed transactions from the `signed-tx-queue` and broadcasting them to the blockchain network.
 
 ### 3.4. Data Storage
 
 - **Database (DB)**: Stores all persistent data including transaction status and last scanned block numbers. (e.g., Amazon RDS, Aurora)
 - **Redis**: Caches frequently accessed data such as user balances and token information (ABIs) to improve response times and reduce database load. (e.g., Amazon ElastiCache)
 
-### 3.5. Status Tracking and Schedulers
+### 3.5. Status Tracking and Schedulers (Future Implementation)
 
-- **Transaction Tracker**: Component that tracks the status (confirmation status, etc.) of transactions sent to the blockchain.
-- **Cron Jobs**: Periodic tasks executed via Kubernetes CronJob or AWS EventBridge. They monitor long-pending transactions and verify final status of sent transactions to update the database.
+- **tx-monitor**: Service that will track the status (confirmation status, etc.) of transactions sent to the blockchain.
+- **Cron Jobs**: Periodic tasks that will be executed via Kubernetes CronJob or AWS EventBridge to monitor long-pending transactions and verify final status of sent transactions.
 
 ### 3.6. Monitoring and Alerting System
 
@@ -105,42 +103,49 @@ graph TD
 
 ## 4. Withdrawal Process Flow
 
-1. **Request Reception**: `TX Request API` receives withdrawal requests and sends messages to the `TX Request Queue`.
-2. **Validation & Signing**: `Validation & Signing TX` worker retrieves and processes messages from the queue.
-   - Verifies available balance in `Redis`.
+1. **Request Reception**: `api-server` receives withdrawal requests and sends messages to the `tx-request-queue`.
+2. **Transaction Signing**: `signing-service` worker retrieves and processes messages from the queue.
+   - Performs validation checks (placeholder logic, full implementation pending).
    - Securely loads private keys from `AWS Secrets Manager`.
-   - Signs transactions and forwards to `Signed TX Queue`.
-   - On error (insufficient balance, etc.), requests are sent to the `Invalid Dead Letter Queue`.
-3. **Blockchain Transmission**: `Transaction Senders` worker retrieves signed transactions from the `Signed TX Queue`.
-   - Broadcasts transactions to the blockchain network via nodes.
-   - On transmission failure (nonce errors, insufficient gas, etc.), transactions are sent to the `TX Dead Letter Queue`.
-4. **Status Tracking**: `Transaction Tracker` and periodic `Cron Jobs` query the blockchain for transactions marked as 'processing' in the database.
-5. **Completion Processing**: When transactions are successfully included in blocks with sufficient confirmations, the database status is updated to `COMPLETED`, completing the process.
-6. **Error Handling**: Messages in `Invalid/TX Dead Letter Queue` are processed according to defined `Handle Error` logic. (e.g., operator notifications, manual reprocessing interface)
+   - Signs transactions and forwards to `signed-tx-queue`.
+   - On error, requests are sent to the `invalid-dlq`.
+3. **Blockchain Transmission** (planned): `tx-broadcaster` will retrieve signed transactions from the `signed-tx-queue`.
+   - Will broadcast transactions to the blockchain network via nodes.
+   - On transmission failure (nonce errors, insufficient gas, etc.), transactions will be sent to the `tx-dlq`.
+4. **Status Tracking** (planned): `tx-monitor` service will query the blockchain for transactions marked as 'processing' in the database.
+5. **Completion Processing** (planned): When transactions are successfully included in blocks with sufficient confirmations, the database status will be updated to `COMPLETED`.
+6. **Error Handling** (planned): Messages in DLQ will be processed according to defined error handling logic.
 
 ## 5. Key Technology Stack and AWS Considerations
 
-- **Compute**: Each API and worker is containerized (Docker) and operated on Amazon EKS (Elastic Kubernetes Service).
-- **Secrets Management**: Private keys are stored in **AWS Secrets Manager** with minimized access permissions, allowing only the `Validation & Signing TX` worker to access them via IAM Roles.
-- **Queuing**: **Amazon SQS** is used to configure standard queues and DLQs. Worker (Pod) count is automatically adjusted based on queue message volume (e.g., using KEDA) for elastic request processing.
-- **Monitoring**: **Amazon Managed Service for Prometheus/Grafana** integrated with **Amazon CloudWatch** to build a robust monitoring and alerting pipeline.
+- **Compute**: Each API and worker is containerized (Docker) and will be operated on Amazon EKS (Elastic Kubernetes Service).
+- **Secrets Management**: Private keys are stored in **AWS Secrets Manager** with minimized access permissions, allowing only the `signing-service` worker to access them via IAM Roles.
+- **Queuing**: **Amazon SQS** is used to configure standard queues and DLQs. Worker (Pod) count will be automatically adjusted based on queue message volume (e.g., using KEDA) for elastic request processing.
+- **Monitoring**: **Amazon Managed Service for Prometheus/Grafana** integrated with **Amazon CloudWatch** to build a robust monitoring and alerting pipeline (planned).
 
 ## 6. Improvements
 
 - **Dead Letter Queue Processing Automation**: The `Handle Error` component is critical for system stability. When messages are received in DLQs, CloudWatch Alarms should immediately notify the operations team, and the Admin Front should provide functionality to view, reprocess, or discard these items.
-- **Network Security Enhancement**: Communication between components should be strictly controlled using Security Groups and NACLs within AWS VPC. For example, the `Validation & Signing` worker should have network rules allowing access only to essential services like `Secrets Manager`, `Redis`, and `DB`.
+- **Network Security Enhancement**: Communication between components should be strictly controlled using Security Groups and NACLs within AWS VPC. For example, the `signing-service` worker should have network rules allowing access only to essential services like `Secrets Manager` and `DB`.
 - **Blockchain Endpoint Redundancy and Failover**: Dependency on a single blockchain endpoint (node) can become a single point of failure (SPOF) for the entire system. Multiple endpoints should be configured including various providers (Infura, Alchemy, etc.) or self-operated nodes, with periodic health checks and automatic failover logic to ensure service continuity when specific endpoints fail.
 
-## 7. Implemented Technology Stack (Phase 1 Complete)
+## 7. Implemented Technology Stack
 
 ### 7.1 Current Implementation Status
 
-- **ORM**: Prisma (MySQL)
-- **API Framework**: Express.js + TypeScript
-- **Queue**: LocalStack SQS (Development) → AWS SQS (Production planned)
-- **Testing**: Jest + Supertest
-- **Documentation**: OpenAPI 3.0 (Swagger)
-- **Container**: Docker + Docker Compose
+- **Completed**:
+  - **api-server**: Receives HTTP requests and sends messages to tx-request-queue
+  - **signing-service**: Reads messages from tx-request-queue, signs transactions, and sends to signed-tx-queue
+  - **ORM**: Prisma (MySQL)
+  - **API Framework**: Express.js + TypeScript
+  - **Queue**: LocalStack SQS (Development) / AWS SQS (Production ready)
+  - **Testing**: Jest + Supertest
+  - **Documentation**: OpenAPI 3.0 (Swagger)
+  - **Container**: Docker + Docker Compose
+
+- **Future Implementation**:
+  - **tx-broadcaster**: Reads from signed-tx-queue and broadcasts to blockchain
+  - **tx-monitor**: Transaction status tracking and confirmation
 
 ### 7.2 Planned Technology Stack
 
@@ -181,7 +186,7 @@ graph TD
 - **Staging**: Same configuration as Production (scaled down)
 - **Production**: Multi-AZ EKS + Aurora MySQL
 
-## 9. Operational Goals and SLA
+## 9. Operational Goals and SLA (Future Goals)
 
 ### 9.1 Availability
 
@@ -245,7 +250,7 @@ graph TD
 
 ### 11.1 API Server Overview
 
-The API Server (withdrawal-api) serves as the gateway for the withdrawal system and is the entry point for all withdrawal requests. It is implemented with Express.js and TypeScript, and integrates with MySQL database through Prisma ORM.
+The api-server serves as the gateway for the withdrawal system and is the entry point for all withdrawal requests. It is implemented with Express.js and TypeScript, and integrates with MySQL database through Prisma ORM.
 
 ### 11.2 Core Endpoint Details
 
@@ -431,3 +436,41 @@ function getCurrencyFromTokenAddress(tokenAddress: string): string {
    - Query performance
    - Connection pool usage
    - Transaction status distribution
+
+## 12. Signing Service Implementation Details
+
+### 12.1 Signing Service Overview
+
+The signing-service is a dedicated worker service that processes withdrawal requests from the tx-request-queue, signs transactions, and forwards them to the signed-tx-queue. It is designed as a pure worker without any HTTP API endpoints.
+
+### 12.2 Core Features
+
+1. **Queue Processing**
+   - Polls messages from tx-request-queue using SQS long polling
+   - Processes messages in batches (up to 10 at a time)
+   - Implements visibility timeout for message processing
+
+2. **Validation Logic** (placeholder - to be implemented)
+   - Basic parameter validation (network, address format, amount)
+   - Balance verification logic is planned but not yet implemented
+   - Currently allows all valid format requests to proceed
+
+3. **Transaction Signing**
+   - Retrieves private keys from AWS Secrets Manager
+   - Additional encryption layer using AES-256-GCM for keys in memory
+   - Supports both native MATIC and ERC-20 token transfers
+   - Implements EIP-1559 transaction format
+   - Polygon-specific gas optimization (20% buffer, 10% price increase)
+
+4. **Security Features**
+   - Encrypted private key storage in memory
+   - Audit logging for all signing operations
+   - Secrets refresh every hour
+   - Graceful shutdown handling
+
+### 12.3 Architecture Benefits
+
+- **Single Responsibility**: Focused solely on transaction signing
+- **Enhanced Security**: Isolated signing operations with encrypted key management
+- **Scalability**: Can run multiple instances for horizontal scaling
+- **Maintainability**: Clear separation from other system components

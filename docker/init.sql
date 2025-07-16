@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 -- Create transactions table (fully matches Prisma schema)
 CREATE TABLE IF NOT EXISTS `transactions` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `requestId` VARCHAR(50) NULL,
+    `requestId` VARCHAR(36) NULL,
     `amount` DECIMAL(18, 8) NOT NULL,
     `symbol` VARCHAR(10) NOT NULL,
     `tokenAddress` VARCHAR(42) NULL,

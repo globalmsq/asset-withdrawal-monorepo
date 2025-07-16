@@ -7,73 +7,62 @@
 4. **Database**: No migration files until explicitly requested
 5. **Architecture**: Microservices with separate worker apps
 
-## Current Implementation Status (2025-07-11)
+## Current Implementation Status (2025-07-16)
 
 ### ✅ Completed Features
-- **Withdrawal API** (api-server app)
+- **API Server** (api-server app)
   - POST /auth/register - User registration
   - POST /auth/login - User authentication with JWT
   - POST /withdrawal/request - Submit withdrawal request
   - GET /withdrawal/status/:id - Check withdrawal status
   - GET /withdrawal/history - Get user's withdrawal history
-  - GET /withdrawal/queue/status - Check queue status (returns CloudWatch info for SQS)
-  - GET /withdrawal/queue/items - Queue items info (AWS CLI guidance)
+  - GET /withdrawal/queue/status - Check queue status
+  - GET /withdrawal/queue/items - Queue items info
   - Swagger API documentation (/api-docs)
+- **Signing Service** (signing-service app)
+  - Queue message processing from tx-request-queue
+  - Transaction validation (placeholder logic)
+  - AWS Secrets Manager integration with encryption
+  - Transaction signing for Polygon network
+  - EIP-1559 transaction support
+  - Sends signed transactions to signed-tx-queue
+  - Audit logging and graceful shutdown
+  - No HTTP API endpoints (pure worker)
 - **Queue System**
   - LocalStack SQS integration (LocalStackSQSQueue class)
-  - AWS SQS stub for production
+  - AWS SQS ready for production
   - In-memory Queue for testing
   - Queue factory pattern (QueueFactory) with environment-based selection
   - Multiple queue support (tx-request, signed-tx, DLQs)
   - Async queue initialization with proper error handling
-- **Transaction Processing** (tx-processor app)
-  - Validation & Signing Worker
-  - Transaction Sender Worker
-  - Worker lifecycle management
-  - Health check endpoints
-  - Polygon blockchain integration (Amoy testnet)
-  - EIP-1559 transaction support
-  - Nonce management system
-  - AWS Secrets Manager integration (LocalStack)
-- **Transaction Monitoring** (tx-monitor app)
-  - Transaction status tracking
-  - Confirmation count monitoring
-  - Periodic status updates (5-minute intervals)
-  - Health check endpoints
-- **Validation**
-  - Address validation (Ethereum/Polygon addresses)
-  - Amount validation (positive, 8 decimals, max 1M)
-  - Network validation (polygon only)
-  - Request validators with Joi
 - **Database**
   - Prisma ORM + MySQL
-  - Transaction Service with comprehensive CRUD operations
-  - User Service with authentication support
+  - WithdrawalRequest model for tracking requests
+  - Transaction model for blockchain transactions
   - Database connection management
 - **Authentication & Security**
   - JWT-based user authentication
   - Role-based access control (USER, ADMIN)
   - Password hashing with bcrypt
-  - Environment-based configuration
+  - Private key encryption in memory (AES-256-GCM)
 - **Infrastructure**
   - Nx monorepo management
   - Express.js + TypeScript
-  - Docker Compose setup (MySQL + LocalStack)
-  - Comprehensive Jest test environment
+  - Docker Compose setup (MySQL + LocalStack + SQS Admin UI)
+  - Jest test environment
   - TypeScript strict mode
   - Environment-based configuration with dotenv
-  - Docker Compose with shared environment variables (x-anchors)
+  - Docker Compose with shared environment variables
   - Region configuration (ap-northeast-2)
 
 ### ❌ Not Implemented
+- **tx-broadcaster**: Service to read from signed-tx-queue and broadcast to blockchain
+- **tx-monitor**: Transaction status monitoring (implemented but reserved for future use)
 - DLQ Handler for error recovery
-- Transaction acceleration support
-- AWS Secrets Manager production integration
-- Automatic retry mechanism for failed transactions
+- Real balance validation in signing-service
 - Admin API and Frontend
-- Production AWS SQS integration
 - API key authentication (for system-to-system communication)
-- Real balance check with Redis cache
+- Redis cache for balance checks
 - Withdrawal limits enforcement
 - Webhook notifications
 - Rate Limiting
@@ -91,58 +80,54 @@
 - [x] Queue Abstraction Layer
   - [x] IQueue interface definition
   - [x] LocalStackSQSQueue implementation
-  - [x] AWSSQSQueue implementation (stub for future)
+  - [x] AWSSQSQueue implementation ready for production
   - [x] Queue factory pattern for environment-based selection
 
-#### 1.2 Worker Application Architecture ✅
-- [x] Create `tx-processor` app
+#### 1.2 API Server ✅
+- [x] Create `api-server` app
+  - [x] Express.js setup with TypeScript
+  - [x] Authentication endpoints (register/login)
+  - [x] Withdrawal request endpoints
+  - [x] Queue status monitoring endpoints
+  - [x] Swagger documentation
+- [x] Request Processing
+  - [x] Receive withdrawal requests via HTTP
+  - [x] Basic validation
+  - [x] Store in database
+  - [x] Send to tx-request-queue
+
+#### 1.3 Signing Service ✅
+- [x] Create `signing-service` app
   - [x] Base Worker abstract class
   - [x] Worker lifecycle management
-  - [x] Health check endpoints
-- [x] Validation & Signing Worker
-  - [x] Poll messages from tx-request queue (SQS)
-  - [x] Balance validation (mock for now, Redis later)
-  - [x] Transaction validation for Polygon
-  - [x] Move to invalid-dlq on failure
-- [x] Transaction Sender Worker
-  - [x] Poll messages from signed-tx queue
-  - [x] Broadcast to Polygon network
-  - [x] Move to tx-dlq on failure
-- [ ] DLQ Handler
-  - [ ] Error classification system
-  - [ ] Retry eligibility logic
-  - [ ] Alert notification (stub)
+  - [x] No HTTP endpoints (pure worker)
+- [x] Transaction Signing Worker
+  - [x] Poll messages from tx-request-queue (SQS)
+  - [x] Validation logic (placeholder implementation)
+  - [x] AWS Secrets Manager integration
+  - [x] Transaction signing for Polygon
+  - [x] Send to signed-tx-queue
+  - [x] Move invalid requests to invalid-dlq
+- [x] Security Features
+  - [x] Encrypted private key storage in memory
+  - [x] Audit logging
+  - [x] Graceful shutdown
 
-#### 1.3 Polygon Blockchain Integration ✅
-- [x] Ethers.js setup for Polygon
-  - [x] Polygon RPC provider configuration
-  - [x] Amoy testnet configuration
-  - [x] Mainnet configuration (disabled by default)
-- [x] Transaction signing module
-  - [x] EIP-1559 support for Polygon
-  - [x] Polygon-specific gas optimization
-  - [x] Transaction builder for ERC-20 transfers
-- [x] Polygon network management
-  - [x] Gas price oracle integration
-  - [x] Nonce management with Polygon considerations
-  - [ ] Transaction acceleration support
-- [x] Key management
-  - [x] LocalStack Secrets Manager (development)
-  - [ ] AWS Secrets Manager integration (production stub)
+#### 1.4 Transaction Broadcaster ❌
+- [ ] Create `tx-broadcaster` app
+  - [ ] Poll messages from signed-tx-queue
+  - [ ] Broadcast to Polygon network
+  - [ ] Handle nonce management
+  - [ ] Move failed transactions to tx-dlq
+- [ ] Error Handling
+  - [ ] Retry logic for transient errors
+  - [ ] Gas price adjustments
+  - [ ] Network failure handling
 
-#### 1.4 Transaction Monitor Service ✅
-- [x] Create `tx-monitor` app
-  - [x] Polygon transaction status tracking
-  - [x] Confirmation count monitoring
-  - [x] Chain reorganization detection
-- [x] Monitoring implementation
-  - [x] Poll pending transactions every 5 minutes
-  - [x] Alert for stuck transactions (30+ minutes)
-  - [ ] Automatic retry mechanism
-- [x] Status synchronization
-  - [x] Update transaction status in database
-  - [x] PENDING → CONFIRMED workflow
-  - [x] FAILED transaction handling
+#### 1.5 DLQ Handler ❌
+- [ ] Error classification system
+- [ ] Retry eligibility logic
+- [ ] Alert notification system
 
 ### Phase 2: Admin System Development
 
@@ -268,10 +253,11 @@
 ## Architecture Overview
 
 ### Microservices Structure
-1. **withdrawal-api**: Handles withdrawal requests and status queries
-2. **tx-processor**: Processes and signs transactions
-3. **tx-monitor**: Monitors blockchain transaction status
-4. **admin-api** (Phase 2): Administrative operations and monitoring
+1. **api-server**: Handles withdrawal requests and status queries
+2. **signing-service**: Processes queue messages and signs transactions
+3. **tx-broadcaster** (planned): Broadcasts signed transactions to blockchain
+4. **tx-monitor** (implemented but reserved for future): Monitors blockchain transaction status
+5. **admin-api** (Phase 2): Administrative operations and monitoring
 
 ### Queue Architecture
 - **Development**: LocalStack SQS
@@ -350,8 +336,11 @@ TX_MONITOR_PORT=3002
 
 ## Milestones
 
-- **M1 (3 weeks)**: Core withdrawal processing system complete ✅
-- **M2 (6 weeks)**: Admin system development complete
+- **M1 (3 weeks)**: Core withdrawal processing system (partially complete)
+  - ✅ api-server: Complete
+  - ✅ signing-service: Complete
+  - ❌ tx-broadcaster: Not implemented
+- **M2 (6 weeks)**: Admin system development
 - **M3 (9 weeks)**: Production ready
 - **M4 (10+ weeks)**: API authentication system
 
@@ -359,32 +348,29 @@ TX_MONITOR_PORT=3002
 
 This plan is based on the architecture defined in introduce.md and reflects the current implementation status with phased progression. Each phase is independently testable and designed for gradual transition to production environment.
 
-## Implementation Review (2025-07-11)
+## Implementation Review (2025-07-16)
 
-### Summary of Recent Changes
-- **Configuration Refactoring**: Simplified api-server configuration by removing complex validation and using a direct config object with dotenv
-- **Queue Integration Enhancement**: Updated withdrawal routes to use QueueFactory pattern with async initialization
-- **AWS Region Update**: Changed from ap-northeast-2 to ap-northeast-2 for all AWS services
-- **Docker Compose Improvements**: Added x-anchors for shared environment variables and better volume management
-- **LocalStack Enhancement**: Updated initialization script with region support
+### Summary of Architecture Changes
+- **Service Separation**: Extracted signing functionality from tx-processor into dedicated signing-service
+- **Enhanced Security**: Implemented encrypted private key storage with AES-256-GCM in signing-service
+- **Simplified Architecture**: Clear separation of concerns with api-server → signing-service → tx-broadcaster flow
+- **Queue-based Processing**: Pure worker services without HTTP endpoints for better scalability
 
-### Key Technical Improvements
-1. **Simplified Configuration Management**
-   - Removed complex AppConfig interface and validation functions
-   - Direct config object with environment variable loading via dotenv
-   - Added queue configuration support (type, region, endpoint, credentials)
+### Current System State
+1. **Implemented Services**:
+   - **api-server**: Receives HTTP requests and sends to tx-request-queue
+   - **signing-service**: Processes queue messages, signs transactions, sends to signed-tx-queue
+   - **tx-monitor**: Fully implemented but reserved for future phases
 
-2. **Queue System Updates**
-   - Async queue initialization in withdrawal routes
-   - Proper error handling for queue initialization failures
-   - Updated queue status endpoints to reflect SQS limitations
-   - Clear guidance for monitoring queues via AWS CloudWatch and CLI
+2. **Planned Services**:
+   - **tx-broadcaster**: Will read from signed-tx-queue and broadcast to blockchain
+   - **admin-api**: Administrative interface for system management
 
-3. **Infrastructure Enhancements**
-   - Docker Compose uses YAML anchors for shared LocalStack credentials
-   - Improved volume naming (mysql-data, localstack-data)
-   - Better environment variable management in docker-compose
-   - LocalStack script supports configurable AWS region
+3. **Key Architectural Benefits**:
+   - Single responsibility principle for each service
+   - Enhanced security through service isolation
+   - Horizontal scalability through queue-based architecture
+   - Clear data flow: HTTP → Queue → Worker → Queue → Blockchain
 
 ## Database Schema Update (2025-07-13)
 
@@ -460,57 +446,48 @@ model WithdrawalRequest {
 - Updated all test files to match new schema
 - Added proper AWS_REGION configuration in docker-compose
 
-### Current State (2025-07-11)
-- Phase 1 core withdrawal processing system is complete (M1 milestone achieved)
-- All three microservices (api-server, tx-processor, tx-monitor) are fully implemented
-- Queue system with LocalStack SQS integration is operational with improved configuration
-- Polygon blockchain integration with Amoy testnet is functional
-- Infrastructure is better prepared for production deployment
+### Current State (2025-07-16)
+- Phase 1 core withdrawal processing system is partially complete
+  - ✅ api-server: Fully implemented
+  - ✅ signing-service: Fully implemented
+  - ❌ tx-broadcaster: Not yet implemented (critical for completing the flow)
+- Queue system with LocalStack SQS integration is operational
+- AWS Secrets Manager integration with additional encryption layer
+- Infrastructure ready for horizontal scaling
 
-### Next Steps
-- Phase 2: Admin API development for transaction management
-- DLQ handler implementation for automatic error recovery
-- Production AWS infrastructure preparation with ap-northeast-2 region
-- Complete AWS SQS production implementation in QueueFactory
+### Immediate Next Steps
+1. **Implement tx-broadcaster service** (critical for completing withdrawal flow)
+   - Read signed transactions from signed-tx-queue
+   - Broadcast to Polygon network
+   - Handle transaction errors and retries
+   - Update transaction status in database
 
-## Database Schema Mismatch Fix (2025-07-14) - RESOLVED
+2. **Complete signing-service validation logic**
+   - Implement real balance checks
+   - Add withdrawal limits validation
+   - Enhanced security checks
 
-### Issue
-The error indicates that the `blockchain` column doesn't exist in the `withdrawal_requests` table in the database, but it's defined in the Prisma schema.
+3. **Phase 2: Admin System Development**
+   - Admin API for transaction management
+   - DLQ handler for error recovery
+   - Monitoring dashboard
 
-### Root Cause
-The Prisma schema (schema.prisma) includes a `blockchain` field on line 33:
-```prisma
-blockchain    String?      @db.VarChar(20) // polygon, bsc, etc.
-```
+## Technical Notes
 
-However, the actual database table doesn't have this column, causing the error when Prisma tries to access it.
+### Signing Service Architecture
+- **Purpose**: Dedicated service for secure transaction signing
+- **Security**: Implements defense-in-depth with AWS Secrets Manager + AES-256-GCM encryption
+- **Scalability**: Stateless worker design allows horizontal scaling
+- **Audit Trail**: Comprehensive logging for all signing operations
 
-### Solution Required
-The database needs to be migrated to add the missing `blockchain` column. According to CLAUDE.md guidelines, migration files should only be created when explicitly requested.
+### Queue Architecture Benefits
+- **Decoupling**: Services communicate asynchronously through queues
+- **Resilience**: Failed messages automatically moved to DLQs
+- **Scalability**: Multiple workers can process messages in parallel
+- **Observability**: Queue metrics provide system health insights
 
-### Required Schema Change
-Add the `blockchain` column to the `withdrawal_requests` table:
-- Column name: `blockchain`
-- Type: VARCHAR(20)
-- Nullable: Yes
-- Default: NULL
-
-### Migration Command
-When ready to apply the migration:
-```bash
-npm run db:migrate
-```
-
-### Note
-The withdrawal route code doesn't currently use the blockchain field in the create operation, so once the column is added to match the schema, the error should be resolved.
-
-### Resolution
-After further analysis, the `blockchain` field was determined to be redundant with the `network` field. The blockchain column has been removed from:
-1. Prisma schema (removed from WithdrawalRequest model)
-2. init.sql (removed from withdrawal_requests table)
-3. Withdrawal routes (removed from getSymbolFromTokenAddress function)
-4. Token service (removed blockchain parameter from all methods, defaults to 'polygon')
-5. Type definitions (removed from WithdrawalRequest interface)
-
-All tests pass and the code now works without the blockchain column.
+### Development Environment
+- **LocalStack**: Emulates AWS services locally
+- **SQS Admin UI**: Visual queue monitoring at http://localhost:3999
+- **Docker Compose**: Single command to start all services
+- **Hot Reload**: Development servers auto-restart on code changes

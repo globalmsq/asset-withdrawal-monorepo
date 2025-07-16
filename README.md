@@ -1,84 +1,121 @@
-# Blockchain Withdrawal System Monorepo
+# MUSTB Asset Withdrawal System
 
-A TypeScript-based blockchain withdrawal system monorepo.
+A Polygon-focused blockchain withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests on the Polygon network, processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status.
 
 ## 📁 Project Structure
 
 ```
-├── apps/                  # Applications
-│   └── api-server/        # API server application
-├── packages/              # Shared libraries
-│   └── shared/            # Common library
-├── docker/                # Docker configuration
-├── docs/                  # Documentation
-├── nx.json               # Nx configuration
-├── package.json          # Root package configuration
-├── tsconfig.json         # TypeScript configuration
-└── README.md            # This file
+├── apps/                        # Applications
+│   ├── api-server/              # HTTP API gateway (receives withdrawal requests)
+│   ├── signing-service/         # Transaction signing worker (processes queue messages)
+│   └── tx-monitor/              # Transaction monitor (tracks blockchain status)
+├── packages/                    # Shared libraries
+│   ├── database/                # Prisma ORM and database services
+│   └── shared/                  # Common utilities, types, and validators
+├── docker/                      # Docker configuration
+│   ├── docker-compose.yaml      # Main services (MySQL, LocalStack)
+│   └── scripts/                 # Initialization scripts
+├── prisma/                      # Database schema and migrations
+├── docs/                        # Documentation
+│   ├── introduce.md             # Architecture overview
+│   └── plan.md                  # Development plan
+└── CLAUDE.md                    # Development guidelines
 ```
 
 ## 🚀 Getting Started
 
-### 1. Install Dependencies
+### 1. Prerequisites
+
+- Node.js 18+
+- Docker and Docker Compose
+- AWS CLI (for LocalStack)
+
+### 2. Install Dependencies
 
 ```bash
-yarn install
+npm install
 ```
 
-### 2. Environment Configuration
-
-Environment variables are configured at the application level. Copy the `env.example` file to `.env` in the API server directory:
+### 3. Start Infrastructure Services
 
 ```bash
-# API Server
-cp apps/api-server/env.example apps/api-server/.env
+# Start MySQL and LocalStack
+docker-compose -f docker/docker-compose.yaml up -d
+
+# Initialize LocalStack queues and secrets
+./docker/scripts/init-localstack.sh
 ```
 
-**Environment Variables:**
-
-- **API Server** (`apps/api-server/.env`):
-  - `NODE_ENV`: Development or production mode
-  - `PORT`: API server port (default: 8080)
-  - `MYSQL_HOST`: Database host
-  - `MYSQL_PORT`: Database port
-  - `MYSQL_USER`: Database user
-  - `MYSQL_PASSWORD`: Database password
-  - `MYSQL_DATABASE`: Database name
-
-**Note:** Libraries do not have their own environment files. All configuration is injected from the application level.
-
-### 3. Create New Package
+### 4. Database Setup
 
 ```bash
-# Create library
-yarn nx g @nx/js:library my-package --directory=packages/my-package
+# Run database migrations
+npm run db:migrate
 
-# Create application
-yarn nx g @nx/js:application my-app --directory=apps/my-app
+# Seed initial data (optional)
+npm run db:seed
 ```
 
-### 4. Run Development Server
+### 5. Environment Configuration
+
+Create `.env` file in the root directory:
 
 ```bash
-# Run all apps
-yarn dev
-
-# Run specific app (with auto-reload)
-yarn nx serve helloworld
-
-# Run with custom port
-yarn nx serve helloworld --port=3001
-
-# Run with environment variables
-yarn nx serve helloworld --env NODE_ENV=development
+cp .env.example .env
 ```
 
-**Features:**
+**Key Environment Variables:**
 
-- 🔄 **Auto-reload**: Server automatically restarts when code changes
-- 🚀 **Fast build**: Uses esbuild for quick compilation
-- 🔧 **Development mode**: Source maps enabled for debugging
-- 📡 **HTTP server**: Runs on http://localhost:3000 by default
+```env
+# Database
+DATABASE_URL="mysql://root:root@localhost:3306/withdrawal_db"
+
+# Queue Configuration
+QUEUE_TYPE=localstack          # 'localstack' or 'aws'
+AWS_ENDPOINT=http://localhost:4566
+AWS_REGION=ap-northeast-2
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+
+# Polygon Network
+POLYGON_NETWORK=amoy           # 'amoy' or 'mainnet'
+POLYGON_RPC_URL=https://rpc-amoy.polygon.technology
+POLYGON_CHAIN_ID=80002
+
+# Application Ports
+API_SERVER_PORT=3000
+SIGNING_SERVICE_PORT=3005
+TX_MONITOR_PORT=3002
+
+# Security
+JWT_SECRET=your-secret-key
+ENCRYPTION_KEY=your-32-byte-encryption-key
+```
+
+### 6. Run Services
+
+```bash
+# Run all services in development mode
+npm run dev
+
+# Run specific service
+npm run dev:api-server
+npm run dev:signing-service
+npm run dev:tx-monitor
+
+# Build all services
+npm run build
+
+# Run in production mode
+npm run serve
+```
+
+### 7. Access Services
+
+- **API Server**: http://localhost:3000
+- **Swagger Documentation**: http://localhost:3000/api-docs
+- **SQS Admin UI**: http://localhost:3999 (visual queue monitoring)
+- **LocalStack**: http://localhost:4566
 
 ## 📋 Available Commands
 
@@ -108,72 +145,140 @@ yarn clean               # Clean build artifacts and cache
 
 ## 🏗️ Architecture
 
-### Package Structure
+### System Overview
 
-- **`apps/`**: Applications
-  - Each package can be built and tested independently
-  - Example: `helloworld` application
-- **`packages/`**: Reusable libraries
-  - Each library can be built and tested independently
-  - Module references through TypeScript path mapping (`@packages/*`)
+The system follows a queue-based microservices architecture:
 
-### Development Tools
+```
+Client → api-server → tx-request-queue → signing-service → signed-tx-queue → [tx-broadcaster] → Blockchain
+```
 
-- **Docker**: Containerization support in `docker/` directory
-- **Documentation**: Project docs in `docs/` directory
+### Core Services
+
+1. **api-server**: 
+   - Handles HTTP requests for withdrawals
+   - Validates requests and stores in database
+   - Sends messages to tx-request-queue
+   - Provides status query endpoints
+
+2. **signing-service**:
+   - Processes messages from tx-request-queue
+   - Validates transaction parameters (placeholder logic)
+   - Retrieves private keys from AWS Secrets Manager
+   - Signs transactions for Polygon network
+   - Sends signed transactions to signed-tx-queue
+   - Pure worker without HTTP endpoints
+
+3. **tx-monitor** (implemented, reserved for future):
+   - Monitors transaction status on blockchain
+   - Updates confirmation counts
+   - Handles transaction finality
+
+4. **tx-broadcaster** (planned):
+   - Will read from signed-tx-queue
+   - Broadcast transactions to Polygon network
+   - Handle gas optimization and retries
+
+### Queue System
+
+- **Development**: LocalStack SQS emulation
+- **Production**: AWS SQS
+- **Queues**:
+  - `tx-request-queue`: New withdrawal requests
+  - `signed-tx-queue`: Signed transactions ready for broadcast
+  - `invalid-dlq`: Failed validation requests
+  - `tx-dlq`: Failed transaction broadcasts
 
 ## 🔧 Development Guide
 
-### Adding New Package
+### API Endpoints
 
-1. Create package using `nx g @nx/js:library` command
-2. Automatically added to paths in `tsconfig.base.json`
-3. Importable from other packages using `@packages/my-package`
+**Authentication:**
+- `POST /auth/register` - User registration
+- `POST /auth/login` - User login with JWT
 
-### Development Workflow
+**Withdrawal:**
+- `POST /withdrawal/request` - Submit withdrawal request
+- `GET /withdrawal/status/:id` - Check withdrawal status
+- `GET /withdrawal/history` - Get user's withdrawal history
+- `GET /withdrawal/queue/status` - Monitor queue status
 
-- **Hot reload**: `yarn nx serve helloworld` - Auto-restart on code changes
-- **Build**: `yarn nx build helloworld` - Production build
-- **Test**: `yarn nx test helloworld` - Run tests
-- **Lint**: `yarn nx lint helloworld` - Check code quality
+### Security Features
 
-### Code Style
-
-- Code style enforcement using ESLint + Prettier
-- Automatic linting and formatting before commit (husky + lint-staged)
-- TypeScript strict mode enabled
+- JWT-based authentication
+- Private key encryption (AES-256-GCM)
+- AWS Secrets Manager integration
+- Audit logging for critical operations
+- Input validation and sanitization
 
 ### Testing
 
-- Unit testing using Jest
-- Independent test execution for each package
-- Code coverage report generation with `yarn coverage`
+```bash
+# Run all tests
+npm test
+
+# Run specific service tests
+npm run test:api-server
+npm run test:signing-service
+
+# Run with coverage
+npm run test:coverage
+```
+
+### Development Workflow
+
+1. Make changes to code
+2. Run linting: `npm run lint`
+3. Run type checking: `npm run typecheck`
+4. Run tests: `npm test`
+5. Build: `npm run build`
 
 ## 🛠️ Tools and Technologies
 
 - **Nx**: Monorepo management and build system
-- **TypeScript**: Type safety
-- **Jest**: Testing framework with coverage support
-- **ESLint**: Code quality inspection
-- **Prettier**: Code formatting
-- **Husky**: Git hooks for pre-commit checks
-- **Yarn**: Package manager with workspaces
-- **Docker**: Containerization support
+- **TypeScript**: Type safety with strict mode
+- **Express.js**: Web framework
+- **Prisma**: ORM for MySQL database
+- **AWS SDK**: SQS queue management
+- **LocalStack**: Local AWS service emulation
+- **Ethers.js**: Polygon blockchain interaction
+- **Jest**: Testing framework with coverage
+- **Docker**: Containerization
+- **JWT**: Authentication
+- **Bcrypt**: Password hashing
 
 ## 📝 Conventions
 
-### Package Naming
+### Service Naming
 
+- Purpose-specific names (e.g., `signing-service`, not `worker-1`)
 - Use kebab-case
-- Clear and descriptive names
+- Clear separation of concerns
 
-### Branch Naming
+### Environment Variables
 
-- `feature/feature-name`
-- `fix/bug-name`
-- `refactor/refactoring-name`
+- All services share root `.env` file
+- Use `QUEUE_TYPE` to switch between LocalStack and AWS
+- Sensitive data in AWS Secrets Manager
 
-### Commit Messages
+### Error Handling
 
-- Follow [Conventional Commits](https://www.conventionalcommits.org/) rules
-- Use `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:` etc.
+- Use custom error classes from `@packages/shared`
+- Proper HTTP status codes
+- Detailed error logging
+- DLQ for failed messages
+
+## 🚨 Important Notes
+
+1. **No Database Migrations**: Do not generate Prisma migrations unless explicitly requested
+2. **Security First**: Never expose private keys or sensitive data
+3. **Queue-based Architecture**: All heavy processing through queues
+4. **Polygon Only**: Currently supports only Polygon network
+5. **Development First**: Use LocalStack for local development
+
+## 📚 Documentation
+
+- **Architecture Overview**: See `docs/introduce.md`
+- **Development Plan**: See `docs/plan.md`
+- **Development Guidelines**: See `CLAUDE.md`
+- **API Documentation**: Run the server and visit `/api-docs`

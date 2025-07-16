@@ -1,0 +1,30 @@
+{
+  "name": "@asset-withdrawal/signing-service",
+  "version": "1.0.0",
+  "description": "Secure transaction signing service for asset withdrawals",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "lint": "cd ../.. && yarn nx run signing-service:lint"
+  },
+  "dependencies": {
+    "database": "workspace:*",
+    "shared": "workspace:*",
+    "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "ethers": "^6.0.0",
+    "winston": "^3.0.0",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "tsx": "^3.0.0",
+    "typescript": "^5.0.0"
+  }
+}

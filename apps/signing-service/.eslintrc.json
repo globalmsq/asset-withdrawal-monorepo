@@ -1,0 +1,4 @@
+{
+  "extends": ["../../.eslintrc.js"],
+  "ignorePatterns": ["!**/*", "node_modules", "dist", "coverage", "*.js", "!jest.config.js"]
+}

@@ -38,17 +38,15 @@ interface PrismaTransaction {
 
 export class TransactionService {
   private prisma: PrismaClient;
-  private isDevelopment: boolean;
 
-  constructor(dbService?: DatabaseService) {
-    if (dbService) {
-      this.prisma = dbService.getClient();
+  constructor(prismaClient?: PrismaClient) {
+    if (prismaClient) {
+      this.prisma = prismaClient;
     } else {
-      // Create a default DatabaseService if not provided
-      const defaultDbService = new DatabaseService();
-      this.prisma = defaultDbService.getClient();
+      // Fallback: DatabaseService의 싱글톤 인스턴스를 사용
+      const dbService = DatabaseService.getInstance();
+      this.prisma = dbService.getClient();
     }
-    this.isDevelopment = process.env.NODE_ENV !== 'production';
   }
 
   private convertToTransaction(prismaTx: PrismaTransaction): Transaction {
@@ -77,25 +75,6 @@ export class TransactionService {
     network?: string;
     status: string;
   }): Promise<Transaction> {
-    // Return mock data in development mode
-    if (this.isDevelopment) {
-      return {
-        id: `mock-tx-${Date.now()}`,
-        amount: data.amount,
-        symbol: data.symbol,
-        tokenAddress: data.tokenAddress || null,
-        toAddress: data.toAddress || null,
-        network: data.network || null,
-        status: data.status,
-        txHash: null,
-        blockNumber: null,
-        confirmations: 0,
-        fee: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-    }
-
     const prismaTx = await this.prisma.transaction.create({
       data: {
         amount: new Decimal(data.amount),
@@ -110,31 +89,6 @@ export class TransactionService {
   }
 
   async getTransactionById(id: string | bigint): Promise<Transaction | null> {
-    // Return mock data in development mode
-    if (this.isDevelopment) {
-      const idStr = typeof id === 'string' ? id : id.toString();
-      if (idStr.startsWith('mock-tx-') || idStr === 'non-existent-id') {
-        return idStr === 'non-existent-id'
-          ? null
-          : {
-            id: idStr,
-            amount: 0.5,
-            symbol: 'ETH',
-            tokenAddress: '0x0000000000000000000000000000000000000000',
-            toAddress: '0x742d35Cc6634C0532925a3b8D17B1B6f1C7e2c4A',
-            network: 'ethereum',
-            status: 'completed',
-            txHash: '0x123abc...',
-            blockNumber: 12345,
-            confirmations: 6,
-            fee: 0.001,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-      }
-      return null;
-    }
-
     const prismaTx = (await this.prisma.transaction.findUnique({
       where: { id: typeof id === 'string' ? BigInt(id) : id },
     })) as PrismaTransaction | null;

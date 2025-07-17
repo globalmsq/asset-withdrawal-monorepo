@@ -1,5 +1,6 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import type { WithdrawalRequest as PrismaWithdrawalRequest } from '@prisma/client';
+import { DatabaseService } from './database';
 
 export interface WithdrawalRequest {
   id: string;
@@ -16,7 +17,17 @@ export interface WithdrawalRequest {
 }
 
 export class WithdrawalRequestService {
-  constructor(private prisma: PrismaClient = new PrismaClient()) {}
+  private prisma: PrismaClient;
+
+  constructor(prismaClient?: PrismaClient) {
+    if (prismaClient) {
+      this.prisma = prismaClient;
+    } else {
+      // Fallback: DatabaseService의 싱글톤 인스턴스를 사용
+      const dbService = DatabaseService.getInstance();
+      this.prisma = dbService.getClient();
+    }
+  }
 
   private convertToWithdrawalRequest(
     prismaRequest: PrismaWithdrawalRequest

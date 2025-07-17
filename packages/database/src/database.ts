@@ -1,4 +1,4 @@
-// Import from root node_modules
+// Import PrismaClient
 let PrismaClient: any;
 try {
   // Try to import from root node_modules first
@@ -8,21 +8,9 @@ try {
     // Fallback to regular import
     PrismaClient = require('@prisma/client').PrismaClient;
   } catch (error2) {
-    console.warn(
-      'Prisma client not found. Please run "prisma generate" if needed.'
+    throw new Error(
+      'Prisma client not found. Please run "yarn install" and "prisma generate" to set up the database client.'
     );
-    // Mock PrismaClient for development
-    PrismaClient = class MockPrismaClient {
-      $connect() {
-        return Promise.resolve();
-      }
-      $disconnect() {
-        return Promise.resolve();
-      }
-      $queryRaw() {
-        return Promise.resolve([{ 1: 1 }]);
-      }
-    };
   }
 }
 
@@ -42,6 +30,9 @@ export class DatabaseService {
     if (config) {
       // Set DATABASE_URL environment variable for Prisma
       const databaseUrl = `mysql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`;
+      console.log('****************************************');
+      console.log(databaseUrl);
+      console.log('****************************************');
       process.env.DATABASE_URL = databaseUrl;
     }
     // Always create PrismaClient after setting DATABASE_URL

@@ -1,8 +1,7 @@
 import { BaseWorker } from './base-worker';
-import { WithdrawalRequest } from '@asset-withdrawal/shared';
+import { WithdrawalRequest, ChainProviderFactory, TransactionStatus } from '@asset-withdrawal/shared';
 import { WithdrawalRequestService, DatabaseService } from '@asset-withdrawal/database';
 import { SignedTransaction } from '../types';
-import { PolygonProvider } from '../services/polygon-provider';
 import { TransactionSigner } from '../services/transaction-signer';
 import { SecureSecretsManager } from '../services/secrets-manager';
 import { Logger } from '../utils/logger';
@@ -13,7 +12,6 @@ export class SigningWorker extends BaseWorker<
   SignedTransaction
 > {
   private withdrawalRequestService: WithdrawalRequestService;
-  private polygonProvider: PolygonProvider;
   private transactionSigner: TransactionSigner;
   private auditLogger: Logger;
 
@@ -44,13 +42,16 @@ export class SigningWorker extends BaseWorker<
     // Initialize database with config
     const dbService = DatabaseService.getInstance(config.database);
     this.withdrawalRequestService = new WithdrawalRequestService(dbService.getClient());
-    this.polygonProvider = new PolygonProvider(
-      config.polygon.rpcUrl,
-      config.polygon.chainId,
-      logger
+
+    // Create chain provider based on config
+    const network = config.polygon.chainId === 80002 ? 'testnet' : 'mainnet';
+    const chainProvider = ChainProviderFactory.createPolygonProvider(
+      network,
+      config.polygon.rpcUrl
     );
+
     this.transactionSigner = new TransactionSigner(
-      this.polygonProvider,
+      chainProvider,
       this.secretsManager,
       this.auditLogger
     );
@@ -81,12 +82,10 @@ export class SigningWorker extends BaseWorker<
     });
 
     try {
-      // Validate network support - map 'polygon' to configured network
-      const normalizedNetwork =
-        network === 'polygon' ? this.polygonProvider.network : network;
-      if (normalizedNetwork !== this.polygonProvider.network) {
+      // Validate network support
+      if (network !== 'polygon') {
         throw new Error(
-          `Unsupported network: ${network}. Expected: ${this.polygonProvider.network}`
+          `Unsupported network: ${network}. This service only supports Polygon`
         );
       }
 
@@ -104,7 +103,7 @@ export class SigningWorker extends BaseWorker<
       // Update withdrawal request status to SIGNING
       await this.withdrawalRequestService.updateStatus(
         transactionId,
-        'SIGNING'
+        TransactionStatus.SIGNING
       );
 
       this.auditLogger.auditSuccess('SIGN_TRANSACTION_START', {
@@ -120,11 +119,11 @@ export class SigningWorker extends BaseWorker<
         transactionId,
       });
 
-      // Update withdrawal request status to BROADCASTING
-      // Note: The actual transaction hash will be recorded by tx-processor after broadcasting
+      // Update withdrawal request status to SIGNED
+      // Note: The tx-broadcaster will update to BROADCASTING when it starts broadcasting
       await this.withdrawalRequestService.updateStatus(
         transactionId,
-        'BROADCASTING'
+        TransactionStatus.SIGNED
       );
 
       this.auditLogger.auditSuccess('SIGN_TRANSACTION_COMPLETE', {
@@ -156,7 +155,7 @@ export class SigningWorker extends BaseWorker<
       // Update withdrawal request status to FAILED with error message
       await this.withdrawalRequestService.updateStatusWithError(
         transactionId,
-        'FAILED',
+        TransactionStatus.FAILED,
         error instanceof Error ? error.message : String(error)
       );
 

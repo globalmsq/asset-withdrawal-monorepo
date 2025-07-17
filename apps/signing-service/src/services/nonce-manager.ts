@@ -1,4 +1,4 @@
-import { PolygonProvider } from './polygon-provider';
+import { ChainProvider } from '@asset-withdrawal/shared';
 import { Logger } from '../utils/logger';
 
 export class NonceManager {
@@ -10,7 +10,7 @@ export class NonceManager {
   private lock: Promise<void> = Promise.resolve();
 
   constructor(
-    private polygonProvider: PolygonProvider,
+    private chainProvider: ChainProvider,
     private logger: Logger
   ) {}
 
@@ -98,7 +98,7 @@ export class NonceManager {
     }
 
     try {
-      const provider = this.polygonProvider.getProvider();
+      const provider = this.chainProvider.getProvider();
       const onChainNonce = await provider.getTransactionCount(
         this.address,
         'pending'

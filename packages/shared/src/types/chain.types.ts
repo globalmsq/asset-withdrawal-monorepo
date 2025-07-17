@@ -1,0 +1,27 @@
+export type ChainNetwork = 'mainnet' | 'testnet';
+export type ChainName = 'polygon' | 'ethereum' | 'bsc';
+
+export interface ChainConfig {
+  chainId: number;
+  name: string;
+  rpcUrl: string;
+  nativeCurrency: {
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
+  blockExplorerUrl: string;
+}
+
+export interface ChainConfigs {
+  [key: string]: {
+    mainnet: ChainConfig;
+    testnet: ChainConfig;
+  };
+}
+
+export interface ChainProviderOptions {
+  chain: ChainName;
+  network: ChainNetwork;
+  rpcUrl?: string; // Override default RPC URL
+}

@@ -3,10 +3,24 @@ import { Config } from '../../config';
 import { Logger } from '../../utils/logger';
 import { SecureSecretsManager } from '../../services/secrets-manager';
 import { WithdrawalRequestService, DatabaseService } from '@asset-withdrawal/database';
-import { WithdrawalRequest } from '@asset-withdrawal/shared';
+import { WithdrawalRequest, ChainProviderFactory, TransactionStatus } from '@asset-withdrawal/shared';
 
 jest.mock('@asset-withdrawal/database');
-jest.mock('../../services/polygon-provider');
+jest.mock('@asset-withdrawal/shared', () => ({
+  ...jest.requireActual('@asset-withdrawal/shared'),
+  ChainProviderFactory: {
+    createPolygonProvider: jest.fn(),
+  },
+  TransactionStatus: {
+    PENDING: 'PENDING',
+    VALIDATING: 'VALIDATING',
+    SIGNING: 'SIGNING',
+    SIGNED: 'SIGNED',
+    BROADCASTING: 'BROADCASTING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED',
+  },
+}));
 jest.mock('../../services/transaction-signer');
 jest.mock('@aws-sdk/client-sqs');
 
@@ -83,6 +97,15 @@ describe('SigningWorker', () => {
     (DatabaseService.getInstance as jest.Mock).mockReturnValue(mockDatabaseService);
     (WithdrawalRequestService as jest.Mock).mockImplementation(() => mockWithdrawalRequestService);
 
+    // Mock ChainProviderFactory
+    const mockChainProvider = {
+      getProvider: jest.fn().mockReturnValue({}),
+      getChainId: jest.fn().mockReturnValue(80002),
+      chain: 'polygon',
+      network: 'testnet',
+    };
+    (ChainProviderFactory.createPolygonProvider as jest.Mock).mockReturnValue(mockChainProvider);
+
     signingWorker = new SigningWorker(mockConfig, mockSecretsManager, mockLogger);
   });
 
@@ -98,14 +121,13 @@ describe('SigningWorker', () => {
 
       const mockTransactionSigner = {
         signTransaction: jest.fn().mockResolvedValue({
-          id: 'test-tx-123',
-          from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-          to: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-          signedTx: '0xf86c0a85...',
+          transactionId: 'test-tx-123',
           hash: '0xabc123...',
+          rawTransaction: '0xf86c0a85...',
           nonce: 10,
           gasLimit: '100000',
           maxFeePerGas: '30000000000',
+          maxPriorityFeePerGas: '1500000000',
         }),
         initialize: jest.fn(),
         cleanup: jest.fn(),
@@ -120,11 +142,11 @@ describe('SigningWorker', () => {
 
       expect(mockWithdrawalRequestService.updateStatus).toHaveBeenCalledWith(
         'test-tx-123',
-        'SIGNING'
+        TransactionStatus.SIGNING
       );
       expect(mockWithdrawalRequestService.updateStatus).toHaveBeenCalledWith(
         'test-tx-123',
-        'BROADCASTING'
+        TransactionStatus.SIGNED
       );
       expect(mockTransactionSigner.signTransaction).toHaveBeenCalledWith({
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
@@ -133,8 +155,8 @@ describe('SigningWorker', () => {
         transactionId: 'test-tx-123',
       });
       expect(result).toMatchObject({
-        id: 'test-tx-123',
-        signedTx: '0xf86c0a85...',
+        transactionId: 'test-tx-123',
+        rawTransaction: '0xf86c0a85...',
       });
     });
 
@@ -152,7 +174,7 @@ describe('SigningWorker', () => {
 
       expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
         'test-tx-123',
-        'FAILED',
+        TransactionStatus.FAILED,
         expect.stringContaining('Unsupported network')
       );
       expect(result).toBeNull();
@@ -172,7 +194,7 @@ describe('SigningWorker', () => {
 
       expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
         'test-tx-123',
-        'FAILED',
+        TransactionStatus.FAILED,
         expect.stringContaining('Invalid address format')
       );
       expect(result).toBeNull();
@@ -192,7 +214,7 @@ describe('SigningWorker', () => {
 
       expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
         'test-tx-123',
-        'FAILED',
+        TransactionStatus.FAILED,
         expect.stringContaining('Invalid amount')
       );
       expect(result).toBeNull();
@@ -222,7 +244,7 @@ describe('SigningWorker', () => {
 
       expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
         'test-tx-123',
-        'FAILED',
+        TransactionStatus.FAILED,
         'nonce too low'
       );
     });
@@ -250,7 +272,7 @@ describe('SigningWorker', () => {
 
       expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
         'test-tx-123',
-        'FAILED',
+        TransactionStatus.FAILED,
         'Invalid token address'
       );
       expect(result).toBeNull();

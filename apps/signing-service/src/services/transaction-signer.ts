@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { PolygonProvider } from './polygon-provider';
+import { ChainProvider } from '@asset-withdrawal/shared';
 import { SignedTransaction } from '../types';
 import { SecureSecretsManager } from './secrets-manager';
 import { NonceManager } from './nonce-manager';
@@ -21,11 +21,11 @@ export class TransactionSigner {
   private nonceManager: NonceManager;
 
   constructor(
-    private polygonProvider: PolygonProvider,
+    private chainProvider: ChainProvider,
     private secretsManager: SecureSecretsManager,
     private logger: Logger
   ) {
-    this.nonceManager = new NonceManager(polygonProvider, logger);
+    this.nonceManager = new NonceManager(chainProvider, logger);
   }
 
   async initialize(): Promise<void> {
@@ -34,7 +34,7 @@ export class TransactionSigner {
       const privateKey = this.secretsManager.getPrivateKey();
 
       // Create wallet instance
-      const provider = this.polygonProvider.getProvider();
+      const provider = this.chainProvider.getProvider();
       this.wallet = new ethers.Wallet(privateKey, provider);
 
       // Initialize nonce manager with wallet address
@@ -42,7 +42,9 @@ export class TransactionSigner {
 
       this.logger.info('Transaction signer initialized', {
         address: this.wallet.address,
-        chainId: this.polygonProvider.chainId,
+        chainId: this.chainProvider.getChainId(),
+        chain: this.chainProvider.chain,
+        network: this.chainProvider.network,
       });
     } catch (error) {
       this.logger.error('Failed to initialize transaction signer', error);
@@ -111,7 +113,7 @@ export class TransactionSigner {
           to: tokenAddress,
           data,
           nonce,
-          chainId: this.polygonProvider.chainId,
+          chainId: this.chainProvider.getChainId(),
         };
       } else {
         // Native MATIC transfer
@@ -119,7 +121,7 @@ export class TransactionSigner {
           to,
           value: amount,
           nonce,
-          chainId: this.polygonProvider.chainId,
+          chainId: this.chainProvider.getChainId(),
         };
       }
 

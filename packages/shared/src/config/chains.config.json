@@ -1,0 +1,74 @@
+{
+  "polygon": {
+    "mainnet": {
+      "chainId": 137,
+      "name": "Polygon Mainnet",
+      "rpcUrl": "https://polygon-rpc.com",
+      "nativeCurrency": {
+        "name": "MATIC",
+        "symbol": "MATIC",
+        "decimals": 18
+      },
+      "blockExplorerUrl": "https://polygonscan.com"
+    },
+    "testnet": {
+      "chainId": 80002,
+      "name": "Polygon Amoy",
+      "rpcUrl": "https://rpc-amoy.polygon.technology",
+      "nativeCurrency": {
+        "name": "MATIC",
+        "symbol": "MATIC",
+        "decimals": 18
+      },
+      "blockExplorerUrl": "https://amoy.polygonscan.com"
+    }
+  },
+  "ethereum": {
+    "mainnet": {
+      "chainId": 1,
+      "name": "Ethereum Mainnet",
+      "rpcUrl": "https://eth-mainnet.g.alchemy.com/v2/",
+      "nativeCurrency": {
+        "name": "Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "blockExplorerUrl": "https://etherscan.io"
+    },
+    "testnet": {
+      "chainId": 11155111,
+      "name": "Sepolia",
+      "rpcUrl": "https://eth-sepolia.g.alchemy.com/v2/",
+      "nativeCurrency": {
+        "name": "Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "blockExplorerUrl": "https://sepolia.etherscan.io"
+    }
+  },
+  "bsc": {
+    "mainnet": {
+      "chainId": 56,
+      "name": "BSC Mainnet",
+      "rpcUrl": "https://bsc-dataseed.binance.org",
+      "nativeCurrency": {
+        "name": "BNB",
+        "symbol": "BNB",
+        "decimals": 18
+      },
+      "blockExplorerUrl": "https://bscscan.com"
+    },
+    "testnet": {
+      "chainId": 97,
+      "name": "BSC Testnet",
+      "rpcUrl": "https://data-seed-prebsc-1-s1.binance.org:8545",
+      "nativeCurrency": {
+        "name": "BNB",
+        "symbol": "tBNB",
+        "decimals": 18
+      },
+      "blockExplorerUrl": "https://testnet.bscscan.com"
+    }
+  }
+}

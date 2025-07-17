@@ -1,5 +1,5 @@
 import { TransactionSigner } from '../../services/transaction-signer';
-import { PolygonProvider } from '../../services/polygon-provider';
+import { ChainProvider } from '@asset-withdrawal/shared';
 import { SecureSecretsManager } from '../../services/secrets-manager';
 import { Logger } from '../../utils/logger';
 import { ethers } from 'ethers';
@@ -9,7 +9,7 @@ jest.mock('../../services/nonce-manager');
 
 describe('TransactionSigner', () => {
   let transactionSigner: TransactionSigner;
-  let mockProvider: jest.Mocked<PolygonProvider>;
+  let mockChainProvider: jest.Mocked<ChainProvider>;
   let mockSecretsManager: jest.Mocked<SecureSecretsManager>;
   let mockLogger: jest.Mocked<Logger>;
   let mockWallet: jest.Mocked<ethers.Wallet>;
@@ -27,11 +27,11 @@ describe('TransactionSigner', () => {
       }),
     };
 
-    mockProvider = {
+    mockChainProvider = {
       getProvider: jest.fn().mockReturnValue(mockProviderInstance),
-      getNetwork: jest.fn(),
-      network: 'amoy',
-      chainId: 80002,
+      getChainId: jest.fn().mockReturnValue(80002),
+      chain: 'polygon',
+      network: 'testnet',
     } as any;
 
     mockSecretsManager = {
@@ -95,7 +95,7 @@ describe('TransactionSigner', () => {
       return address;
     });
 
-    transactionSigner = new TransactionSigner(mockProvider, mockSecretsManager, mockLogger);
+    transactionSigner = new TransactionSigner(mockChainProvider, mockSecretsManager, mockLogger);
   });
 
   describe('initialize', () => {
@@ -108,6 +108,8 @@ describe('TransactionSigner', () => {
         expect.objectContaining({
           address: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
           chainId: 80002,
+          chain: 'polygon',
+          network: 'testnet',
         })
       );
     });

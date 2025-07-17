@@ -30,9 +30,6 @@ export class DatabaseService {
     if (config) {
       // Set DATABASE_URL environment variable for Prisma
       const databaseUrl = `mysql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`;
-      console.log('****************************************');
-      console.log(databaseUrl);
-      console.log('****************************************');
       process.env.DATABASE_URL = databaseUrl;
     }
     // Always create PrismaClient after setting DATABASE_URL

@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url      = "mysql://root:pass@localhost:3306/withdrawal_system"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -34,7 +34,7 @@ model WithdrawalRequest {
   errorMessage  String?      @db.Text
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
-  
+
   @@index([status])
   @@index([requestId])
   @@index([createdAt]) // Better time-based queries with rearranged UUID

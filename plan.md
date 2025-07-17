@@ -96,7 +96,7 @@
   - [x] Store in database
   - [x] Send to tx-request-queue
 
-#### 1.3 Signing Service ✅
+#### 1.3 Signing Service ✅ (Needs Nonce Management Fix)
 - [x] Create `signing-service` app
   - [x] Base Worker abstract class
   - [x] Worker lifecycle management
@@ -113,18 +113,38 @@
   - [x] Audit logging
   - [x] Graceful shutdown
 
-#### 1.4 Transaction Broadcaster ❌
+#### 1.4 Nonce Management System 🚨 CRITICAL
+- [ ] Redis Infrastructure
+  - [ ] Add Redis to Docker Compose
+  - [ ] Configure Redis persistence
+  - [ ] Set up Redis connection pooling
+- [ ] NonceCacheService Implementation
+  - [ ] Create service in shared package
+  - [ ] Atomic increment operations
+  - [ ] TTL-based cleanup for old entries
+  - [ ] Connection retry logic
+- [ ] Signing Service Integration
+  - [ ] Replace in-memory nonce tracking
+  - [ ] Implement startup recovery logic
+  - [ ] Add nonce conflict detection
+  - [ ] Implement retry mechanism for nonce conflicts
+- [ ] Monitoring
+  - [ ] Add nonce usage metrics
+  - [ ] Alert on nonce conflicts
+  - [ ] Track Redis connection health
+
+#### 1.5 Transaction Broadcaster ❌
 - [ ] Create `tx-broadcaster` app
   - [ ] Poll messages from signed-tx-queue
   - [ ] Broadcast to Polygon network
-  - [ ] Handle nonce management
+  - [ ] Handle nonce management (use Redis)
   - [ ] Move failed transactions to tx-dlq
 - [ ] Error Handling
   - [ ] Retry logic for transient errors
   - [ ] Gas price adjustments
   - [ ] Network failure handling
 
-#### 1.5 DLQ Handler ❌
+#### 1.6 DLQ Handler ❌
 - [ ] Error classification system
 - [ ] Retry eligibility logic
 - [ ] Alert notification system
@@ -348,7 +368,13 @@ TX_MONITOR_PORT=3002
 
 This plan is based on the architecture defined in introduce.md and reflects the current implementation status with phased progression. Each phase is independently testable and designed for gradual transition to production environment.
 
-## Implementation Review (2025-07-16)
+## Implementation Review (2025-07-17)
+
+### Recent Updates
+1. **Docker Database Connection Fix**:
+   - Changed Prisma schema from hardcoded localhost to `env("DATABASE_URL")`
+   - Removed debug console.log statements from DatabaseService
+   - Services now properly connect to MySQL container using 'mysql' hostname
 
 ### Summary of Architecture Changes
 - **Service Separation**: Extracted signing functionality from tx-processor into dedicated signing-service
@@ -371,6 +397,30 @@ This plan is based on the architecture defined in introduce.md and reflects the 
    - Enhanced security through service isolation
    - Horizontal scalability through queue-based architecture
    - Clear data flow: HTTP → Queue → Worker → Queue → Blockchain
+
+### Critical Issue: Nonce Management
+The current signing-service implementation has a critical flaw in nonce management:
+
+1. **Current Problem**:
+   - Nonce is fetched from Polygon network at startup
+   - Incremented locally (+1) for each transaction
+   - No persistence of used nonces
+   - Service restart causes nonce reuse, leading to transaction failures
+
+2. **Required Solution**:
+   - Redis-based nonce management per address
+   - Track last used nonce for each signing address
+   - On service restart:
+     - Check Redis for last used nonce
+     - Compare with network nonce
+     - Use the higher value to prevent conflicts
+   - Atomic nonce increment operations
+
+3. **Implementation Plan**:
+   - Add Redis to Docker Compose setup
+   - Create NonceCacheService in shared package
+   - Update signing-service to use Redis for nonce tracking
+   - Implement recovery logic for service restarts
 
 ## Database Schema Update (2025-07-13)
 
@@ -491,3 +541,81 @@ model WithdrawalRequest {
 - **SQS Admin UI**: Visual queue monitoring at http://localhost:3999
 - **Docker Compose**: Single command to start all services
 - **Hot Reload**: Development servers auto-restart on code changes
+
+## Nonce Management Architecture
+
+### Problem Statement
+The current implementation has a critical flaw where nonces are managed in-memory, causing transaction failures after service restarts due to nonce reuse.
+
+### Solution Design
+
+#### 1. Redis-based Nonce Cache
+```typescript
+interface NonceCache {
+  // Get current nonce for address (atomic operation)
+  getAndIncrement(address: string): Promise<number>;
+  
+  // Set nonce for address (used during recovery)
+  set(address: string, nonce: number): Promise<void>;
+  
+  // Get current nonce without incrementing
+  get(address: string): Promise<number | null>;
+  
+  // Clear nonce for address (for testing/recovery)
+  clear(address: string): Promise<void>;
+}
+```
+
+#### 2. Nonce Recovery Logic
+```typescript
+class NonceManager {
+  async initialize(address: string): Promise<void> {
+    // 1. Get last used nonce from Redis
+    const cachedNonce = await redis.get(`nonce:${address}`);
+    
+    // 2. Get current nonce from blockchain
+    const networkNonce = await provider.getTransactionCount(address);
+    
+    // 3. Use the higher value
+    const startNonce = Math.max(cachedNonce || 0, networkNonce);
+    
+    // 4. Set in Redis
+    await redis.set(`nonce:${address}`, startNonce);
+  }
+  
+  async getNextNonce(address: string): Promise<number> {
+    // Atomic increment and return
+    return await redis.incr(`nonce:${address}`);
+  }
+}
+```
+
+#### 3. Implementation Steps
+1. **Add Redis to Docker Compose**:
+   - Redis container with persistence
+   - Exposed port for development: 6379
+   - Volume for data persistence
+
+2. **Create NonceCacheService**:
+   - Location: `packages/shared/src/services/nonce-cache.service.ts`
+   - Redis client initialization
+   - Atomic operations using INCR
+   - Connection retry logic
+   - Error handling
+
+3. **Update SigningService**:
+   - Remove in-memory nonce tracking
+   - Initialize nonce from Redis on startup
+   - Use atomic increment for each transaction
+   - Handle nonce conflicts gracefully
+
+4. **Add Monitoring**:
+   - Track nonce usage per address
+   - Alert on nonce conflicts
+   - Monitor Redis health
+
+### Benefits
+- **Reliability**: Survives service restarts
+- **Scalability**: Supports multiple signing-service instances
+- **Atomicity**: Prevents race conditions
+- **Observability**: Easy to monitor and debug

@@ -8,6 +8,7 @@ import { loadConfig } from './config';
 import { Logger } from './utils/logger';
 import { SecureSecretsManager } from './services/secrets-manager';
 import { SigningWorker } from './workers/signing-worker';
+import { DatabaseService } from '@asset-withdrawal/database';
 
 async function bootstrap() {
   // Load configuration
@@ -27,20 +28,43 @@ async function bootstrap() {
   const signingWorker = new SigningWorker(config, secretsManager, logger);
   await signingWorker.initialize();
 
-  // Start worker
-  await signingWorker.start();
-  logger.info('Signing worker started successfully');
+  // Health check - ensure all dependencies are ready
+  logger.info('Performing health checks before starting worker...');
+  // Check database connection
+  const dbService = DatabaseService.getInstance(config.database);
+  const dbHealthy = await dbService.healthCheck();
+  if (!dbHealthy) {
+    throw new Error('Database health check failed');
+  }
+  logger.info('Database connection healthy');
+
+  // Add a small delay to ensure all services are fully initialized
+  logger.info('Waiting for all services to be ready...');
+  await new Promise(resolve => setTimeout(resolve, 5000));
+
+  // Start worker with delayed first batch to avoid processing messages too early
+  await signingWorker.start(true);
+  logger.info('Signing worker started successfully with delayed first batch');
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, starting graceful shutdown...`);
 
-    // Stop worker
-    logger.info('Stopping signing worker...');
-    await signingWorker.stop();
+    try {
+      // Stop accepting new work immediately
+      logger.info('Stopping signing worker...');
+      await signingWorker.stop();
 
-    logger.info('Graceful shutdown completed');
-    process.exit(0);
+      // Give a final grace period for any remaining operations
+      logger.info('Waiting for final cleanup...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      logger.info('Graceful shutdown completed');
+      process.exit(0);
+    } catch (error) {
+      logger.error('Error during shutdown:', error);
+      process.exit(1);
+    }
   };
 
   // Handle shutdown signals

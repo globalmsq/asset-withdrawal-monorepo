@@ -45,6 +45,7 @@ async function initializeQueue() {
     console.log('Queue initialized successfully');
   } catch (error) {
     console.error('Failed to initialize queue:', error);
+    throw error; // Re-throw to ensure error propagates
   }
 }
 
@@ -52,8 +53,13 @@ async function initializeQueue() {
 let queueInitialized = false;
 async function ensureQueueInitialized() {
   if (!queueInitialized) {
-    await initializeQueue();
-    queueInitialized = true;
+    try {
+      await initializeQueue();
+      queueInitialized = true;
+    } catch (error) {
+      console.error('Failed to ensure queue initialization:', error);
+      throw error; // Re-throw to ensure error propagates
+    }
   }
 }
 
@@ -284,6 +290,7 @@ router.post('/request', async (req: Request, res: Response) => {
 
     let savedRequest;
     try {
+      console.log('TransactionStatus.PENDING value:', TransactionStatus.PENDING);
       savedRequest = await db.withdrawalRequest.create({
         data: {
           requestId: requestId,
@@ -292,7 +299,7 @@ router.post('/request', async (req: Request, res: Response) => {
           toAddress: toAddress,
           tokenAddress: tokenAddress,
           network: network,
-          status: 'PENDING',
+          status: TransactionStatus.PENDING,
         },
       });
       console.log(
@@ -317,9 +324,47 @@ router.post('/request', async (req: Request, res: Response) => {
       createdAt: savedRequest.createdAt,
     };
 
-    // Ensure queue is initialized and add to queue for processing
-    await ensureQueueInitialized();
-    await txRequestQueue.sendMessage(withdrawalRequest);
+    // Try to send message to SQS
+    try {
+      // Ensure queue is initialized and add to queue for processing
+      console.log('Attempting to send message to SQS...');
+      await ensureQueueInitialized();
+      console.log('Queue initialized, sending message...');
+      if (!txRequestQueue) {
+        throw new Error('Queue not initialized properly');
+      }
+      await txRequestQueue.sendMessage(withdrawalRequest);
+      console.log('Message sent to SQS successfully');
+    } catch (sqsError: any) {
+      console.error('Failed to send message to SQS:', sqsError);
+
+      // Update the withdrawal request status to FAILED
+      try {
+        console.log('Updating withdrawal request status to FAILED...');
+        console.log('Current savedRequest:', savedRequest);
+        console.log('TransactionStatus.FAILED value:', TransactionStatus.FAILED);
+        const updateResult = await db.withdrawalRequest.update({
+          where: { id: savedRequest.id },
+          data: {
+            status: TransactionStatus.FAILED,
+            errorMessage: `Failed to queue for processing: ${sqsError.message || 'Unknown error'}`,
+          },
+        });
+        console.log('Update result:', updateResult);
+        console.log('Status after update:', updateResult.status);
+      } catch (updateError) {
+        console.error('Failed to update withdrawal request status:', updateError);
+      }
+
+      // Return error response
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to process withdrawal request',
+        code: 'QUEUE_ERROR',
+        details: 'The withdrawal request was saved but could not be queued for processing. Please try again later.',
+        timestamp: new Date(),
+      });
+    }
 
     // Create response
     const withdrawalResponse: WithdrawalResponse = {

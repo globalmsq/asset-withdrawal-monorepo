@@ -92,6 +92,7 @@ describe('SigningWorker', () => {
     mockDatabaseService = {
       getClient: jest.fn().mockReturnValue({}),
       getInstance: jest.fn(),
+      healthCheck: jest.fn().mockResolvedValue(true),
     } as any;
 
     (DatabaseService.getInstance as jest.Mock).mockReturnValue(mockDatabaseService);

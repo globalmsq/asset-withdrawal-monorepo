@@ -16,6 +16,8 @@ export abstract class BaseWorker<TInput, TOutput = void> {
   protected intervalId?: NodeJS.Timeout;
   protected inputQueue: IQueue<TInput>;
   protected outputQueue?: IQueue<TOutput>;
+  protected processingMessages: Set<string> = new Set();
+  protected isProcessingBatch: boolean = false;
 
   constructor(
     name: string,
@@ -80,7 +82,7 @@ export abstract class BaseWorker<TInput, TOutput = void> {
     // Override in subclass if needed
   }
 
-  async start(): Promise<void> {
+  async start(delayFirstBatch: boolean = false): Promise<void> {
     if (this.isRunning) {
       this.logger.warn('Worker is already running');
       return;
@@ -89,8 +91,12 @@ export abstract class BaseWorker<TInput, TOutput = void> {
     this.logger.info('Starting worker');
     this.isRunning = true;
 
-    // Process immediately on start
-    await this.processBatch();
+    // Process immediately on start unless delayed
+    if (!delayFirstBatch) {
+      await this.processBatch();
+    } else {
+      this.logger.info('Delaying first batch processing by interval time');
+    }
 
     // Set up interval for continuous processing
     this.intervalId = setInterval(async () => {
@@ -101,7 +107,7 @@ export abstract class BaseWorker<TInput, TOutput = void> {
   }
 
   async stop(): Promise<void> {
-    this.logger.info('Stopping worker');
+    this.logger.info('Stopping worker gracefully');
     this.isRunning = false;
 
     if (this.intervalId) {
@@ -109,11 +115,30 @@ export abstract class BaseWorker<TInput, TOutput = void> {
       this.intervalId = undefined;
     }
 
-    // Wait for any ongoing processing to complete
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Wait for current batch to complete
+    const maxWaitTime = 30000; // 30 seconds
+    const startTime = Date.now();
+
+    while (this.isProcessingBatch || this.processingMessages.size > 0) {
+      if (Date.now() - startTime > maxWaitTime) {
+        this.logger.warn(`Force stopping after ${maxWaitTime}ms timeout. ${this.processingMessages.size} messages may be reprocessed.`);
+        break;
+      }
+
+      this.logger.info(`Waiting for ${this.processingMessages.size} messages to complete processing...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    this.logger.info('Worker stopped gracefully');
   }
 
   protected async processBatch(): Promise<void> {
+    if (!this.isRunning) {
+      return;
+    }
+
+    this.isProcessingBatch = true;
+
     try {
       const messages = await this.inputQueue.receiveMessages({
         maxMessages: this.batchSize,
@@ -127,8 +152,17 @@ export abstract class BaseWorker<TInput, TOutput = void> {
 
       this.logger.info(`Processing batch of ${messages.length} messages`);
 
-      for (const message of messages) {
+      // Process messages in parallel with proper tracking
+      const messagePromises = messages.map(async (message) => {
+        const messageId = message.id || message.receiptHandle;
+        this.processingMessages.add(messageId);
+
         try {
+          if (!this.isRunning) {
+            this.logger.warn(`Skipping message ${messageId} - worker is stopping`);
+            return;
+          }
+
           const result = await this.processMessage(message.body);
 
           // Send to output queue if configured and result is provided
@@ -136,23 +170,32 @@ export abstract class BaseWorker<TInput, TOutput = void> {
             await this.outputQueue.sendMessage(result as TOutput);
           }
 
-          // Delete message from input queue
-          await this.inputQueue.deleteMessage(message.receiptHandle);
-
-          this.processedCount++;
-          this.lastProcessedAt = new Date();
+          // Delete message from input queue only if still running
+          if (this.isRunning) {
+            await this.inputQueue.deleteMessage(message.receiptHandle);
+            this.processedCount++;
+            this.lastProcessedAt = new Date();
+          }
         } catch (error) {
-          this.logger.error(`Error processing message ${message.id}`, error);
+          this.logger.error(`Error processing message ${messageId}`, error);
           this.lastError =
             error instanceof Error ? error.message : 'Unknown error';
           this.errorCount++;
           // Message will be returned to queue after visibility timeout
+        } finally {
+          this.processingMessages.delete(messageId);
         }
-      }
+      });
+
+      // Wait for all messages in the batch to complete
+      await Promise.all(messagePromises);
+
     } catch (error) {
       this.logger.error('Error in batch processing', error);
       this.lastError = error instanceof Error ? error.message : 'Unknown error';
       this.errorCount++;
+    } finally {
+      this.isProcessingBatch = false;
     }
   }
 

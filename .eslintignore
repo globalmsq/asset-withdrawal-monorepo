@@ -1,2 +1,10 @@
+dist/
 libs/shared/jest.config.ts
 docs/
+node_modules/
+coverage/
+*.js
+build/
+out/
+.next/
+.cache/

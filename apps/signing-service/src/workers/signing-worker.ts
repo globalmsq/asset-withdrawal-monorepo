@@ -16,7 +16,7 @@ export class SigningWorker extends BaseWorker<
   private auditLogger: Logger;
 
   constructor(
-    config: Config,
+    private config: Config,
     private secretsManager: SecureSecretsManager,
     logger: Logger
   ) {
@@ -59,6 +59,14 @@ export class SigningWorker extends BaseWorker<
 
   async initialize(): Promise<void> {
     await super.initialize();
+
+    // Ensure database is connected before initializing transaction signer
+    const dbService = DatabaseService.getInstance(this.config.database);
+    const dbHealthy = await dbService.healthCheck();
+    if (!dbHealthy) {
+      throw new Error('Database is not healthy during SigningWorker initialization');
+    }
+
     await this.transactionSigner.initialize();
     this.auditLogger.info('SigningWorker initialized successfully');
   }

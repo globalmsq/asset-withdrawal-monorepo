@@ -7,6 +7,7 @@ import withdrawalRoutes from './routes/withdrawal';
 import authRoutes from './routes/auth';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger';
+import { readinessCheck, readinessHandler } from './middleware/readiness.middleware';
 
 const app = express();
 
@@ -31,6 +32,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Logging middleware
 app.use(morgan('combined'));
+
+// Readiness check middleware - block requests until server is ready
+app.use(readinessCheck);
 
 // Routes
 app.use('/auth', authRoutes);
@@ -71,6 +75,63 @@ app.get('/health', (req, res) => {
   };
   res.json(response);
 });
+
+/**
+ * @swagger
+ * /ready:
+ *   get:
+ *     tags:
+ *       - health
+ *     summary: Check API readiness status
+ *     description: Returns the readiness status of the API server including dependency checks
+ *     operationId: getReadiness
+ *     responses:
+ *       '200':
+ *         description: API is ready to accept requests
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 status:
+ *                   type: string
+ *                   example: ready
+ *                 checks:
+ *                   type: object
+ *                   properties:
+ *                     database:
+ *                       type: boolean
+ *                       example: true
+ *                     sqs:
+ *                       type: boolean
+ *                       example: true
+ *       '503':
+ *         description: API is not ready
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 status:
+ *                   type: string
+ *                   example: not ready
+ *                 checks:
+ *                   type: object
+ *                   properties:
+ *                     database:
+ *                       type: boolean
+ *                       example: false
+ *                     sqs:
+ *                       type: boolean
+ *                       example: true
+ */
+app.get('/ready', readinessHandler);
 
 // Serve raw OpenAPI spec
 app.get('/api-docs.json', (req, res) => {

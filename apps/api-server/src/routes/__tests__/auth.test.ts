@@ -23,6 +23,12 @@ jest.mock('../../middleware/auth.middleware', () => ({
   AuthRequest: {},
 }));
 
+jest.mock('../../middleware/readiness.middleware', () => ({
+  readinessCheck: jest.fn((req, res, next) => next()),
+  readinessHandler: jest.fn((req, res) => res.status(200).json({ status: 'ready' })),
+  setReadiness: jest.fn(),
+}));
+
 import request from 'supertest';
 import express from 'express';
 import authRoutes from '../auth';

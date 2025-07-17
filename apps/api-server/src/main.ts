@@ -6,6 +6,8 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 import app from './app';
 import { config } from './config';
 import { initializeDatabase } from './services/database';
+import { QueueFactory, IQueue, WithdrawalRequest } from 'shared';
+import { setReadiness } from './middleware/readiness.middleware';
 
 async function connectWithRetry(dbService: any, maxRetries = 10, delay = 5000) {
   for (let i = 0; i < maxRetries; i++) {
@@ -31,16 +33,48 @@ async function connectWithRetry(dbService: any, maxRetries = 10, delay = 5000) {
 }
 
 async function startServer() {
+  console.log('Starting API server initialization...');
+
   // Initialize database with configuration
   const dbService = await initializeDatabase(config.mysql);
 
-  // Connect to database (skip in development if no database available)
-  if (config.nodeEnv === 'production') {
+  // Connect to database
+  try {
     await connectWithRetry(dbService);
-  } else {
-    console.log('Development mode: Skipping database connection');
-    console.log('Database service initialized with mock configuration');
+    const dbHealthy = await dbService.healthCheck();
+    if (!dbHealthy) {
+      throw new Error('Database health check failed');
+    }
+    console.log('Database health check passed');
+  } catch (error) {
+    console.error('Database initialization failed:', error);
+    process.exit(1);
   }
+
+  // Initialize and test SQS queues
+  console.log('Initializing SQS queues...');
+  try {
+    const txRequestQueue = QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
+    const signedTxQueue = QueueFactory.createFromEnv('signed-tx-queue');
+
+    // Test queue connectivity
+    await txRequestQueue.getQueueUrl();
+    await signedTxQueue.getQueueUrl();
+    console.log('SQS queues initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize SQS queues:', error);
+    if (config.nodeEnv === 'production') {
+      process.exit(1);
+    } else {
+      console.warn('Continuing without SQS in development mode');
+    }
+  }
+
+  // All dependencies ready, start listening
+  console.log('All dependencies ready, starting HTTP server...');
+
+  // Set readiness to true
+  setReadiness(true);
 
   const server = app.listen(config.port, () => {
     console.log(`API Server running on port ${config.port}`);
@@ -48,6 +82,7 @@ async function startServer() {
     console.log(
       `API Documentation available at http://${displayUrl}:${config.port}/api-docs`
     );
+    console.log(`Readiness check available at http://${displayUrl}:${config.port}/ready`);
   });
 
   // Graceful shutdown

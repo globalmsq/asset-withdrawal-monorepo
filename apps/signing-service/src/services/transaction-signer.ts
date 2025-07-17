@@ -93,13 +93,15 @@ export class TransactionSigner {
           });
           // Fallback: use the address as-is if it's a valid format
           if (to.match(/^0x[a-fA-F0-9]{40}$/)) {
-            this.logger.warn('Using address without checksum validation', { to });
+            this.logger.warn('Using address without checksum validation', {
+              to,
+            });
             normalizedTo = to;
           } else {
             throw error;
           }
         }
-        
+
         const data = tokenContract.interface.encodeFunctionData('transfer', [
           normalizedTo,
           amount,

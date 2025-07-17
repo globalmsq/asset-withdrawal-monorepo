@@ -40,18 +40,12 @@ export class DatabaseService {
 
   constructor(config?: DatabaseConfig) {
     if (config) {
+      // Set DATABASE_URL environment variable for Prisma
       const databaseUrl = `mysql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`;
-      this.prisma = new PrismaClient({
-        datasources: {
-          db: {
-            url: databaseUrl,
-          },
-        },
-      });
-    } else {
-      // Use default DATABASE_URL from environment
-      this.prisma = new PrismaClient();
+      process.env.DATABASE_URL = databaseUrl;
     }
+    // Always create PrismaClient after setting DATABASE_URL
+    this.prisma = new PrismaClient();
   }
 
   public static getInstance(config?: DatabaseConfig): DatabaseService {

@@ -1,4 +1,5 @@
 x-localstack-account: &localstack-account
+  AWS_ENDPOINT: http://localstack:4566
   AWS_DEFAULT_REGION: ap-northeast-2
   AWS_ACCESS_KEY_ID: test
   AWS_SECRET_ACCESS_KEY: test
@@ -91,14 +92,12 @@ services:
       MYSQL_DATABASE: withdrawal_system
       MYSQL_USER: root
       MYSQL_PASSWORD: pass
-      AWS_ENDPOINT: http://localstack:4566
-      AWS_REGION: ap-northeast-2
     networks:
       - withdrawal-network
-    volumes:
-      - ../prisma:/app/prisma:ro
-      - ../apps:/app/apps:ro
-      - ../packages:/app/packages:ro
+    # volumes:
+    #   - ../prisma:/app/prisma:ro
+    #   - ../apps:/app/apps:ro
+    #   - ../packages:/app/packages:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
@@ -124,35 +123,32 @@ services:
     environment:
       <<: *localstack-account
       NODE_ENV: production
-      SIGNING_SERVICE_PORT: 3005
 
       # Security (change in production)
       SIGNING_SERVICE_ENCRYPTION_KEY: development-encryption-key-change-in-production-32
 
-      # AWS
-      AWS_ENDPOINT: http://localstack:4566
-      AWS_REGION: ap-northeast-2
-
       # Secrets Manager
       SIGNING_SERVICE_PRIVATE_KEY_SECRET: signing-service/private-key
-      SIGNING_SERVICE_API_KEYS_SECRET: signing-service/api-keys
 
       # Queue Configuration
-      QUEUE_TYPE: localstack
-      TX_REQUEST_QUEUE_URL: http://localstack:4566/000000000000/tx-request-queue
-      SIGNED_TX_QUEUE_URL: http://localstack:4566/000000000000/signed-tx-queue
+      TX_REQUEST_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/tx-request-queue
+      SIGNED_TX_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue
 
       # Polygon Configuration
       POLYGON_NETWORK: amoy
       POLYGON_RPC_URL: https://rpc-amoy.polygon.technology
       POLYGON_CHAIN_ID: 80002
 
-      # Database
-      DATABASE_URL: mysql://root:pass@mysql:3306/withdrawal_system
-
       # Logging
       SIGNING_SERVICE_LOG_LEVEL: info
       SIGNING_SERVICE_AUDIT_LOG_PATH: /app/logs/audit.log
+
+      # Database
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: withdrawal_system
+      MYSQL_USER: root
+      MYSQL_PASSWORD: pass
     networks:
       - withdrawal-network
     volumes:

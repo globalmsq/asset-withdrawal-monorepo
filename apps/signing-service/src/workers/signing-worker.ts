@@ -1,6 +1,6 @@
 import { BaseWorker } from './base-worker';
 import { WithdrawalRequest } from '@asset-withdrawal/shared';
-import { WithdrawalRequestService } from '@asset-withdrawal/database';
+import { WithdrawalRequestService, DatabaseService } from '@asset-withdrawal/database';
 import { SignedTransaction } from '../types';
 import { PolygonProvider } from '../services/polygon-provider';
 import { TransactionSigner } from '../services/transaction-signer';
@@ -41,7 +41,9 @@ export class SigningWorker extends BaseWorker<
 
     this.auditLogger = logger;
 
-    this.withdrawalRequestService = new WithdrawalRequestService();
+    // Initialize database with config
+    const dbService = DatabaseService.getInstance(config.database);
+    this.withdrawalRequestService = new WithdrawalRequestService(dbService.getClient());
     this.polygonProvider = new PolygonProvider(
       config.polygon.rpcUrl,
       config.polygon.chainId,

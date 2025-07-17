@@ -37,6 +37,15 @@ const configSchema = z.object({
     level: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
     auditLogPath: z.string().default('./logs/audit.log'),
   }),
+
+  // Database
+  database: z.object({
+    host: z.string(),
+    port: z.number(),
+    database: z.string(),
+    user: z.string(),
+    password: z.string(),
+  }),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -86,6 +95,14 @@ export function loadConfig(): Config {
         | 'debug',
       auditLogPath:
         process.env.SIGNING_SERVICE_AUDIT_LOG_PATH || './logs/audit.log',
+    },
+
+    database: {
+      host: process.env.MYSQL_HOST || 'localhost',
+      port: parseInt(process.env.MYSQL_PORT || '3306', 10),
+      database: process.env.MYSQL_DATABASE || 'withdrawal_system',
+      user: process.env.MYSQL_USER || 'root',
+      password: process.env.MYSQL_PASSWORD || 'pass',
     },
   };
 

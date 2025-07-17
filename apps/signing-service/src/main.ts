@@ -16,7 +16,7 @@ async function bootstrap() {
   // Initialize logger
   const logger = new Logger(config);
   logger.info('Starting signing service worker...', {
-    config: { ...config, encryptionKey: '[REDACTED]' },
+    config: { ...config, encryptionKey: '[REDACTED]', database: { ...config.database, password: '[REDACTED]' } },
   });
 
   // Initialize secrets manager

@@ -67,6 +67,27 @@ services:
     networks:
       - withdrawal-network
 
+  # Redis Stack for nonce management
+  redis:
+    image: redis/redis-stack:latest
+    container_name: withdrawal-redis
+    ports:
+      - 6379:6379
+      - 8001:8001  # RedisInsight web UI
+    environment:
+      REDIS_ARGS: "--save 60 1 --save 300 10 --save 900 100"
+    volumes:
+      - redis-data:/data
+    networks:
+      - withdrawal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   # API Server
   api-server:
     container_name: withdrawal-api-server
@@ -113,6 +134,8 @@ services:
         condition: service_healthy
       localstack:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     build:
       context: ..
@@ -149,6 +172,10 @@ services:
       MYSQL_DATABASE: withdrawal_system
       MYSQL_USER: root
       MYSQL_PASSWORD: pass
+
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     networks:
       - withdrawal-network
     volumes:
@@ -170,4 +197,6 @@ volumes:
   localstack-data:
     driver: local
   signing-service-logs:
+    driver: local
+  redis-data:
     driver: local

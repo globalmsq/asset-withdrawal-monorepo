@@ -14,9 +14,10 @@
   "dependencies": {
     "database": "workspace:*",
     "shared": "workspace:*",
-    "@aws-sdk/client-secrets-manager": "^3.0.0",
+    "@aws-sdk/client-secrets-manager": "^3.840.0",
     "dotenv": "^16.0.0",
     "ethers": "^6.0.0",
+    "redis": "^5.6.0",
     "winston": "^3.0.0",
     "zod": "^3.0.0"
   },

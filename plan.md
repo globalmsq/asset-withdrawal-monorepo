@@ -114,15 +114,15 @@
   - [x] Graceful shutdown
 
 #### 1.4 Nonce Management System 🚨 CRITICAL
-- [ ] Redis Infrastructure
-  - [ ] Add Redis to Docker Compose
-  - [ ] Configure Redis persistence
-  - [ ] Set up Redis connection pooling
-- [ ] NonceCacheService Implementation
-  - [ ] Create service in shared package
-  - [ ] Atomic increment operations
-  - [ ] TTL-based cleanup for old entries
-  - [ ] Connection retry logic
+- [x] Redis Infrastructure
+  - [x] Add Redis to Docker Compose
+  - [x] Configure Redis persistence
+  - [x] Set up Redis connection pooling
+- [x] NonceCacheService Implementation
+  - [x] Create service in signing-service package (not shared)
+  - [x] Atomic increment operations
+  - [x] TTL-based cleanup for old entries
+  - [x] Connection retry logic
 - [ ] Signing Service Integration
   - [ ] Replace in-memory nonce tracking
   - [ ] Implement startup recovery logic
@@ -597,7 +597,7 @@ class NonceManager {
    - Volume for data persistence
 
 2. **Create NonceCacheService**:
-   - Location: `packages/shared/src/services/nonce-cache.service.ts`
+   - Location: `apps/signing-service/src/services/nonce-cache.service.ts`
    - Redis client initialization
    - Atomic operations using INCR
    - Connection retry logic
@@ -619,3 +619,30 @@ class NonceManager {
 - **Scalability**: Supports multiple signing-service instances
 - **Atomicity**: Prevents race conditions
 - **Observability**: Easy to monitor and debug
+
+## Implementation Review (2025-07-18)
+
+### Redis Integration for Nonce Management
+1. **Redis Container Added**:
+   - Added redis/redis-stack:latest to Docker Compose
+   - Configured persistence with auto-save intervals
+   - Exposed Redis on port 6379 and RedisInsight UI on port 8001
+   - Health checks configured
+
+2. **NonceCacheService Implementation**:
+   - Created in `apps/signing-service/src/services/` (not in shared package)
+   - Implements atomic nonce operations with Redis INCR
+   - TTL set to 24 hours for automatic cleanup
+   - Connection retry logic with max 10 attempts
+   - Full test coverage
+
+3. **Architecture Decision**:
+   - Moved NonceCacheService from shared to signing-service package
+   - Rationale: Service-specific logic should remain within the service
+   - Redis dependency only needed in signing-service
+   - Maintains better separation of concerns
+
+### Next Steps
+- Update signing-service to use NonceCacheService for nonce tracking
+- Implement startup recovery logic to handle service restarts
+- Add nonce conflict detection and retry mechanism

@@ -60,6 +60,11 @@
   - NonceCacheService with TTL and retry logic
   - Integration with signing-service
   - Proper error handling for infrastructure failures
+- **Gas Price Caching System**: Dynamic gas price management
+  - GasPriceCache with 30-second TTL
+  - Automatic RPC fallback when cache expires
+  - Pre-flight RPC health check before message processing
+  - Prevents processing with incorrect gas prices during RPC failures
 
 ### ❌ Not Implemented
 - **tx-broadcaster**: Service to read from signed-tx-queue and broadcast to blockchain
@@ -102,7 +107,7 @@
   - [x] Store in database
   - [x] Send to tx-request-queue
 
-#### 1.3 Signing Service ✅ (Needs Nonce Management Fix)
+#### 1.3 Signing Service ✅ 
 - [x] Create `signing-service` app
   - [x] Base Worker abstract class
   - [x] Worker lifecycle management
@@ -118,6 +123,10 @@
   - [x] Encrypted private key storage in memory
   - [x] Audit logging
   - [x] Graceful shutdown
+- [x] Infrastructure Management
+  - [x] Redis-based nonce management
+  - [x] Gas price caching system
+  - [x] RPC health monitoring
 
 #### 1.4 Nonce Management System ✅ COMPLETED
 - [x] Redis Infrastructure
@@ -685,7 +694,197 @@ class NonceManager {
    - Handles retry logic for nonce-related errors
 
 ### Error Handling Strategy
-- **Infrastructure errors (Redis, DB)**: Throw error for SQS retry
+- **Infrastructure errors (Redis, DB, RPC)**: Throw error for SQS retry
   - These are temporary and should be retried
 - **Message errors (invalid data)**: Send to DLQ
   - These are permanent and won't succeed on retry
+
+## Gas Price Management Architecture (2025-07-18)
+
+### Problem Statement
+RPC failures during gas price fetching could lead to transaction signing with incorrect gas prices, potentially causing transaction failures or overpayment.
+
+### Solution Design
+
+#### 1. Gas Price Caching
+- **GasPriceCache**: In-memory cache with 30-second TTL
+- Reduces RPC calls and improves performance
+- Automatic cache invalidation after TTL expiry
+
+#### 2. Dynamic Gas Price Fetching
+- **Cache-first approach**: Use cached values when available
+- **Automatic refresh**: Fetch from RPC when cache expires
+- **Pre-flight checks**: Verify RPC availability before processing messages
+
+#### 3. Implementation Details
+```typescript
+class GasPriceCache {
+  constructor(ttlSeconds: number = 30)
+  get(): GasPrice | null
+  set(gasPrice: GasPrice): void
+  isValid(): boolean
+  clear(): void
+}
+```
+
+#### 4. SigningWorker Enhancement
+- Checks gas price availability before processing batch
+- Skips batch processing if RPC is unavailable
+- Prevents message consumption during RPC outages
+
+#### 5. TransactionSigner Updates
+- Provider stored as class member for efficiency
+- Automatic gas price fetching when cache expires
+- No hardcoded fallback values - always use live data
+
+### Benefits
+- **Reliability**: Prevents signing with incorrect gas prices
+- **Performance**: Reduces RPC calls through caching
+- **Resilience**: Gracefully handles RPC failures
+- **Cost Optimization**: Ensures accurate gas pricing
+
+## Signed Transactions Table Implementation Plan (2025-07-18)
+
+### Problem Statement
+현재 signing-service에서 트랜잭션을 서명한 후, 그 내용이 데이터베이스에 기록되지 않고 단순히 signed-tx-queue로 전달되고 withdrawal_requests 테이블의 status만 업데이트되고 있습니다. 서명된 트랜잭션의 상세 정보를 추적하고 재시도 시 이력을 관리하기 위해 `signed_transactions` 테이블을 추가해야 합니다.
+
+### Requirements
+1. **Table Name**: `signed_transactions`
+2. **Primary Key**: withdrawal_requests와 같은 타입 (BigInt autoincrement)
+3. **관계**: withdrawal_requests의 requestId를 참조 (1:N 관계 - 재시도 가능)
+4. **저장 데이터**: 트랜잭션 서명 정보 (txHash, nonce, gas 정보, addresses, value, timestamp 등)
+5. **정렬**: 같은 requestId를 가진 레코드들은 날짜로 정렬 가능해야 함
+
+### Database Schema Design
+
+```prisma
+model SignedTransaction {
+  id                    BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  requestId             String              @db.VarChar(36) // UUID from withdrawal_requests
+  txHash                String              @db.VarChar(66)
+  rawTransaction        String              @db.Text // 서명된 raw transaction hex
+  nonce                 Int                 @db.UnsignedInt
+  gasLimit              String              @db.VarChar(50)
+  maxFeePerGas          String?             @db.VarChar(50) // EIP-1559
+  maxPriorityFeePerGas  String?             @db.VarChar(50) // EIP-1559
+  gasPrice              String?             @db.VarChar(50) // Legacy tx
+  from                  String              @db.VarChar(42)
+  to                    String              @db.VarChar(42)
+  value                 String              @db.VarChar(50)
+  data                  String?             @db.Text // Transaction data (for contract calls)
+  chainId               Int                 @db.UnsignedInt
+  retryCount            Int                 @default(0) // 재시도 횟수
+  status                String              @default("SIGNED") @db.VarChar(20) // SIGNED, BROADCASTED, CONFIRMED, FAILED
+  errorMessage          String?             @db.Text
+  signedAt              DateTime            @default(now())
+  broadcastedAt         DateTime?
+  confirmedAt           DateTime?
+  
+  withdrawalRequest     WithdrawalRequest   @relation("WithdrawalToSigned", fields: [requestId], references: [requestId])
+  
+  @@index([requestId])
+  @@index([txHash])
+  @@index([signedAt])
+  @@index([status])
+  @@map("signed_transactions")
+}
+
+// Update WithdrawalRequest model
+model WithdrawalRequest {
+  // ... existing fields ...
+  
+  signedTransactions    SignedTransaction[] @relation("WithdrawalToSigned")
+  
+  @@map("withdrawal_requests")
+}
+```
+
+### Implementation Tasks
+
+#### 1. Database Layer
+- [ ] Update Prisma schema with `SignedTransaction` model
+- [ ] Create database service for signed transactions (`packages/database/src/services/signed-transaction.service.ts`)
+- [ ] Add methods: create, findByRequestId, findByTxHash, updateStatus, getLatestByRequestId
+
+#### 2. Signing Service Updates
+- [ ] Modify `TransactionSigner.signTransaction()` to return complete transaction details
+- [ ] Update `SigningWorker.processMessage()` to:
+  - Save signed transaction to DB after signing
+  - Handle DB save failures appropriately
+  - Ensure atomic operation: sign → save to DB → send to queue
+- [ ] Add retry count tracking for repeated signing attempts
+
+#### 3. Transaction Processor (tx-broadcaster) Updates
+- [ ] Read signed transaction details from DB instead of queue message
+- [ ] Update signed transaction status to BROADCASTED after sending
+- [ ] Record broadcast timestamp
+- [ ] Handle retry logic using signed_transactions history
+
+#### 4. Transaction Monitor Updates
+- [ ] Update signed transaction status to CONFIRMED when tx is confirmed
+- [ ] Record confirmation timestamp
+- [ ] Link to blockchain transaction details
+
+### Data Flow
+
+1. **Signing Phase**:
+   - SigningWorker receives WithdrawalRequest from queue
+   - TransactionSigner signs the transaction
+   - Save to signed_transactions table with status='SIGNED'
+   - Send minimal message to signed-tx-queue (just requestId)
+   - Update withdrawal_requests status to 'SIGNED'
+
+2. **Broadcasting Phase**:
+   - tx-broadcaster receives message from signed-tx-queue
+   - Retrieves latest signed transaction from DB by requestId
+   - Broadcasts to blockchain
+   - Updates signed_transactions: status='BROADCASTED', broadcastedAt=now()
+   - Updates withdrawal_requests status to 'BROADCASTING'
+
+3. **Monitoring Phase**:
+   - tx-monitor checks transaction status on blockchain
+   - Updates signed_transactions: status='CONFIRMED', confirmedAt=now()
+   - Updates withdrawal_requests status to 'COMPLETED'
+
+### Benefits
+1. **Audit Trail**: 모든 서명된 트랜잭션의 완전한 이력 보관
+2. **Retry Management**: 같은 requestId에 대한 여러 시도 추적 가능
+3. **Debugging**: 실패한 트랜잭션의 상세 정보 확인 가능
+4. **Analytics**: 가스 사용량, nonce 관리, 성공률 등 분석 가능
+5. **Recovery**: 시스템 장애 시 마지막 상태에서 복구 가능
+
+### Testing Requirements
+- [ ] Unit tests for SignedTransactionService
+- [ ] Integration tests for signing → DB save → queue flow
+- [ ] Error handling tests (DB failure scenarios)
+- [ ] Performance tests for high-volume scenarios
+
+## Schema Changes - Raw Transaction Field Removal (2025-07-18)
+
+### Change Summary
+Completely removed the `rawTransaction` field from the `signed_transactions` table to avoid storing sensitive signed transaction data.
+
+### Changes Made:
+1. **Schema Update**:
+   - Removed `rawTransaction String @db.Text` field entirely from the Prisma schema
+   
+2. **Service Updates**:
+   - Removed `rawTransaction` from `CreateSignedTransactionDto` interface
+   - Updated `SignedTransactionService.create()` method (no longer needs to handle rawTransaction)
+   
+3. **Worker Updates**:
+   - Updated `signing-worker.ts` to not pass `rawTransaction` when creating signed transaction records
+   
+4. **SQL Schema Update**:
+   - Removed `rawTransaction` column from `init.sql`
+
+### Rationale:
+- The raw transaction data contains the complete signed transaction which could be sensitive
+- This data is already sent to the queue for broadcasting and doesn't need to be persisted in the database
+- Reduces storage requirements and improves security
+- The transaction can be reconstructed if needed from the other fields
+
+### Migration Required:
+```sql
+ALTER TABLE signed_transactions DROP COLUMN rawTransaction;
+```

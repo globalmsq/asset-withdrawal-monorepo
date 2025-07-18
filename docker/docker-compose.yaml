@@ -12,10 +12,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: pass
       MYSQL_DATABASE: withdrawal_system
-      MYSQL_USER: withdrawal_user
-      MYSQL_PASSWORD: withdrawal_pass
     ports:
-      - "3306:3306"
+      - 3306:3306
     volumes:
       - mysql-data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro

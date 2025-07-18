@@ -213,6 +213,11 @@ export class TransactionSigner {
         gasLimit: gasLimit.toString(),
         maxFeePerGas: maxFeePerGas.toString(),
         maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+        from: this.wallet.address,
+        to: tokenAddress || to, // Use tokenAddress for ERC-20, or recipient address for native transfers
+        value: tokenAddress ? '0' : amount, // ERC-20 transfers have value 0, native transfers have the amount
+        data: transaction.data?.toString(),
+        chainId: this.chainProvider.getChainId(),
       };
 
       this.logger.info('Transaction signed successfully', {

@@ -1,6 +1,6 @@
 import { BaseWorker } from './base-worker';
 import { WithdrawalRequest, ChainProviderFactory, TransactionStatus } from '@asset-withdrawal/shared';
-import { WithdrawalRequestService, DatabaseService } from '@asset-withdrawal/database';
+import { WithdrawalRequestService, DatabaseService, SignedTransactionService } from '@asset-withdrawal/database';
 import { SignedTransaction } from '../types';
 import { TransactionSigner } from '../services/transaction-signer';
 import { SecureSecretsManager } from '../services/secrets-manager';
@@ -14,6 +14,7 @@ export class SigningWorker extends BaseWorker<
   SignedTransaction
 > {
   private withdrawalRequestService: WithdrawalRequestService;
+  private signedTransactionService: SignedTransactionService;
   private transactionSigner: TransactionSigner;
   private nonceCache: NonceCacheService;
   private gasPriceCache: GasPriceCache;
@@ -47,6 +48,7 @@ export class SigningWorker extends BaseWorker<
     // Initialize database with config
     const dbService = DatabaseService.getInstance(config.database);
     this.withdrawalRequestService = new WithdrawalRequestService(dbService.getClient());
+    this.signedTransactionService = new SignedTransactionService(dbService.getClient());
 
     // Create chain provider based on config
     const network = config.polygon.chainId === 80002 ? 'testnet' : 'mainnet';
@@ -178,6 +180,43 @@ export class SigningWorker extends BaseWorker<
         tokenAddress,
         transactionId,
       });
+
+      // Save signed transaction to database
+      try {
+        // Check if this is a retry by counting existing signed transactions
+        const existingTxs = await this.signedTransactionService.findByRequestId(transactionId);
+        const retryCount = existingTxs.length;
+
+        await this.signedTransactionService.create({
+          requestId: transactionId,
+          txHash: signedTx.hash,
+          nonce: signedTx.nonce,
+          gasLimit: signedTx.gasLimit,
+          maxFeePerGas: signedTx.maxFeePerGas,
+          maxPriorityFeePerGas: signedTx.maxPriorityFeePerGas,
+          from: signedTx.from,
+          to: signedTx.to,
+          value: signedTx.value,
+          data: signedTx.data,
+          chainId: signedTx.chainId,
+          retryCount,
+          status: 'SIGNED',
+        });
+
+        this.auditLogger.info('Signed transaction saved to database', {
+          transactionId,
+          txHash: signedTx.hash,
+          retryCount,
+        });
+      } catch (dbError) {
+        // If DB save fails, log error but continue - we don't want to block the flow
+        this.auditLogger.error('Failed to save signed transaction to database', dbError, {
+          transactionId,
+          txHash: signedTx.hash,
+        });
+        // Throw error to trigger retry - DB save is critical for tracking
+        throw new Error(`Failed to save signed transaction: ${dbError instanceof Error ? dbError.message : String(dbError)}`);
+      }
 
       // Update withdrawal request status to SIGNED
       // Note: The tx-broadcaster will update to BROADCASTING when it starts broadcasting

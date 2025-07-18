@@ -163,12 +163,54 @@ describe('TransactionSigner', () => {
         gasLimit: '120000', // 100000 * 1.2
         maxFeePerGas: '33000000000', // 30000000000 * 1.1
         maxPriorityFeePerGas: '1650000000', // 1500000000 * 1.1
+        from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+        to: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', // Token address for ERC-20 transfer
+        value: '0', // ERC-20 transfers have value 0
+        data: '0xa9059cbb000000000000000000000000742d35cc6634c0532925a3b844bc9e7595f7faed00000000000000000000000000000000000000000000000000000000000f4240',
+        chainId: 80002,
       });
 
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Transaction signed successfully',
         expect.objectContaining({
           transactionId: 'test-tx-123',
+          hash: '0xabc123def456789',
+          nonce: 10,
+        })
+      );
+    });
+
+    it('should sign native MATIC transfer transaction', async () => {
+      const transactionData = {
+        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        amount: '1000000000000000000', // 1 MATIC
+        transactionId: 'test-tx-456',
+      };
+
+      const signedTx = '0xf86c0a85...'; // Mock signed transaction
+      mockWallet.signTransaction.mockResolvedValue(signedTx);
+
+      const result = await transactionSigner.signTransaction(transactionData);
+
+      expect(result).toEqual({
+        transactionId: 'test-tx-456',
+        hash: '0xabc123def456789',
+        rawTransaction: signedTx,
+        nonce: 10,
+        gasLimit: '120000', // 100000 * 1.2
+        maxFeePerGas: '33000000000', // 30000000000 * 1.1
+        maxPriorityFeePerGas: '1650000000', // 1500000000 * 1.1
+        from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd', // Recipient address for native transfer
+        value: '1000000000000000000', // Native transfer has the amount as value
+        data: undefined, // No data for native transfers
+        chainId: 80002,
+      });
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Transaction signed successfully',
+        expect.objectContaining({
+          transactionId: 'test-tx-456',
           hash: '0xabc123def456789',
           nonce: 10,
         })
@@ -241,6 +283,14 @@ describe('TransactionSigner', () => {
         '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd', // Checksummed address
         '1000000',
       ]);
+
+      // Verify the result contains all required fields
+      expect(result).toMatchObject({
+        transactionId: 'test-tx-123',
+        from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+        to: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        chainId: 80002,
+      });
     });
 
     it('should throw Redis connection error for retry', async () => {
@@ -291,6 +341,14 @@ describe('TransactionSigner', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith('Gas price cache expired, fetching fresh values');
       expect(result.maxFeePerGas).toBe((BigInt(30000000000) * 110n / 100n).toString());
       expect(result.maxPriorityFeePerGas).toBe((BigInt(1500000000) * 110n / 100n).toString());
+
+      // Verify the result contains all required fields
+      expect(result).toMatchObject({
+        transactionId: 'test-tx-123',
+        from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+        to: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        chainId: 80002,
+      });
     });
 
     it('should throw error when RPC fails to fetch gas price', async () => {

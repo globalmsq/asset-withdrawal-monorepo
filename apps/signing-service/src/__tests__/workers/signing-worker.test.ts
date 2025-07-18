@@ -2,7 +2,7 @@ import { SigningWorker } from '../../workers/signing-worker';
 import { Config } from '../../config';
 import { Logger } from '../../utils/logger';
 import { SecureSecretsManager } from '../../services/secrets-manager';
-import { WithdrawalRequestService, DatabaseService } from '@asset-withdrawal/database';
+import { WithdrawalRequestService, DatabaseService, SignedTransactionService } from '@asset-withdrawal/database';
 import { WithdrawalRequest, ChainProviderFactory, TransactionStatus } from '@asset-withdrawal/shared';
 
 jest.mock('@asset-withdrawal/database');
@@ -30,6 +30,7 @@ describe('SigningWorker', () => {
   let mockSecretsManager: jest.Mocked<SecureSecretsManager>;
   let mockLogger: jest.Mocked<Logger>;
   let mockWithdrawalRequestService: jest.Mocked<WithdrawalRequestService>;
+  let mockSignedTransactionService: jest.Mocked<SignedTransactionService>;
   let mockDatabaseService: jest.Mocked<DatabaseService>;
 
   beforeEach(() => {
@@ -89,6 +90,11 @@ describe('SigningWorker', () => {
       updateStatusWithError: jest.fn(),
     } as any;
 
+    mockSignedTransactionService = {
+      create: jest.fn().mockResolvedValue({}),
+      findByRequestId: jest.fn().mockResolvedValue([]),
+    } as any;
+
     mockDatabaseService = {
       getClient: jest.fn().mockReturnValue({}),
       getInstance: jest.fn(),
@@ -97,6 +103,7 @@ describe('SigningWorker', () => {
 
     (DatabaseService.getInstance as jest.Mock).mockReturnValue(mockDatabaseService);
     (WithdrawalRequestService as jest.Mock).mockImplementation(() => mockWithdrawalRequestService);
+    (SignedTransactionService as jest.Mock).mockImplementation(() => mockSignedTransactionService);
 
     // Mock ChainProviderFactory
     const mockChainProvider = {
@@ -129,6 +136,11 @@ describe('SigningWorker', () => {
           gasLimit: '100000',
           maxFeePerGas: '30000000000',
           maxPriorityFeePerGas: '1500000000',
+          from: '0x1234567890123456789012345678901234567890',
+          to: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+          value: '0',
+          data: '0xa9059cbb...',
+          chainId: 80002,
         }),
         initialize: jest.fn(),
         cleanup: jest.fn(),

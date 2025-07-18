@@ -2,17 +2,20 @@ import { TransactionSigner } from '../../services/transaction-signer';
 import { ChainProvider } from '@asset-withdrawal/shared';
 import { SecureSecretsManager } from '../../services/secrets-manager';
 import { NonceCacheService } from '../../services/nonce-cache.service';
+import { GasPriceCache } from '../../services/gas-price-cache';
 import { Logger } from '../../utils/logger';
 import { ethers } from 'ethers';
 
 jest.mock('ethers');
 jest.mock('../../services/nonce-cache.service');
+jest.mock('../../services/gas-price-cache');
 
 describe('TransactionSigner', () => {
   let transactionSigner: TransactionSigner;
   let mockChainProvider: jest.Mocked<ChainProvider>;
   let mockSecretsManager: jest.Mocked<SecureSecretsManager>;
   let mockNonceCache: jest.Mocked<NonceCacheService>;
+  let mockGasPriceCache: jest.Mocked<GasPriceCache>;
   let mockLogger: jest.Mocked<Logger>;
   let mockWallet: jest.Mocked<ethers.Wallet>;
 
@@ -66,8 +69,19 @@ describe('TransactionSigner', () => {
       clear: jest.fn().mockResolvedValue(undefined),
     } as any;
 
+    mockGasPriceCache = {
+      get: jest.fn().mockReturnValue({
+        maxFeePerGas: BigInt(30000000000),
+        maxPriorityFeePerGas: BigInt(1500000000),
+      }),
+      set: jest.fn(),
+      isValid: jest.fn().mockReturnValue(true),
+      clear: jest.fn(),
+    } as any;
+
     (ethers.Wallet as jest.Mock).mockImplementation(() => mockWallet);
     (NonceCacheService as jest.Mock).mockImplementation(() => mockNonceCache);
+    (GasPriceCache as jest.Mock).mockImplementation(() => mockGasPriceCache);
 
     // Mock Contract for ERC20
     const mockContract = {
@@ -92,7 +106,15 @@ describe('TransactionSigner', () => {
       return address;
     });
 
-    transactionSigner = new TransactionSigner(mockChainProvider, mockSecretsManager, mockNonceCache, mockLogger);
+    // Mock parseUnits
+    (ethers.parseUnits as jest.Mock) = jest.fn().mockImplementation((value, unit) => {
+      if (unit === 'gwei') {
+        return BigInt(value) * BigInt(1000000000);
+      }
+      return BigInt(value);
+    });
+
+    transactionSigner = new TransactionSigner(mockChainProvider, mockSecretsManager, mockNonceCache, mockGasPriceCache, mockLogger);
   });
 
   describe('initialize', () => {
@@ -239,6 +261,57 @@ describe('TransactionSigner', () => {
         'Redis connection error - will retry',
         { transactionId: 'test-tx-123' }
       );
+    });
+
+    it('should fetch gas price when cache is empty', async () => {
+      const transactionData = {
+        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        amount: '1000000',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        transactionId: 'test-tx-123',
+      };
+
+      // Mock empty gas price cache
+      mockGasPriceCache.get.mockReturnValue(null);
+
+      const signedTx = '0xf86c0a85...';
+      mockWallet.signTransaction.mockResolvedValue(signedTx);
+
+      const result = await transactionSigner.signTransaction(transactionData);
+
+      // Verify gas price was fetched from provider
+      expect(mockChainProvider.getProvider().getFeeData).toHaveBeenCalled();
+
+      // Verify cache was updated
+      expect(mockGasPriceCache.set).toHaveBeenCalledWith({
+        maxFeePerGas: BigInt(30000000000),
+        maxPriorityFeePerGas: BigInt(1500000000),
+      });
+
+      expect(mockLogger.debug).toHaveBeenCalledWith('Gas price cache expired, fetching fresh values');
+      expect(result.maxFeePerGas).toBe((BigInt(30000000000) * 110n / 100n).toString());
+      expect(result.maxPriorityFeePerGas).toBe((BigInt(1500000000) * 110n / 100n).toString());
+    });
+
+    it('should throw error when RPC fails to fetch gas price', async () => {
+      const transactionData = {
+        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        amount: '1000000',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        transactionId: 'test-tx-123',
+      };
+
+      // Mock empty gas price cache
+      mockGasPriceCache.get.mockReturnValue(null);
+
+      // Mock RPC failure
+      mockChainProvider.getProvider().getFeeData.mockResolvedValue({
+        maxFeePerGas: null,
+        maxPriorityFeePerGas: null,
+      });
+
+      await expect(transactionSigner.signTransaction(transactionData))
+        .rejects.toThrow('Failed to fetch gas price from provider');
     });
   });
 

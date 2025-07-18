@@ -3,6 +3,7 @@ import { ChainProvider } from '@asset-withdrawal/shared';
 import { SignedTransaction } from '../types';
 import { SecureSecretsManager } from './secrets-manager';
 import { NonceCacheService } from './nonce-cache.service';
+import { GasPriceCache } from './gas-price-cache';
 import { Logger } from '../utils/logger';
 
 const ERC20_ABI = [
@@ -18,11 +19,13 @@ export interface SigningRequest {
 
 export class TransactionSigner {
   private wallet: ethers.Wallet | null = null;
+  private provider: ethers.Provider | null = null;
 
   constructor(
     private chainProvider: ChainProvider,
     private secretsManager: SecureSecretsManager,
     private nonceCache: NonceCacheService,
+    private gasPriceCache: GasPriceCache,
     private logger: Logger
   ) {}
 
@@ -31,15 +34,19 @@ export class TransactionSigner {
       // Get private key from secrets manager
       const privateKey = this.secretsManager.getPrivateKey();
 
+      // Get provider and store it
+      this.provider = this.chainProvider.getProvider();
+
       // Create wallet instance
-      const provider = this.chainProvider.getProvider();
-      this.wallet = new ethers.Wallet(privateKey, provider);
+      this.wallet = new ethers.Wallet(privateKey, this.provider);
 
       // Connect to Redis
       await this.nonceCache.connect();
 
       // Initialize nonce with network value
-      const networkNonce = await provider.getTransactionCount(this.wallet.address);
+      const networkNonce = await this.provider.getTransactionCount(
+        this.wallet.address
+      );
       await this.nonceCache.initialize(this.wallet.address, networkNonce);
 
       this.logger.info('Transaction signer initialized', {
@@ -138,15 +145,47 @@ export class TransactionSigner {
       const gasEstimate = await this.wallet.estimateGas(transaction);
       const gasLimit = (gasEstimate * 120n) / 100n; // Add 20% buffer
 
-      // Get gas price (EIP-1559)
-      const feeData = await this.wallet.provider!.getFeeData();
-      let maxFeePerGas = feeData.maxFeePerGas;
-      let maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+      // Get gas price from cache or fetch new one
+      let cachedGasPrice = this.gasPriceCache.get();
+      let maxFeePerGas: bigint;
+      let maxPriorityFeePerGas: bigint;
 
-      if (!maxFeePerGas || !maxPriorityFeePerGas) {
-        // Fallback for Polygon
-        maxFeePerGas = ethers.parseUnits('50', 'gwei');
-        maxPriorityFeePerGas = ethers.parseUnits('30', 'gwei');
+      if (cachedGasPrice) {
+        // Use cached values
+        maxFeePerGas = cachedGasPrice.maxFeePerGas;
+        maxPriorityFeePerGas = cachedGasPrice.maxPriorityFeePerGas;
+
+        this.logger.debug('Using cached gas price', {
+          maxFeePerGas: maxFeePerGas.toString(),
+          maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+        });
+      } else {
+        // Cache expired, fetch fresh gas price
+        this.logger.debug('Gas price cache expired, fetching fresh values');
+
+        if (!this.provider) {
+          throw new Error('Provider not initialized');
+        }
+
+        const feeData = await this.provider.getFeeData();
+
+        if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
+          throw new Error('Failed to fetch gas price from provider');
+        }
+
+        // Update cache for next use
+        this.gasPriceCache.set({
+          maxFeePerGas: feeData.maxFeePerGas,
+          maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+        });
+
+        maxFeePerGas = feeData.maxFeePerGas;
+        maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+
+        this.logger.debug('Fetched fresh gas price', {
+          maxFeePerGas: maxFeePerGas.toString(),
+          maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+        });
       }
 
       // Adjust gas price for Polygon (10% higher)
@@ -188,7 +227,9 @@ export class TransactionSigner {
 
       // If it's a Redis connection error, throw to trigger SQS retry
       if (error instanceof Error && error.message.includes('Redis')) {
-        this.logger.error('Redis connection error - will retry', { transactionId });
+        this.logger.error('Redis connection error - will retry', {
+          transactionId,
+        });
         throw error;
       }
 
@@ -199,6 +240,7 @@ export class TransactionSigner {
   async cleanup(): Promise<void> {
     // Clear sensitive data
     this.wallet = null;
+    this.provider = null;
 
     // Disconnect from Redis
     await this.nonceCache.disconnect();

@@ -5,6 +5,7 @@ import { SignedTransaction } from '../types';
 import { TransactionSigner } from '../services/transaction-signer';
 import { SecureSecretsManager } from '../services/secrets-manager';
 import { NonceCacheService } from '../services/nonce-cache.service';
+import { GasPriceCache } from '../services/gas-price-cache';
 import { Logger } from '../utils/logger';
 import { Config } from '../config';
 
@@ -15,6 +16,8 @@ export class SigningWorker extends BaseWorker<
   private withdrawalRequestService: WithdrawalRequestService;
   private transactionSigner: TransactionSigner;
   private nonceCache: NonceCacheService;
+  private gasPriceCache: GasPriceCache;
+  private chainProvider: any;
   private auditLogger: Logger;
 
   constructor(
@@ -47,7 +50,7 @@ export class SigningWorker extends BaseWorker<
 
     // Create chain provider based on config
     const network = config.polygon.chainId === 80002 ? 'testnet' : 'mainnet';
-    const chainProvider = ChainProviderFactory.createPolygonProvider(
+    this.chainProvider = ChainProviderFactory.createPolygonProvider(
       network,
       config.polygon.rpcUrl
     );
@@ -55,10 +58,14 @@ export class SigningWorker extends BaseWorker<
     // Create nonce cache service
     this.nonceCache = new NonceCacheService();
 
+    // Create gas price cache (30 seconds TTL)
+    this.gasPriceCache = new GasPriceCache(30);
+
     this.transactionSigner = new TransactionSigner(
-      chainProvider,
+      this.chainProvider,
       this.secretsManager,
       this.nonceCache,
+      this.gasPriceCache,
       this.auditLogger
     );
   }
@@ -75,6 +82,45 @@ export class SigningWorker extends BaseWorker<
 
     await this.transactionSigner.initialize();
     this.auditLogger.info('SigningWorker initialized successfully');
+  }
+
+  protected async processBatch(): Promise<void> {
+    // Check gas price before processing messages
+    try {
+      await this.updateGasPriceCache();
+    } catch (error) {
+      this.auditLogger.warn('Failed to fetch gas price, skipping message processing', error);
+      return; // Skip this batch
+    }
+
+    // Gas price is available, proceed with normal processing
+    return super.processBatch();
+  }
+
+  private async updateGasPriceCache(): Promise<void> {
+    // Check if cache is still valid
+    if (this.gasPriceCache.isValid()) {
+      return; // Use cached value
+    }
+
+    // Fetch new gas price
+    const provider = this.chainProvider.getProvider();
+    const feeData = await provider.getFeeData();
+
+    if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
+      throw new Error('Failed to fetch gas price from provider');
+    }
+
+    // Update cache
+    this.gasPriceCache.set({
+      maxFeePerGas: feeData.maxFeePerGas,
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+    });
+
+    this.auditLogger.debug('Gas price updated', {
+      maxFeePerGas: feeData.maxFeePerGas.toString(),
+      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
+    });
   }
 
   async processMessage(

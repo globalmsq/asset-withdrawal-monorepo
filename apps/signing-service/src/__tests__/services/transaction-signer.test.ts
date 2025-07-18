@@ -1,19 +1,20 @@
 import { TransactionSigner } from '../../services/transaction-signer';
 import { ChainProvider } from '@asset-withdrawal/shared';
 import { SecureSecretsManager } from '../../services/secrets-manager';
+import { NonceCacheService } from '../../services/nonce-cache.service';
 import { Logger } from '../../utils/logger';
 import { ethers } from 'ethers';
 
 jest.mock('ethers');
-jest.mock('../../services/nonce-manager');
+jest.mock('../../services/nonce-cache.service');
 
 describe('TransactionSigner', () => {
   let transactionSigner: TransactionSigner;
   let mockChainProvider: jest.Mocked<ChainProvider>;
   let mockSecretsManager: jest.Mocked<SecureSecretsManager>;
+  let mockNonceCache: jest.Mocked<NonceCacheService>;
   let mockLogger: jest.Mocked<Logger>;
   let mockWallet: jest.Mocked<ethers.Wallet>;
-  let mockNonceManager: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -55,22 +56,18 @@ describe('TransactionSigner', () => {
       provider: mockProviderInstance,
     } as any;
 
-    mockNonceManager = {
-      address: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-      getNonce: jest.fn().mockResolvedValue(10),
-      getNextNonce: jest.fn().mockResolvedValue(10),
-      incrementNonce: jest.fn(),
-      reset: jest.fn(),
+    mockNonceCache = {
+      connect: jest.fn().mockResolvedValue(undefined),
+      disconnect: jest.fn().mockResolvedValue(undefined),
       initialize: jest.fn().mockResolvedValue(undefined),
-      markNoncePending: jest.fn(),
-      provider: mockProviderInstance,
-    };
+      getAndIncrement: jest.fn().mockResolvedValue(10),
+      set: jest.fn().mockResolvedValue(undefined),
+      get: jest.fn().mockResolvedValue(10),
+      clear: jest.fn().mockResolvedValue(undefined),
+    } as any;
 
     (ethers.Wallet as jest.Mock).mockImplementation(() => mockWallet);
-
-    // Mock NonceManager from our module
-    const NonceManager = require('../../services/nonce-manager').NonceManager;
-    NonceManager.mockImplementation(() => mockNonceManager);
+    (NonceCacheService as jest.Mock).mockImplementation(() => mockNonceCache);
 
     // Mock Contract for ERC20
     const mockContract = {
@@ -95,14 +92,16 @@ describe('TransactionSigner', () => {
       return address;
     });
 
-    transactionSigner = new TransactionSigner(mockChainProvider, mockSecretsManager, mockLogger);
+    transactionSigner = new TransactionSigner(mockChainProvider, mockSecretsManager, mockNonceCache, mockLogger);
   });
 
   describe('initialize', () => {
-    it('should initialize wallet and nonce manager', async () => {
+    it('should initialize wallet and nonce cache', async () => {
       await transactionSigner.initialize();
 
       expect(ethers.Wallet).toHaveBeenCalled();
+      expect(mockNonceCache.connect).toHaveBeenCalled();
+      expect(mockNonceCache.initialize).toHaveBeenCalledWith('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', 10);
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Transaction signer initialized',
         expect.objectContaining({
@@ -110,6 +109,7 @@ describe('TransactionSigner', () => {
           chainId: 80002,
           chain: 'polygon',
           network: 'testnet',
+          initialNonce: 10,
         })
       );
     });
@@ -220,13 +220,34 @@ describe('TransactionSigner', () => {
         '1000000',
       ]);
     });
+
+    it('should throw Redis connection error for retry', async () => {
+      const transactionData = {
+        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        amount: '1000000',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        transactionId: 'test-tx-123',
+      };
+
+      const redisError = new Error('Redis connection failed');
+      mockNonceCache.getAndIncrement.mockRejectedValue(redisError);
+
+      await expect(transactionSigner.signTransaction(transactionData))
+        .rejects.toThrow('Redis connection failed');
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Redis connection error - will retry',
+        { transactionId: 'test-tx-123' }
+      );
+    });
   });
 
   describe('cleanup', () => {
-    it('should complete cleanup', async () => {
+    it('should complete cleanup and disconnect Redis', async () => {
       await transactionSigner.initialize();
       await transactionSigner.cleanup();
 
+      expect(mockNonceCache.disconnect).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Transaction signer initialized',
         expect.anything()

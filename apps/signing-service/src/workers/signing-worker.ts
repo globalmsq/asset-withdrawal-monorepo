@@ -4,6 +4,7 @@ import { WithdrawalRequestService, DatabaseService } from '@asset-withdrawal/dat
 import { SignedTransaction } from '../types';
 import { TransactionSigner } from '../services/transaction-signer';
 import { SecureSecretsManager } from '../services/secrets-manager';
+import { NonceCacheService } from '../services/nonce-cache.service';
 import { Logger } from '../utils/logger';
 import { Config } from '../config';
 
@@ -13,6 +14,7 @@ export class SigningWorker extends BaseWorker<
 > {
   private withdrawalRequestService: WithdrawalRequestService;
   private transactionSigner: TransactionSigner;
+  private nonceCache: NonceCacheService;
   private auditLogger: Logger;
 
   constructor(
@@ -50,9 +52,13 @@ export class SigningWorker extends BaseWorker<
       config.polygon.rpcUrl
     );
 
+    // Create nonce cache service
+    this.nonceCache = new NonceCacheService();
+
     this.transactionSigner = new TransactionSigner(
       chainProvider,
       this.secretsManager,
+      this.nonceCache,
       this.auditLogger
     );
   }

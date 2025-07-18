@@ -2,7 +2,7 @@ import { ethers } from 'ethers';
 import { ChainProvider } from '@asset-withdrawal/shared';
 import { SignedTransaction } from '../types';
 import { SecureSecretsManager } from './secrets-manager';
-import { NonceManager } from './nonce-manager';
+import { NonceCacheService } from './nonce-cache.service';
 import { Logger } from '../utils/logger';
 
 const ERC20_ABI = [
@@ -18,15 +18,13 @@ export interface SigningRequest {
 
 export class TransactionSigner {
   private wallet: ethers.Wallet | null = null;
-  private nonceManager: NonceManager;
 
   constructor(
     private chainProvider: ChainProvider,
     private secretsManager: SecureSecretsManager,
+    private nonceCache: NonceCacheService,
     private logger: Logger
-  ) {
-    this.nonceManager = new NonceManager(chainProvider, logger);
-  }
+  ) {}
 
   async initialize(): Promise<void> {
     try {
@@ -37,14 +35,19 @@ export class TransactionSigner {
       const provider = this.chainProvider.getProvider();
       this.wallet = new ethers.Wallet(privateKey, provider);
 
-      // Initialize nonce manager with wallet address
-      await this.nonceManager.initialize(this.wallet.address);
+      // Connect to Redis
+      await this.nonceCache.connect();
+
+      // Initialize nonce with network value
+      const networkNonce = await provider.getTransactionCount(this.wallet.address);
+      await this.nonceCache.initialize(this.wallet.address, networkNonce);
 
       this.logger.info('Transaction signer initialized', {
         address: this.wallet.address,
         chainId: this.chainProvider.getChainId(),
         chain: this.chainProvider.chain,
         network: this.chainProvider.network,
+        initialNonce: networkNonce,
       });
     } catch (error) {
       this.logger.error('Failed to initialize transaction signer', error);
@@ -67,8 +70,14 @@ export class TransactionSigner {
     const { to, amount, tokenAddress, transactionId } = request;
 
     try {
-      // Get nonce
-      const nonce = await this.nonceManager.getNextNonce();
+      // Get nonce from Redis (atomic increment)
+      const nonce = await this.nonceCache.getAndIncrement(this.wallet.address);
+
+      this.logger.debug('Using nonce for transaction', {
+        address: this.wallet.address,
+        nonce,
+        transactionId,
+      });
 
       // Build transaction
       let transaction: ethers.TransactionRequest;
@@ -157,9 +166,6 @@ export class TransactionSigner {
       const signedTx = await this.wallet.signTransaction(transaction);
       const parsedTx = ethers.Transaction.from(signedTx);
 
-      // Mark nonce as pending
-      this.nonceManager.markNoncePending(nonce);
-
       const result: SignedTransaction = {
         transactionId,
         hash: parsedTx.hash!,
@@ -179,6 +185,13 @@ export class TransactionSigner {
       return result;
     } catch (error) {
       this.logger.error('Failed to sign transaction', error, { transactionId });
+
+      // If it's a Redis connection error, throw to trigger SQS retry
+      if (error instanceof Error && error.message.includes('Redis')) {
+        this.logger.error('Redis connection error - will retry', { transactionId });
+        throw error;
+      }
+
       throw error;
     }
   }
@@ -186,5 +199,8 @@ export class TransactionSigner {
   async cleanup(): Promise<void> {
     // Clear sensitive data
     this.wallet = null;
+
+    // Disconnect from Redis
+    await this.nonceCache.disconnect();
   }
 }

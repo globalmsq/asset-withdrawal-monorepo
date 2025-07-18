@@ -55,6 +55,12 @@
   - Docker Compose with shared environment variables
   - Region configuration (ap-northeast-2)
 
+### ✅ Recently Completed (2025-07-18)
+- **Redis-based Nonce Management**: Complete implementation with atomic operations
+  - NonceCacheService with TTL and retry logic
+  - Integration with signing-service
+  - Proper error handling for infrastructure failures
+
 ### ❌ Not Implemented
 - **tx-broadcaster**: Service to read from signed-tx-queue and broadcast to blockchain
 - **tx-monitor**: Transaction status monitoring (implemented but reserved for future use)
@@ -113,7 +119,7 @@
   - [x] Audit logging
   - [x] Graceful shutdown
 
-#### 1.4 Nonce Management System 🚨 CRITICAL
+#### 1.4 Nonce Management System ✅ COMPLETED
 - [x] Redis Infrastructure
   - [x] Add Redis to Docker Compose
   - [x] Configure Redis persistence
@@ -123,12 +129,11 @@
   - [x] Atomic increment operations
   - [x] TTL-based cleanup for old entries
   - [x] Connection retry logic
-- [ ] Signing Service Integration
-  - [ ] Replace in-memory nonce tracking
-  - [ ] Implement startup recovery logic
-  - [ ] Add nonce conflict detection
-  - [ ] Implement retry mechanism for nonce conflicts
-- [ ] Monitoring
+- [x] Signing Service Integration
+  - [x] Replace in-memory nonce tracking with Redis
+  - [x] Implement startup recovery logic
+  - [x] Handle Redis connection errors (throw for SQS retry)
+- [ ] Monitoring (Future enhancement)
   - [ ] Add nonce usage metrics
   - [ ] Alert on nonce conflicts
   - [ ] Track Redis connection health
@@ -137,9 +142,10 @@
 - [ ] Create `tx-broadcaster` app
   - [ ] Poll messages from signed-tx-queue
   - [ ] Broadcast to Polygon network
-  - [ ] Handle nonce management (use Redis)
   - [ ] Move failed transactions to tx-dlq
 - [ ] Error Handling
+  - [ ] Detect and handle nonce conflicts
+  - [ ] Implement nonce resync with blockchain
   - [ ] Retry logic for transient errors
   - [ ] Gas price adjustments
   - [ ] Network failure handling
@@ -386,6 +392,8 @@ This plan is based on the architecture defined in introduce.md and reflects the 
 1. **Implemented Services**:
    - **api-server**: Receives HTTP requests and sends to tx-request-queue
    - **signing-service**: Processes queue messages, signs transactions, sends to signed-tx-queue
+     - ✅ Now with Redis-based nonce management (2025-07-18)
+     - ✅ Supports multiple instances without nonce conflicts
    - **tx-monitor**: Fully implemented but reserved for future phases
 
 2. **Planned Services**:
@@ -397,30 +405,32 @@ This plan is based on the architecture defined in introduce.md and reflects the 
    - Enhanced security through service isolation
    - Horizontal scalability through queue-based architecture
    - Clear data flow: HTTP → Queue → Worker → Queue → Blockchain
+   - Redis-based nonce management prevents transaction conflicts
 
-### Critical Issue: Nonce Management
-The current signing-service implementation has a critical flaw in nonce management:
+### ✅ RESOLVED: Nonce Management Issue (2025-07-18)
+The critical nonce management issue has been resolved:
 
-1. **Current Problem**:
-   - Nonce is fetched from Polygon network at startup
+1. **Previous Problem**:
+   - Nonce was fetched from Polygon network at startup
    - Incremented locally (+1) for each transaction
    - No persistence of used nonces
-   - Service restart causes nonce reuse, leading to transaction failures
+   - Service restart caused nonce reuse, leading to transaction failures
 
-2. **Required Solution**:
-   - Redis-based nonce management per address
-   - Track last used nonce for each signing address
-   - On service restart:
+2. **Implemented Solution**:
+   - ✅ Redis-based nonce management per address
+   - ✅ Track last used nonce for each signing address
+   - ✅ On service restart:
      - Check Redis for last used nonce
      - Compare with network nonce
      - Use the higher value to prevent conflicts
-   - Atomic nonce increment operations
+   - ✅ Atomic nonce increment operations using Redis INCR
 
-3. **Implementation Plan**:
-   - Add Redis to Docker Compose setup
-   - Create NonceCacheService in shared package
-   - Update signing-service to use Redis for nonce tracking
-   - Implement recovery logic for service restarts
+3. **Implementation Details**:
+   - ✅ Added Redis to Docker Compose setup
+   - ✅ Created NonceCacheService in signing-service package
+   - ✅ Updated signing-service to use Redis for nonce tracking
+   - ✅ Implemented recovery logic for service restarts
+   - ✅ Added proper error handling (Redis errors trigger SQS retry)
 
 ## Database Schema Update (2025-07-13)
 
@@ -642,7 +652,40 @@ class NonceManager {
    - Redis dependency only needed in signing-service
    - Maintains better separation of concerns
 
+4. **Signing Service Updated**:
+   - Replaced NonceManager with NonceCacheService
+   - TransactionSigner now uses Redis for atomic nonce operations
+   - Initialize nonce on startup by comparing Redis and network values
+   - Redis connection errors trigger SQS retry (infrastructure errors)
+   - Full test coverage including Redis error scenarios
+
+### Completed Tasks
+- ✅ Created NonceCacheService with atomic operations
+- ✅ Integrated Redis into signing-service
+- ✅ Removed memory-based NonceManager
+- ✅ Added proper error handling for Redis failures
+- ✅ Updated all tests for Redis-based implementation
+
 ### Next Steps
-- Update signing-service to use NonceCacheService for nonce tracking
-- Implement startup recovery logic to handle service restarts
-- Add nonce conflict detection and retry mechanism
+- Implement tx-broadcaster service to complete withdrawal flow
+- Add real balance validation in signing-service
+- Implement monitoring for nonce usage and Redis health
+
+## Architecture Decision: Nonce Conflict Handling
+
+### Responsibility Separation
+1. **signing-service**: 
+   - Uses Redis to get atomic nonce values
+   - Does NOT handle nonce conflicts (can't detect at signing time)
+   - Throws errors for Redis connection issues (allows SQS retry)
+
+2. **tx-broadcaster** (future implementation):
+   - Detects nonce conflicts when broadcasting to blockchain
+   - Implements nonce resync logic with network
+   - Handles retry logic for nonce-related errors
+
+### Error Handling Strategy
+- **Infrastructure errors (Redis, DB)**: Throw error for SQS retry
+  - These are temporary and should be retried
+- **Message errors (invalid data)**: Send to DLQ
+  - These are permanent and won't succeed on retry

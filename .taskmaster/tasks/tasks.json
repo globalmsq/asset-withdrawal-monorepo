@@ -27,8 +27,8 @@
             "dependencies": [
               "11.1"
             ],
-            "details": "MulticallService 클래스 구조 설계, 배치 전송 요청 처리 메서드, Multicall3 컨트랙트와의 인터페이스 구현, 에러 핸들링 로직 추가",
-            "status": "pending",
+            "details": "MulticallService 클래스 구조 설계, 배치 전송 요청 처리 메서드, Multicall3 컨트랙트와의 인터페이스 구현, 에러 핸들링 로직 추가\n<info added on 2025-07-21T14:35:33.022Z>\nMulticallService 클래스 구현이 완료되었습니다. apps/signing-service/src/services/multicall.service.ts 파일에 다음 주요 메서드들이 구현되었습니다: prepareBatchTransfer (배치 전송 준비), encodeBatchTransaction (트랜잭션 인코딩), validateBatch (배치 검증), getOptimalBatchSize (최적 배치 크기 계산). ChainProvider를 통해 Multicall3 컨트랙트 주소를 동적으로 가져오도록 설계하였으며, apps/signing-service/src/services/__tests__/multicall.service.test.ts 테스트 파일을 작성하여 모든 기능에 대한 검증을 완료했습니다.\n</info added on 2025-07-21T14:35:33.022Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -195,7 +195,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-07-21T13:56:36.085Z",
+      "updated": "2025-07-21T14:35:14.577Z",
       "description": "Tasks for master context"
     }
   }

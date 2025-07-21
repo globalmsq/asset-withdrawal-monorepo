@@ -194,7 +194,7 @@ describe('MulticallService', () => {
   describe('decodeBatchResult', () => {
     it('should decode batch result correctly', () => {
       const encodedResult = '0xresult';
-      
+
       const decoded = multicallService.decodeBatchResult(encodedResult);
 
       expect(mockMulticall3Contract.interface.decodeFunctionResult).toHaveBeenCalledWith(

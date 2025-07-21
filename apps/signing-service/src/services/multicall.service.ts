@@ -89,10 +89,10 @@ export class MulticallService {
     private logger: Logger
   ) {
     this.provider = this.chainProvider.getProvider();
-    
+
     // Get Multicall3 address from ChainProvider
     const multicall3Address = this.chainProvider.getMulticall3Address();
-    
+
     // Create Multicall3 contract instance
     this.multicall3Contract = new ethers.Contract(
       multicall3Address,
@@ -113,33 +113,33 @@ export class MulticallService {
    */
   async prepareBatchTransfer(transfers: BatchTransferRequest[]): Promise<PreparedBatch> {
     const calls: Call3[] = [];
-    
+
     // Group transfers by token address for logging
     const tokenGroups = new Map<string, number>();
-    
+
     for (const transfer of transfers) {
       const { tokenAddress, to, amount } = transfer;
-      
+
       // Create ERC20 interface for encoding
       const erc20Interface = new ethers.Interface(ERC20_ABI);
-      
+
       // Encode transfer function call
       const callData = erc20Interface.encodeFunctionData('transfer', [
         to,
         amount,
       ]);
-      
+
       // Add to calls array
       calls.push({
         target: tokenAddress,
         allowFailure: false, // We want all transfers to succeed
         callData,
       });
-      
+
       // Track token groups
       tokenGroups.set(tokenAddress, (tokenGroups.get(tokenAddress) || 0) + 1);
     }
-    
+
     this.logger.info('Prepared batch transfer', {
       totalTransfers: transfers.length,
       uniqueTokens: tokenGroups.size,
@@ -148,10 +148,10 @@ export class MulticallService {
         count,
       })),
     });
-    
+
     // Estimate gas for the batch
     const { estimatedGasPerCall, totalEstimatedGas } = await this.estimateBatchGas(calls);
-    
+
     return {
       calls,
       estimatedGasPerCall,
@@ -169,20 +169,20 @@ export class MulticallService {
     try {
       // Estimate gas for the aggregate3 call
       const gasEstimate = await this.multicall3Contract.aggregate3.estimateGas(calls);
-      
+
       // Calculate per-call gas (approximate)
       const estimatedGasPerCall = gasEstimate / BigInt(calls.length);
-      
+
       // Add 20% buffer for safety
       const totalEstimatedGas = (gasEstimate * 120n) / 100n;
-      
+
       this.logger.debug('Batch gas estimation', {
         rawEstimate: gasEstimate.toString(),
         perCallEstimate: estimatedGasPerCall.toString(),
         totalWithBuffer: totalEstimatedGas.toString(),
         callCount: calls.length,
       });
-      
+
       return {
         estimatedGasPerCall,
         totalEstimatedGas,
@@ -191,19 +191,19 @@ export class MulticallService {
       this.logger.error('Failed to estimate batch gas', error, {
         callCount: calls.length,
       });
-      
+
       // Fallback: estimate based on typical ERC20 transfer gas
       const TYPICAL_ERC20_TRANSFER_GAS = 65000n;
       const MULTICALL_OVERHEAD = 30000n;
-      
+
       const estimatedGasPerCall = TYPICAL_ERC20_TRANSFER_GAS;
       const totalEstimatedGas = MULTICALL_OVERHEAD + (estimatedGasPerCall * BigInt(calls.length));
-      
+
       this.logger.warn('Using fallback gas estimation', {
         estimatedGasPerCall: estimatedGasPerCall.toString(),
         totalEstimatedGas: totalEstimatedGas.toString(),
       });
-      
+
       return {
         estimatedGasPerCall,
         totalEstimatedGas,
@@ -237,7 +237,7 @@ export class MulticallService {
     errors: string[];
   }> {
     const errors: string[] = [];
-    
+
     // Check for duplicate transaction IDs
     const txIds = new Set<string>();
     for (const transfer of transfers) {
@@ -246,7 +246,7 @@ export class MulticallService {
       }
       txIds.add(transfer.transactionId);
     }
-    
+
     // Validate addresses
     for (const transfer of transfers) {
       try {
@@ -255,7 +255,7 @@ export class MulticallService {
       } catch (error) {
         errors.push(`Invalid address in transfer ${transfer.transactionId}`);
       }
-      
+
       // Validate amount
       try {
         const amount = BigInt(transfer.amount);
@@ -266,13 +266,13 @@ export class MulticallService {
         errors.push(`Invalid amount in transfer ${transfer.transactionId}`);
       }
     }
-    
+
     // Check batch size limits
     const MAX_BATCH_SIZE = 100; // Reasonable limit to avoid gas issues
     if (transfers.length > MAX_BATCH_SIZE) {
       errors.push(`Batch size ${transfers.length} exceeds maximum ${MAX_BATCH_SIZE}`);
     }
-    
+
     return {
       valid: errors.length === 0,
       errors,
@@ -287,12 +287,12 @@ export class MulticallService {
     const BLOCK_GAS_LIMIT = 30_000_000n;
     const SAFETY_MARGIN = 0.8; // Use only 80% of block gas limit
     const MULTICALL_OVERHEAD = 30000n;
-    
+
     const availableGas = BigInt(Math.floor(Number(BLOCK_GAS_LIMIT) * SAFETY_MARGIN));
     const gasForCalls = availableGas - MULTICALL_OVERHEAD;
-    
+
     const optimalSize = Number(gasForCalls / estimatedGasPerCall);
-    
+
     // Cap at reasonable maximum
     const MAX_BATCH_SIZE = 100;
     return Math.min(optimalSize, MAX_BATCH_SIZE);

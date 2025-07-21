@@ -69,8 +69,8 @@
 - 데이터베이스에서 서명된 트랜잭션 조회
 - Polygon 네트워크에 브로드캐스트
 - 트랜잭션 상태 업데이트 (BROADCASTED → CONFIRMED)
-- nonce 충돌 감지 및 재동기화
-- 실패 시 재시도 로직 및 DLQ 처리
+- nonce 충돌 감지시 DLQ 처리
+- 실패 시 재시도 로직(일시적 Network 문제) 및 DLQ 처리
 ```
 
 #### 1.2 DLQ 핸들러 구현
@@ -79,7 +79,8 @@
 - 실패 메시지 분류 (영구적 vs 일시적)
 - 재시도 자격 판단
 - 수동 개입 알림
-- 메시지 재처리 API
+- 재시도 하기 위해서는 request-queue로 메시지 전송
+- 테스트 및 검증
 ```
 
 #### 1.3 실제 잔액 검증
@@ -99,11 +100,49 @@
 - 실패 감지 및 알림
 - tx-broadcaster와 연동
 - 재시도 트리거
+- 가스비 높여서 재시도 트리거
 ```
 
 ### Phase 2: 관리 시스템
 
-#### 2.1 Admin API + 인증 시스템
+##### 2.1.1 Admin UI 애플리케이션 (React + Tailwind CSS)
+```bash
+# React 앱 생성
+nx add @nx/react
+nx g @nx/react:app admin-ui
+```
+
+**UI 기능**:
+- **대시보드**: 실시간 트랜잭션 통계, 시스템 상태
+- **트랜잭션 관리**: 검색/필터, 상태 추적, 수동 재시도
+- **큐 모니터링**: 실시간 큐 상태, DLQ 관리
+- **사용자 관리**: 계정 생성/비활성화, 권한 설정
+- **시스템 설정**: 가스 가격 임계값, 재시도 정책
+
+**기술 스택**:
+- **프레임워크**: React 18 + TypeScript
+- **UI 라이브러리**: Ant Design (주요 컴포넌트) + Tailwind CSS (커스텀 스타일링)
+  - Ant Design: 폼, 테이블, 모달 등 복잡한 컴포넌트
+  - Tailwind CSS: 레이아웃, 스페이싱, 커스텀 디자인
+  - 스타일 충돌 방지: Ant Design 테마 변수와 Tailwind 유틸리티 분리
+- **상태 관리**: TanStack Query (서버 상태) + Zustand (클라이언트 상태)
+- **차트**: Recharts (트랜잭션 통계, 성능 메트릭)
+- **실시간**: Socket.IO (WebSocket 래퍼)
+  - 자동 재연결
+  - 이벤트 기반 통신
+  - 룸 기반 구독
+
+**주요 페이지**:
+```
+/dashboard - 전체 시스템 개요
+/transactions - 트랜잭션 목록/검색
+/queues - 큐 상태 모니터링
+/users - 사용자 관리
+/settings - 시스템 설정
+/analytics - 성능 분석
+```
+
+##### 2.1.2 Admin API 확장
 ```typescript
 // 인증 엔드포인트
 POST /auth/register - 사용자 등록
@@ -111,41 +150,154 @@ POST /auth/login - JWT 로그인
 POST /auth/refresh - 토큰 갱신
 
 // Admin API (인증 필요)
-GET /admin/transactions - 트랜잭션 목록/검색
-GET /admin/queues - 큐 상태 모니터링
+GET /admin/transactions - 트랜잭션 목록/검색/필터링
+GET /admin/transactions/:id - 트랜잭션 상세 정보
 POST /admin/transactions/:id/retry - 수동 재시도
-GET /admin/stats - 시스템 통계
+PUT /admin/transactions/:id/status - 상태 강제 변경
 
+GET /admin/queues - 큐 상태 모니터링
+GET /admin/queues/:name/messages - 큐 메시지 조회
+POST /admin/queues/:name/purge - 큐 비우기
+
+GET /admin/users - 사용자 목록
+POST /admin/users - 사용자 생성
+PUT /admin/users/:id - 사용자 정보 수정
+DELETE /admin/users/:id - 사용자 비활성화
+
+GET /admin/stats - 시스템 통계
+GET /admin/analytics - 성능 분석 데이터
+GET /admin/health - 헬스체크 상세 정보
+
+// WebSocket 엔드포인트
+WS /admin/ws - 실시간 업데이트 (큐 상태, 트랜잭션 변경)
+```
+
+##### 2.1.4 WebSocket 메시지 포맷
+```typescript
+// 서버 → 클라이언트 이벤트
+interface ServerToClientEvents {
+  'queue:update': (data: {
+    queueName: string;
+    messageCount: number;
+    dlqCount: number;
+  }) => void;
+  
+  'transaction:update': (data: {
+    id: string;
+    status: string;
+    txHash?: string;
+    errorMessage?: string;
+  }) => void;
+  
+  'system:alert': (data: {
+    severity: 'info' | 'warning' | 'error';
+    message: string;
+    timestamp: Date;
+  }) => void;
+}
+
+// 클라이언트 → 서버 이벤트
+interface ClientToServerEvents {
+  'subscribe:queues': () => void;
+  'subscribe:transactions': (filter?: TransactionFilter) => void;
+  'unsubscribe:all': () => void;
+}
+```
+
+##### 2.1.5 인증 시스템
+```typescript
 // 주요 기능
 - JWT 기반 인증 미들웨어
-- 역할 기반 접근 제어 (USER, ADMIN)
+- 역할 기반 접근 제어 (USER, ADMIN, SUPER_ADMIN)
 - bcrypt 패스워드 해싱
 - User 모델 및 서비스
+- 세션 관리 및 토큰 갱신
+- API Rate Limiting
+  - IP 기반: 분당 60회
+  - 사용자 기반: 분당 100회
+  - 버스트 허용: 초당 10회
 ```
 
 #### 2.2 모니터링 시스템
-- Prometheus 메트릭 수집
-- Grafana 대시보드
-- 알림 규칙 (큐 적체, 실패율 등)
+
+##### 2.2.1 Prometheus 메트릭
+```yaml
+# 애플리케이션 메트릭
+api_request_duration_seconds: API 응답 시간
+api_request_total: API 요청 수 (method, endpoint, status)
+queue_message_count: 큐별 메시지 수
+queue_processing_duration_seconds: 메시지 처리 시간
+transaction_total: 트랜잭션 수 (status, network)
+transaction_gas_used: 가스 사용량
+transaction_confirmation_time_seconds: 확인 시간
+
+# 시스템 메트릭
+node_cpu_usage_percent: CPU 사용률
+node_memory_usage_percent: 메모리 사용률
+node_disk_usage_percent: 디스크 사용률
+```
+
+##### 2.2.2 알림 임계값
+```yaml
+# Critical (즉시 대응)
+- API 오류율 > 5% (5분간)
+- 큐 메시지 > 1000개
+- DLQ 메시지 > 100개
+- 트랜잭션 실패율 > 10%
+- 시스템 리소스 > 90%
+
+# Warning (모니터링)
+- API 응답 시간 > 1초
+- 큐 메시지 > 500개
+- DLQ 메시지 > 50개
+- 트랜잭션 실패율 > 5%
+- 시스템 리소스 > 70%
+```
 
 ### Phase 3: 프로덕션 준비
 
 #### 3.1 보안 강화
-- 속도 제한 (IP/사용자별)
-- API 키 인증 시스템
-- 보안 감사 및 침투 테스트
+
+##### 3.1.1 API 보안
+```typescript
+// API 키 인증 시스템
+- API 키 생성/관리
+- HMAC 서명 검증
+- IP 화이트리스트
+- Rate Limiting 강화
+```
+
+##### 3.1.2 보안 기능
+```typescript
+// 추가 보안 레이어
+- 2FA 구현 (TOTP)
+  - QR 코드 생성
+  - 백업 코드 시스템
+  - 복구 프로세스
+- SQL Injection 방지 (이미 Prisma로 처리됨)
+- XSS 방지 (helmet.js)
+- CORS 정책 강화
+- 보안 헤더 설정
+```
+
+##### 3.1.3 보안 감사
+- OWASP Top 10 체크리스트
+- 침투 테스트 (외부 업체)
+- 취약점 스캔 및 수정
 
 #### 3.2 인프라 마이그레이션
-- AWS EKS 배포
-- 자동 확장 설정
-- 다중 AZ 배포
+- AWS EKS 클러스터 설정
+- Helm 차트 작성
+- 자동 확장 설정 (HPA, VPA)
+- 다중 AZ 배포 및 로드 밸런싱
+- 프로덕션 환경 테스트
 
 ## 테스트 계획
 
 ### Phase 1 테스트 (핵심 시스템)
 - **단위 테스트**: 각 서비스의 개별 기능 테스트
 - **통합 테스트**: 서비스 간 메시지 큐 통신 테스트
-- **시나리오 테스트**: 
+- **시나리오 테스트**:
   - 정상 출금 플로우
   - nonce 충돌 처리
   - RPC 실패 대응
@@ -159,6 +311,71 @@ GET /admin/stats - 시스템 통계
 - **보안 테스트**: OWASP Top 10, 침투 테스트
 - **장애 복구 테스트**: 서비스 장애 시나리오
 - **성능 테스트**: 대용량 처리, 응답 시간
+
+## 추가 고려사항
+
+### 백업 및 복구 전략
+```yaml
+# 데이터베이스 백업
+- 일일 자동 백업 (30일 보관)
+- 트랜잭션 로그 백업 (7일 보관)
+- 스냅샷 백업 (주간)
+- 복구 테스트 (월간)
+
+# 복구 목표
+- RPO (Recovery Point Objective): 1시간
+- RTO (Recovery Time Objective): 4시간
+```
+
+### 로깅 전략
+```yaml
+# 중앙 집중식 로깅 (ELK Stack)
+- Elasticsearch: 로그 저장 및 검색
+- Logstash: 로그 수집 및 파싱
+- Kibana: 로그 시각화 및 분석
+
+# 로그 레벨
+- ERROR: 시스템 오류, 트랜잭션 실패
+- WARN: 성능 저하, 리소스 부족
+- INFO: 트랜잭션 상태, API 요청
+- DEBUG: 상세 처리 과정 (개발 환경만)
+
+# 로그 보관
+- 실시간 로그: 7일
+- 아카이브 로그: 90일
+- 감사 로그: 1년
+```
+
+### API 버전 관리
+```typescript
+// URL 경로 버전 관리
+GET /api/v1/withdrawals
+GET /api/v2/withdrawals  // 새 버전
+
+// 버전 지원 정책
+- 새 버전 출시 후 6개월간 이전 버전 지원
+- Deprecation 공지: 3개월 전
+- 강제 마이그레이션: 6개월 후
+```
+
+### CI/CD 파이프라인
+```yaml
+# GitHub Actions 워크플로우
+stages:
+  - lint: ESLint, Prettier 검사
+  - test: 단위 테스트, 통합 테스트
+  - build: Docker 이미지 빌드
+  - security: Snyk 취약점 스캔
+  - deploy:
+    - dev: 자동 배포
+    - staging: 수동 승인 후 배포
+    - production: 다중 승인 후 배포
+
+# 배포 전략
+- Blue/Green 배포
+- 카나리 배포 (10% → 50% → 100%)
+- 자동 롤백 (오류율 > 5%)
+```
 
 ## 기술적 참고사항
 

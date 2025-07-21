@@ -11,6 +11,7 @@ export interface ChainConfig {
     decimals: number;
   };
   blockExplorerUrl: string;
+  multicall3Address?: string;
 }
 
 export interface ChainConfigs {

@@ -58,6 +58,12 @@ export class ChainProvider {
     return `${this.config.blockExplorerUrl}/address/${address}`;
   }
 
+  getMulticall3Address(): string {
+    // Universal Multicall3 address for most EVM chains
+    const UNIVERSAL_MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
+    return this.config.multicall3Address || UNIVERSAL_MULTICALL3_ADDRESS;
+  }
+
   async getBlockNumber(): Promise<number> {
     try {
       return await this.provider.getBlockNumber();

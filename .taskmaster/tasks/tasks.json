@@ -9,8 +9,73 @@
         "testStrategy": "Multicall3 컨트랙트 호출 테스트, 배치 전송 가스 계산 정확성 검증, 단일 vs 배치 전송 성능 비교 테스트, 최대 배치 크기 한계 테스트, 실패 시나리오 (가스 부족, 잘못된 토큰 주소) 테스트",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
-        "subtasks": []
+        "status": "in-progress",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Polygon Multicall3 컨트랙트 주소 설정",
+            "description": "Polygon 네트워크의 Multicall3 컨트랙트 주소를 환경 설정에 추가하고 네트워크별 구성 관리",
+            "dependencies": [],
+            "details": "환경 변수에 Multicall3 컨트랙트 주소 (0xcA11bde05977b3631167028862bE2a173976CA11) 추가, 네트워크별 주소 매핑 구성, 환경 설정 검증 로직 구현\n<info added on 2025-07-21T13:56:54.550Z>\nPOLYGON_MULTICALL3_ADDRESS 환경 변수를 .env.sample에 추가 완료, config/index.ts에서 환경 변수 읽기와 주소 검증 로직이 구현됨, config/networks.ts 파일을 새로 생성하여 Amoy 테스트넷과 Polygon 메인넷 모두에 대해 Multicall3 주소 0xcA11bde05977b3631167028862bE2a173976CA11 매핑을 구성함\n</info added on 2025-07-21T13:56:54.550Z>\n<info added on 2025-07-21T14:20:16.702Z>\n기존 환경변수 기반 Multicall3 설정을 제거하고 중앙집중식 관리로 전환 완료. packages/shared/src/config/chains.config.json에 polygon, ethereum, bsc 체인 모두에 대해 multicall3Address 속성 추가됨. ChainProvider 클래스에 getMulticall3Address(chainType: ChainType) 메서드 구현하여 체인별 Multicall3 주소 조회 기능 제공. signing-service의 config/networks.ts와 환경변수 POLYGON_MULTICALL3_ADDRESS 설정 제거하여 중복 제거 및 일관된 설정 관리 달성.\n</info added on 2025-07-21T14:20:16.702Z>",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "MulticallService 클래스 구현",
+            "description": "여러 ERC20 전송을 하나의 트랜잭션으로 배치 처리하는 MulticallService 핵심 클래스 개발",
+            "dependencies": [
+              "11.1"
+            ],
+            "details": "MulticallService 클래스 구조 설계, 배치 전송 요청 처리 메서드, Multicall3 컨트랙트와의 인터페이스 구현, 에러 핸들링 로직 추가",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "ABI 인코딩 및 calldata 생성 로직 구현",
+            "description": "ERC20 전송을 위한 ABI 인코딩과 Multicall3용 calldata 생성 로직 개발",
+            "dependencies": [
+              "11.2"
+            ],
+            "details": "ERC20 transfer 함수 ABI 인코딩, Multicall3 aggregate 함수를 위한 calldata 배열 생성, 인코딩 정확성 검증, 바이트 데이터 최적화",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "배치 크기 최적화 로직 구현",
+            "description": "가스 한도 내에서 최대 전송 수를 계산하는 배치 크기 최적화 기능 개발",
+            "dependencies": [
+              "11.3"
+            ],
+            "details": "가스 사용량 추정 로직, 블록 가스 한도 대비 최적 배치 크기 계산, 동적 배치 크기 조정 알고리즘, 가스비 효율성 분석",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "TransactionSigner 확장 및 배치 서명 기능 추가",
+            "description": "기존 TransactionSigner에 signBatchTransaction() 메서드를 추가하여 배치 트랜잭션 서명 지원",
+            "dependencies": [
+              "11.4"
+            ],
+            "details": "signBatchTransaction() 메서드 구현, 단일 트랜잭션과 배치 트랜잭션 서명 로직 통합, nonce 관리 개선, 서명 검증 로직 추가",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "데이터 모델 업데이트 및 통합 테스트",
+            "description": "WithdrawalRequest 모델에 type 필드 추가 및 전체 Multicall3 기능 통합 테스트 수행",
+            "dependencies": [
+              "11.5"
+            ],
+            "details": "WithdrawalRequest 모델에 type: 'SINGLE' | 'BATCH' 필드 추가, 데이터베이스 스키마 업데이트, 단일/배치 전송 통합 테스트, 성능 비교 테스트 수행",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 12,
@@ -130,7 +195,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-07-21T11:25:52.663Z",
+      "updated": "2025-07-21T13:56:36.085Z",
       "description": "Tasks for master context"
     }
   }

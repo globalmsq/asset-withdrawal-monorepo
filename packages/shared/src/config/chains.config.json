@@ -9,7 +9,8 @@
         "symbol": "MATIC",
         "decimals": 18
       },
-      "blockExplorerUrl": "https://polygonscan.com"
+      "blockExplorerUrl": "https://polygonscan.com",
+      "multicall3Address": "0xcA11bde05977b3631167028862bE2a173976CA11"
     },
     "testnet": {
       "chainId": 80002,
@@ -20,7 +21,8 @@
         "symbol": "MATIC",
         "decimals": 18
       },
-      "blockExplorerUrl": "https://amoy.polygonscan.com"
+      "blockExplorerUrl": "https://amoy.polygonscan.com",
+      "multicall3Address": "0xcA11bde05977b3631167028862bE2a173976CA11"
     }
   },
   "ethereum": {
@@ -33,7 +35,8 @@
         "symbol": "ETH",
         "decimals": 18
       },
-      "blockExplorerUrl": "https://etherscan.io"
+      "blockExplorerUrl": "https://etherscan.io",
+      "multicall3Address": "0xcA11bde05977b3631167028862bE2a173976CA11"
     },
     "testnet": {
       "chainId": 11155111,
@@ -44,7 +47,8 @@
         "symbol": "ETH",
         "decimals": 18
       },
-      "blockExplorerUrl": "https://sepolia.etherscan.io"
+      "blockExplorerUrl": "https://sepolia.etherscan.io",
+      "multicall3Address": "0xcA11bde05977b3631167028862bE2a173976CA11"
     }
   },
   "bsc": {
@@ -57,7 +61,8 @@
         "symbol": "BNB",
         "decimals": 18
       },
-      "blockExplorerUrl": "https://bscscan.com"
+      "blockExplorerUrl": "https://bscscan.com",
+      "multicall3Address": "0xcA11bde05977b3631167028862bE2a173976CA11"
     },
     "testnet": {
       "chainId": 97,
@@ -68,7 +73,8 @@
         "symbol": "tBNB",
         "decimals": 18
       },
-      "blockExplorerUrl": "https://testnet.bscscan.com"
+      "blockExplorerUrl": "https://testnet.bscscan.com",
+      "multicall3Address": "0xcA11bde05977b3631167028862bE2a173976CA11"
     }
   }
 }

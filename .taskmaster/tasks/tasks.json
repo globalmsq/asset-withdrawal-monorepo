@@ -74,6 +74,124 @@
             "details": "WithdrawalRequest 모델에 type: 'SINGLE' | 'BATCH' 필드 추가, 데이터베이스 스키마 업데이트, 단일/배치 전송 통합 테스트, 성능 비교 테스트 수행",
             "status": "pending",
             "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Multicall3 컨트랙트 주소 설정 및 ChainProvider 확장",
+            "description": "Polygon 메인넷 및 테스트넷에 대한 Multicall3 컨트랙트 주소 설정 및 ChainProvider에서 주소 조회 기능 구현",
+            "dependencies": [],
+            "details": "Polygon 메인넷(0xcA11bde05977b3631167028862bE2a173976CA11) 및 Amoy 테스트넷 Multicall3 주소 추가, ChainProvider.getMulticallAddress() 메서드 구현, 네트워크별 주소 매핑 로직 추가, 환경 변수 기반 네트워크 선택 지원",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 8,
+            "title": "MulticallService 클래스 리팩토링 및 확장",
+            "description": "기존 MulticallService를 확장하여 실제 배치 전송 기능 완성 및 성능 최적화",
+            "dependencies": [
+              "11.7"
+            ],
+            "details": "MulticallService에서 실제 Multicall3 컨트랙트 호출 로직 구현, 배치 전송 결과 파싱 및 처리, 가스 추정 로직 개선, aggregate3 메서드를 사용한 배치 호출 구현, 실패한 전송 건 개별 처리 로직 추가",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 9,
+            "title": "ERC-20 ABI 인코딩 및 calldata 생성 로직 구현",
+            "description": "ERC-20 transfer 메서드를 위한 ABI 인코딩 로직 및 Multicall3용 calldata 생성 기능 구현",
+            "dependencies": [
+              "11.8"
+            ],
+            "details": "Ethers.js Interface를 사용한 transfer 메서드 인코딩, Multicall3.Call 구조체 생성 로직, 다중 토큰 전송을 위한 calldata 배열 생성, 각 전송 건별 target, allowFailure, callData 설정, ABI 인코딩 오류 핸들링",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 10,
+            "title": "배치 크기 최적화 및 가스 계산 로직",
+            "description": "가스 한도 내에서 최적의 배치 크기를 계산하고 동적으로 조정하는 기능 구현",
+            "dependencies": [
+              "11.9"
+            ],
+            "details": "가스 한도 기반 최대 배치 크기 계산 알고리즘, 토큰별 전송 비용 추정, 배치 오버헤드 고려한 최적화, 동적 배치 분할 로직, Polygon 네트워크 가스 특성 반영, 배치 크기별 성능 테스트 및 벤치마킹",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 11,
+            "title": "TransactionSigner 배치 전송 기능 확장",
+            "description": "TransactionSigner 클래스에 배치 트랜잭션 서명 기능 추가 및 기존 단일 전송과의 통합",
+            "dependencies": [
+              "11.10"
+            ],
+            "details": "signBatchTransaction() 메서드 구현, 배치 트랜잭션 가스 추정 로직, EIP-1559 트랜잭션 타입 지원, 배치와 단일 전송 구분 로직, nonce 관리 개선, 트랜잭션 서명 실패 시 개별 전송으로 fallback 메커니즘",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 12,
+            "title": "WithdrawalRequest 모델 업데이트 및 배치 처리 지원",
+            "description": "WithdrawalRequest 모델에 배치 전송 타입 필드 추가 및 관련 데이터베이스 스키마 업데이트",
+            "dependencies": [
+              "11.11"
+            ],
+            "details": "WithdrawalRequest에 type 필드 추가 ('SINGLE' | 'BATCH'), batchId 필드 추가로 배치 그룹 관리, Prisma 스키마 업데이트, 기존 레코드와의 호환성 보장, 배치 전송 상태 추적 로직, 배치 내 개별 전송 상태 관리 기능",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 13,
+            "title": "Multicall3 컨트랙트 주소 및 ABI 구성 설정",
+            "description": "Polygon 네트워크용 Multicall3 컨트랙트 주소와 ABI 정의를 설정하고 네트워크별 구성 관리",
+            "dependencies": [],
+            "details": "Polygon 메인넷 및 테스트넷용 Multicall3 컨트랙트 주소 (0xcA11bde05977b3631167028862bE2a173976CA11) 설정, Multicall3 ABI 정의, 네트워크별 설정 파일 구성, 컨트랙트 주소 검증 로직",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 14,
+            "title": "MulticallService 클래스 기본 구조 구현",
+            "description": "배치 전송을 위한 MulticallService 클래스의 기본 구조와 의존성 주입 설정",
+            "dependencies": [],
+            "details": "MulticallService 클래스 생성, Ethers.js Provider 및 Contract 인스턴스 초기화, 의존성 주입을 위한 생성자 설정, 기본 인터페이스 및 타입 정의, 에러 처리를 위한 기본 구조",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 15,
+            "title": "ERC20 transfer ABI 인코딩 로직 구현",
+            "description": "ERC20 토큰 전송을 위한 ABI 인코딩과 calldata 생성 기능 개발",
+            "dependencies": [],
+            "details": "ERC20 transfer 함수 ABI 인코딩, 토큰 주소/수신자/금액 파라미터 검증, calldata 바이트 배열 생성, 인코딩 정확성 검증 로직, 인코딩 에러 핸들링",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 16,
+            "title": "배치 크기 최적화 및 가스 계산 로직",
+            "description": "가스 한도 내에서 최적의 배치 크기를 계산하고 가스비 추정 기능 구현",
+            "dependencies": [],
+            "details": "배치 전송당 가스 소모량 추정, 가스 한도 기반 최대 배치 크기 계산, 동적 배치 크기 조정 알고리즘, 가스비 최적화 로직, 배치 분할 전략 구현",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 17,
+            "title": "TransactionSigner에 배치 전송 메서드 확장",
+            "description": "기존 TransactionSigner 클래스에 signBatchTransaction() 메서드 추가 및 통합",
+            "dependencies": [],
+            "details": "signBatchTransaction() 메서드 구현, Multicall3 트랜잭션 구조 생성, 기존 단일 전송과 배치 전송 로직 통합, 트랜잭션 타입별 분기 처리, 서명 검증 로직 확장",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 18,
+            "title": "WithdrawalRequest 모델 및 데이터베이스 스키마 업데이트",
+            "description": "배치 전송 지원을 위한 모델 확장과 관련 데이터베이스 스키마 변경",
+            "dependencies": [],
+            "details": "WithdrawalRequest 모델에 type 필드 추가 ('SINGLE' | 'BATCH'), 배치 전송 관련 추가 필드 정의, Prisma 스키마 업데이트, 기존 데이터 호환성 보장, 마이그레이션 스크립트 작성",
+            "status": "pending",
+            "testStrategy": ""
           }
         ]
       },

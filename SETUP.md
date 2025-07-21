@@ -58,6 +58,7 @@ API_SERVER_PORT=3000
 TX_PROCESSOR_PORT=3001
 SIGNING_SERVICE_PORT=3002
 TX_MONITOR_PORT=3003
+TX_BROADCASTER_PORT=3004
 
 # Redis
 REDIS_URL=redis://localhost:6379
@@ -113,6 +114,9 @@ npm run dev:monitor
 
 # 프로세서만
 npm run dev:processor
+
+# Admin UI (React 앱)
+npm run dev:admin-ui
 ```
 
 ## 빌드 및 프로덕션 실행

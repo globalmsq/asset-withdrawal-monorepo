@@ -61,7 +61,19 @@
 
 ### Phase 1: 핵심 시스템 완성
 
-#### 1.1 tx-broadcaster 구현 ⚠️
+#### 1.0 signing-service 기능 확장 🆕
+**목표**: ERC20 토큰 Batch 전송 지원 (Multicall 활용)
+```typescript
+// 주요 기능
+- Multicall3을 활용한 배치 토큰 전송
+- WithdrawalRequest 타입 확장 (SINGLE, BATCH)
+- MulticallService 구현 (calldata 생성, ABI 인코딩)
+- TransactionSigner에 signBatchTransaction() 메서드 추가
+- SigningWorker 단일/배치 메시지 구분 처리
+- 배치 전송 검증 및 테스트 케이스
+```
+
+#### 1.2 tx-broadcaster 구현 ⚠️
 **목표**: 출금 흐름 완료
 ```typescript
 // 주요 기능
@@ -73,7 +85,7 @@
 - 실패 시 재시도 로직(일시적 Network 문제) 및 DLQ 처리
 ```
 
-#### 1.2 DLQ 핸들러 구현
+#### 1.3 DLQ 핸들러 구현
 ```typescript
 // 기능
 - 실패 메시지 분류 (영구적 vs 일시적)
@@ -83,7 +95,7 @@
 - 테스트 및 검증
 ```
 
-#### 1.3 실제 잔액 검증
+#### 1.4 실제 잔액 검증
 ```typescript
 // signing-service 강화
 - ERC-20 토큰 잔액 확인
@@ -92,7 +104,7 @@
 - Redis 캐시를 통한 성능 최적화
 ```
 
-#### 1.4 tx-monitor 구현
+#### 1.5 tx-monitor 구현
 ```typescript
 // 트랜잭션 모니터링 서비스
 - 블록체인 트랜잭션 상태 추적
@@ -181,14 +193,14 @@ interface ServerToClientEvents {
     messageCount: number;
     dlqCount: number;
   }) => void;
-  
+
   'transaction:update': (data: {
     id: string;
     status: string;
     txHash?: string;
     errorMessage?: string;
   }) => void;
-  
+
   'system:alert': (data: {
     severity: 'info' | 'warning' | 'error';
     message: string;

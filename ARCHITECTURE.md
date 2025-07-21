@@ -110,15 +110,26 @@ graph TB
 ```
 1. 클라이언트 → API Server: 출금 요청 제출
 2. API Server → MySQL: 요청 저장 (상태: PENDING)
-3. API Server → SQS: 메시지 큐잉
-4. TX Processor → SQS: 메시지 소비
-5. TX Processor → MySQL: 상태 업데이트 (상태: PROCESSING)
-6. TX Processor → Signing Queue: 서명 요청
-7. Signing Service → 블록체인: 트랜잭션 제출
-8. Signing Service → MySQL: 트랜잭션 해시 저장
-9. Signing Service → Monitor Queue: 모니터링 요청
-10. TX Monitor → 블록체인: 상태 확인
-11. TX Monitor → MySQL: 최종 상태 업데이트 (상태: COMPLETED/FAILED)
+3. API Server → tx-request-queue: 메시지 큐잉
+4. Signing Service → tx-request-queue: 메시지 소비
+5. Signing Service → MySQL: 상태 업데이트 (상태: SIGNING)
+6. Signing Service: 트랜잭션 서명 (단일/배치)
+7. Signing Service → signed-tx-queue: 서명된 트랜잭션 큐잉
+8. TX Broadcaster → signed-tx-queue: 메시지 소비
+9. TX Broadcaster → Polygon: 트랜잭션 브로드캐스트
+10. TX Broadcaster → MySQL: 상태 업데이트 (상태: BROADCASTED)
+11. TX Monitor → Polygon: 트랜잭션 확인 추적
+12. TX Monitor → MySQL: 최종 상태 업데이트 (상태: CONFIRMED/FAILED)
+```
+
+### 배치 전송 플로우 (Multicall3)
+```
+1. 다중 출금 요청 수집
+2. Signing Service: 배치 타입 감지
+3. MulticallService: Multicall3 calldata 생성
+4. TransactionSigner.signBatchTransaction() 실행
+5. 단일 트랜잭션으로 다중 전송 처리
+6. 가스비 절감 (최대 70%)
 ```
 
 ## 보안 아키텍처

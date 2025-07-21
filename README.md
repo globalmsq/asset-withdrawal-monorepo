@@ -1,14 +1,16 @@
 # MUSTB Asset Withdrawal System
 
-A Polygon-focused blockchain withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests on the Polygon network, processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status.
+A Polygon-focused blockchain withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests on the Polygon network, processes transactions securely using AWS SQS (LocalStack for development), tracks transaction status, and supports batch transfers using Multicall3 for gas optimization.
 
 ## 📁 Project Structure
 
 ```
 ├── apps/                        # Applications
 │   ├── api-server/              # HTTP API gateway (receives withdrawal requests)
-│   ├── signing-service/         # Transaction signing worker (processes queue messages)
-│   └── tx-monitor/              # Transaction monitor (tracks blockchain status)
+│   ├── signing-service/         # Transaction signing worker (supports Multicall3 batch)
+│   ├── tx-broadcaster/          # Blockchain broadcaster (sends signed transactions)
+│   ├── tx-monitor/              # Transaction monitor (tracks blockchain status)
+│   └── admin-ui/                # Admin web interface (React + Tailwind CSS)
 ├── packages/                    # Shared libraries
 │   ├── database/                # Prisma ORM and database services
 │   └── shared/                  # Common utilities, types, and validators
@@ -84,8 +86,10 @@ POLYGON_CHAIN_ID=80002
 
 # Application Ports
 API_SERVER_PORT=3000
-SIGNING_SERVICE_PORT=3005
-TX_MONITOR_PORT=3002
+SIGNING_SERVICE_PORT=3002
+TX_BROADCASTER_PORT=3004
+TX_MONITOR_PORT=3003
+ADMIN_UI_PORT=3005
 
 # Security
 JWT_SECRET=your-secret-key
@@ -101,7 +105,9 @@ npm run dev
 # Run specific service
 npm run dev:api-server
 npm run dev:signing-service
+npm run dev:tx-broadcaster
 npm run dev:tx-monitor
+npm run dev:admin-ui
 
 # Build all services
 npm run build
@@ -114,6 +120,7 @@ npm run serve
 
 - **API Server**: http://localhost:3000
 - **Swagger Documentation**: http://localhost:3000/api-docs
+- **Admin UI**: http://localhost:3005 (React admin interface)
 - **SQS Admin UI**: http://localhost:3999 (visual queue monitoring)
 - **LocalStack**: http://localhost:4566
 
@@ -150,7 +157,9 @@ yarn clean               # Clean build artifacts and cache
 The system follows a queue-based microservices architecture:
 
 ```
-Client → api-server → tx-request-queue → signing-service → signed-tx-queue → [tx-broadcaster] → Blockchain
+Client → api-server → tx-request-queue → signing-service → signed-tx-queue → tx-broadcaster → Blockchain
+                                                   ↓                                          ↓
+                                            (Multicall3 batch)                         tx-monitor
 ```
 
 ### Core Services
@@ -163,21 +172,33 @@ Client → api-server → tx-request-queue → signing-service → signed-tx-que
 
 2. **signing-service**:
    - Processes messages from tx-request-queue
-   - Validates transaction parameters (placeholder logic)
+   - Validates transaction parameters and token balances
    - Retrieves private keys from AWS Secrets Manager
-   - Signs transactions for Polygon network
+   - Signs transactions for Polygon network (single or batch)
+   - Supports Multicall3 for batch ERC20 transfers
+   - Manages nonce through Redis for collision prevention
    - Sends signed transactions to signed-tx-queue
-   - Pure worker without HTTP endpoints
 
-3. **tx-monitor** (implemented, reserved for future):
+3. **tx-broadcaster**:
+   - Reads from signed-tx-queue
+   - Broadcasts transactions to Polygon network
+   - Handles nonce collision detection
+   - Implements retry logic for temporary failures
+   - Updates transaction status in database
+
+4. **tx-monitor**:
    - Monitors transaction status on blockchain
-   - Updates confirmation counts
-   - Handles transaction finality
+   - Tracks confirmation counts (12 confirmations)
+   - Detects failed transactions
+   - Triggers retry for failed transactions
+   - Updates final transaction status
 
-4. **tx-broadcaster** (planned):
-   - Will read from signed-tx-queue
-   - Broadcast transactions to Polygon network
-   - Handle gas optimization and retries
+5. **admin-ui**:
+   - React-based web interface for system management
+   - Real-time dashboard with transaction statistics
+   - Queue monitoring and DLQ management
+   - User and permission management
+   - Built with React 18, TypeScript, Ant Design, and Tailwind CSS
 
 ### Queue System
 

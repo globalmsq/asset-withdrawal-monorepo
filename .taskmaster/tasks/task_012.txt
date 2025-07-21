@@ -1,0 +1,11 @@
+# Task ID: 12
+# Title: tx-broadcaster 서비스 구현
+# Status: pending
+# Dependencies: 11
+# Priority: high
+# Description: 서명된 트랜잭션을 Polygon 네트워크에 브로드캐스트하는 서비스 개발
+# Details:
+Nx를 사용하여 tx-broadcaster 앱 생성 (nx g @nx/node:app tx-broadcaster), signed-tx-queue에서 SQS 메시지 폴링, 데이터베이스에서 서명된 트랜잭션 조회, Ethers.js v6를 사용하여 Polygon 네트워크 브로드캐스트, 트랜잭션 상태를 SIGNED → BROADCASTED → CONFIRMED로 업데이트, nonce 충돌 감지 및 DLQ 처리, RPC 실패 시 지수 백오프 재시도 로직, 브로드캐스트 성공 후 tx-monitor-queue에 메시지 전송
+
+# Test Strategy:
+정상 브로드캐스트 플로우 테스트, nonce 충돌 시나리오 테스트, RPC 실패 및 재시도 테스트, 재시도 한도 초과 시 DLQ 처리 테스트, 단일/배치 트랜잭션 브로드캐스트 테스트

@@ -1,0 +1,11 @@
+# Task ID: 17
+# Title: Admin API 관리 기능 구현
+# Status: pending
+# Dependencies: 16
+# Priority: medium
+# Description: 트랜잭션, 큐, 사용자 관리를 위한 Admin API 엔드포인트 구현
+# Details:
+트랜잭션 관리 API (GET /admin/transactions, GET /admin/transactions/:id, POST /admin/transactions/:id/retry, PUT /admin/transactions/:id/status), 큐 관리 API (GET /admin/queues, GET /admin/queues/:name/messages, POST /admin/queues/:name/purge), 사용자 관리 API (GET /admin/users, POST /admin/users, PUT /admin/users/:id, DELETE /admin/users/:id), 시스템 통계 및 분석 API (GET /admin/stats, GET /admin/analytics, GET /admin/health), 검색/필터링/페이징 기능, 감사 로그 기록
+
+# Test Strategy:
+각 Admin API 엔드포인트 기능 테스트, 권한 검증 테스트, 검색/필터링 정확성 테스트, 페이징 동작 테스트, 감사 로그 기록 테스트

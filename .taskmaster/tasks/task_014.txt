@@ -1,0 +1,11 @@
+# Task ID: 14
+# Title: DLQ(Dead Letter Queue) 핸들러 구현
+# Status: pending
+# Dependencies: 12
+# Priority: medium
+# Description: 실패한 메시지 처리 및 복구를 위한 DLQ 핸들러 서비스 개발
+# Details:
+각 큐(tx-request-queue, signed-tx-queue)에 대한 DLQ 설정, 실패 메시지 분류 로직 (영구적 실패 vs 일시적 실패), 재시도 자격 판단 알고리즘 (시간 기반, 실패 유형 기반), 재시도 가능한 메시지를 원본 큐로 재전송, 수동 개입이 필요한 메시지에 대한 알림 시스템, DLQ 메시지 조회 및 관리 API, 실패 패턴 분석 및 로깅
+
+# Test Strategy:
+영구적 vs 일시적 실패 분류 테스트, 재시도 로직 검증 테스트, DLQ 메시지 복구 테스트, 수동 개입 알림 테스트, 실패 패턴 분석 테스트

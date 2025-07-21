@@ -1,0 +1,11 @@
+# Task ID: 15
+# Title: signing-service 잔액 검증 기능 구현
+# Status: pending
+# Dependencies: 11
+# Priority: medium
+# Description: 트랜잭션 서명 전 실제 토큰 잔액 및 가스 수수료 검증 기능 추가
+# Details:
+ERC-20 토큰 잔액 확인을 위한 BalanceService 구현, Ethers.js를 사용하여 토큰 컨트랙트 잔액 조회, 네이티브 토큰(MATIC) 잔액 확인, 가스 수수료 계산 및 검증 (EIP-1559 기준), 출금 한도 확인 로직, Redis를 활용한 잔액 정보 캐싱 (30초 TTL), 배치 전송의 경우 총 출금 금액과 잔액 비교, 잔액 부족 시 적절한 에러 응답
+
+# Test Strategy:
+토큰 잔액 조회 정확성 테스트, 가스 수수료 계산 테스트, 잔액 부족 시나리오 테스트, 캐싱 동작 검증 테스트, 배치 전송 잔액 검증 테스트

@@ -1,0 +1,11 @@
+# Task ID: 13
+# Title: tx-monitor 서비스 구현
+# Status: pending
+# Dependencies: 12
+# Priority: high
+# Description: 브로드캐스트된 트랜잭션의 상태를 추적하고 확인하는 모니터링 서비스 개발
+# Details:
+Nx를 사용하여 tx-monitor 앱 생성, tx-monitor-queue에서 브로드캐스트된 트랜잭션 수신, Polygon 네트워크에서 트랜잭션 상태 및 confirmations 수 추적, 12 confirmations 달성 시 CONFIRMED 상태로 업데이트, 실패한 트랜잭션 감지 및 알림, 장기간 pending 상태인 트랜잭션에 대한 가스비 인상 재시도 트리거, Redis를 사용한 모니터링 상태 캐싱으로 성능 최적화, 배치 트랜잭션의 경우 모든 개별 전송 확인
+
+# Test Strategy:
+트랜잭션 확인 수 추적 테스트, 성공/실패 트랜잭션 상태 업데이트 테스트, 장기간 pending 트랜잭션 감지 테스트, 가스비 인상 재시도 로직 테스트, 배치 트랜잭션 모니터링 테스트

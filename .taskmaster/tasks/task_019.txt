@@ -1,0 +1,11 @@
+# Task ID: 19
+# Title: WebSocket 실시간 통신 시스템 구현
+# Status: pending
+# Dependencies: 18
+# Priority: low
+# Description: Admin UI와 백엔드 간 실시간 데이터 업데이트를 위한 WebSocket 통신 구현
+# Details:
+Socket.IO를 사용한 WebSocket 서버 구현, 클라이언트-서버 이벤트 정의 (queue:update, transaction:update, system:alert), 구독/구독 취소 메커니즘, 실시간 큐 상태 모니터링, 트랜잭션 상태 변경 실시간 알림, 시스템 알림 브로드캐스트, 연결 상태 관리 및 재연결 로직, JWT 토큰 기반 WebSocket 인증
+
+# Test Strategy:
+WebSocket 연결/해제 테스트, 실시간 이벤트 전송/수신 테스트, 구독/구독 취소 테스트, 재연결 로직 테스트, 인증된 WebSocket 연결 테스트

@@ -242,3 +242,7 @@ After completing tasks:
 4. Provide high-level explanation of changes made
 
 Remember: Simplicity is key. Make minimal changes that achieve the goal effectively.
+
+## Task Master AI Instructions
+**Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
+@./.taskmaster/CLAUDE.md

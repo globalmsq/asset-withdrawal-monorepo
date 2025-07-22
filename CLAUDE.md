@@ -22,6 +22,7 @@ Jira synchronization means creating, updating, and maintaining consistency betwe
 3. **JSON Storage**: Store Jira key in `jiraKey` field in tasks.json
 4. **Title Updates**: When updating Task Master titles, DO NOT update Jira issue titles
 5. **Bidirectional Sync**: Both Task Master and Jira should always reflect the same status
+6. **Language**: When creating or updating Jira issues, always use English for titles, descriptions, and comments
 
 #### Complete Synchronization Workflow
 

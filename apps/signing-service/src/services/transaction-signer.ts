@@ -5,6 +5,7 @@ import { SecureSecretsManager } from './secrets-manager';
 import { NonceCacheService } from './nonce-cache.service';
 import { GasPriceCache } from './gas-price-cache';
 import { Logger } from '../utils/logger';
+import { MulticallService, BatchTransferRequest } from './multicall.service';
 
 const ERC20_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
@@ -17,6 +18,11 @@ export interface SigningRequest {
   transactionId: string;
 }
 
+export interface BatchSigningRequest {
+  transfers: BatchTransferRequest[];
+  batchId: string;
+}
+
 export class TransactionSigner {
   private wallet: ethers.Wallet | null = null;
   private provider: ethers.Provider | null = null;
@@ -26,6 +32,7 @@ export class TransactionSigner {
     private secretsManager: SecureSecretsManager,
     private nonceCache: NonceCacheService,
     private gasPriceCache: GasPriceCache,
+    private multicallService: MulticallService,
     private logger: Logger
   ) {}
 
@@ -234,6 +241,146 @@ export class TransactionSigner {
       if (error instanceof Error && error.message.includes('Redis')) {
         this.logger.error('Redis connection error - will retry', {
           transactionId,
+        });
+        throw error;
+      }
+
+      throw error;
+    }
+  }
+
+  async signBatchTransaction(request: BatchSigningRequest): Promise<SignedTransaction> {
+    if (!this.wallet) {
+      throw new Error('Wallet not initialized');
+    }
+
+    const { transfers, batchId } = request;
+
+    try {
+      // Validate batch before processing
+      const validation = await this.multicallService.validateBatch(transfers, this.wallet.address);
+      if (!validation.valid) {
+        throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
+      }
+
+      // Prepare batch transfers
+      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers);
+
+      // Get nonce from Redis (atomic increment)
+      const nonce = await this.nonceCache.getAndIncrement(this.wallet.address);
+
+      this.logger.debug('Using nonce for batch transaction', {
+        address: this.wallet.address,
+        nonce,
+        batchId,
+        transferCount: transfers.length,
+      });
+
+      // Get Multicall3 address
+      const multicall3Address = this.chainProvider.getMulticall3Address();
+
+      // Encode the batch transaction data
+      const data = this.multicallService.encodeBatchTransaction(preparedBatch.calls);
+
+      // Build transaction
+      const transaction: ethers.TransactionRequest = {
+        to: multicall3Address,
+        data,
+        nonce,
+        chainId: this.chainProvider.getChainId(),
+        type: 2, // EIP-1559
+      };
+
+      // Use prepared gas estimate
+      const gasLimit = preparedBatch.totalEstimatedGas;
+
+      // Get gas price from cache or fetch new one
+      let cachedGasPrice = this.gasPriceCache.get();
+      let maxFeePerGas: bigint;
+      let maxPriorityFeePerGas: bigint;
+
+      if (cachedGasPrice) {
+        // Use cached values
+        maxFeePerGas = cachedGasPrice.maxFeePerGas;
+        maxPriorityFeePerGas = cachedGasPrice.maxPriorityFeePerGas;
+
+        this.logger.debug('Using cached gas price for batch', {
+          maxFeePerGas: maxFeePerGas.toString(),
+          maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+        });
+      } else {
+        // Cache expired, fetch fresh gas price
+        this.logger.debug('Gas price cache expired, fetching fresh values for batch');
+
+        if (!this.provider) {
+          throw new Error('Provider not initialized');
+        }
+
+        const feeData = await this.provider.getFeeData();
+
+        if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
+          throw new Error('Failed to fetch gas price from provider');
+        }
+
+        // Update cache for next use
+        this.gasPriceCache.set({
+          maxFeePerGas: feeData.maxFeePerGas,
+          maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+        });
+
+        maxFeePerGas = feeData.maxFeePerGas;
+        maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+
+        this.logger.debug('Fetched fresh gas price for batch', {
+          maxFeePerGas: maxFeePerGas.toString(),
+          maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+        });
+      }
+
+      // Adjust gas price for Polygon (10% higher)
+      maxFeePerGas = (maxFeePerGas * 110n) / 100n;
+      maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
+
+      // Complete transaction object
+      transaction.gasLimit = gasLimit;
+      transaction.maxFeePerGas = maxFeePerGas;
+      transaction.maxPriorityFeePerGas = maxPriorityFeePerGas;
+
+      // Sign transaction
+      const signedTx = await this.wallet.signTransaction(transaction);
+      const parsedTx = ethers.Transaction.from(signedTx);
+
+      const result: SignedTransaction = {
+        transactionId: batchId,
+        hash: parsedTx.hash!,
+        rawTransaction: signedTx,
+        nonce: Number(nonce),
+        gasLimit: gasLimit.toString(),
+        maxFeePerGas: maxFeePerGas.toString(),
+        maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+        from: this.wallet.address,
+        to: multicall3Address,
+        value: '0', // Multicall3 transactions have no value
+        data: data,
+        chainId: this.chainProvider.getChainId(),
+      };
+
+      this.logger.info('Batch transaction signed successfully', {
+        batchId,
+        hash: result.hash,
+        nonce: result.nonce,
+        transferCount: transfers.length,
+        totalGas: gasLimit.toString(),
+      });
+
+      return result;
+    } catch (error) {
+      this.logger.error('Failed to sign batch transaction', error, { batchId });
+
+      // If it's a Redis connection error, throw to trigger SQS retry
+      if (error instanceof Error && error.message.includes('Redis')) {
+        this.logger.error('Redis connection error - will retry', {
+          batchId,
         });
         throw error;
       }

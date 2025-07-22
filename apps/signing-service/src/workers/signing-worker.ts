@@ -6,6 +6,7 @@ import { TransactionSigner } from '../services/transaction-signer';
 import { SecureSecretsManager } from '../services/secrets-manager';
 import { NonceCacheService } from '../services/nonce-cache.service';
 import { GasPriceCache } from '../services/gas-price-cache';
+import { MulticallService } from '../services/multicall.service';
 import { Logger } from '../utils/logger';
 import { Config } from '../config';
 
@@ -18,6 +19,7 @@ export class SigningWorker extends BaseWorker<
   private transactionSigner: TransactionSigner;
   private nonceCache: NonceCacheService;
   private gasPriceCache: GasPriceCache;
+  private multicallService: MulticallService;
   private chainProvider: any;
   private auditLogger: Logger;
 
@@ -63,11 +65,18 @@ export class SigningWorker extends BaseWorker<
     // Create gas price cache (30 seconds TTL)
     this.gasPriceCache = new GasPriceCache(30);
 
+    // Create multicall service
+    this.multicallService = new MulticallService(
+      this.chainProvider,
+      this.auditLogger
+    );
+
     this.transactionSigner = new TransactionSigner(
       this.chainProvider,
       this.secretsManager,
       this.nonceCache,
       this.gasPriceCache,
+      this.multicallService,
       this.auditLogger
     );
   }

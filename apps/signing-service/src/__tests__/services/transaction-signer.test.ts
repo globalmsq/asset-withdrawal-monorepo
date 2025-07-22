@@ -3,12 +3,14 @@ import { ChainProvider } from '@asset-withdrawal/shared';
 import { SecureSecretsManager } from '../../services/secrets-manager';
 import { NonceCacheService } from '../../services/nonce-cache.service';
 import { GasPriceCache } from '../../services/gas-price-cache';
+import { MulticallService } from '../../services/multicall.service';
 import { Logger } from '../../utils/logger';
 import { ethers } from 'ethers';
 
 jest.mock('ethers');
 jest.mock('../../services/nonce-cache.service');
 jest.mock('../../services/gas-price-cache');
+jest.mock('../../services/multicall.service');
 
 describe('TransactionSigner', () => {
   let transactionSigner: TransactionSigner;
@@ -16,6 +18,7 @@ describe('TransactionSigner', () => {
   let mockSecretsManager: jest.Mocked<SecureSecretsManager>;
   let mockNonceCache: jest.Mocked<NonceCacheService>;
   let mockGasPriceCache: jest.Mocked<GasPriceCache>;
+  let mockMulticallService: jest.Mocked<MulticallService>;
   let mockLogger: jest.Mocked<Logger>;
   let mockWallet: jest.Mocked<ethers.Wallet>;
 
@@ -34,6 +37,7 @@ describe('TransactionSigner', () => {
     mockChainProvider = {
       getProvider: jest.fn().mockReturnValue(mockProviderInstance),
       getChainId: jest.fn().mockReturnValue(80002),
+      getMulticall3Address: jest.fn().mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
       chain: 'polygon',
       network: 'testnet',
     } as any;
@@ -79,9 +83,22 @@ describe('TransactionSigner', () => {
       clear: jest.fn(),
     } as any;
 
+    mockMulticallService = {
+      validateBatch: jest.fn().mockResolvedValue({ valid: true, errors: [] }),
+      prepareBatchTransfer: jest.fn().mockResolvedValue({
+        calls: [],
+        estimatedGasPerCall: BigInt(65000),
+        totalEstimatedGas: BigInt(200000),
+      }),
+      encodeBatchTransaction: jest.fn().mockReturnValue('0xbatchencoded'),
+      decodeBatchResult: jest.fn(),
+      getOptimalBatchSize: jest.fn().mockReturnValue(50),
+    } as any;
+
     (ethers.Wallet as jest.Mock).mockImplementation(() => mockWallet);
     (NonceCacheService as jest.Mock).mockImplementation(() => mockNonceCache);
     (GasPriceCache as jest.Mock).mockImplementation(() => mockGasPriceCache);
+    (MulticallService as jest.Mock).mockImplementation(() => mockMulticallService);
 
     // Mock Contract for ERC20
     const mockContract = {
@@ -114,7 +131,7 @@ describe('TransactionSigner', () => {
       return BigInt(value);
     });
 
-    transactionSigner = new TransactionSigner(mockChainProvider, mockSecretsManager, mockNonceCache, mockGasPriceCache, mockLogger);
+    transactionSigner = new TransactionSigner(mockChainProvider, mockSecretsManager, mockNonceCache, mockGasPriceCache, mockMulticallService, mockLogger);
   });
 
   describe('initialize', () => {

@@ -169,6 +169,46 @@ describe('MulticallService', () => {
       expect(result.estimatedGasPerCall).toBe(65000n);
       expect(result.totalEstimatedGas).toBe(95000n);
     });
+
+    it('should encode ERC20 transfer calldata correctly', async () => {
+      // Create a new instance with proper mocking for this specific test
+      const mockEncodeFunctionData = jest.fn().mockReturnValue('0xa9059cbb000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000000de0b6b3a7640000');
+      jest.spyOn(ethers, 'Interface').mockImplementation(() => ({
+        encodeFunctionData: mockEncodeFunctionData,
+      } as any));
+
+      // Create a new service instance to use the mocked Interface
+      const service = new MulticallService(mockChainProvider, mockLogger);
+
+      const transfers: BatchTransferRequest[] = [
+        {
+          tokenAddress: TEST_TOKEN_ADDRESS,
+          to: TEST_RECIPIENT,
+          amount: '1000000000000000000', // 1 token with 18 decimals
+          transactionId: 'tx1',
+        },
+      ];
+
+      const result = await service.prepareBatchTransfer(transfers);
+
+      // Verify encoding was called with correct parameters
+      expect(mockEncodeFunctionData).toHaveBeenCalledWith('transfer', [
+        TEST_RECIPIENT,
+        '1000000000000000000',
+      ]);
+
+      // Verify the Call3 structure
+      expect(result.calls).toHaveLength(1);
+      expect(result.calls[0]).toEqual({
+        target: TEST_TOKEN_ADDRESS,
+        allowFailure: false,
+        callData: '0xa9059cbb000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000000de0b6b3a7640000',
+      });
+
+      // Verify calldata format (0xa9059cbb is the function selector for transfer(address,uint256))
+      expect(result.calls[0].callData.startsWith('0xa9059cbb')).toBe(true);
+      expect(result.calls[0].callData.length).toBe(138); // 2 (0x) + 8 (selector) + 64 (address) + 64 (amount)
+    });
   });
 
   describe('encodeBatchTransaction', () => {
@@ -189,6 +229,41 @@ describe('MulticallService', () => {
       );
       expect(encoded).toBe('0xencoded');
     });
+
+    it('should encode multiple calls correctly', () => {
+      const calls = [
+        {
+          target: TEST_TOKEN_ADDRESS,
+          allowFailure: false,
+          callData: '0xa9059cbb000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000000de0b6b3a7640000',
+        },
+        {
+          target: TEST_TOKEN_ADDRESS,
+          allowFailure: false,
+          callData: '0xa9059cbb000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000001bc16d674ec80000',
+        },
+      ];
+
+      const encoded = multicallService.encodeBatchTransaction(calls);
+
+      expect(mockMulticall3Contract.interface.encodeFunctionData).toHaveBeenCalledWith(
+        'aggregate3',
+        [calls]
+      );
+      expect(encoded).toBe('0xencoded');
+    });
+
+    it('should handle empty calls array', () => {
+      const calls: any[] = [];
+
+      const encoded = multicallService.encodeBatchTransaction(calls);
+
+      expect(mockMulticall3Contract.interface.encodeFunctionData).toHaveBeenCalledWith(
+        'aggregate3',
+        [[]]
+      );
+      expect(encoded).toBe('0xencoded');
+    });
   });
 
   describe('decodeBatchResult', () => {
@@ -205,6 +280,34 @@ describe('MulticallService', () => {
         { success: true, returnData: '0x0000000000000000000000000000000000000000000000000000000000000001' },
         { success: true, returnData: '0x0000000000000000000000000000000000000000000000000000000000000001' },
       ]);
+    });
+
+    it('should handle mixed success/failure results', () => {
+      // Mock mixed results
+      mockMulticall3Contract.interface.decodeFunctionResult.mockReturnValue([
+        [
+          { success: true, returnData: '0x0000000000000000000000000000000000000000000000000000000000000001' },
+          { success: false, returnData: '0x08c379a0' }, // Revert data
+          { success: true, returnData: '0x0000000000000000000000000000000000000000000000000000000000000001' },
+        ],
+      ]);
+
+      const encodedResult = '0xmixedresult';
+      const decoded = multicallService.decodeBatchResult(encodedResult);
+
+      expect(decoded).toHaveLength(3);
+      expect(decoded[0].success).toBe(true);
+      expect(decoded[1].success).toBe(false);
+      expect(decoded[2].success).toBe(true);
+    });
+
+    it('should handle empty results', () => {
+      mockMulticall3Contract.interface.decodeFunctionResult.mockReturnValue([[]]);
+
+      const encodedResult = '0xemptyresult';
+      const decoded = multicallService.decodeBatchResult(encodedResult);
+
+      expect(decoded).toEqual([]);
     });
   });
 

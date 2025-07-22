@@ -43,7 +43,7 @@
               "11.2"
             ],
             "details": "ERC20 transfer 함수 ABI 인코딩, Multicall3 aggregate 함수를 위한 calldata 배열 생성, 인코딩 정확성 검증, 바이트 데이터 최적화",
-            "status": "pending",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -341,7 +341,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-07-22T07:25:14.879Z",
+      "updated": "2025-07-22T07:37:24.072Z",
       "description": "Tasks for master context"
     }
   }

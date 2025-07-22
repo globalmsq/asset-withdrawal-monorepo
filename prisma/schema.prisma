@@ -23,21 +23,23 @@ model User {
 }
 
 model WithdrawalRequest {
-  id            BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
-  requestId     String       @unique @db.VarChar(36) // UUID v4 with rearranged parts (3-2-1-4-5)
-  amount        String       @db.VarChar(50)
-  symbol        String       @db.VarChar(10) // Token symbol
-  toAddress     String       @db.VarChar(42)
-  tokenAddress  String       @db.VarChar(42)
-  network       String       @db.VarChar(50) // Combined blockchain_network format
-  status        String       @default("PENDING") @db.VarChar(20) // PENDING, VALIDATING, SIGNING, BROADCASTING, COMPLETED, FAILED
-  errorMessage  String?      @db.Text
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id            BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  requestId     String             @unique @db.VarChar(36) // UUID v4 with rearranged parts (3-2-1-4-5)
+  amount        String             @db.VarChar(50)
+  symbol        String             @db.VarChar(10) // Token symbol
+  toAddress     String             @db.VarChar(42)
+  tokenAddress  String             @db.VarChar(42)
+  network       String             @db.VarChar(50) // Combined blockchain_network format
+  status        String             @default("PENDING") @db.VarChar(20) // PENDING, VALIDATING, SIGNING, BROADCASTING, COMPLETED, FAILED
+  errorMessage  String?            @db.Text
+  batchId       String?            @db.VarChar(36) // Reference to BatchTransaction (nullable for single transactions)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
   @@index([status])
   @@index([requestId])
   @@index([createdAt]) // Better time-based queries with rearranged UUID
+  @@index([batchId])
   @@map("withdrawal_requests")
 }
 
@@ -87,4 +89,21 @@ model SignedTransaction {
   @@index([signedAt])
   @@index([status])
   @@map("signed_transactions")
+}
+
+model BatchTransaction {
+  id                    String              @id @default(uuid()) @db.VarChar(36)
+  txHash                String?             @unique @db.VarChar(66)
+  multicallAddress      String              @db.VarChar(42)
+  totalRequests         Int                 @db.UnsignedInt
+  status                String              @default("PENDING") @db.VarChar(20) // PENDING, SIGNING, SIGNED, BROADCASTED, CONFIRMED, FAILED
+  gasUsed               String?             @db.VarChar(50)
+  errorMessage          String?             @db.Text
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  @@index([txHash])
+  @@index([status])
+  @@index([createdAt])
+  @@map("batch_transactions")
 }

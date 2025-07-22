@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
     `network` VARCHAR(50) NOT NULL,
     `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     `errorMessage` TEXT NULL,
+    `batchId` VARCHAR(36) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
@@ -62,6 +63,7 @@ CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
     INDEX `withdrawal_requests_status_idx`(`status`),
     INDEX `withdrawal_requests_requestId_idx`(`requestId`),
     INDEX `withdrawal_requests_createdAt_idx`(`createdAt`),
+    INDEX `withdrawal_requests_batchId_idx`(`batchId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -91,6 +93,25 @@ CREATE TABLE IF NOT EXISTS `signed_transactions` (
     INDEX `signed_transactions_txHash_idx`(`txHash`),
     INDEX `signed_transactions_signedAt_idx`(`signedAt`),
     INDEX `signed_transactions_status_idx`(`status`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Create batch_transactions table (fully matches Prisma schema)
+CREATE TABLE IF NOT EXISTS `batch_transactions` (
+    `id` VARCHAR(36) NOT NULL,
+    `txHash` VARCHAR(66) NULL,
+    `multicallAddress` VARCHAR(42) NOT NULL,
+    `totalRequests` INT UNSIGNED NOT NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    `gasUsed` VARCHAR(50) NULL,
+    `errorMessage` TEXT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `batch_transactions_txHash_key`(`txHash`),
+    INDEX `batch_transactions_txHash_idx`(`txHash`),
+    INDEX `batch_transactions_status_idx`(`status`),
+    INDEX `batch_transactions_createdAt_idx`(`createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

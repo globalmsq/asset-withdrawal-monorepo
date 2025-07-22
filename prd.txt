@@ -69,6 +69,24 @@
 
 ## 개발 로드맵
 
+### 동적 배치 처리 아키텍처
+
+signing-service는 사용자가 배치/단일을 구분하지 않고 요청하면 자동으로 최적의 처리 방식을 결정합니다.
+
+**핵심 원칙**:
+- API는 변경 없이 기존 구조 유지
+- signing-service가 큐 상태, 토큰 타입, 가스 효율성을 분석하여 동적 결정
+- 환경 변수로 배치 처리 동작 제어
+
+**데이터베이스 구조**:
+- BatchTransaction 테이블: 배치 트랜잭션 메타데이터 저장
+- WithdrawalRequest.batchId: 배치로 처리된 요청 추적
+
+**환경 변수**:
+- ENABLE_BATCH_PROCESSING: 배치 처리 활성화
+- BATCH_THRESHOLD: 최소 배치 크기
+- MIN_GAS_SAVINGS_PERCENT: 최소 가스 절약률
+
 ### Phase 1: 핵심 시스템 완성
 
 #### 1.0 signing-service 기능 확장 🆕
@@ -76,10 +94,13 @@
 ```typescript
 // 주요 기능
 - Multicall3를 활용한 배치 토큰 전송
-- WithdrawalRequest 타입 확장 (SINGLE, BATCH)
+- 동적 배치 처리 결정 로직 (signing-service가 판단)
+- BatchTransaction 테이블 추가 (배치 트랜잭션 추적용)
+- WithdrawalRequest에 batchId 필드 추가 (nullable)
 - MulticallService 구현 (calldata 생성, ABI 인코딩)
 - TransactionSigner에 signBatchTransaction() 메서드 추가
-- SigningWorker 단일/배치 메시지 구분 처리
+- SigningWorker의 지능적 배치/단일 처리 판단
+- 환경 변수 기반 배치 처리 제어
 - 배치 전송 검증 및 테스트 케이스
 ```
 

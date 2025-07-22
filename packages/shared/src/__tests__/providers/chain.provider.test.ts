@@ -178,6 +178,31 @@ describe('ChainProvider', () => {
       expect(provider.isMainnet()).toBe(true);
       expect(provider.isTestnet()).toBe(false);
     });
+
+    it('should get Multicall3 address for Polygon', () => {
+      const address = provider.getMulticall3Address();
+      expect(address).toBe('0xcA11bde05977b3631167028862bE2a173976CA11');
+    });
+
+    it('should get Multicall3 address for different chains', () => {
+      const polygonProvider = new ChainProvider({
+        chain: 'polygon',
+        network: 'testnet',
+      });
+      expect(polygonProvider.getMulticall3Address()).toBe('0xcA11bde05977b3631167028862bE2a173976CA11');
+
+      const ethereumProvider = new ChainProvider({
+        chain: 'ethereum',
+        network: 'mainnet',
+      });
+      expect(ethereumProvider.getMulticall3Address()).toBe('0xcA11bde05977b3631167028862bE2a173976CA11');
+
+      const bscProvider = new ChainProvider({
+        chain: 'bsc',
+        network: 'mainnet',
+      });
+      expect(bscProvider.getMulticall3Address()).toBe('0xcA11bde05977b3631167028862bE2a173976CA11');
+    });
   });
 });
 

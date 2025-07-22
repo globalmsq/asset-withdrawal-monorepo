@@ -76,6 +76,30 @@ This is a Polygon-focused blockchain withdrawal system built with TypeScript, Ex
    - Jira: `Task Title` (no prefix)
    - This prevents duplication and maintains clarity in both systems
 
+### Jira Status Synchronization
+
+#### Automatic Status Updates
+When starting work on a Task Master task, the corresponding Jira issue status should be updated to "In Progress":
+
+1. **Starting a Task**:
+   - Set Task Master status to `in-progress` using `task-master set-status --id=<id> --status=in-progress`
+   - Update Jira issue status to "In Progress" using MCP Atlassian integration
+   - This ensures both systems are synchronized
+
+2. **Completing a Task**:
+   - Mark task as complete in Task Master: `task-master set-status --id=<id> --status=done`
+   - Transition Jira issue to "Done" status
+   - Add completion notes to Jira issue if needed
+
+3. **Status Mapping**:
+   - Task Master `pending` → Jira "BACKLOG" or "Selected for Development"
+   - Task Master `in-progress` → Jira "IN PROGRESS"
+   - Task Master `done` → Jira "DONE"
+   - Task Master `blocked` → Add comment in Jira explaining the blocker
+
+#### MCP Atlassian Integration
+Claude Code can directly update Jira statuses using the MCP Atlassian server configured in `.mcp.json`. This enables seamless synchronization between Task Master and Jira without manual intervention.
+
 ## Development Workflow
 
 ### 1. Planning Phase

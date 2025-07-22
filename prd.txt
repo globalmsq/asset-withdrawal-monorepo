@@ -87,10 +87,10 @@ signing-service는 사용자가 배치/단일을 구분하지 않고 요청하�
 - BATCH_THRESHOLD: 최소 배치 크기
 - MIN_GAS_SAVINGS_PERCENT: 최소 가스 절약률
 
-### Phase 1: 핵심 시스템 완성
+### 1단계: 핵심 시스템 완성
 
 #### 1.0 signing-service 기능 확장 🆕
-**목표**: ERC20 토큰 Batch 전송 지원 (Multicall 활용)
+**목표**: ERC20 토큰 배치 전송 지원 (Multicall 활용)
 ```typescript
 // 주요 기능
 - Multicall3를 활용한 배치 토큰 전송
@@ -146,9 +146,9 @@ signing-service는 사용자가 배치/단일을 구분하지 않고 요청하�
 - 가스비 높여서 재시도 트리거
 ```
 
-### Phase 2: 관리 시스템
+### 2단계: 관리 시스템
 
-##### 2.1.1 Admin UI 애플리케이션 (React + Tailwind CSS)
+##### 2.1.1 관리자 UI 애플리케이션 (React + Tailwind CSS)
 ```bash
 # React 앱 생성
 nx add @nx/react
@@ -169,14 +169,14 @@ nx g @nx/react:app admin-ui
 - **차트**: Recharts (트랜잭션 통계, 성능 메트릭)
 - **실시간**: Socket.IO (WebSocket 래퍼)
 
-##### 2.1.2 Admin API 확장
+##### 2.1.2 관리자 API 확장
 ```typescript
 // 인증 엔드포인트
 POST /auth/register - 사용자 등록
 POST /auth/login - JWT 로그인
 POST /auth/refresh - 토큰 갱신
 
-// Admin API (인증 필요)
+// 관리자 API (인증 필요)
 GET /admin/transactions - 트랜잭션 목록/검색/필터링
 GET /admin/transactions/:id - 트랜잭션 상세 정보
 POST /admin/transactions/:id/retry - 수동 재시도
@@ -266,14 +266,14 @@ node_disk_usage_percent: 디스크 사용률
 
 ##### 2.2.2 알림 임계값
 ```yaml
-# Critical (즉시 대응)
+# 위험 (즉시 대응)
 - API 오류율 > 5% (5분간)
 - 큐 메시지 > 1000개
 - DLQ 메시지 > 100개
 - 트랜잭션 실패율 > 10%
 - 시스템 리소스 > 90%
 
-# Warning (모니터링)
+# 경고 (모니터링)
 - API 응답 시간 > 1초
 - 큐 메시지 > 500개
 - DLQ 메시지 > 50개
@@ -281,7 +281,7 @@ node_disk_usage_percent: 디스크 사용률
 - 시스템 리소스 > 70%
 ```
 
-### Phase 3: 프로덕션 준비
+### 3단계: 프로덕션 준비
 
 #### 3.1 보안 강화
 
@@ -319,7 +319,7 @@ node_disk_usage_percent: 디스크 사용률
 - 다중 AZ 배폌 및 로드 밸런싱
 - 프로덕션 환경 테스트
 
-## 즉시 실행할 작업 (Critical Path)
+## 즉시 실행할 작업 (중요 경로)
 
 ### 1. signing-service 배치 전송 기능 🆕
 **핵심 구현 요소**:
@@ -359,8 +359,8 @@ nx g @nx/node:app tx-broadcaster
 - 복구 테스트 (월간)
 
 # 복구 목표
-- RPO (Recovery Point Objective): 1시간
-- RTO (Recovery Time Objective): 4시간
+- RPO (복구 시점 목표): 1시간
+- RTO (복구 시간 목표): 4시간
 ```
 
 ### 로깅 전략
@@ -488,7 +488,7 @@ model SignedTransaction {
 }
 ```
 
-### User ❌ (Admin 개발시 구현 예정)
+### User (사용자) ❌ (Admin 개발시 구현 예정)
 ```prisma
 model User {
   id        BigInt   @id @default(autoincrement())
@@ -521,7 +521,7 @@ model WithdrawalRequestBatch {
 }
 ```
 
-### User ❌ (Admin 개발시 구현 예정)
+### User (사용자) ❌ (Admin 개발시 구현 예정)
 ```prisma
 model User {
   id        BigInt   @id @default(autoincrement())
@@ -595,9 +595,9 @@ REDIS_URL=redis://localhost:6379
 - **안정성**: 대규모 트랜잭션 검증된 네트워크
 
 ### 향후 확장 계획
-- **Phase 4**: Ethereum 메인넷 지원
-- **Phase 5**: BSC, Arbitrum 지원
-- **Phase 6**: 크로스체인 브릿지 통합
+- **4단계**: Ethereum 메인넷 지원
+- **5단계**: BSC, Arbitrum 지원
+- **6단계**: 크로스체인 브릿지 통합
 
 ## 운영 요구사항
 
@@ -644,7 +644,7 @@ REDIS_URL=redis://localhost:6379
 3. **프로덕션**: EKS + Multi-AZ + 모니터링
 
 ### 롤백 계획
-- Blue-Green 배포
+- 블루-그린 배포
 - 데이터베이스 마이그레이션 롤백 스크립트
 - 트랜잭션 상태 복구 도구
 

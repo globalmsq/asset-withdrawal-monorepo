@@ -4,101 +4,65 @@
 
 This is a Polygon-focused blockchain withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests on the Polygon network, processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status.
 
-## Jira Integration
 
-### Project Information
-- **Jira Project Key**: BFS (Blockchain Finance Solutions)
-- **Jira Site**: mufin-ss.atlassian.net
-- **Epic**: BFS-1 (Polygon Asset Withdrawal System Implementation)
+## Task-Jira Integration Guidelines
 
-### Task-Jira Sync Guidelines
-- All Task Master tasks should be synced to Jira for tracking
-- Task descriptions in Jira should be written in English
-- Each task should have its Jira key stored in the `jiraKey` field in tasks.json
-- Current Jira mapping:
-  - Task 11 → BFS-4 (Story, In Progress)
-    - Task 11.1 → BFS-2 (Sub-task, Done)
-    - Task 11.2 → BFS-3 (Sub-task, Done)
-    - Task 11.3 → BFS-14 (Sub-task)
-    - Task 11.4 → BFS-15 (Sub-task)
-    - Task 11.5 → BFS-16 (Sub-task)
-    - Task 11.6 → BFS-17 (Sub-task)
-    - Task 11.7 → BFS-18 (Sub-task)
-    - Task 11.8 → BFS-19 (Sub-task)
-    - Task 11.9 → BFS-20 (Sub-task)
-    - Task 11.10 → BFS-21 (Sub-task)
-    - Task 11.11 → BFS-22 (Sub-task)
-    - Task 11.12 → BFS-23 (Sub-task)
-    - Task 11.13 → BFS-24 (Sub-task)
-    - Task 11.14 → BFS-25 (Sub-task)
-    - Task 11.15 → BFS-26 (Sub-task)
-    - Task 11.16 → BFS-27 (Sub-task)
-    - Task 11.17 → BFS-28 (Sub-task)
-    - Task 11.18 → BFS-29 (Sub-task)
-  - Task 12 → BFS-5 (Story)
-  - Task 13 → BFS-6 (Story)
-  - Task 14 → BFS-7 (Story)
-  - Task 15 → BFS-8 (Story)
-  - Task 16 → BFS-9 (Story)
-  - Task 17 → BFS-10 (Story)
-  - Task 18 → BFS-11 (Story)
-  - Task 19 → BFS-12 (Story)
-  - Task 20 → BFS-13 (Story)
+### General Synchronization Rules
 
-### Jira Key Management Guidelines
+#### Definition of Jira Synchronization
+Jira synchronization means creating, updating, and maintaining consistency between Task Master tasks/subtasks and their corresponding Jira issues. This includes:
+- Creating new Jira issues for Task Master tasks that don't have them
+- Recording Jira keys in Task Master tasks
+- Updating Task Master titles to include `[PROJECT-KEY]` prefix
+- Keeping status synchronized between both systems
 
 #### Important Rules
-1. **Task Master Titles**: Include Jira key as prefix `[BFS-X]` in Task Master task titles
+1. **Task Master Titles**: Include Jira key as prefix `[PROJECT-KEY]` in Task Master task titles
 2. **Jira Issue Titles**: Keep original titles in Jira without prefix (to avoid duplication)
 3. **JSON Storage**: Store Jira key in `jiraKey` field in tasks.json
 4. **Title Updates**: When updating Task Master titles, DO NOT update Jira issue titles
+5. **Bidirectional Sync**: Both Task Master and Jira should always reflect the same status
 
-#### Workflow
-1. When creating new tasks in Task Master, also create corresponding Jira issues
-2. Update Jira issue status when Task Master task status changes
-3. Add implementation notes to Jira issues for documentation
-4. Use Jira for collaboration with other team members
+#### Complete Synchronization Workflow
 
-#### Key Management Process
-1. **Creating New Tasks**:
-   - Create task in Task Master
-   - Create corresponding Jira issue (without prefix in title)
-   - Add Jira key to tasks.json `jiraKey` field
-   - Update Task Master title to include `[BFS-X]` prefix
+##### 1. Creating New Tasks
+When a new task is created in Task Master:
+1. Create task in Task Master
+2. Create corresponding Jira issue (Story for main tasks, Sub-task for subtasks)
+3. Add Jira key to tasks.json `jiraKey` field
+4. Update Task Master title to include `[PROJECT-KEY]` prefix
+5. Ensure both systems show the same initial status
 
-2. **Syncing Status**:
-   - When Task Master status changes → Update Jira status
-   - Keep Task Master as source of truth for task details
-   - Use Jira for team collaboration and external visibility
+##### 2. Starting Work on a Task
+**MANDATORY**: When beginning any task:
+1. Update Task Master status: `task-master set-status --id=<id> --status=in-progress`
+2. Immediately sync to Jira: Transition the Jira issue to "IN PROGRESS" status
+3. Add a comment in Jira indicating work has started (optional but recommended)
 
-3. **Title Format**:
-   - Task Master: `[BFS-X] Task Title`
-   - Jira: `Task Title` (no prefix)
-   - This prevents duplication and maintains clarity in both systems
+##### 3. During Development
+- Add implementation notes to subtasks using `task-master update-subtask`
+- Optionally update Jira with progress comments
+- Keep both systems as source of truth for different audiences:
+  - Task Master: Technical implementation details
+  - Jira: Team collaboration and stakeholder visibility
 
-### Jira Status Synchronization
+##### 4. Completing a Task
+**MANDATORY**: When finishing any task:
+1. Update Task Master status: `task-master set-status --id=<id> --status=done`
+2. Immediately sync to Jira: Transition the Jira issue to "DONE" status
+3. Add completion notes to Jira with summary of what was implemented
 
-#### Automatic Status Updates
-When starting work on a Task Master task, the corresponding Jira issue status should be updated to "In Progress":
-
-1. **Starting a Task**:
-   - Set Task Master status to `in-progress` using `task-master set-status --id=<id> --status=in-progress`
-   - Update Jira issue status to "In Progress" using MCP Atlassian integration
-   - This ensures both systems are synchronized
-
-2. **Completing a Task**:
-   - Mark task as complete in Task Master: `task-master set-status --id=<id> --status=done`
-   - Transition Jira issue to "Done" status
-   - Add completion notes to Jira issue if needed
-
-3. **Status Mapping**:
-   - Task Master `pending` → Jira "BACKLOG" or "Selected for Development"
-   - Task Master `in-progress` → Jira "IN PROGRESS"
-   - Task Master `done` → Jira "DONE"
-   - Task Master `blocked` → Add comment in Jira explaining the blocker
+##### 5. Status Mapping
+- Task Master `pending` → Jira "BACKLOG" or "Selected for Development"
+- Task Master `in-progress` → Jira "IN PROGRESS"
+- Task Master `done` → Jira "DONE"
+- Task Master `blocked` → Jira "IN PROGRESS" + comment explaining blocker
+- Task Master `deferred` → Jira "BACKLOG" + comment
+- Task Master `cancelled` → Jira "CANCELLED" or close with resolution
 
 #### MCP Atlassian Integration
 Claude Code can directly update Jira statuses using the MCP Atlassian server configured in `.mcp.json`. This enables seamless synchronization between Task Master and Jira without manual intervention.
+
 
 ## Development Workflow
 

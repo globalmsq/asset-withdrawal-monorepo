@@ -390,6 +390,423 @@ describe('TransactionSigner', () => {
     });
   });
 
+  describe('signBatchTransaction', () => {
+    beforeEach(async () => {
+      await transactionSigner.initialize();
+    });
+
+    it('should sign batch transaction successfully', async () => {
+      const batchRequest = {
+        transfers: [
+          {
+            tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+            to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            amount: '1000000',
+            transactionId: 'tx1',
+          },
+          {
+            tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+            to: '0x5B38Da6a701c568545dCfcB03FcB875f56beddC4',
+            amount: '2000000',
+            transactionId: 'tx2',
+          },
+        ],
+        batchId: 'batch-123',
+      };
+
+      const signedTx = '0xf86c0a85...'; // Mock signed transaction
+      mockWallet.signTransaction.mockResolvedValue(signedTx);
+
+      const result = await transactionSigner.signBatchTransaction(batchRequest);
+
+      expect(mockMulticallService.validateBatch).toHaveBeenCalledWith(
+        batchRequest.transfers,
+        '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'
+      );
+      expect(mockMulticallService.prepareBatchTransfer).toHaveBeenCalledWith(batchRequest.transfers);
+      expect(mockMulticallService.encodeBatchTransaction).toHaveBeenCalledWith([]);
+
+      expect(result).toEqual({
+        transactionId: 'batch-123',
+        hash: '0xabc123def456789',
+        rawTransaction: signedTx,
+        nonce: 10,
+        gasLimit: '200000',
+        maxFeePerGas: '33000000000', // 30000000000 * 1.1
+        maxPriorityFeePerGas: '1650000000', // 1500000000 * 1.1
+        from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+        to: '0xcA11bde05977b3631167028862bE2a173976CA11', // Multicall3 address
+        value: '0',
+        data: '0xbatchencoded',
+        chainId: 80002,
+      });
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Batch transaction signed successfully',
+        expect.objectContaining({
+          batchId: 'batch-123',
+          hash: '0xabc123def456789',
+          nonce: 10,
+          transferCount: 2,
+          totalGas: '200000',
+        })
+      );
+    });
+
+    it('should handle batch validation failure', async () => {
+      const batchRequest = {
+        transfers: [
+          {
+            tokenAddress: 'invalid-address',
+            to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            amount: '1000000',
+            transactionId: 'tx1',
+          },
+        ],
+        batchId: 'batch-invalid',
+      };
+
+      mockMulticallService.validateBatch.mockResolvedValueOnce({
+        valid: false,
+        errors: ['Invalid token address'],
+      });
+
+      await expect(transactionSigner.signBatchTransaction(batchRequest))
+        .rejects.toThrow('Batch validation failed: Invalid token address');
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to sign batch transaction',
+        expect.any(Error),
+        { batchId: 'batch-invalid' }
+      );
+    });
+
+    it('should handle gas estimation failure for batch', async () => {
+      const batchRequest = {
+        transfers: [
+          {
+            tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+            to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            amount: '1000000',
+            transactionId: 'tx1',
+          },
+        ],
+        batchId: 'batch-gas-fail',
+      };
+
+      mockMulticallService.prepareBatchTransfer.mockRejectedValueOnce(
+        new Error('Gas estimation failed')
+      );
+
+      await expect(transactionSigner.signBatchTransaction(batchRequest))
+        .rejects.toThrow('Gas estimation failed');
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Failed to sign batch transaction',
+        expect.any(Error),
+        { batchId: 'batch-gas-fail' }
+      );
+    });
+
+    it('should fetch gas price when cache is empty for batch', async () => {
+      const batchRequest = {
+        transfers: [
+          {
+            tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+            to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            amount: '1000000',
+            transactionId: 'tx1',
+          },
+        ],
+        batchId: 'batch-no-cache',
+      };
+
+      // Mock empty gas price cache
+      mockGasPriceCache.get.mockReturnValueOnce(null);
+
+      const signedTx = '0xf86c0a85...';
+      mockWallet.signTransaction.mockResolvedValue(signedTx);
+
+      const result = await transactionSigner.signBatchTransaction(batchRequest);
+
+      // Verify gas price was fetched from provider
+      expect(mockChainProvider.getProvider().getFeeData).toHaveBeenCalled();
+
+      // Verify cache was updated
+      expect(mockGasPriceCache.set).toHaveBeenCalledWith({
+        maxFeePerGas: BigInt(30000000000),
+        maxPriorityFeePerGas: BigInt(1500000000),
+      });
+
+      expect(mockLogger.debug).toHaveBeenCalledWith('Gas price cache expired, fetching fresh values for batch');
+      expect(result.maxFeePerGas).toBe('33000000000');
+      expect(result.maxPriorityFeePerGas).toBe('1650000000');
+    });
+
+    it('should handle Redis connection error for batch retry', async () => {
+      const batchRequest = {
+        transfers: [
+          {
+            tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+            to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            amount: '1000000',
+            transactionId: 'tx1',
+          },
+        ],
+        batchId: 'batch-redis-fail',
+      };
+
+      const redisError = new Error('Redis connection failed');
+      mockNonceCache.getAndIncrement.mockRejectedValueOnce(redisError);
+
+      await expect(transactionSigner.signBatchTransaction(batchRequest))
+        .rejects.toThrow('Redis connection failed');
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Redis connection error - will retry',
+        { batchId: 'batch-redis-fail' }
+      );
+    });
+
+    it('should handle large batch with multiple tokens', async () => {
+      const transfers = [];
+      for (let i = 0; i < 50; i++) {
+        transfers.push({
+          tokenAddress: i % 2 === 0
+            ? '0xc2132D05D31c914a87C6611C10748AEb04B58e8F'
+            : '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+          to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+          amount: String(1000000 * (i + 1)),
+          transactionId: `tx${i}`,
+        });
+      }
+
+      const batchRequest = {
+        transfers,
+        batchId: 'batch-large',
+      };
+
+      mockMulticallService.prepareBatchTransfer.mockResolvedValueOnce({
+        calls: Array(50).fill({ target: '0xtoken', allowFailure: false, callData: '0x' }),
+        estimatedGasPerCall: BigInt(65000),
+        totalEstimatedGas: BigInt(3500000), // Higher gas for large batch
+      });
+
+      const signedTx = '0xf86c0a85...';
+      mockWallet.signTransaction.mockResolvedValue(signedTx);
+
+      const result = await transactionSigner.signBatchTransaction(batchRequest);
+
+      expect(result).toMatchObject({
+        transactionId: 'batch-large',
+        gasLimit: '3500000',
+      });
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Batch transaction signed successfully',
+        expect.objectContaining({
+          batchId: 'batch-large',
+          transferCount: 50,
+          totalGas: '3500000',
+        })
+      );
+    });
+
+    it('should handle gas price fetch failure for batch', async () => {
+      const batchRequest = {
+        transfers: [
+          {
+            tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+            to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            amount: '1000000',
+            transactionId: 'tx1',
+          },
+        ],
+        batchId: 'batch-no-gas-price',
+      };
+
+      // Mock empty gas price cache to trigger provider call
+      mockGasPriceCache.get.mockReturnValueOnce(null);
+
+      // Mock RPC failure to fetch gas price
+      mockChainProvider.getProvider().getFeeData.mockResolvedValueOnce({
+        maxFeePerGas: null,
+        maxPriorityFeePerGas: null,
+      });
+
+      await expect(transactionSigner.signBatchTransaction(batchRequest))
+        .rejects.toThrow('Failed to fetch gas price from provider');
+    });
+  });
+
+  describe('signBatchTransactionWithSplitting', () => {
+    beforeEach(async () => {
+      await transactionSigner.initialize();
+    });
+
+    it('should sign single batch when no splitting is needed', async () => {
+      const batchRequest = {
+        transfers: [
+          {
+            tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+            to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            amount: '1000000',
+            transactionId: 'tx1',
+          },
+        ],
+        batchId: 'batch-single',
+      };
+
+      const signedTx = '0xf86c0a85...';
+      mockWallet.signTransaction.mockResolvedValue(signedTx);
+
+      const results = await transactionSigner.signBatchTransactionWithSplitting(batchRequest);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].transactionId).toBe('batch-single');
+      expect(mockMulticallService.prepareBatchTransfer).toHaveBeenCalledWith(batchRequest.transfers);
+    });
+
+    it('should split and sign multiple batches when required', async () => {
+      const transfers = Array(100).fill(null).map((_, i) => ({
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        amount: '1000000',
+        transactionId: `tx${i}`,
+      }));
+
+      const batchRequest = {
+        transfers,
+        batchId: 'batch-split',
+      };
+
+      // Mock batch groups from MulticallService
+      mockMulticallService.prepareBatchTransfer.mockResolvedValueOnce({
+        calls: [],
+        estimatedGasPerCall: BigInt(65000),
+        totalEstimatedGas: BigInt(7000000),
+        batchGroups: [
+          {
+            calls: Array(50).fill({ target: '0xtoken', allowFailure: false, callData: '0x' }),
+            transfers: transfers.slice(0, 50),
+            estimatedGas: BigInt(3500000),
+            tokenGroups: new Map([['0xc2132D05D31c914a87C6611C10748AEb04B58e8F', 50]]),
+          },
+          {
+            calls: Array(50).fill({ target: '0xtoken', allowFailure: false, callData: '0x' }),
+            transfers: transfers.slice(50, 100),
+            estimatedGas: BigInt(3500000),
+            tokenGroups: new Map([['0xc2132D05D31c914a87C6611C10748AEb04B58e8F', 50]]),
+          },
+        ],
+      });
+
+      // Mock different nonces for each batch
+      mockNonceCache.getAndIncrement
+        .mockResolvedValueOnce(10)
+        .mockResolvedValueOnce(11);
+
+      const signedTx1 = '0xf86c0a85...1';
+      const signedTx2 = '0xf86c0a85...2';
+      mockWallet.signTransaction
+        .mockResolvedValueOnce(signedTx1)
+        .mockResolvedValueOnce(signedTx2);
+
+      // Mock different hashes for each transaction
+      (ethers.Transaction.from as jest.Mock)
+        .mockImplementationOnce(() => ({ hash: '0xhash1' }))
+        .mockImplementationOnce(() => ({ hash: '0xhash2' }));
+
+      const results = await transactionSigner.signBatchTransactionWithSplitting(batchRequest);
+
+      expect(results).toHaveLength(2);
+      expect(results[0].transactionId).toBe('batch-split-1');
+      expect(results[1].transactionId).toBe('batch-split-2');
+      expect(results[0].hash).toBe('0xhash1');
+      expect(results[1].hash).toBe('0xhash2');
+      expect(results[0].nonce).toBe(10);
+      expect(results[1].nonce).toBe(11);
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Batch requires splitting into multiple transactions',
+        expect.objectContaining({
+          batchId: 'batch-split',
+          groupCount: 2,
+          transferCount: 100,
+        })
+      );
+    });
+
+    it('should handle validation failure', async () => {
+      const batchRequest = {
+        transfers: [
+          {
+            tokenAddress: 'invalid-address',
+            to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            amount: '1000000',
+            transactionId: 'tx1',
+          },
+        ],
+        batchId: 'batch-invalid',
+      };
+
+      mockMulticallService.validateBatch.mockResolvedValueOnce({
+        valid: false,
+        errors: ['Invalid token address'],
+      });
+
+      await expect(transactionSigner.signBatchTransactionWithSplitting(batchRequest))
+        .rejects.toThrow('Batch validation failed: Invalid token address');
+    });
+
+    it('should handle gas price fetch error during batch splitting', async () => {
+      const transfers = Array(100).fill(null).map((_, i) => ({
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        amount: '1000000',
+        transactionId: `tx${i}`,
+      }));
+
+      const batchRequest = {
+        transfers,
+        batchId: 'batch-gas-error',
+      };
+
+      // Mock batch groups
+      mockMulticallService.prepareBatchTransfer.mockResolvedValueOnce({
+        calls: [],
+        estimatedGasPerCall: BigInt(65000),
+        totalEstimatedGas: BigInt(7000000),
+        batchGroups: [
+          {
+            calls: Array(50).fill({ target: '0xtoken', allowFailure: false, callData: '0x' }),
+            transfers: transfers.slice(0, 50),
+            estimatedGas: BigInt(3500000),
+            tokenGroups: new Map(),
+          },
+          {
+            calls: Array(50).fill({ target: '0xtoken', allowFailure: false, callData: '0x' }),
+            transfers: transfers.slice(50, 100),
+            estimatedGas: BigInt(3500000),
+            tokenGroups: new Map(),
+          },
+        ],
+      });
+
+      // Mock empty gas price cache
+      mockGasPriceCache.get.mockReturnValue(null);
+
+      // Mock RPC failure
+      mockChainProvider.getProvider().getFeeData.mockResolvedValueOnce({
+        maxFeePerGas: null,
+        maxPriorityFeePerGas: null,
+      });
+
+      await expect(transactionSigner.signBatchTransactionWithSplitting(batchRequest))
+        .rejects.toThrow('Failed to fetch gas price from provider');
+    });
+  });
+
   describe('cleanup', () => {
     it('should complete cleanup and disconnect Redis', async () => {
       await transactionSigner.initialize();

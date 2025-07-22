@@ -389,6 +389,165 @@ export class TransactionSigner {
     }
   }
 
+  async signBatchTransactionWithSplitting(request: BatchSigningRequest): Promise<SignedTransaction[]> {
+    if (!this.wallet) {
+      throw new Error('Wallet not initialized');
+    }
+
+    const { transfers, batchId } = request;
+
+    try {
+      // Validate batch before processing
+      const validation = await this.multicallService.validateBatch(transfers, this.wallet.address);
+      if (!validation.valid) {
+        throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
+      }
+
+      // Prepare batch transfers with potential splitting
+      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers);
+
+      // Check if batch was split into groups
+      if (preparedBatch.batchGroups && preparedBatch.batchGroups.length > 1) {
+        this.logger.info('Batch requires splitting into multiple transactions', {
+          batchId,
+          groupCount: preparedBatch.batchGroups.length,
+          transferCount: transfers.length,
+        });
+
+        // Sign each batch group separately
+        const signedTransactions: SignedTransaction[] = [];
+
+        for (let i = 0; i < preparedBatch.batchGroups.length; i++) {
+          const group = preparedBatch.batchGroups[i];
+          const groupBatchId = `${batchId}-${i + 1}`;
+
+          this.logger.debug('Signing batch group', {
+            groupIndex: i + 1,
+            totalGroups: preparedBatch.batchGroups.length,
+            groupBatchId,
+            transferCount: group.transfers.length,
+            estimatedGas: group.estimatedGas.toString(),
+          });
+
+          // Get nonce for this transaction
+          const nonce = await this.nonceCache.getAndIncrement(this.wallet.address);
+
+          // Get Multicall3 address
+          const multicall3Address = this.chainProvider.getMulticall3Address();
+
+          // Encode the batch transaction data
+          const data = this.multicallService.encodeBatchTransaction(group.calls);
+
+          // Build transaction
+          const transaction: ethers.TransactionRequest = {
+            to: multicall3Address,
+            data,
+            nonce,
+            chainId: this.chainProvider.getChainId(),
+            type: 2, // EIP-1559
+            gasLimit: group.estimatedGas,
+          };
+
+          // Get gas price
+          const { maxFeePerGas, maxPriorityFeePerGas } = await this.getGasPrice();
+
+          // Complete transaction object
+          transaction.maxFeePerGas = maxFeePerGas;
+          transaction.maxPriorityFeePerGas = maxPriorityFeePerGas;
+
+          // Sign transaction
+          const signedTx = await this.wallet.signTransaction(transaction);
+          const parsedTx = ethers.Transaction.from(signedTx);
+
+          const result: SignedTransaction = {
+            transactionId: groupBatchId,
+            hash: parsedTx.hash!,
+            rawTransaction: signedTx,
+            nonce: Number(nonce),
+            gasLimit: group.estimatedGas.toString(),
+            maxFeePerGas: maxFeePerGas.toString(),
+            maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+            from: this.wallet.address,
+            to: multicall3Address,
+            value: '0',
+            data: data,
+            chainId: this.chainProvider.getChainId(),
+          };
+
+          signedTransactions.push(result);
+
+          this.logger.info('Batch group signed successfully', {
+            groupBatchId,
+            hash: result.hash,
+            nonce: result.nonce,
+            groupIndex: i + 1,
+            totalGroups: preparedBatch.batchGroups.length,
+          });
+        }
+
+        return signedTransactions;
+      } else {
+        // Single batch, use regular signing
+        const signedTx = await this.signBatchTransaction(request);
+        return [signedTx];
+      }
+    } catch (error) {
+      this.logger.error('Failed to sign batch transaction with splitting', error, { batchId });
+      throw error;
+    }
+  }
+
+  private async getGasPrice(): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }> {
+    // Get gas price from cache or fetch new one
+    let cachedGasPrice = this.gasPriceCache.get();
+    let maxFeePerGas: bigint;
+    let maxPriorityFeePerGas: bigint;
+
+    if (cachedGasPrice) {
+      // Use cached values
+      maxFeePerGas = cachedGasPrice.maxFeePerGas;
+      maxPriorityFeePerGas = cachedGasPrice.maxPriorityFeePerGas;
+
+      this.logger.debug('Using cached gas price', {
+        maxFeePerGas: maxFeePerGas.toString(),
+        maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+      });
+    } else {
+      // Cache expired, fetch fresh gas price
+      this.logger.debug('Gas price cache expired, fetching fresh values');
+
+      if (!this.provider) {
+        throw new Error('Provider not initialized');
+      }
+
+      const feeData = await this.provider.getFeeData();
+
+      if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
+        throw new Error('Failed to fetch gas price from provider');
+      }
+
+      // Update cache for next use
+      this.gasPriceCache.set({
+        maxFeePerGas: feeData.maxFeePerGas,
+        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+      });
+
+      maxFeePerGas = feeData.maxFeePerGas;
+      maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+
+      this.logger.debug('Fetched fresh gas price', {
+        maxFeePerGas: maxFeePerGas.toString(),
+        maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+      });
+    }
+
+    // Adjust gas price for Polygon (10% higher)
+    maxFeePerGas = (maxFeePerGas * 110n) / 100n;
+    maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
+
+    return { maxFeePerGas, maxPriorityFeePerGas };
+  }
+
   async cleanup(): Promise<void> {
     // Clear sensitive data
     this.wallet = null;

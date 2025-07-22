@@ -78,11 +78,39 @@ export interface PreparedBatch {
   calls: Call3[];
   estimatedGasPerCall: bigint;
   totalEstimatedGas: bigint;
+  batchGroups?: BatchGroup[]; // For split batches
+}
+
+// Batch group for split processing
+export interface BatchGroup {
+  calls: Call3[];
+  transfers: BatchTransferRequest[];
+  estimatedGas: bigint;
+  tokenGroups: Map<string, number>;
+}
+
+// Gas estimation configuration
+export interface GasConfig {
+  blockGasLimit: bigint;
+  safetyMargin: number;
+  multicallOverhead: bigint;
+  baseTransferGas: bigint;
+  tokenTransferGas: Map<string, bigint>; // Token-specific gas costs
 }
 
 export class MulticallService {
   private multicall3Contract: ethers.Contract;
   private provider: ethers.Provider;
+  private gasConfig: GasConfig;
+
+  // Polygon-specific gas constants
+  private static readonly POLYGON_GAS_CONFIG = {
+    blockGasLimit: 30_000_000n, // 30M gas limit on Polygon
+    safetyMargin: 0.75, // Use 75% of block gas limit for safety
+    multicallOverhead: 35_000n, // Base overhead for Multicall3
+    baseTransferGas: 65_000n, // Base gas for ERC20 transfer
+    additionalGasPerCall: 5_000n, // Additional gas per call in batch
+  };
 
   constructor(
     private chainProvider: ChainProvider,
@@ -100,24 +128,44 @@ export class MulticallService {
       this.provider
     );
 
+    // Initialize gas configuration
+    this.gasConfig = {
+      blockGasLimit: MulticallService.POLYGON_GAS_CONFIG.blockGasLimit,
+      safetyMargin: MulticallService.POLYGON_GAS_CONFIG.safetyMargin,
+      multicallOverhead: MulticallService.POLYGON_GAS_CONFIG.multicallOverhead,
+      baseTransferGas: MulticallService.POLYGON_GAS_CONFIG.baseTransferGas,
+      tokenTransferGas: new Map(), // Will be populated as we learn token-specific costs
+    };
+
     this.logger.info('MulticallService initialized', {
       multicall3Address,
       chainId: this.chainProvider.getChainId(),
       chain: this.chainProvider.chain,
       network: this.chainProvider.network,
+      gasConfig: {
+        blockGasLimit: this.gasConfig.blockGasLimit.toString(),
+        safetyMargin: this.gasConfig.safetyMargin,
+        multicallOverhead: this.gasConfig.multicallOverhead.toString(),
+      },
     });
   }
 
   /**
-   * Prepare batch transfers for Multicall3
+   * Prepare batch transfers for Multicall3 with dynamic batch splitting
    */
   async prepareBatchTransfer(transfers: BatchTransferRequest[]): Promise<PreparedBatch> {
-    const calls: Call3[] = [];
+    // First, validate the batch
+    const validation = await this.validateBatch(transfers, '0x0'); // Signer address not needed for basic validation
+    if (!validation.valid) {
+      throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
+    }
 
-    // Group transfers by token address for logging
-    const tokenGroups = new Map<string, number>();
+    // Create calls for all transfers
+    const allCalls: Call3[] = [];
+    const callToTransferMap = new Map<number, BatchTransferRequest>();
 
-    for (const transfer of transfers) {
+    for (let i = 0; i < transfers.length; i++) {
+      const transfer = transfers[i];
       const { tokenAddress, to, amount } = transfer;
 
       // Create ERC20 interface for encoding
@@ -130,61 +178,86 @@ export class MulticallService {
       ]);
 
       // Add to calls array
-      calls.push({
+      allCalls.push({
         target: tokenAddress,
         allowFailure: false, // We want all transfers to succeed
         callData,
       });
 
-      // Track token groups
-      tokenGroups.set(tokenAddress, (tokenGroups.get(tokenAddress) || 0) + 1);
+      // Map call index to transfer for later grouping
+      callToTransferMap.set(i, transfer);
     }
 
-    this.logger.info('Prepared batch transfer', {
+    // Estimate gas for all calls
+    const { estimatedGasPerCall, totalEstimatedGas } = await this.estimateBatchGas(allCalls);
+
+    // Check if we need to split the batch
+    const maxBatchGas = this.getMaxBatchGas();
+    if (totalEstimatedGas <= maxBatchGas) {
+      // Single batch is sufficient
+      this.logger.info('Single batch processing', {
+        totalTransfers: transfers.length,
+        estimatedGas: totalEstimatedGas.toString(),
+        maxGas: maxBatchGas.toString(),
+      });
+
+      return {
+        calls: allCalls,
+        estimatedGasPerCall,
+        totalEstimatedGas,
+      };
+    }
+
+    // Split into multiple batches
+    this.logger.info('Splitting batch due to gas limits', {
       totalTransfers: transfers.length,
-      uniqueTokens: tokenGroups.size,
-      tokenGroups: Array.from(tokenGroups.entries()).map(([token, count]) => ({
-        token,
-        count,
-      })),
+      totalEstimatedGas: totalEstimatedGas.toString(),
+      maxBatchGas: maxBatchGas.toString(),
     });
 
-    // Estimate gas for the batch
-    const { estimatedGasPerCall, totalEstimatedGas } = await this.estimateBatchGas(calls);
+    const batchGroups = await this.splitIntoBatches(transfers, allCalls, estimatedGasPerCall);
 
     return {
-      calls,
+      calls: allCalls,
       estimatedGasPerCall,
       totalEstimatedGas,
+      batchGroups,
     };
   }
 
   /**
-   * Estimate gas for batch transaction
+   * Estimate gas for batch transaction with improved token-specific estimation
    */
   private async estimateBatchGas(calls: Call3[]): Promise<{
     estimatedGasPerCall: bigint;
     totalEstimatedGas: bigint;
   }> {
     try {
-      // Estimate gas for the aggregate3 call
+      // Try to get actual gas estimate from the network
       const gasEstimate = await this.multicall3Contract.aggregate3.estimateGas(calls);
 
-      // Calculate per-call gas (approximate)
-      const estimatedGasPerCall = gasEstimate / BigInt(calls.length);
+      // Calculate per-call gas with Polygon-specific adjustments
+      const basePerCall = gasEstimate / BigInt(calls.length);
 
-      // Add 20% buffer for safety
-      const totalEstimatedGas = (gasEstimate * 120n) / 100n;
+      // On Polygon, batch operations have diminishing gas costs per additional call
+      const adjustedPerCall = this.adjustGasForPolygon(basePerCall, calls.length);
+
+      // Add 15% buffer for Polygon (lower than Ethereum due to more predictable gas)
+      const totalEstimatedGas = (gasEstimate * 115n) / 100n;
 
       this.logger.debug('Batch gas estimation', {
         rawEstimate: gasEstimate.toString(),
-        perCallEstimate: estimatedGasPerCall.toString(),
+        basePerCall: basePerCall.toString(),
+        adjustedPerCall: adjustedPerCall.toString(),
         totalWithBuffer: totalEstimatedGas.toString(),
         callCount: calls.length,
       });
 
+      // Update token-specific gas costs for future estimations
+      this.updateTokenGasCosts(calls, adjustedPerCall);
+
       return {
-        estimatedGasPerCall,
+        estimatedGasPerCall: adjustedPerCall,
         totalEstimatedGas,
       };
     } catch (error) {
@@ -192,12 +265,11 @@ export class MulticallService {
         callCount: calls.length,
       });
 
-      // Fallback: estimate based on typical ERC20 transfer gas
-      const TYPICAL_ERC20_TRANSFER_GAS = 65000n;
-      const MULTICALL_OVERHEAD = 30000n;
-
-      const estimatedGasPerCall = TYPICAL_ERC20_TRANSFER_GAS;
-      const totalEstimatedGas = MULTICALL_OVERHEAD + (estimatedGasPerCall * BigInt(calls.length));
+      // Improved fallback with token-specific estimation
+      const estimatedGasPerCall = this.getFallbackGasEstimate(calls);
+      const totalEstimatedGas = this.gasConfig.multicallOverhead +
+        (estimatedGasPerCall * BigInt(calls.length)) +
+        (MulticallService.POLYGON_GAS_CONFIG.additionalGasPerCall * BigInt(calls.length - 1));
 
       this.logger.warn('Using fallback gas estimation', {
         estimatedGasPerCall: estimatedGasPerCall.toString(),
@@ -267,11 +339,8 @@ export class MulticallService {
       }
     }
 
-    // Check batch size limits
-    const MAX_BATCH_SIZE = 100; // Reasonable limit to avoid gas issues
-    if (transfers.length > MAX_BATCH_SIZE) {
-      errors.push(`Batch size ${transfers.length} exceeds maximum ${MAX_BATCH_SIZE}`);
-    }
+    // Don't enforce batch size limit here - let gas estimation handle it
+    // The limit should be based on gas, not arbitrary count
 
     return {
       valid: errors.length === 0,
@@ -280,21 +349,173 @@ export class MulticallService {
   }
 
   /**
-   * Get optimal batch size based on gas limits
+   * Get optimal batch size based on gas limits with Polygon-specific optimizations
    */
   getOptimalBatchSize(estimatedGasPerCall: bigint): number {
-    // Polygon block gas limit is around 30M
-    const BLOCK_GAS_LIMIT = 30_000_000n;
-    const SAFETY_MARGIN = 0.8; // Use only 80% of block gas limit
-    const MULTICALL_OVERHEAD = 30000n;
+    const availableGas = BigInt(Math.floor(Number(this.gasConfig.blockGasLimit) * this.gasConfig.safetyMargin));
+    const gasForCalls = availableGas - this.gasConfig.multicallOverhead;
 
-    const availableGas = BigInt(Math.floor(Number(BLOCK_GAS_LIMIT) * SAFETY_MARGIN));
-    const gasForCalls = availableGas - MULTICALL_OVERHEAD;
+    // Calculate with diminishing gas cost per call
+    let totalGas = 0n;
+    let optimalSize = 0;
 
-    const optimalSize = Number(gasForCalls / estimatedGasPerCall);
+    while (totalGas < gasForCalls && optimalSize < 100) {
+      const nextCallGas = this.getGasForNthCall(estimatedGasPerCall, optimalSize);
+      if (totalGas + nextCallGas > gasForCalls) {
+        break;
+      }
+      totalGas += nextCallGas;
+      optimalSize++;
+    }
 
-    // Cap at reasonable maximum
-    const MAX_BATCH_SIZE = 100;
-    return Math.min(optimalSize, MAX_BATCH_SIZE);
+    this.logger.debug('Optimal batch size calculation', {
+      estimatedGasPerCall: estimatedGasPerCall.toString(),
+      availableGas: availableGas.toString(),
+      optimalSize,
+      totalGasUsed: totalGas.toString(),
+    });
+
+    return Math.max(1, optimalSize);
+  }
+
+  /**
+   * Get maximum gas for a single batch
+   */
+  private getMaxBatchGas(): bigint {
+    return BigInt(Math.floor(Number(this.gasConfig.blockGasLimit) * this.gasConfig.safetyMargin));
+  }
+
+  /**
+   * Adjust gas estimate for Polygon network characteristics
+   */
+  private adjustGasForPolygon(baseGasPerCall: bigint, callCount: number): bigint {
+    // Polygon has more efficient batch processing
+    // Each additional call costs slightly less due to warm storage slots
+    const discount = Math.min(0.15, callCount * 0.005); // Max 15% discount
+    return (baseGasPerCall * BigInt(Math.floor(100 - discount * 100))) / 100n;
+  }
+
+  /**
+   * Update token-specific gas costs based on actual usage
+   */
+  private updateTokenGasCosts(calls: Call3[], gasPerCall: bigint): void {
+    // Extract unique token addresses
+    const tokenAddresses = new Set(calls.map(call => call.target.toLowerCase()));
+
+    for (const tokenAddress of tokenAddresses) {
+      const currentCost = this.gasConfig.tokenTransferGas.get(tokenAddress) || 0n;
+      // Use weighted average to smooth out variations
+      const newCost = currentCost === 0n ? gasPerCall : (currentCost * 4n + gasPerCall) / 5n;
+      this.gasConfig.tokenTransferGas.set(tokenAddress, newCost);
+    }
+  }
+
+  /**
+   * Get fallback gas estimate based on token history
+   */
+  private getFallbackGasEstimate(calls: Call3[]): bigint {
+    // Check if we have historical data for these tokens
+    const tokenGasEstimates = calls.map(call => {
+      const tokenAddress = call.target.toLowerCase();
+      return this.gasConfig.tokenTransferGas.get(tokenAddress) || this.gasConfig.baseTransferGas;
+    });
+
+    // Return the maximum to be safe
+    return tokenGasEstimates.reduce((max, current) => current > max ? current : max, 0n);
+  }
+
+  /**
+   * Calculate gas for the nth call in a batch (considering diminishing costs)
+   */
+  private getGasForNthCall(baseGasPerCall: bigint, n: number): bigint {
+    // First call has full cost, subsequent calls have diminishing costs
+    if (n === 0) return baseGasPerCall;
+
+    // Each additional call is slightly cheaper (up to 15% discount)
+    const discount = Math.min(0.15, n * 0.005);
+    return (baseGasPerCall * BigInt(Math.floor(100 - discount * 100))) / 100n;
+  }
+
+  /**
+   * Split transfers into optimal batch groups
+   */
+  private async splitIntoBatches(
+    transfers: BatchTransferRequest[],
+    calls: Call3[],
+    estimatedGasPerCall: bigint
+  ): Promise<BatchGroup[]> {
+    const maxBatchGas = this.getMaxBatchGas();
+    const batchGroups: BatchGroup[] = [];
+
+    let currentBatch: {
+      calls: Call3[];
+      transfers: BatchTransferRequest[];
+      estimatedGas: bigint;
+      tokenGroups: Map<string, number>;
+    } = {
+      calls: [],
+      transfers: [],
+      estimatedGas: this.gasConfig.multicallOverhead,
+      tokenGroups: new Map(),
+    };
+
+    for (let i = 0; i < transfers.length; i++) {
+      const transfer = transfers[i];
+      const call = calls[i];
+
+      // Calculate gas for adding this call
+      const callGas = this.getGasForNthCall(estimatedGasPerCall, currentBatch.calls.length);
+      const newTotalGas = currentBatch.estimatedGas + callGas;
+
+      // Check if adding this call would exceed gas limit
+      if (newTotalGas > maxBatchGas && currentBatch.calls.length > 0) {
+        // Save current batch
+        batchGroups.push({
+          calls: [...currentBatch.calls],
+          transfers: [...currentBatch.transfers],
+          estimatedGas: currentBatch.estimatedGas,
+          tokenGroups: new Map(currentBatch.tokenGroups),
+        });
+
+        // Start new batch
+        currentBatch = {
+          calls: [],
+          transfers: [],
+          estimatedGas: this.gasConfig.multicallOverhead,
+          tokenGroups: new Map(),
+        };
+      }
+
+      // Add to current batch
+      currentBatch.calls.push(call);
+      currentBatch.transfers.push(transfer);
+      currentBatch.estimatedGas += callGas;
+
+      // Update token groups
+      const tokenAddress = transfer.tokenAddress.toLowerCase();
+      currentBatch.tokenGroups.set(
+        tokenAddress,
+        (currentBatch.tokenGroups.get(tokenAddress) || 0) + 1
+      );
+    }
+
+    // Add remaining batch
+    if (currentBatch.calls.length > 0) {
+      batchGroups.push({
+        calls: currentBatch.calls,
+        transfers: currentBatch.transfers,
+        estimatedGas: currentBatch.estimatedGas,
+        tokenGroups: currentBatch.tokenGroups,
+      });
+    }
+
+    this.logger.info('Batch splitting complete', {
+      totalTransfers: transfers.length,
+      batchCount: batchGroups.length,
+      batchSizes: batchGroups.map(b => b.calls.length),
+      estimatedGasPerBatch: batchGroups.map(b => b.estimatedGas.toString()),
+    });
+
+    return batchGroups;
   }
 }

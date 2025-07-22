@@ -124,8 +124,8 @@
             "dependencies": [
               "11.9"
             ],
-            "details": "가스 한도 기반 최대 배치 크기 계산 알고리즘, 토큰별 전송 비용 추정, 배치 오버헤드 고려한 최적화, 동적 배치 분할 로직, Polygon 네트워크 가스 특성 반영, 배치 크기별 성능 테스트 및 벤치마킹",
-            "status": "pending",
+            "details": "가스 한도 기반 최대 배치 크기 계산 알고리즘, 토큰별 전송 비용 추정, 배치 오버헤드 고려한 최적화, 동적 배치 분할 로직, Polygon 네트워크 가스 특성 반영, 배치 크기별 성능 테스트 및 벤치마킹\n<info added on 2025-07-22T15:13:46.918Z>\n구현 완료: Polygon 네트워크 기반 가스 최적화 시스템 - 30M 가스 한도와 75% 안전 마진을 적용한 동적 배치 분할 알고리즘 구현, 토큰별 가스 비용 학습 캐싱 시스템 도입으로 실시간 비용 예측 정확도 향상, 배치 크기에 따른 점감 가스 비용 계산 로직으로 배치 효율성 극대화, 향상된 fallback 가스 추정 메커니즘으로 네트워크 혼잡 상황 대응 강화, 모든 단위 테스트 및 통합 테스트 통과 확인\n</info added on 2025-07-22T15:13:46.918Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -136,8 +136,8 @@
             "dependencies": [
               "11.10"
             ],
-            "details": "signBatchTransaction() 메서드 구현, 배치 트랜잭션 가스 추정 로직, EIP-1559 트랜잭션 타입 지원, 배치와 단일 전송 구분 로직, nonce 관리 개선, 트랜잭션 서명 실패 시 개별 전송으로 fallback 메커니즘",
-            "status": "pending",
+            "details": "signBatchTransaction() 메서드 구현, 배치 트랜잭션 가스 추정 로직, EIP-1559 트랜잭션 타입 지원, 배치와 단일 전송 구분 로직, nonce 관리 개선, 트랜잭션 서명 실패 시 개별 전송으로 fallback 메커니즘\n<info added on 2025-07-22T15:20:23.097Z>\nBFS-22 구현 완료. signBatchTransaction() 메서드와 signBatchTransactionWithSplitting() 메서드 추가하여 Multicall3 배치 전송 서명 지원. getGasPrice() 메서드 추출로 코드 중복 제거. 단일 및 분할 배치, 검증 실패 처리, 가스 추정, Redis 연결 에러 처리, 대용량 배치 시나리오 등에 대한 포괄적인 테스트 커버리지 구현. MulticallService와의 통합으로 배치 준비 및 인코딩 지원. Polygon 네트워크에서 EIP-1559 트랜잭션 지원. 배치 분할 시 순차적 nonce 관리 구현. 모든 테스트, 린트 검사, 타입 검사 통과 확인.\n</info added on 2025-07-22T15:20:23.097Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -353,7 +353,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-07-22T14:00:42.180Z",
+      "updated": "2025-07-22T15:20:30.337Z",
       "description": "Tasks for master context"
     }
   }

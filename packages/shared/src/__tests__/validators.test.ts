@@ -5,6 +5,7 @@ import {
   isValidAmount,
   isValidNetwork,
   validateWithdrawalRequest,
+  validateBatchWithdrawalRequest,
   type NetworkType,
   type FieldValidationError,
 } from '../validators';
@@ -465,5 +466,217 @@ describe('NetworkType', () => {
     validNetworks.forEach(network => {
       expect(SupportedNetworks).toContain(network);
     });
+  });
+});
+
+describe('validateWithdrawalRequest with batch fields', () => {
+  const validRequestData = {
+    amount: '100.5',
+    toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+    tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+    network: 'polygon',
+  };
+
+  it('should validate type field', () => {
+    const dataWithInvalidType = {
+      ...validRequestData,
+      type: 'INVALID',
+    };
+
+    const errors = validateWithdrawalRequest(dataWithInvalidType);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe('type');
+    expect(errors[0].message).toBe('Type must be either SINGLE or BATCH');
+  });
+
+  it('should accept valid type values', () => {
+    const singleData = {
+      ...validRequestData,
+      type: 'SINGLE',
+    };
+
+    const batchData = {
+      ...validRequestData,
+      type: 'BATCH',
+      batchId: 'batch-123',
+    };
+
+    expect(validateWithdrawalRequest(singleData)).toHaveLength(0);
+    expect(validateWithdrawalRequest(batchData)).toHaveLength(0);
+  });
+
+  it('should require batchId for BATCH type', () => {
+    const batchDataWithoutId = {
+      ...validRequestData,
+      type: 'BATCH',
+    };
+
+    const errors = validateWithdrawalRequest(batchDataWithoutId);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe('batchId');
+    expect(errors[0].message).toBe('batchId is required for BATCH type withdrawals');
+  });
+
+  it('should not require batchId for SINGLE type', () => {
+    const singleData = {
+      ...validRequestData,
+      type: 'SINGLE',
+    };
+
+    const errors = validateWithdrawalRequest(singleData);
+    expect(errors).toHaveLength(0);
+  });
+});
+
+describe('validateBatchWithdrawalRequest', () => {
+  const validWithdrawalRequest = {
+    amount: '100.5',
+    toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+    tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+    network: 'polygon',
+  };
+
+  const validBatchRequest = {
+    batchId: 'batch-123',
+    withdrawalRequests: [
+      validWithdrawalRequest,
+      { ...validWithdrawalRequest, amount: '200.75' },
+    ],
+  };
+
+  it('should validate a valid batch request', () => {
+    const errors = validateBatchWithdrawalRequest(validBatchRequest);
+    expect(errors).toHaveLength(0);
+  });
+
+  it('should require batchId', () => {
+    const dataWithoutBatchId = {
+      ...validBatchRequest,
+      batchId: undefined,
+    };
+
+    const errors = validateBatchWithdrawalRequest(dataWithoutBatchId);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe('batchId');
+    expect(errors[0].message).toBe('batchId is required');
+  });
+
+  it('should require withdrawalRequests to be an array', () => {
+    const dataWithInvalidRequests = {
+      batchId: 'batch-123',
+      withdrawalRequests: 'not-an-array',
+    };
+
+    const errors = validateBatchWithdrawalRequest(dataWithInvalidRequests);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe('withdrawalRequests');
+    expect(errors[0].message).toBe('withdrawalRequests must be an array');
+  });
+
+  it('should not allow empty withdrawalRequests array', () => {
+    const dataWithEmptyRequests = {
+      batchId: 'batch-123',
+      withdrawalRequests: [],
+    };
+
+    const errors = validateBatchWithdrawalRequest(dataWithEmptyRequests);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe('withdrawalRequests');
+    expect(errors[0].message).toBe('withdrawalRequests cannot be empty');
+  });
+
+  it('should enforce maximum batch size of 100', () => {
+    const largeRequests = Array(101).fill(validWithdrawalRequest);
+    const dataWithTooManyRequests = {
+      batchId: 'batch-123',
+      withdrawalRequests: largeRequests,
+    };
+
+    const errors = validateBatchWithdrawalRequest(dataWithTooManyRequests);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe('withdrawalRequests');
+    expect(errors[0].message).toBe('Maximum 100 withdrawals per batch');
+  });
+
+  it('should validate each withdrawal request', () => {
+    const dataWithInvalidRequest = {
+      batchId: 'batch-123',
+      withdrawalRequests: [
+        validWithdrawalRequest,
+        {
+          ...validWithdrawalRequest,
+          amount: 'invalid-amount',
+        },
+      ],
+    };
+
+    const errors = validateBatchWithdrawalRequest(dataWithInvalidRequest);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe('withdrawalRequests[1].amount');
+    expect(errors[0].message).toContain('Invalid amount format');
+  });
+
+  it('should require all requests to have the same token address', () => {
+    const dataWithDifferentTokens = {
+      batchId: 'batch-123',
+      withdrawalRequests: [
+        validWithdrawalRequest,
+        {
+          ...validWithdrawalRequest,
+          tokenAddress: '0x0000000000000000000000000000000000000000',
+        },
+      ],
+    };
+
+    const errors = validateBatchWithdrawalRequest(dataWithDifferentTokens);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe('withdrawalRequests');
+    expect(errors[0].message).toBe('All withdrawal requests must have the same token address');
+  });
+
+  it('should require all requests to have the same network', () => {
+    const dataWithDifferentNetworks = {
+      batchId: 'batch-123',
+      withdrawalRequests: [
+        validWithdrawalRequest,
+        {
+          ...validWithdrawalRequest,
+          network: 'ethereum',
+        },
+      ],
+    };
+
+    const errors = validateBatchWithdrawalRequest(dataWithDifferentNetworks);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].field).toBe('withdrawalRequests');
+    expect(errors[0].message).toBe('All withdrawal requests must have the same network');
+  });
+
+  it('should handle multiple validation errors', () => {
+    const dataWithMultipleErrors = {
+      batchId: '',
+      withdrawalRequests: [
+        {
+          amount: 'invalid-amount-format',
+          toAddress: 'invalid-address',
+          tokenAddress: 'not-a-valid-token-address',
+          network: 'unsupported-network',
+        },
+      ],
+    };
+
+    const errors = validateBatchWithdrawalRequest(dataWithMultipleErrors);
+    expect(errors.length).toBeGreaterThan(1);
+
+    // Check for specific errors
+    const errorFields = errors.map(e => e.field);
+    expect(errorFields).toContain('batchId');
+
+    // Since we're providing invalid values (not missing values),
+    // we should get format/validation errors
+    const errorMessages = errors.map(e => e.message);
+    expect(errorMessages.some(msg => msg.includes('batchId is required'))).toBe(true);
+    expect(errorMessages.some(msg => msg.includes('Invalid amount format'))).toBe(true);
+    expect(errorMessages.some(msg => msg.includes('Unsupported network'))).toBe(true);
   });
 });

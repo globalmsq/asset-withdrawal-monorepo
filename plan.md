@@ -430,6 +430,8 @@ model WithdrawalRequest {
   toAddress     String
   tokenAddress  String
   network       String
+  type          String   @default("SINGLE") // SINGLE or BATCH - BFS-23 추가
+  batchId       String?  // Reference to BatchTransaction - 이미 존재
   errorMessage  String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

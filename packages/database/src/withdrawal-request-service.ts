@@ -11,6 +11,8 @@ export interface WithdrawalRequest {
   tokenAddress: string;
   network: string;
   status: string;
+  type: string;
+  batchId: string | null;
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -83,13 +85,75 @@ export class WithdrawalRequestService {
     tokenAddress: string;
     network: string;
     status?: string;
+    type?: string;
+    batchId?: string;
   }): Promise<WithdrawalRequest> {
     const prismaRequest = await this.prisma.withdrawalRequest.create({
       data: {
         ...data,
         status: data.status || 'PENDING',
+        type: data.type || 'SINGLE',
       },
     });
     return this.convertToWithdrawalRequest(prismaRequest);
+  }
+
+  async getWithdrawalRequestsByBatchId(
+    batchId: string
+  ): Promise<WithdrawalRequest[]> {
+    const prismaRequests = await this.prisma.withdrawalRequest.findMany({
+      where: { batchId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return prismaRequests.map((req) => this.convertToWithdrawalRequest(req));
+  }
+
+  async createBatchWithdrawalRequests(
+    requests: Array<{
+      requestId: string;
+      amount: string;
+      symbol: string;
+      toAddress: string;
+      tokenAddress: string;
+      network: string;
+      batchId: string;
+    }>
+  ): Promise<WithdrawalRequest[]> {
+    const prismaRequests = await this.prisma.$transaction(
+      requests.map((req) =>
+        this.prisma.withdrawalRequest.create({
+          data: {
+            ...req,
+            status: 'PENDING',
+            type: 'BATCH',
+          },
+        })
+      )
+    );
+    return prismaRequests.map((req) => this.convertToWithdrawalRequest(req));
+  }
+
+  async updateBatchStatus(
+    batchId: string,
+    status: string
+  ): Promise<Prisma.BatchPayload> {
+    return await this.prisma.withdrawalRequest.updateMany({
+      where: { batchId },
+      data: { status },
+    });
+  }
+
+  async updateBatchStatusWithError(
+    batchId: string,
+    status: string,
+    errorMessage: string
+  ): Promise<Prisma.BatchPayload> {
+    return await this.prisma.withdrawalRequest.updateMany({
+      where: { batchId },
+      data: {
+        status,
+        errorMessage,
+      },
+    });
   }
 }

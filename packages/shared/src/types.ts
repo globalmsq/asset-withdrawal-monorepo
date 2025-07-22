@@ -8,6 +8,11 @@ export enum TransactionStatus {
   FAILED = 'FAILED',
 }
 
+export enum WithdrawalType {
+  SINGLE = 'SINGLE',
+  BATCH = 'BATCH',
+}
+
 export interface WithdrawalRequest {
   id: string;
   amount: string;
@@ -15,6 +20,8 @@ export interface WithdrawalRequest {
   tokenAddress: string;
   symbol?: string;
   network: string;
+  type?: WithdrawalType;
+  batchId?: string;
   createdAt?: Date;
 }
 
@@ -82,4 +89,25 @@ export interface LoginResponse {
   token: string;
   user: AuthUser;
   expiresIn: number;
+}
+
+export interface BatchWithdrawalRequest {
+  batchId: string;
+  withdrawalRequests: WithdrawalRequest[];
+  totalAmount: string;
+  tokenAddress: string;
+  network: string;
+  createdAt?: Date;
+}
+
+export interface BatchTransactionStatus {
+  batchId: string;
+  status: TransactionStatus;
+  totalRequests: number;
+  completedRequests: number;
+  failedRequests: number;
+  txHash?: string;
+  errorMessage?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }

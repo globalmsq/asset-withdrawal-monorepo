@@ -132,5 +132,87 @@ export function validateWithdrawalRequest(data: any): FieldValidationError[] {
     });
   }
 
+  // Validate type if provided
+  if (data.type && !['SINGLE', 'BATCH'].includes(data.type)) {
+    errors.push({
+      field: 'type',
+      message: 'Type must be either SINGLE or BATCH',
+    });
+  }
+
+  // Validate batchId if type is BATCH
+  if (data.type === 'BATCH' && !data.batchId) {
+    errors.push({
+      field: 'batchId',
+      message: 'batchId is required for BATCH type withdrawals',
+    });
+  }
+
+  return errors;
+}
+
+export function validateBatchWithdrawalRequest(data: any): FieldValidationError[] {
+  const errors: FieldValidationError[] = [];
+
+  // Required fields
+  if (!data.batchId || data.batchId.trim() === '') {
+    errors.push({ field: 'batchId', message: 'batchId is required' });
+  }
+
+  if (!data.withdrawalRequests || !Array.isArray(data.withdrawalRequests)) {
+    errors.push({
+      field: 'withdrawalRequests',
+      message: 'withdrawalRequests must be an array',
+    });
+  } else if (data.withdrawalRequests.length === 0) {
+    errors.push({
+      field: 'withdrawalRequests',
+      message: 'withdrawalRequests cannot be empty',
+    });
+  } else if (data.withdrawalRequests.length > 100) {
+    errors.push({
+      field: 'withdrawalRequests',
+      message: 'Maximum 100 withdrawals per batch',
+    });
+  } else {
+    // Validate each withdrawal request
+    data.withdrawalRequests.forEach((request: any, index: number) => {
+      const requestErrors = validateWithdrawalRequest(request);
+      requestErrors.forEach((error) => {
+        errors.push({
+          field: `withdrawalRequests[${index}].${error.field}`,
+          message: error.message,
+        });
+      });
+    });
+
+    // Ensure all requests have the same token and network
+    if (data.withdrawalRequests.length > 0) {
+      const firstRequest = data.withdrawalRequests[0];
+      const tokenAddress = firstRequest.tokenAddress;
+      const network = firstRequest.network;
+
+      const inconsistentToken = data.withdrawalRequests.find(
+        (req: any) => req.tokenAddress !== tokenAddress
+      );
+      if (inconsistentToken) {
+        errors.push({
+          field: 'withdrawalRequests',
+          message: 'All withdrawal requests must have the same token address',
+        });
+      }
+
+      const inconsistentNetwork = data.withdrawalRequests.find(
+        (req: any) => req.network !== network
+      );
+      if (inconsistentNetwork) {
+        errors.push({
+          field: 'withdrawalRequests',
+          message: 'All withdrawal requests must have the same network',
+        });
+      }
+    }
+  }
+
   return errors;
 }

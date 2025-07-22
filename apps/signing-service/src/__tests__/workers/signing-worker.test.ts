@@ -109,6 +109,7 @@ describe('SigningWorker', () => {
     const mockChainProvider = {
       getProvider: jest.fn().mockReturnValue({}),
       getChainId: jest.fn().mockReturnValue(80002),
+      getMulticall3Address: jest.fn().mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
       chain: 'polygon',
       network: 'testnet',
     };

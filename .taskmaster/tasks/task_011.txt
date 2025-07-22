@@ -1,5 +1,5 @@
 # Task ID: 11
-# Title: signing-service Multicall3 배치 전송 기능 구현
+# Title: [BFS-4] signing-service Multicall3 배치 전송 기능 구현
 # Status: in-progress
 # Dependencies: None
 # Priority: high
@@ -11,39 +11,120 @@ Multicall3 컨트랙트 주소 설정 (Polygon: 0xcA11bde05977b3631167028862bE2a
 Multicall3 컨트랙트 호출 테스트, 배치 전송 가스 계산 정확성 검증, 단일 vs 배치 전송 성능 비교 테스트, 최대 배치 크기 한계 테스트, 실패 시나리오 (가스 부족, 잘못된 토큰 주소) 테스트
 
 # Subtasks:
-## 1. Polygon Multicall3 컨트랙트 주소 설정 [pending]
+## 1. [BFS-2] Polygon Multicall3 컨트랙트 주소 설정 [done]
 ### Dependencies: None
 ### Description: Polygon 네트워크의 Multicall3 컨트랙트 주소를 환경 설정에 추가하고 네트워크별 구성 관리
 ### Details:
 환경 변수에 Multicall3 컨트랙트 주소 (0xcA11bde05977b3631167028862bE2a173976CA11) 추가, 네트워크별 주소 매핑 구성, 환경 설정 검증 로직 구현
+<info added on 2025-07-21T13:56:54.550Z>
+POLYGON_MULTICALL3_ADDRESS 환경 변수를 .env.sample에 추가 완료, config/index.ts에서 환경 변수 읽기와 주소 검증 로직이 구현됨, config/networks.ts 파일을 새로 생성하여 Amoy 테스트넷과 Polygon 메인넷 모두에 대해 Multicall3 주소 0xcA11bde05977b3631167028862bE2a173976CA11 매핑을 구성함
+</info added on 2025-07-21T13:56:54.550Z>
+<info added on 2025-07-21T14:20:16.702Z>
+기존 환경변수 기반 Multicall3 설정을 제거하고 중앙집중식 관리로 전환 완료. packages/shared/src/config/chains.config.json에 polygon, ethereum, bsc 체인 모두에 대해 multicall3Address 속성 추가됨. ChainProvider 클래스에 getMulticall3Address(chainType: ChainType) 메서드 구현하여 체인별 Multicall3 주소 조회 기능 제공. signing-service의 config/networks.ts와 환경변수 POLYGON_MULTICALL3_ADDRESS 설정 제거하여 중복 제거 및 일관된 설정 관리 달성.
+</info added on 2025-07-21T14:20:16.702Z>
 
-## 2. MulticallService 클래스 구현 [pending]
+## 2. [BFS-3] MulticallService 클래스 구현 [done]
 ### Dependencies: 11.1
 ### Description: 여러 ERC20 전송을 하나의 트랜잭션으로 배치 처리하는 MulticallService 핵심 클래스 개발
 ### Details:
 MulticallService 클래스 구조 설계, 배치 전송 요청 처리 메서드, Multicall3 컨트랙트와의 인터페이스 구현, 에러 핸들링 로직 추가
+<info added on 2025-07-21T14:35:33.022Z>
+MulticallService 클래스 구현이 완료되었습니다. apps/signing-service/src/services/multicall.service.ts 파일에 다음 주요 메서드들이 구현되었습니다: prepareBatchTransfer (배치 전송 준비), encodeBatchTransaction (트랜잭션 인코딩), validateBatch (배치 검증), getOptimalBatchSize (최적 배치 크기 계산). ChainProvider를 통해 Multicall3 컨트랙트 주소를 동적으로 가져오도록 설계하였으며, apps/signing-service/src/services/__tests__/multicall.service.test.ts 테스트 파일을 작성하여 모든 기능에 대한 검증을 완료했습니다.
+</info added on 2025-07-21T14:35:33.022Z>
 
-## 3. ABI 인코딩 및 calldata 생성 로직 구현 [pending]
+## 3. [BFS-14] ABI 인코딩 및 calldata 생성 로직 구현 [pending]
 ### Dependencies: 11.2
 ### Description: ERC20 전송을 위한 ABI 인코딩과 Multicall3용 calldata 생성 로직 개발
 ### Details:
 ERC20 transfer 함수 ABI 인코딩, Multicall3 aggregate 함수를 위한 calldata 배열 생성, 인코딩 정확성 검증, 바이트 데이터 최적화
 
-## 4. 배치 크기 최적화 로직 구현 [pending]
+## 4. [BFS-15] 배치 크기 최적화 로직 구현 [pending]
 ### Dependencies: 11.3
 ### Description: 가스 한도 내에서 최대 전송 수를 계산하는 배치 크기 최적화 기능 개발
 ### Details:
 가스 사용량 추정 로직, 블록 가스 한도 대비 최적 배치 크기 계산, 동적 배치 크기 조정 알고리즘, 가스비 효율성 분석
 
-## 5. TransactionSigner 확장 및 배치 서명 기능 추가 [pending]
+## 5. [BFS-16] TransactionSigner 확장 및 배치 서명 기능 추가 [pending]
 ### Dependencies: 11.4
 ### Description: 기존 TransactionSigner에 signBatchTransaction() 메서드를 추가하여 배치 트랜잭션 서명 지원
 ### Details:
 signBatchTransaction() 메서드 구현, 단일 트랜잭션과 배치 트랜잭션 서명 로직 통합, nonce 관리 개선, 서명 검증 로직 추가
 
-## 6. 데이터 모델 업데이트 및 통합 테스트 [pending]
+## 6. [BFS-17] 데이터 모델 업데이트 및 통합 테스트 [pending]
 ### Dependencies: 11.5
 ### Description: WithdrawalRequest 모델에 type 필드 추가 및 전체 Multicall3 기능 통합 테스트 수행
 ### Details:
 WithdrawalRequest 모델에 type: 'SINGLE' | 'BATCH' 필드 추가, 데이터베이스 스키마 업데이트, 단일/배치 전송 통합 테스트, 성능 비교 테스트 수행
+
+## 7. [BFS-18] Multicall3 컨트랙트 주소 설정 및 ChainProvider 확장 [pending]
+### Dependencies: None
+### Description: Polygon 메인넷 및 테스트넷에 대한 Multicall3 컨트랙트 주소 설정 및 ChainProvider에서 주소 조회 기능 구현
+### Details:
+Polygon 메인넷(0xcA11bde05977b3631167028862bE2a173976CA11) 및 Amoy 테스트넷 Multicall3 주소 추가, ChainProvider.getMulticallAddress() 메서드 구현, 네트워크별 주소 매핑 로직 추가, 환경 변수 기반 네트워크 선택 지원
+
+## 8. [BFS-19] MulticallService 클래스 리팩토링 및 확장 [pending]
+### Dependencies: 11.7
+### Description: 기존 MulticallService를 확장하여 실제 배치 전송 기능 완성 및 성능 최적화
+### Details:
+MulticallService에서 실제 Multicall3 컨트랙트 호출 로직 구현, 배치 전송 결과 파싱 및 처리, 가스 추정 로직 개선, aggregate3 메서드를 사용한 배치 호출 구현, 실패한 전송 건 개별 처리 로직 추가
+
+## 9. [BFS-20] ERC-20 ABI 인코딩 및 calldata 생성 로직 구현 [pending]
+### Dependencies: 11.8
+### Description: ERC-20 transfer 메서드를 위한 ABI 인코딩 로직 및 Multicall3용 calldata 생성 기능 구현
+### Details:
+Ethers.js Interface를 사용한 transfer 메서드 인코딩, Multicall3.Call 구조체 생성 로직, 다중 토큰 전송을 위한 calldata 배열 생성, 각 전송 건별 target, allowFailure, callData 설정, ABI 인코딩 오류 핸들링
+
+## 10. [BFS-21] 배치 크기 최적화 및 가스 계산 로직 [pending]
+### Dependencies: 11.9
+### Description: 가스 한도 내에서 최적의 배치 크기를 계산하고 동적으로 조정하는 기능 구현
+### Details:
+가스 한도 기반 최대 배치 크기 계산 알고리즘, 토큰별 전송 비용 추정, 배치 오버헤드 고려한 최적화, 동적 배치 분할 로직, Polygon 네트워크 가스 특성 반영, 배치 크기별 성능 테스트 및 벤치마킹
+
+## 11. [BFS-22] TransactionSigner 배치 전송 기능 확장 [pending]
+### Dependencies: 11.10
+### Description: TransactionSigner 클래스에 배치 트랜잭션 서명 기능 추가 및 기존 단일 전송과의 통합
+### Details:
+signBatchTransaction() 메서드 구현, 배치 트랜잭션 가스 추정 로직, EIP-1559 트랜잭션 타입 지원, 배치와 단일 전송 구분 로직, nonce 관리 개선, 트랜잭션 서명 실패 시 개별 전송으로 fallback 메커니즘
+
+## 12. [BFS-23] WithdrawalRequest 모델 업데이트 및 배치 처리 지원 [pending]
+### Dependencies: 11.11
+### Description: WithdrawalRequest 모델에 배치 전송 타입 필드 추가 및 관련 데이터베이스 스키마 업데이트
+### Details:
+WithdrawalRequest에 type 필드 추가 ('SINGLE' | 'BATCH'), batchId 필드 추가로 배치 그룹 관리, Prisma 스키마 업데이트, 기존 레코드와의 호환성 보장, 배치 전송 상태 추적 로직, 배치 내 개별 전송 상태 관리 기능
+
+## 13. [BFS-24] Multicall3 컨트랙트 주소 및 ABI 구성 설정 [pending]
+### Dependencies: None
+### Description: Polygon 네트워크용 Multicall3 컨트랙트 주소와 ABI 정의를 설정하고 네트워크별 구성 관리
+### Details:
+Polygon 메인넷 및 테스트넷용 Multicall3 컨트랙트 주소 (0xcA11bde05977b3631167028862bE2a173976CA11) 설정, Multicall3 ABI 정의, 네트워크별 설정 파일 구성, 컨트랙트 주소 검증 로직
+
+## 14. [BFS-25] MulticallService 클래스 기본 구조 구현 [pending]
+### Dependencies: None
+### Description: 배치 전송을 위한 MulticallService 클래스의 기본 구조와 의존성 주입 설정
+### Details:
+MulticallService 클래스 생성, Ethers.js Provider 및 Contract 인스턴스 초기화, 의존성 주입을 위한 생성자 설정, 기본 인터페이스 및 타입 정의, 에러 처리를 위한 기본 구조
+
+## 15. [BFS-26] ERC20 transfer ABI 인코딩 로직 구현 [pending]
+### Dependencies: None
+### Description: ERC20 토큰 전송을 위한 ABI 인코딩과 calldata 생성 기능 개발
+### Details:
+ERC20 transfer 함수 ABI 인코딩, 토큰 주소/수신자/금액 파라미터 검증, calldata 바이트 배열 생성, 인코딩 정확성 검증 로직, 인코딩 에러 핸들링
+
+## 16. [BFS-27] 배치 크기 최적화 및 가스 계산 로직 [pending]
+### Dependencies: None
+### Description: 가스 한도 내에서 최적의 배치 크기를 계산하고 가스비 추정 기능 구현
+### Details:
+배치 전송당 가스 소모량 추정, 가스 한도 기반 최대 배치 크기 계산, 동적 배치 크기 조정 알고리즘, 가스비 최적화 로직, 배치 분할 전략 구현
+
+## 17. [BFS-28] TransactionSigner에 배치 전송 메서드 확장 [pending]
+### Dependencies: None
+### Description: 기존 TransactionSigner 클래스에 signBatchTransaction() 메서드 추가 및 통합
+### Details:
+signBatchTransaction() 메서드 구현, Multicall3 트랜잭션 구조 생성, 기존 단일 전송과 배치 전송 로직 통합, 트랜잭션 타입별 분기 처리, 서명 검증 로직 확장
+
+## 18. [BFS-29] WithdrawalRequest 모델 및 데이터베이스 스키마 업데이트 [pending]
+### Dependencies: None
+### Description: 배치 전송 지원을 위한 모델 확장과 관련 데이터베이스 스키마 변경
+### Details:
+WithdrawalRequest 모델에 type 필드 추가 ('SINGLE' | 'BATCH'), 배치 전송 관련 추가 필드 정의, Prisma 스키마 업데이트, 기존 데이터 호환성 보장, 마이그레이션 스크립트 작성
 

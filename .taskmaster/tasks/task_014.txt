@@ -1,5 +1,5 @@
 # Task ID: 14
-# Title: DLQ(Dead Letter Queue) 핸들러 구현
+# Title: [BFS-7] DLQ(Dead Letter Queue) 핸들러 구현
 # Status: pending
 # Dependencies: 12
 # Priority: medium

@@ -1,5 +1,5 @@
 # Task ID: 13
-# Title: tx-monitor 서비스 구현
+# Title: [BFS-6] tx-monitor 서비스 구현
 # Status: pending
 # Dependencies: 12
 # Priority: high

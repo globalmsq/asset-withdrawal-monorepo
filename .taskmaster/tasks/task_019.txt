@@ -1,5 +1,5 @@
 # Task ID: 19
-# Title: WebSocket 실시간 통신 시스템 구현
+# Title: [BFS-12] WebSocket 실시간 통신 시스템 구현
 # Status: pending
 # Dependencies: 18
 # Priority: low

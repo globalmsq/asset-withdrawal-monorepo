@@ -1,5 +1,5 @@
 # Task ID: 15
-# Title: signing-service 잔액 검증 기능 구현
+# Title: [BFS-8] signing-service 잔액 검증 기능 구현
 # Status: pending
 # Dependencies: 11
 # Priority: medium

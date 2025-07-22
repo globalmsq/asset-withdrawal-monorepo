@@ -4,6 +4,78 @@
 
 This is a Polygon-focused blockchain withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests on the Polygon network, processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status.
 
+## Jira Integration
+
+### Project Information
+- **Jira Project Key**: BFS (Blockchain Finance Solutions)
+- **Jira Site**: mufin-ss.atlassian.net
+- **Epic**: BFS-1 (Polygon Asset Withdrawal System Implementation)
+
+### Task-Jira Sync Guidelines
+- All Task Master tasks should be synced to Jira for tracking
+- Task descriptions in Jira should be written in English
+- Each task should have its Jira key stored in the `jiraKey` field in tasks.json
+- Current Jira mapping:
+  - Task 11 → BFS-4 (Story, In Progress)
+    - Task 11.1 → BFS-2 (Sub-task, Done)
+    - Task 11.2 → BFS-3 (Sub-task, Done)
+    - Task 11.3 → BFS-14 (Sub-task)
+    - Task 11.4 → BFS-15 (Sub-task)
+    - Task 11.5 → BFS-16 (Sub-task)
+    - Task 11.6 → BFS-17 (Sub-task)
+    - Task 11.7 → BFS-18 (Sub-task)
+    - Task 11.8 → BFS-19 (Sub-task)
+    - Task 11.9 → BFS-20 (Sub-task)
+    - Task 11.10 → BFS-21 (Sub-task)
+    - Task 11.11 → BFS-22 (Sub-task)
+    - Task 11.12 → BFS-23 (Sub-task)
+    - Task 11.13 → BFS-24 (Sub-task)
+    - Task 11.14 → BFS-25 (Sub-task)
+    - Task 11.15 → BFS-26 (Sub-task)
+    - Task 11.16 → BFS-27 (Sub-task)
+    - Task 11.17 → BFS-28 (Sub-task)
+    - Task 11.18 → BFS-29 (Sub-task)
+  - Task 12 → BFS-5 (Story)
+  - Task 13 → BFS-6 (Story)
+  - Task 14 → BFS-7 (Story)
+  - Task 15 → BFS-8 (Story)
+  - Task 16 → BFS-9 (Story)
+  - Task 17 → BFS-10 (Story)
+  - Task 18 → BFS-11 (Story)
+  - Task 19 → BFS-12 (Story)
+  - Task 20 → BFS-13 (Story)
+
+### Jira Key Management Guidelines
+
+#### Important Rules
+1. **Task Master Titles**: Include Jira key as prefix `[BFS-X]` in Task Master task titles
+2. **Jira Issue Titles**: Keep original titles in Jira without prefix (to avoid duplication)
+3. **JSON Storage**: Store Jira key in `jiraKey` field in tasks.json
+4. **Title Updates**: When updating Task Master titles, DO NOT update Jira issue titles
+
+#### Workflow
+1. When creating new tasks in Task Master, also create corresponding Jira issues
+2. Update Jira issue status when Task Master task status changes
+3. Add implementation notes to Jira issues for documentation
+4. Use Jira for collaboration with other team members
+
+#### Key Management Process
+1. **Creating New Tasks**:
+   - Create task in Task Master
+   - Create corresponding Jira issue (without prefix in title)
+   - Add Jira key to tasks.json `jiraKey` field
+   - Update Task Master title to include `[BFS-X]` prefix
+
+2. **Syncing Status**:
+   - When Task Master status changes → Update Jira status
+   - Keep Task Master as source of truth for task details
+   - Use Jira for team collaboration and external visibility
+
+3. **Title Format**:
+   - Task Master: `[BFS-X] Task Title`
+   - Jira: `Task Title` (no prefix)
+   - This prevents duplication and maintains clarity in both systems
+
 ## Development Workflow
 
 ### 1. Planning Phase

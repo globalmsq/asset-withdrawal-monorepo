@@ -113,11 +113,19 @@ describe('SigningWorker Validation', () => {
         findMany: jest.fn(),
         update: jest.fn(),
         updateMany: jest.fn(),
+        findUnique: jest.fn().mockResolvedValue({
+          status: TransactionStatus.PENDING,
+          processingInstanceId: null,
+        }),
       },
       batchTransaction: {
         create: jest.fn(),
         update: jest.fn(),
       },
+      $transaction: jest.fn().mockImplementation(async (fn) => {
+        // Execute the transaction function with the mock client
+        return await fn(mockDbClient);
+      }),
     };
 
     mockDatabaseService = {
@@ -326,6 +334,15 @@ describe('SigningWorker Validation', () => {
 
       mockInputQueue.receiveMessages.mockResolvedValue([validMessage, invalidMessage]);
 
+      // Mock the claiming process - messages are successfully claimed
+      mockDbClient.withdrawalRequest.findUnique
+        .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }) // validMessage
+        .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }); // invalidMessage
+      
+      mockDbClient.withdrawalRequest.update
+        .mockResolvedValueOnce({ requestId: 'test-1', status: TransactionStatus.VALIDATING })
+        .mockResolvedValueOnce({ requestId: 'test-2', status: TransactionStatus.VALIDATING });
+
       // Mock withdrawal request findMany to return empty (no previous attempts)
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
 
@@ -411,6 +428,16 @@ describe('SigningWorker Validation', () => {
       ];
 
       mockInputQueue.receiveMessages.mockResolvedValue(invalidMessages);
+      
+      // Mock the claiming process - messages are successfully claimed
+      mockDbClient.withdrawalRequest.findUnique
+        .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }) // msg-1
+        .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }); // msg-2
+      
+      mockDbClient.withdrawalRequest.update
+        .mockResolvedValueOnce({ requestId: 'test-1', status: TransactionStatus.VALIDATING })
+        .mockResolvedValueOnce({ requestId: 'test-2', status: TransactionStatus.VALIDATING });
+      
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
 
       // Execute processBatch
@@ -455,6 +482,14 @@ describe('SigningWorker Validation', () => {
       };
 
       mockInputQueue.receiveMessages.mockResolvedValue([invalidMessage]);
+      
+      // Mock the claiming process - message is successfully claimed
+      mockDbClient.withdrawalRequest.findUnique
+        .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null });
+      
+      mockDbClient.withdrawalRequest.update
+        .mockResolvedValueOnce({ requestId: 'test-1', status: TransactionStatus.VALIDATING });
+      
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
 
       // Make updateStatusWithError fail

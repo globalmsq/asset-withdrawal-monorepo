@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
     `processingMode` VARCHAR(10) NOT NULL DEFAULT 'SINGLE',
     `batchId` VARCHAR(36) NULL,
     `tryCount` INT UNSIGNED NOT NULL DEFAULT 0,
+    `processingInstanceId` VARCHAR(100) NULL,
+    `processingStartedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
@@ -67,6 +69,7 @@ CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
     INDEX `withdrawal_requests_createdAt_idx`(`createdAt`),
     INDEX `withdrawal_requests_batchId_idx`(`batchId`),
     INDEX `withdrawal_requests_processingMode_idx`(`processingMode`),
+    INDEX `withdrawal_requests_status_processingInstanceId_idx`(`status`, `processingInstanceId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

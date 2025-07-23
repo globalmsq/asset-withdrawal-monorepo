@@ -35,6 +35,8 @@ model WithdrawalRequest {
   processingMode String            @default("SINGLE") @db.VarChar(10) // SINGLE, BATCH, or BULK
   batchId       String?            @db.VarChar(36) // Reference to BatchTransaction (nullable for single transactions)
   tryCount      Int                @default(0) @db.UnsignedInt // Number of signing attempts
+  processingInstanceId String?       @db.VarChar(100) // Instance ID that's currently processing this request
+  processingStartedAt  DateTime?     // When processing started by the instance
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
@@ -43,6 +45,7 @@ model WithdrawalRequest {
   @@index([createdAt]) // Better time-based queries with rearranged UUID
   @@index([batchId])
   @@index([processingMode])
+  @@index([status, processingInstanceId])
   @@map("withdrawal_requests")
 }
 

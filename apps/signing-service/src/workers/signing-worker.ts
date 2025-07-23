@@ -11,6 +11,7 @@ import { Logger } from '../utils/logger';
 import { Config } from '../config';
 import { ethers } from 'ethers';
 import * as crypto from 'crypto';
+import * as os from 'os';
 
 export class SigningWorker extends BaseWorker<
   WithdrawalRequest,
@@ -25,6 +26,7 @@ export class SigningWorker extends BaseWorker<
   private chainProvider: any;
   private auditLogger: Logger;
   private dbClient: any; // Prisma client for BatchTransaction operations
+  private readonly instanceId: string;
 
   constructor(
     private config: Config,
@@ -49,6 +51,9 @@ export class SigningWorker extends BaseWorker<
     );
 
     this.auditLogger = logger;
+
+    // Generate unique instance ID
+    this.instanceId = `${os.hostname()}-${process.pid}-${Date.now()}`;
 
     // Initialize database with config
     const dbService = DatabaseService.getInstance(config.database);
@@ -96,7 +101,82 @@ export class SigningWorker extends BaseWorker<
     }
 
     await this.transactionSigner.initialize();
-    this.auditLogger.info('SigningWorker initialized successfully');
+    this.auditLogger.info('SigningWorker initialized successfully', {
+      instanceId: this.instanceId,
+    });
+  }
+
+  /**
+   * Claims messages atomically to prevent multiple instances from processing the same message
+   * @param messages Messages received from the queue
+   * @returns Messages successfully claimed by this instance
+   */
+  private async claimMessages(messages: Message<WithdrawalRequest>[]): Promise<Message<WithdrawalRequest>[]> {
+    const claimedMessages: Message<WithdrawalRequest>[] = [];
+
+    for (const message of messages) {
+      try {
+        // Use transaction to atomically update status
+        const result = await this.dbClient.$transaction(async (tx: any) => {
+          const existing = await tx.withdrawalRequest.findUnique({
+            where: { requestId: message.body.id },
+            select: { status: true, processingInstanceId: true },
+          });
+
+          // Check if already being processed or completed
+          if (!existing) {
+            this.auditLogger.warn('Withdrawal request not found in database', {
+              requestId: message.body.id,
+            });
+            return null;
+          }
+
+          if (existing.status !== TransactionStatus.PENDING) {
+            this.auditLogger.info('Withdrawal request already being processed or completed', {
+              requestId: message.body.id,
+              status: existing.status,
+              processingInstanceId: existing.processingInstanceId,
+            });
+            return null;
+          }
+
+          // Claim the message by updating status
+          return await tx.withdrawalRequest.update({
+            where: {
+              requestId: message.body.id,
+              status: TransactionStatus.PENDING, // Conditional update
+            },
+            data: {
+              status: TransactionStatus.VALIDATING,
+              processingInstanceId: this.instanceId,
+              processingStartedAt: new Date(),
+            },
+          });
+        });
+
+        if (result) {
+          claimedMessages.push(message);
+          this.auditLogger.info('Successfully claimed message', {
+            requestId: message.body.id,
+            instanceId: this.instanceId,
+          });
+        } else {
+          // Another instance is processing this message, remove from queue
+          await this.inputQueue.deleteMessage(message.receiptHandle);
+          this.auditLogger.info('Message already claimed by another instance, removed from queue', {
+            requestId: message.body.id,
+          });
+        }
+      } catch (error) {
+        this.auditLogger.error('Failed to claim message', error, {
+          requestId: message.body.id,
+          instanceId: this.instanceId,
+        });
+        // Don't process messages we couldn't claim
+      }
+    }
+
+    return claimedMessages;
   }
 
   protected async processBatch(): Promise<void> {
@@ -124,13 +204,23 @@ export class SigningWorker extends BaseWorker<
       return;
     }
 
-    this.auditLogger.info(`Processing batch of ${messages.length} messages`);
+    this.auditLogger.info(`Received ${messages.length} messages from queue`);
 
-    // Validate messages immediately after reading from queue
+    // First, claim messages to prevent other instances from processing them
+    const claimedMessages = await this.claimMessages(messages);
+
+    if (claimedMessages.length === 0) {
+      this.auditLogger.info('No messages successfully claimed');
+      return;
+    }
+
+    this.auditLogger.info(`Successfully claimed ${claimedMessages.length} messages`);
+
+    // Validate claimed messages
     const validMessages: Message<WithdrawalRequest>[] = [];
     const invalidMessages: Message<WithdrawalRequest>[] = [];
 
-    for (const message of messages) {
+    for (const message of claimedMessages) {
       const validationError = this.validateWithdrawalRequest(message.body);
       if (validationError) {
         invalidMessages.push(message);
@@ -424,24 +514,43 @@ export class SigningWorker extends BaseWorker<
     await Promise.all(messagePromises);
   }
 
-  private async processBatchGroup(tokenAddress: string, messages: Message<WithdrawalRequest>[]): Promise<void> {
-    this.auditLogger.info('Processing batch group', {
-      tokenAddress,
-      messageCount: messages.length,
-    });
+  /**
+   * Creates a batch transaction with locking to prevent concurrent processing
+   * @param tokenAddress Token address for the batch
+   * @param messages Messages to include in the batch
+   * @returns BatchTransaction if successful, null if messages were already claimed
+   */
+  private async createBatchWithLocking(tokenAddress: string, messages: Message<WithdrawalRequest>[]): Promise<any | null> {
+    return await this.dbClient.$transaction(async (tx: any) => {
+      // Verify all messages are still available for this instance
+      const requestIds = messages.map(m => m.body.id);
+      const validRequests = await tx.withdrawalRequest.findMany({
+        where: {
+          requestId: { in: requestIds },
+          status: TransactionStatus.VALIDATING,
+          processingInstanceId: this.instanceId,
+        },
+      });
 
-    // Calculate total amount and get symbol (all messages should have the same token/symbol)
-    const totalAmount = messages.reduce((sum, msg) => {
-      return sum + BigInt(msg.body.amount);
-    }, 0n).toString();
+      if (validRequests.length !== messages.length) {
+        // Some messages were processed by another instance
+        this.auditLogger.warn('Some messages were already processed by another instance', {
+          expected: messages.length,
+          found: validRequests.length,
+          tokenAddress,
+        });
+        return null;
+      }
 
-    // Get symbol from the first message (all should be the same since they're grouped by token)
-    const symbol = messages[0]?.body.symbol || 'UNKNOWN';
+      // Calculate total amount and get symbol
+      const totalAmount = messages.reduce((sum, msg) => {
+        return sum + BigInt(msg.body.amount);
+      }, 0n).toString();
 
-    let batchTransaction: any;
-    try {
-      // Create BatchTransaction record
-      batchTransaction = await this.dbClient.batchTransaction.create({
+      const symbol = messages[0]?.body.symbol || 'UNKNOWN';
+
+      // Create batch transaction
+      const batch = await tx.batchTransaction.create({
         data: {
           multicallAddress: this.chainProvider.getMulticall3Address(),
           totalRequests: messages.length,
@@ -455,16 +564,47 @@ export class SigningWorker extends BaseWorker<
         },
       });
 
-      // Update withdrawal requests with batchId and increment try count
-      const requestIds = messages.map(m => m.body.id);
-      await this.dbClient.withdrawalRequest.updateMany({
+      // Update all withdrawal requests atomically
+      await tx.withdrawalRequest.updateMany({
         where: { requestId: { in: requestIds } },
         data: {
-          batchId: batchTransaction.id.toString(),
+          batchId: batch.id.toString(),
           processingMode: 'BATCH',
           status: TransactionStatus.SIGNING,
           tryCount: { increment: 1 },
         },
+      });
+
+      return batch;
+    });
+  }
+
+  private async processBatchGroup(tokenAddress: string, messages: Message<WithdrawalRequest>[]): Promise<void> {
+    this.auditLogger.info('Processing batch group', {
+      tokenAddress,
+      messageCount: messages.length,
+      instanceId: this.instanceId,
+    });
+
+    let batchTransaction: any;
+    try {
+      // Create batch transaction with locking
+      batchTransaction = await this.createBatchWithLocking(tokenAddress, messages);
+
+      if (!batchTransaction) {
+        this.auditLogger.warn('Failed to create batch - messages already processed', {
+          tokenAddress,
+          messageCount: messages.length,
+        });
+        // Remove messages from queue as they're being processed elsewhere
+        await Promise.all(messages.map(msg => this.inputQueue.deleteMessage(msg.receiptHandle)));
+        return;
+      }
+
+      this.auditLogger.info('Batch transaction created', {
+        batchId: batchTransaction.id.toString(),
+        tokenAddress,
+        messageCount: messages.length,
       });
 
       // Prepare batch transfers with address normalization
@@ -553,7 +693,7 @@ export class SigningWorker extends BaseWorker<
           txHash: signedBatchTx.hash,
           messageCount: messages.length,
           tokenAddress,
-          totalAmount,
+          totalAmount: batchTransaction.totalAmount,
         },
       });
 
@@ -628,14 +768,42 @@ export class SigningWorker extends BaseWorker<
       // Validation is already done in processBatch()
       // This method only handles single transaction signing
 
-      // Update withdrawal request status to SIGNING and increment try count
-      await this.dbClient.withdrawalRequest.update({
-        where: { requestId: transactionId },
-        data: {
-          status: TransactionStatus.SIGNING,
-          tryCount: { increment: 1 },
-        },
+      // Update withdrawal request status to SIGNING with conditional check
+      const updated = await this.dbClient.$transaction(async (tx: any) => {
+        // Verify the request is still owned by this instance
+        const existing = await tx.withdrawalRequest.findUnique({
+          where: { requestId: transactionId },
+          select: { status: true, processingInstanceId: true },
+        });
+
+        if (!existing || existing.processingInstanceId !== this.instanceId) {
+          this.auditLogger.warn('Request no longer owned by this instance', {
+            transactionId,
+            currentInstanceId: this.instanceId,
+            ownerInstanceId: existing?.processingInstanceId,
+          });
+          return null;
+        }
+
+        // Update status to SIGNING
+        return await tx.withdrawalRequest.update({
+          where: {
+            requestId: transactionId,
+            processingInstanceId: this.instanceId, // Ensure we still own it
+          },
+          data: {
+            status: TransactionStatus.SIGNING,
+            tryCount: { increment: 1 },
+          },
+        });
       });
+
+      if (!updated) {
+        this.auditLogger.info('Skipping transaction - no longer owned by this instance', {
+          transactionId,
+        });
+        return null;
+      }
 
       this.auditLogger.auditSuccess('SIGN_TRANSACTION_START', {
         transactionId,

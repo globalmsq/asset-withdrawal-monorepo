@@ -104,14 +104,28 @@ describe('SigningWorker', () => {
       findByRequestId: jest.fn().mockResolvedValue([]),
     } as any;
 
-    mockDatabaseService = {
-      getClient: jest.fn().mockReturnValue({
-        withdrawalRequest: {
-          update: jest.fn().mockResolvedValue({}),
-          updateMany: jest.fn().mockResolvedValue({}),
-          findMany: jest.fn().mockResolvedValue([]),
-        },
+    const mockDbClient = {
+      withdrawalRequest: {
+        update: jest.fn().mockResolvedValue({}),
+        updateMany: jest.fn().mockResolvedValue({}),
+        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue({
+          status: TransactionStatus.VALIDATING,
+          processingInstanceId: 'test-instance',
+        }),
+      },
+      batchTransaction: {
+        create: jest.fn().mockResolvedValue({ id: 123n }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      $transaction: jest.fn().mockImplementation(async (fn) => {
+        // Execute the transaction function with the mock client
+        return await fn(mockDbClient);
       }),
+    };
+
+    mockDatabaseService = {
+      getClient: jest.fn().mockReturnValue(mockDbClient),
       getInstance: jest.fn(),
       healthCheck: jest.fn().mockResolvedValue(true),
     } as any;
@@ -165,13 +179,34 @@ describe('SigningWorker', () => {
       // Mock the transaction signer
       const signingWorkerAny = signingWorker as any;
       signingWorkerAny.transactionSigner = mockTransactionSigner;
+      signingWorkerAny.instanceId = 'test-instance-id';
 
       await signingWorker.initialize();
+      
+      // Mock that this instance owns the message
+      const mockDbClient = mockDatabaseService.getClient();
+      mockDbClient.withdrawalRequest.findUnique.mockResolvedValue({
+        status: TransactionStatus.VALIDATING,
+        processingInstanceId: 'test-instance-id',
+      });
+      
+      // Mock the update to return a value (indicating success)
+      mockDbClient.withdrawalRequest.update.mockResolvedValue({ 
+        requestId: 'test-tx-123',
+        status: TransactionStatus.SIGNING,
+      });
+      
       const result = await signingWorker.processMessage(withdrawalRequest);
 
-      const mockDbClient = mockDatabaseService.getClient();
+      // Check that the transaction was called to verify ownership and update status
+      expect(mockDbClient.$transaction).toHaveBeenCalled();
+      
+      // Verify the update was called within the transaction
       expect(mockDbClient.withdrawalRequest.update).toHaveBeenCalledWith({
-        where: { requestId: 'test-tx-123' },
+        where: { 
+          requestId: 'test-tx-123',
+          processingInstanceId: 'test-instance-id',
+        },
         data: {
           status: TransactionStatus.SIGNING,
           tryCount: { increment: 1 },
@@ -270,8 +305,22 @@ describe('SigningWorker', () => {
 
       const signingWorkerAny = signingWorker as any;
       signingWorkerAny.transactionSigner = mockTransactionSigner;
+      signingWorkerAny.instanceId = 'test-instance-id';
 
       await signingWorker.initialize();
+      
+      // Mock that this instance owns the message
+      const mockDbClient = mockDatabaseService.getClient();
+      mockDbClient.withdrawalRequest.findUnique.mockResolvedValue({
+        status: TransactionStatus.VALIDATING,
+        processingInstanceId: 'test-instance-id',
+      });
+      
+      // Mock the update to return a value (indicating success)
+      mockDbClient.withdrawalRequest.update.mockResolvedValue({ 
+        requestId: 'test-tx-123',
+        status: TransactionStatus.SIGNING,
+      });
 
       await expect(signingWorker.processMessage(withdrawalRequest)).rejects.toThrow('nonce too low');
 
@@ -299,8 +348,23 @@ describe('SigningWorker', () => {
 
       const signingWorkerAny = signingWorker as any;
       signingWorkerAny.transactionSigner = mockTransactionSigner;
+      signingWorkerAny.instanceId = 'test-instance-id';
 
       await signingWorker.initialize();
+      
+      // Mock that this instance owns the message
+      const mockDbClient = mockDatabaseService.getClient();
+      mockDbClient.withdrawalRequest.findUnique.mockResolvedValue({
+        status: TransactionStatus.VALIDATING,
+        processingInstanceId: 'test-instance-id',
+      });
+      
+      // Mock the update to return a value (indicating success)
+      mockDbClient.withdrawalRequest.update.mockResolvedValue({ 
+        requestId: 'test-tx-123',
+        status: TransactionStatus.SIGNING,
+      });
+      
       const result = await signingWorker.processMessage(withdrawalRequest);
 
       expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
@@ -324,7 +388,12 @@ describe('SigningWorker', () => {
       await signingWorker.initialize();
 
       expect(mockTransactionSigner.initialize).toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith('SigningWorker initialized successfully');
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'SigningWorker initialized successfully',
+        expect.objectContaining({
+          instanceId: expect.any(String),
+        })
+      );
     });
   });
 
@@ -398,7 +467,15 @@ describe('SigningWorker', () => {
           update: jest.fn().mockResolvedValue({}),
           updateMany: jest.fn().mockResolvedValue({}),
           findMany: jest.fn().mockResolvedValue([]), // Default: no previous attempts
+          findUnique: jest.fn().mockResolvedValue({
+            status: TransactionStatus.VALIDATING,
+            processingInstanceId: 'test-instance-id',
+          }),
         },
+        $transaction: jest.fn().mockImplementation(async (fn) => {
+          // Execute the transaction function with the mock client
+          return await fn(mockDbClient);
+        }),
       };
 
       mockMulticallService = {
@@ -617,9 +694,26 @@ describe('SigningWorker', () => {
     describe('processBatchGroup', () => {
       it('should successfully process a batch group', async () => {
         const signingWorkerAny = signingWorker as any;
+        signingWorkerAny.instanceId = 'test-instance-id';
+        
+        // Mock the createBatchWithLocking to return a batch transaction
+        mockDbClient.withdrawalRequest.findMany.mockResolvedValue([
+          { requestId: 'req-1', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
+          { requestId: 'req-2', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
+          { requestId: 'req-3', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
+        ]);
+        
+        mockDbClient.batchTransaction.create.mockResolvedValue({
+          id: 123n,
+          totalAmount: '6000000000000000000',
+        });
+        
         await signingWorkerAny.processBatchGroup('0xaaa1234567890123456789012345678901234567', mockMessages);
 
-        // Verify BatchTransaction creation
+        // Verify that transaction was called (for createBatchWithLocking)
+        expect(mockDbClient.$transaction).toHaveBeenCalled();
+        
+        // Verify BatchTransaction creation was called within transaction
         expect(mockDbClient.batchTransaction.create).toHaveBeenCalledWith({
           data: expect.objectContaining({
             multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
@@ -631,7 +725,7 @@ describe('SigningWorker', () => {
           }),
         });
 
-        // Verify withdrawal requests update
+        // Verify withdrawal requests update was called within transaction
         expect(mockDbClient.withdrawalRequest.updateMany).toHaveBeenCalledWith({
           where: { requestId: { in: ['req-1', 'req-2', 'req-3'] } },
           data: expect.objectContaining({
@@ -668,6 +762,19 @@ describe('SigningWorker', () => {
         mockTransactionSigner.signBatchTransaction.mockRejectedValue(new Error('Signing failed'));
 
         const signingWorkerAny = signingWorker as any;
+        signingWorkerAny.instanceId = 'test-instance-id';
+        
+        // Mock the createBatchWithLocking to return a batch transaction
+        mockDbClient.withdrawalRequest.findMany.mockResolvedValue([
+          { requestId: 'req-1', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
+          { requestId: 'req-2', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
+          { requestId: 'req-3', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
+        ]);
+        
+        mockDbClient.batchTransaction.create.mockResolvedValue({
+          id: 123n,
+          totalAmount: '6000000000000000000',
+        });
 
         // Should not throw error, just handle it internally
         await signingWorkerAny.processBatchGroup('0xaaa1234567890123456789012345678901234567', mockMessages);
@@ -728,9 +835,23 @@ describe('SigningWorker', () => {
 
         // Mock gas price cache
         const signingWorkerAny = signingWorker as any;
+        signingWorkerAny.instanceId = 'test-instance-id';
         signingWorkerAny.gasPriceCache = {
           isValid: jest.fn().mockReturnValue(true),
         };
+
+        // Mock the claiming process - all messages are successfully claimed
+        mockDbClient.withdrawalRequest.findUnique
+          .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null })
+          .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null })
+          .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null })
+          .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null });
+        
+        mockDbClient.withdrawalRequest.update
+          .mockResolvedValueOnce({ requestId: 'req-1', status: TransactionStatus.VALIDATING })
+          .mockResolvedValueOnce({ requestId: 'req-2', status: TransactionStatus.VALIDATING })
+          .mockResolvedValueOnce({ requestId: 'req-3', status: TransactionStatus.VALIDATING })
+          .mockResolvedValueOnce({ requestId: 'req-4', status: TransactionStatus.VALIDATING });
 
         // Mock DB to return some messages with previous attempts
         mockDbClient.withdrawalRequest.findMany.mockResolvedValue([

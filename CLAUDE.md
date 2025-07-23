@@ -24,6 +24,7 @@ Jira synchronization means creating, updating, and maintaining consistency betwe
 5. **Bidirectional Sync**: Both Task Master and Jira should always reflect the same status
 6. **Language**: When creating or updating Jira issues, always use English for titles, descriptions, and comments
 7. **Using Existing Jira Keys**: Task Master tasks already contain Jira keys internally. Use `task-master show <id>` to find the Jira key (e.g., BFS-30) and use that key for Jira synchronization
+8. **EPIC Association**: All Jira issues must be associated with an EPIC. When creating or synchronizing Jira issues, always set the EPIC link field
 
 #### Complete Synchronization Workflow
 
@@ -31,16 +32,18 @@ Jira synchronization means creating, updating, and maintaining consistency betwe
 When a new task is created in Task Master:
 1. Create task in Task Master
 2. Create corresponding Jira issue (Story for main tasks, Sub-task for subtasks)
-3. Add Jira key to tasks.json `jiraKey` field
-4. Update Task Master title to include `[PROJECT-KEY]` prefix
-5. Ensure both systems show the same initial status
+3. **Set EPIC link**: Associate the Jira issue with the appropriate EPIC
+4. Add Jira key to tasks.json `jiraKey` field
+5. Update Task Master title to include `[PROJECT-KEY]` prefix
+6. Ensure both systems show the same initial status
 
 ##### 1.5. Synchronizing Existing Tasks
 For tasks that already have Jira keys stored in Task Master:
 1. Use `task-master show <id>` to view task details and find the Jira key
 2. Use the Jira key directly with MCP Atlassian tools (e.g., search with `key = BFS-30`)
-3. Update Jira status to match Task Master status
-4. Add implementation notes or completion summaries to Jira
+3. **Verify EPIC link**: Ensure the Jira issue is linked to the appropriate EPIC
+4. Update Jira status to match Task Master status
+5. Add implementation notes or completion summaries to Jira
 
 ##### 2. Starting Work on a Task
 **MANDATORY**: When beginning any task:
@@ -75,14 +78,79 @@ Claude Code can directly update Jira statuses using the MCP Atlassian server con
 
 ## Development Workflow
 
-### 1. Planning Phase
+### 1. Git Workflow Guidelines
+
+#### Branch Management
+1. **Never work directly on main branch** - Always create and work on feature branches
+2. **Branch naming convention**: `[JIRA-KEY]_descriptive-name`
+   - Example: `BFS-32_hardhat-localhost-support`
+   - Use parent task's Jira key
+   - Use lowercase and hyphens
+
+#### Commit Message Convention
+1. **Jira key prefix required**: All commit messages must start with `[JIRA-KEY]` prefix
+2. **Format**: `[BFS-00] type: description`
+   - Example: `[BFS-32] feat: add Hardhat localhost network support`
+   - Example: `[BFS-32] fix: resolve nonce collision in tx-broadcaster`
+3. **Type prefixes**:
+   - `feat:` New feature
+   - `fix:` Bug fix
+   - `docs:` Documentation changes
+   - `style:` Code formatting (no logic changes)
+   - `refactor:` Code refactoring
+   - `test:` Test additions/modifications
+   - `chore:` Build/configuration changes
+
+#### Pull Request Workflow
+1. **Create feature branch**:
+   ```bash
+   git checkout -b BFS-32_hardhat-localhost-support
+   ```
+
+2. **Commit with Jira key**:
+   ```bash
+   git commit -m "[BFS-32] feat: implement Hardhat node configuration"
+   ```
+
+3. **Push to remote**:
+   ```bash
+   git push -u origin BFS-32_hardhat-localhost-support
+   ```
+
+4. **Create Pull Request**:
+   ```bash
+   gh pr create --title "[BFS-32] Hardhat localhost network support" \
+                --body "Implementation of Hardhat node for local development..."
+   ```
+
+5. **PR Title Format**: `[JIRA-KEY] Description`
+6. **PR Description**: Include implementation details and testing notes
+
+#### Example Workflow
+```bash
+# 1. Start new task
+task-master show 22  # Get Jira key (e.g., BFS-32)
+
+# 2. Create branch
+git checkout -b BFS-32_hardhat-localhost-support
+
+# 3. Make changes and commit
+git add .
+git commit -m "[BFS-32] feat: add Hardhat configuration"
+
+# 4. Push and create PR
+git push -u origin BFS-32_hardhat-localhost-support
+gh pr create --title "[BFS-32] Hardhat localhost network support"
+```
+
+### 2. Planning Phase
 
 - First, thoroughly analyze the problem and read relevant codebase files
 - Write a detailed plan to `plan.md` with specific todo items
 - Check in with the developer before starting implementation
 - Keep all changes simple and minimal - avoid complex modifications
 
-### 2. Implementation Guidelines
+### 3. Implementation Guidelines
 
 #### Code Style
 

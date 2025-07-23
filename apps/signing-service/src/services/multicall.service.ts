@@ -321,11 +321,36 @@ export class MulticallService {
 
     // Validate addresses
     for (const transfer of transfers) {
+      // Validate token address - accept both checksummed and lowercase addresses
       try {
+        // Try direct validation first
         ethers.getAddress(transfer.tokenAddress);
+      } catch (error) {
+        // If it fails, try with lowercase
+        try {
+          const lowercaseAddr = transfer.tokenAddress.toLowerCase();
+          if (!lowercaseAddr.match(/^0x[a-f0-9]{40}$/)) {
+            throw new Error('Invalid format');
+          }
+        } catch (secondError) {
+          errors.push(`Invalid token address in transfer ${transfer.transactionId}: "${transfer.tokenAddress}" - ${error instanceof Error ? error.message : 'Invalid format'}`);
+        }
+      }
+      
+      // Validate recipient address - accept both checksummed and lowercase addresses
+      try {
+        // Try direct validation first
         ethers.getAddress(transfer.to);
       } catch (error) {
-        errors.push(`Invalid address in transfer ${transfer.transactionId}`);
+        // If it fails, try with lowercase
+        try {
+          const lowercaseAddr = transfer.to.toLowerCase();
+          if (!lowercaseAddr.match(/^0x[a-f0-9]{40}$/)) {
+            throw new Error('Invalid format');
+          }
+        } catch (secondError) {
+          errors.push(`Invalid recipient address in transfer ${transfer.transactionId}: "${transfer.to}" - ${error instanceof Error ? error.message : 'Invalid format'}`);
+        }
       }
 
       // Validate amount

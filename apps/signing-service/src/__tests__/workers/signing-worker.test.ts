@@ -521,6 +521,29 @@ describe('SigningWorker', () => {
         expect(groups.size).toBe(1);
         expect(groups.get('0xaaa1234567890123456789012345678901234567')).toHaveLength(2);
       });
+
+      it('should handle addresses with invalid checksum', () => {
+        // This address has invalid checksum: 0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd
+        const checksumMessages = [
+          {
+            id: 'msg-1',
+            receiptHandle: 'receipt-1',
+            body: {
+              id: 'req-1',
+              amount: '1000000000000000000',
+              toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd', // Invalid checksum
+              tokenAddress: '0xAAA1234567890123456789012345678901234567',
+              network: 'polygon',
+            },
+          },
+        ];
+
+        const signingWorkerAny = signingWorker as any;
+        // This should not throw an error - addresses should be normalized
+        expect(() => {
+          const transfers = signingWorkerAny.processBatchGroup('0xaaa1234567890123456789012345678901234567', checksumMessages);
+        }).not.toThrow();
+      });
     });
 
     describe('calculateGasSavings', () => {

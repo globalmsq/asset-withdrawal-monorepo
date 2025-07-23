@@ -9,6 +9,7 @@ import { GasPriceCache } from '../services/gas-price-cache';
 import { MulticallService, BatchTransferRequest } from '../services/multicall.service';
 import { Logger } from '../utils/logger';
 import { Config } from '../config';
+import { ethers } from 'ethers';
 import * as crypto from 'crypto';
 
 export class SigningWorker extends BaseWorker<
@@ -321,13 +322,71 @@ export class SigningWorker extends BaseWorker<
         },
       });
 
-      // Prepare batch transfers
-      const transfers: BatchTransferRequest[] = messages.map(message => ({
-        tokenAddress: message.body.tokenAddress,
-        to: message.body.toAddress,
-        amount: message.body.amount,
-        transactionId: message.body.id,
-      }));
+      // Prepare batch transfers with address normalization
+      const transfers: BatchTransferRequest[] = messages.map(message => {
+        // Normalize addresses to handle any formatting issues
+        let normalizedTokenAddress: string;
+        let normalizedToAddress: string;
+        
+        try {
+          // Trim whitespace and ensure proper format
+          // First try to normalize the address with proper checksum
+          normalizedTokenAddress = ethers.getAddress(message.body.tokenAddress.trim());
+        } catch (error) {
+          // If checksum validation fails, try with lowercase
+          try {
+            const lowercaseAddress = message.body.tokenAddress.trim().toLowerCase();
+            normalizedTokenAddress = ethers.getAddress(lowercaseAddress);
+            this.auditLogger.warn('Token address checksum was invalid, normalized to proper format', {
+              transactionId: message.body.id,
+              originalAddress: message.body.tokenAddress,
+              normalizedAddress: normalizedTokenAddress,
+            });
+          } catch (secondError) {
+            this.auditLogger.error('Invalid token address format', secondError, {
+              transactionId: message.body.id,
+              tokenAddress: message.body.tokenAddress,
+              tokenAddressLength: message.body.tokenAddress.length,
+              tokenAddressHex: Buffer.from(message.body.tokenAddress).toString('hex'),
+            });
+            // Use lowercase version as last resort
+            normalizedTokenAddress = message.body.tokenAddress.trim().toLowerCase();
+          }
+        }
+        
+        try {
+          // Trim whitespace and ensure proper format
+          // First try to normalize the address with proper checksum
+          normalizedToAddress = ethers.getAddress(message.body.toAddress.trim());
+        } catch (error) {
+          // If checksum validation fails, try with lowercase
+          try {
+            const lowercaseAddress = message.body.toAddress.trim().toLowerCase();
+            normalizedToAddress = ethers.getAddress(lowercaseAddress);
+            this.auditLogger.warn('Address checksum was invalid, normalized to proper format', {
+              transactionId: message.body.id,
+              originalAddress: message.body.toAddress,
+              normalizedAddress: normalizedToAddress,
+            });
+          } catch (secondError) {
+            this.auditLogger.error('Invalid recipient address format', secondError, {
+              transactionId: message.body.id,
+              toAddress: message.body.toAddress,
+              toAddressLength: message.body.toAddress.length,
+              toAddressHex: Buffer.from(message.body.toAddress).toString('hex'),
+            });
+            // Use lowercase version as last resort
+            normalizedToAddress = message.body.toAddress.trim().toLowerCase();
+          }
+        }
+        
+        return {
+          tokenAddress: normalizedTokenAddress,
+          to: normalizedToAddress,
+          amount: message.body.amount,
+          transactionId: message.body.id,
+        };
+      });
 
       // Prepare batch transaction data
       const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers);

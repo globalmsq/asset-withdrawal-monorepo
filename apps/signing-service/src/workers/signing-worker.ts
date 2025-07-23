@@ -1,14 +1,15 @@
 import { BaseWorker } from './base-worker';
-import { WithdrawalRequest, ChainProviderFactory, TransactionStatus } from '@asset-withdrawal/shared';
+import { WithdrawalRequest, ChainProviderFactory, TransactionStatus, Message } from '@asset-withdrawal/shared';
 import { WithdrawalRequestService, DatabaseService, SignedTransactionService } from '@asset-withdrawal/database';
 import { SignedTransaction } from '../types';
 import { TransactionSigner } from '../services/transaction-signer';
 import { SecureSecretsManager } from '../services/secrets-manager';
 import { NonceCacheService } from '../services/nonce-cache.service';
 import { GasPriceCache } from '../services/gas-price-cache';
-import { MulticallService } from '../services/multicall.service';
+import { MulticallService, BatchTransferRequest } from '../services/multicall.service';
 import { Logger } from '../utils/logger';
 import { Config } from '../config';
+import * as crypto from 'crypto';
 
 export class SigningWorker extends BaseWorker<
   WithdrawalRequest,
@@ -22,6 +23,7 @@ export class SigningWorker extends BaseWorker<
   private multicallService: MulticallService;
   private chainProvider: any;
   private auditLogger: Logger;
+  private dbClient: any; // Prisma client for BatchTransaction operations
 
   constructor(
     private config: Config,
@@ -49,8 +51,9 @@ export class SigningWorker extends BaseWorker<
 
     // Initialize database with config
     const dbService = DatabaseService.getInstance(config.database);
-    this.withdrawalRequestService = new WithdrawalRequestService(dbService.getClient());
-    this.signedTransactionService = new SignedTransactionService(dbService.getClient());
+    this.dbClient = dbService.getClient();
+    this.withdrawalRequestService = new WithdrawalRequestService(this.dbClient);
+    this.signedTransactionService = new SignedTransactionService(this.dbClient);
 
     // Create chain provider based on config
     const network = config.polygon.chainId === 80002 ? 'testnet' : 'mainnet';
@@ -104,8 +107,32 @@ export class SigningWorker extends BaseWorker<
       return; // Skip this batch
     }
 
-    // Gas price is available, proceed with normal processing
-    return super.processBatch();
+    // If batch processing is disabled, use normal processing
+    if (!this.config.batchProcessing.enabled) {
+      this.auditLogger.debug('Batch processing disabled, using normal processing');
+      return super.processBatch();
+    }
+
+    // Receive messages from queue
+    const messages = await this.inputQueue.receiveMessages({
+      maxMessages: this.batchSize,
+      waitTimeSeconds: 20,
+      visibilityTimeout: 300,
+    });
+
+    if (messages.length === 0) {
+      return;
+    }
+
+    this.auditLogger.info(`Processing batch of ${messages.length} messages`);
+
+    // Check if we should use batch processing
+    if (await this.shouldUseBatchProcessing(messages)) {
+      await this.processBatchTransactions(messages);
+    } else {
+      // Process messages individually
+      await this.processSingleTransactions(messages);
+    }
   }
 
   private async updateGasPriceCache(): Promise<void> {
@@ -132,6 +159,248 @@ export class SigningWorker extends BaseWorker<
       maxFeePerGas: feeData.maxFeePerGas.toString(),
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
     });
+  }
+
+  private async shouldUseBatchProcessing(messages: Message<WithdrawalRequest>[]): Promise<boolean> {
+    // Check if batch processing is enabled
+    if (!this.config.batchProcessing.enabled) {
+      this.auditLogger.debug('Batch processing disabled by config');
+      return false;
+    }
+
+    // Check minimum batch size
+    if (messages.length < this.config.batchProcessing.minBatchSize) {
+      this.auditLogger.debug('Batch size below minimum threshold', {
+        messageCount: messages.length,
+        minBatchSize: this.config.batchProcessing.minBatchSize,
+      });
+      return false;
+    }
+
+    // Group messages by token
+    const tokenGroups = this.groupByToken(messages);
+
+    // Check if any token group meets the batch threshold
+    let hasEligibleGroup = false;
+    for (const [tokenAddress, groupMessages] of tokenGroups) {
+      if (groupMessages.length >= this.config.batchProcessing.batchThreshold) {
+        hasEligibleGroup = true;
+        break;
+      }
+    }
+
+    if (!hasEligibleGroup) {
+      this.auditLogger.debug('No token group meets batch threshold', {
+        tokenGroups: Array.from(tokenGroups.entries()).map(([token, msgs]) => ({
+          token,
+          count: msgs.length,
+        })),
+        batchThreshold: this.config.batchProcessing.batchThreshold,
+      });
+      return false;
+    }
+
+    // Calculate gas savings
+    const gasSavingsPercent = this.calculateGasSavings(messages);
+    if (gasSavingsPercent < this.config.batchProcessing.minGasSavingsPercent) {
+      this.auditLogger.debug('Gas savings below minimum threshold', {
+        gasSavingsPercent,
+        minGasSavingsPercent: this.config.batchProcessing.minGasSavingsPercent,
+      });
+      return false;
+    }
+
+    this.auditLogger.info('Batch processing criteria met', {
+      messageCount: messages.length,
+      tokenGroupCount: tokenGroups.size,
+      estimatedGasSavings: `${gasSavingsPercent.toFixed(2)}%`,
+    });
+
+    return true;
+  }
+
+  private groupByToken(messages: Message<WithdrawalRequest>[]): Map<string, Message<WithdrawalRequest>[]> {
+    return messages.reduce((groups, message) => {
+      const tokenAddress = message.body.tokenAddress.toLowerCase();
+      if (!groups.has(tokenAddress)) {
+        groups.set(tokenAddress, []);
+      }
+      groups.get(tokenAddress)!.push(message);
+      return groups;
+    }, new Map());
+  }
+
+  private calculateGasSavings(messages: Message<WithdrawalRequest>[]): number {
+    const count = messages.length;
+    const singleTxTotalGas = BigInt(count) * BigInt(this.config.batchProcessing.singleTxGasEstimate);
+    const batchTxTotalGas = BigInt(this.config.batchProcessing.batchBaseGas) +
+                            (BigInt(count) * BigInt(this.config.batchProcessing.batchPerTxGas));
+
+    if (singleTxTotalGas <= batchTxTotalGas) {
+      return 0; // No savings
+    }
+
+    const savings = singleTxTotalGas - batchTxTotalGas;
+    const savingsPercent = Number((savings * 100n) / singleTxTotalGas);
+
+    return savingsPercent;
+  }
+
+  private async processBatchTransactions(messages: Message<WithdrawalRequest>[]): Promise<void> {
+    const tokenGroups = this.groupByToken(messages);
+
+    for (const [tokenAddress, groupMessages] of tokenGroups) {
+      if (groupMessages.length >= this.config.batchProcessing.batchThreshold) {
+        // Process as batch
+        await this.processBatchGroup(tokenAddress, groupMessages);
+      } else {
+        // Process individually
+        await this.processSingleTransactions(groupMessages);
+      }
+    }
+  }
+
+  private async processSingleTransactions(messages: Message<WithdrawalRequest>[]): Promise<void> {
+    // Process messages individually
+    const messagePromises = messages.map(async (message) => {
+      const messageId = message.id || message.receiptHandle;
+      this.processingMessages.add(messageId);
+
+      try {
+        const result = await this.processMessage(message.body);
+
+        // Send to output queue if configured and result is provided
+        if (this.outputQueue && result !== undefined) {
+          await this.outputQueue.sendMessage(result as SignedTransaction);
+        }
+
+        // Delete message from input queue
+        await this.inputQueue.deleteMessage(message.receiptHandle);
+        this.processedCount++;
+        this.lastProcessedAt = new Date();
+      } catch (error) {
+        this.logger.error(`Error processing message ${messageId}`, error);
+        this.lastError = error instanceof Error ? error.message : 'Unknown error';
+        this.errorCount++;
+        // Message will be returned to queue after visibility timeout
+      } finally {
+        this.processingMessages.delete(messageId);
+      }
+    });
+
+    await Promise.all(messagePromises);
+  }
+
+  private async processBatchGroup(tokenAddress: string, messages: Message<WithdrawalRequest>[]): Promise<void> {
+    this.auditLogger.info('Processing batch group', {
+      tokenAddress,
+      messageCount: messages.length,
+    });
+
+    const batchId = crypto.randomUUID();
+
+    try {
+      // Create BatchTransaction record
+      const batchTransaction = await this.dbClient.batchTransaction.create({
+        data: {
+          id: batchId,
+          multicallAddress: this.chainProvider.getMulticall3Address(),
+          totalRequests: messages.length,
+          status: 'PENDING',
+        },
+      });
+
+      // Update withdrawal requests with batchId
+      const requestIds = messages.map(m => m.body.id);
+      await this.dbClient.withdrawalRequest.updateMany({
+        where: { requestId: { in: requestIds } },
+        data: {
+          batchId: batchId,
+          type: 'BATCH',
+          status: TransactionStatus.SIGNING,
+        },
+      });
+
+      // Prepare batch transfers
+      const transfers: BatchTransferRequest[] = messages.map(message => ({
+        tokenAddress: message.body.tokenAddress,
+        to: message.body.toAddress,
+        amount: message.body.amount,
+        transactionId: message.body.id,
+      }));
+
+      // Prepare batch transaction data
+      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers);
+
+      // Sign batch transaction
+      const signedBatchTx = await this.transactionSigner.signBatchTransaction({
+        transfers,
+        batchId,
+      });
+
+      // Update batch transaction with txHash
+      await this.dbClient.batchTransaction.update({
+        where: { id: batchId },
+        data: {
+          txHash: signedBatchTx.hash,
+          status: 'SIGNED',
+        },
+      });
+
+      // Update withdrawal requests to SIGNED status
+      await this.dbClient.withdrawalRequest.updateMany({
+        where: { batchId: batchId },
+        data: { status: TransactionStatus.SIGNED },
+      });
+
+      // Delete messages from queue
+      await Promise.all(messages.map(msg => this.inputQueue.deleteMessage(msg.receiptHandle)));
+
+      // Send signed transaction to output queue
+      if (this.outputQueue) {
+        await this.outputQueue.sendMessage(signedBatchTx);
+      }
+
+      this.processedCount += messages.length;
+      this.lastProcessedAt = new Date();
+
+      this.auditLogger.auditSuccess('BATCH_SIGN_COMPLETE', {
+        metadata: {
+          batchId,
+          txHash: signedBatchTx.hash,
+          messageCount: messages.length,
+          tokenAddress,
+        },
+      });
+
+    } catch (error) {
+      this.auditLogger.error('Failed to process batch group', error, {
+        batchId,
+        tokenAddress,
+        messageCount: messages.length,
+      });
+
+      // Update batch transaction status to FAILED
+      await this.dbClient.batchTransaction.update({
+        where: { id: batchId },
+        data: {
+          status: 'FAILED',
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      // Update withdrawal requests to FAILED status
+      await this.dbClient.withdrawalRequest.updateMany({
+        where: { batchId: batchId },
+        data: {
+          status: TransactionStatus.FAILED,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      // Don't delete messages - let them retry
+      throw error;
+    }
   }
 
   async processMessage(

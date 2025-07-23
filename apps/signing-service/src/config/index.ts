@@ -46,6 +46,17 @@ const configSchema = z.object({
     user: z.string(),
     password: z.string(),
   }),
+
+  // Batch Processing
+  batchProcessing: z.object({
+    enabled: z.boolean().default(true),
+    minBatchSize: z.number().min(1).default(5),
+    batchThreshold: z.number().min(1).default(3),
+    minGasSavingsPercent: z.number().min(0).max(100).default(20),
+    singleTxGasEstimate: z.number().default(65000),
+    batchBaseGas: z.number().default(100000),
+    batchPerTxGas: z.number().default(25000),
+  }),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -103,6 +114,16 @@ export function loadConfig(): Config {
       database: process.env.MYSQL_DATABASE || 'withdrawal_system',
       user: process.env.MYSQL_USER || 'root',
       password: process.env.MYSQL_PASSWORD || 'pass',
+    },
+
+    batchProcessing: {
+      enabled: process.env.ENABLE_BATCH_PROCESSING === 'false' ? false : true,
+      minBatchSize: parseInt(process.env.MIN_BATCH_SIZE || '5', 10),
+      batchThreshold: parseInt(process.env.BATCH_THRESHOLD || '3', 10),
+      minGasSavingsPercent: parseFloat(process.env.MIN_GAS_SAVINGS_PERCENT || '20'),
+      singleTxGasEstimate: parseInt(process.env.SINGLE_TX_GAS_ESTIMATE || '65000', 10),
+      batchBaseGas: parseInt(process.env.BATCH_BASE_GAS || '100000', 10),
+      batchPerTxGas: parseInt(process.env.BATCH_PER_TX_GAS || '25000', 10),
     },
   };
 

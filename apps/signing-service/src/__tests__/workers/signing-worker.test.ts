@@ -68,6 +68,15 @@ describe('SigningWorker', () => {
         user: 'root',
         password: 'pass',
       },
+      batchProcessing: {
+        enabled: true,
+        minBatchSize: 5,
+        batchThreshold: 3,
+        minGasSavingsPercent: 20,
+        singleTxGasEstimate: 65000,
+        batchBaseGas: 100000,
+        batchPerTxGas: 25000,
+      },
     };
 
     mockSecretsManager = {
@@ -324,6 +333,290 @@ describe('SigningWorker', () => {
 
       expect(mockTransactionSigner.cleanup).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith('SigningWorker stopped');
+    });
+  });
+
+  describe('Batch Processing', () => {
+    let mockMessages: any[];
+    let mockDbClient: any;
+    let mockMulticallService: any;
+    let mockTransactionSigner: any;
+
+    beforeEach(() => {
+      mockMessages = [
+        {
+          id: 'msg-1',
+          receiptHandle: 'receipt-1',
+          body: {
+            id: 'req-1',
+            amount: '1000000000000000000',
+            toAddress: '0x1234567890123456789012345678901234567890',
+            tokenAddress: '0xAAA1234567890123456789012345678901234567',
+            network: 'polygon',
+          },
+        },
+        {
+          id: 'msg-2',
+          receiptHandle: 'receipt-2',
+          body: {
+            id: 'req-2',
+            amount: '2000000000000000000',
+            toAddress: '0x2234567890123456789012345678901234567890',
+            tokenAddress: '0xAAA1234567890123456789012345678901234567',
+            network: 'polygon',
+          },
+        },
+        {
+          id: 'msg-3',
+          receiptHandle: 'receipt-3',
+          body: {
+            id: 'req-3',
+            amount: '3000000000000000000',
+            toAddress: '0x3234567890123456789012345678901234567890',
+            tokenAddress: '0xAAA1234567890123456789012345678901234567',
+            network: 'polygon',
+          },
+        },
+      ];
+
+      mockDbClient = {
+        batchTransaction: {
+          create: jest.fn().mockResolvedValue({ id: 'batch-123' }),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        withdrawalRequest: {
+          updateMany: jest.fn().mockResolvedValue({}),
+        },
+      };
+
+      mockMulticallService = {
+        prepareBatchTransfer: jest.fn().mockResolvedValue({
+          calls: [{ target: '0xAAA', allowFailure: false, callData: '0x' }],
+          estimatedGasPerCall: 50000n,
+          totalEstimatedGas: 150000n,
+        }),
+      };
+
+      mockTransactionSigner = {
+        initialize: jest.fn(),
+        signBatchTransaction: jest.fn().mockResolvedValue({
+          transactionId: 'batch-123',
+          hash: '0xbatchhash',
+          rawTransaction: '0xraw',
+          nonce: 1,
+          gasLimit: '150000',
+          maxFeePerGas: '1000000000',
+          maxPriorityFeePerGas: '1000000000',
+          from: '0x1234',
+          to: '0x5678',
+          value: '0',
+          data: '0x',
+          chainId: 80002,
+        }),
+      };
+
+      // Setup signing worker with mocks
+      const signingWorkerAny = signingWorker as any;
+      signingWorkerAny.dbClient = mockDbClient;
+      signingWorkerAny.multicallService = mockMulticallService;
+      signingWorkerAny.transactionSigner = mockTransactionSigner;
+      signingWorkerAny.processingMessages = new Set();
+      signingWorkerAny.processedCount = 0;
+      signingWorkerAny.errorCount = 0;
+      signingWorkerAny.inputQueue = {
+        receiveMessages: jest.fn().mockResolvedValue(mockMessages),
+        deleteMessage: jest.fn().mockResolvedValue({}),
+      };
+      signingWorkerAny.outputQueue = {
+        sendMessage: jest.fn().mockResolvedValue({}),
+      };
+    });
+
+    describe('shouldUseBatchProcessing', () => {
+      it('should return false when batch processing is disabled', async () => {
+        mockConfig.batchProcessing.enabled = false;
+        const signingWorkerAny = signingWorker as any;
+        const result = await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
+        expect(result).toBe(false);
+      });
+
+      it('should return false when message count is below minimum', async () => {
+        mockConfig.batchProcessing.enabled = true;
+        mockConfig.batchProcessing.minBatchSize = 5;
+        const signingWorkerAny = signingWorker as any;
+        const result = await signingWorkerAny.shouldUseBatchProcessing(mockMessages.slice(0, 2));
+        expect(result).toBe(false);
+      });
+
+      it('should return false when no token group meets threshold', async () => {
+        mockConfig.batchProcessing.enabled = true;
+        mockConfig.batchProcessing.minBatchSize = 2;
+        mockConfig.batchProcessing.batchThreshold = 5;
+        const signingWorkerAny = signingWorker as any;
+        const result = await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
+        expect(result).toBe(false);
+      });
+
+      it('should return false when gas savings are below threshold', async () => {
+        mockConfig.batchProcessing.enabled = true;
+        mockConfig.batchProcessing.minBatchSize = 2;
+        mockConfig.batchProcessing.batchThreshold = 2;
+        mockConfig.batchProcessing.minGasSavingsPercent = 90; // Very high threshold
+        const signingWorkerAny = signingWorker as any;
+        const result = await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
+        expect(result).toBe(false);
+      });
+
+      it('should return true when all conditions are met', async () => {
+        mockConfig.batchProcessing.enabled = true;
+        mockConfig.batchProcessing.minBatchSize = 2;
+        mockConfig.batchProcessing.batchThreshold = 2;
+        mockConfig.batchProcessing.minGasSavingsPercent = 10;
+        const signingWorkerAny = signingWorker as any;
+        const result = await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
+        expect(result).toBe(true);
+      });
+    });
+
+    describe('groupByToken', () => {
+      it('should group messages by token address', () => {
+        const mixedMessages = [
+          ...mockMessages,
+          {
+            id: 'msg-4',
+            receiptHandle: 'receipt-4',
+            body: {
+              id: 'req-4',
+              amount: '4000000000000000000',
+              toAddress: '0x4234567890123456789012345678901234567890',
+              tokenAddress: '0xBBB1234567890123456789012345678901234567',
+              network: 'polygon',
+            },
+          },
+        ];
+
+        const signingWorkerAny = signingWorker as any;
+        const groups = signingWorkerAny.groupByToken(mixedMessages);
+
+        expect(groups.size).toBe(2);
+        expect(groups.get('0xaaa1234567890123456789012345678901234567')).toHaveLength(3);
+        expect(groups.get('0xbbb1234567890123456789012345678901234567')).toHaveLength(1);
+      });
+
+      it('should normalize token addresses to lowercase', () => {
+        const mixedCaseMessages = [
+          {
+            id: 'msg-1',
+            body: { tokenAddress: '0xAAA1234567890123456789012345678901234567' },
+          },
+          {
+            id: 'msg-2',
+            body: { tokenAddress: '0xaaa1234567890123456789012345678901234567' },
+          },
+        ];
+
+        const signingWorkerAny = signingWorker as any;
+        const groups = signingWorkerAny.groupByToken(mixedCaseMessages);
+
+        expect(groups.size).toBe(1);
+        expect(groups.get('0xaaa1234567890123456789012345678901234567')).toHaveLength(2);
+      });
+    });
+
+    describe('calculateGasSavings', () => {
+      it('should calculate correct gas savings percentage', () => {
+        const signingWorkerAny = signingWorker as any;
+        const savings = signingWorkerAny.calculateGasSavings(mockMessages);
+
+        // Single tx: 3 * 65000 = 195000
+        // Batch tx: 100000 + (3 * 25000) = 175000
+        // Savings: (195000 - 175000) / 195000 * 100 = ~10.26%
+        expect(savings).toBeCloseTo(10.26, 0);
+      });
+
+      it('should return 0 when batch is more expensive', () => {
+        mockConfig.batchProcessing.singleTxGasEstimate = 10000;
+        mockConfig.batchProcessing.batchBaseGas = 100000;
+        mockConfig.batchProcessing.batchPerTxGas = 25000;
+
+        const signingWorkerAny = signingWorker as any;
+        const savings = signingWorkerAny.calculateGasSavings(mockMessages.slice(0, 1));
+
+        expect(savings).toBe(0);
+      });
+    });
+
+    describe('processBatchGroup', () => {
+      it('should successfully process a batch group', async () => {
+        const signingWorkerAny = signingWorker as any;
+        await signingWorkerAny.processBatchGroup('0xaaa1234567890123456789012345678901234567', mockMessages);
+
+        // Verify BatchTransaction creation
+        expect(mockDbClient.batchTransaction.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
+            totalRequests: 3,
+            status: 'PENDING',
+          }),
+        });
+
+        // Verify withdrawal requests update
+        expect(mockDbClient.withdrawalRequest.updateMany).toHaveBeenCalledWith({
+          where: { requestId: { in: ['req-1', 'req-2', 'req-3'] } },
+          data: expect.objectContaining({
+            type: 'BATCH',
+            status: TransactionStatus.SIGNING,
+          }),
+        });
+
+        // Verify transaction signing
+        expect(mockTransactionSigner.signBatchTransaction).toHaveBeenCalled();
+
+        // Verify batch transaction update
+        expect(mockDbClient.batchTransaction.update).toHaveBeenCalledWith({
+          where: { id: expect.any(String) },
+          data: {
+            txHash: '0xbatchhash',
+            status: 'SIGNED',
+          },
+        });
+
+        // Verify messages deleted from queue
+        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledTimes(3);
+
+        // Verify output queue
+        expect(signingWorkerAny.outputQueue.sendMessage).toHaveBeenCalled();
+      });
+
+      it('should handle batch processing failure', async () => {
+        mockTransactionSigner.signBatchTransaction.mockRejectedValue(new Error('Signing failed'));
+
+        const signingWorkerAny = signingWorker as any;
+
+        await expect(
+          signingWorkerAny.processBatchGroup('0xaaa1234567890123456789012345678901234567', mockMessages)
+        ).rejects.toThrow('Signing failed');
+
+        // Verify failure handling
+        expect(mockDbClient.batchTransaction.update).toHaveBeenCalledWith({
+          where: { id: expect.any(String) },
+          data: {
+            status: 'FAILED',
+            errorMessage: 'Signing failed',
+          },
+        });
+
+        expect(mockDbClient.withdrawalRequest.updateMany).toHaveBeenCalledWith({
+          where: { batchId: expect.any(String) },
+          data: {
+            status: TransactionStatus.FAILED,
+            errorMessage: 'Signing failed',
+          },
+        });
+
+        // Messages should NOT be deleted on failure
+        expect(signingWorkerAny.inputQueue.deleteMessage).not.toHaveBeenCalled();
+      });
     });
   });
 });

@@ -23,6 +23,7 @@ Jira synchronization means creating, updating, and maintaining consistency betwe
 4. **Title Updates**: When updating Task Master titles, DO NOT update Jira issue titles
 5. **Bidirectional Sync**: Both Task Master and Jira should always reflect the same status
 6. **Language**: When creating or updating Jira issues, always use English for titles, descriptions, and comments
+7. **Using Existing Jira Keys**: Task Master tasks already contain Jira keys internally. Use `task-master show <id>` to find the Jira key (e.g., BFS-30) and use that key for Jira synchronization
 
 #### Complete Synchronization Workflow
 
@@ -33,6 +34,13 @@ When a new task is created in Task Master:
 3. Add Jira key to tasks.json `jiraKey` field
 4. Update Task Master title to include `[PROJECT-KEY]` prefix
 5. Ensure both systems show the same initial status
+
+##### 1.5. Synchronizing Existing Tasks
+For tasks that already have Jira keys stored in Task Master:
+1. Use `task-master show <id>` to view task details and find the Jira key
+2. Use the Jira key directly with MCP Atlassian tools (e.g., search with `key = BFS-30`)
+3. Update Jira status to match Task Master status
+4. Add implementation notes or completion summaries to Jira
 
 ##### 2. Starting Work on a Task
 **MANDATORY**: When beginning any task:

@@ -1,0 +1,61 @@
+# Task ID: 22
+# Title: [BFS-32] Hardhat 노드를 활용한 로컬호스트 체인 지원 구현
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: 로컬 개발 및 테스트 환경을 위한 Hardhat 노드 기반의 로컬호스트 블록체인 네트워크 지원을 구현합니다. 이를 통해 외부 테스트넷 의존성 없이 빠르고 안정적인 개발 환경을 구축합니다.
+# Details:
+Hardhat 개발 환경 설정 (npm install --save-dev hardhat @nomicfoundation/hardhat-ethers ethers, npx hardhat init으로 기본 프로젝트 구조 생성, hardhat.config.ts 설정 파일 구성), 로컬 네트워크 설정 (defaultNetwork: 'hardhat', networks.hardhat 설정 - chainId: 31337, mining.auto: true, mining.interval: 3000ms, accounts 설정 - LocalStack 개인키 0x0000000000000000000000000000000000000000000000000000000000000001 포함), 환경변수 기반 네트워크 전환 (POLYGON_NETWORK=localhost 추가 지원, LOCALHOST_RPC_URL=http://127.0.0.1:8545 설정, 기존 amoy/mainnet과 함께 localhost 옵션 추가), NetworkConfig 타입 확장 (localhost 네트워크 설정 추가, chainId: 31337, name: 'localhost', rpcUrl 설정), 스마트 컨트랙트 배포 스크립트 (scripts/deploy-localhost.ts 작성, ERC20 토큰 컨트랙트 배포, Multicall3 컨트랙트 배포, 테스트 토큰 모두 서명 주소로 전송, 배포된 주소를 환경변수로 내보내기), 로컬 개발 워크플로우 개선 (기존 docker-compose에 hardhat 서비스 통합, npx hardhat node --hostname 0.0.0.0 실행, 자동 계정 생성 및 자금 할당, 블록 마이닝 간격 설정), 테스트 헬퍼 유틸리티 구현 (테스트 계정 생성 함수, 테스트 토큰 전송 함수, 블록 타임스탬프 조작 함수, 스냅샷/리버트 기능), 개발자 도구 통합 (Hardhat Network Helper 활용, console.log 디버깅 지원, 가스 리포팅 설정, 솔리디티 커버리지 측정), Fork 모드 지원 (폴리곤 메인넷/테스트넷 포크 기능, 특정 블록 높이에서 포크, 실제 네트워크 상태 시뮬레이션), 자동화 스크립트 (npm run dev:localhost 명령어 추가, Hardhat 노드 시작 → 컨트랙트 배포 → 테스트 데이터 설정 → API 서버 시작 순차 실행)
+
+# Test Strategy:
+Hardhat 노드 연결 테스트 (로컬호스트 RPC 연결 확인, 체인 ID 31337 검증), 테스트 계정 동작 검증 (LocalStack 개인키로 생성된 서명 주소 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf 확인, 서명 주소의 ETH 및 토큰 잔액 확인), ERC20 토큰 배포 및 전송 테스트 (토큰 컨트랙트 배포 성공 확인, 모든 토큰이 서명 주소로 전송 확인, 토큰 전송 트랜잭션 테스트, 잔액 조회 정확성 검증), Multicall3 컨트랙트 테스트 (배치 호출 기능 검증, 다중 토큰 잔액 조회 테스트), 블록 마이닝 동작 테스트 (자동 마이닝 간격 확인, 수동 마이닝 트리거 테스트), 트랜잭션 처리 플로우 테스트 (출금 요청 → 큐 → 처리 → 모니터링 전체 플로우, 로컬 네트워크에서의 가스 추정, 트랜잭션 영수증 조회), Fork 모드 테스트 (메인넷 포크 상태 검증, 실제 컨트랙트와 상호작용 테스트), 개발 환경 통합 테스트 (docker-compose up으로 전체 스택 실행, 자동 배포 스크립트 동작 확인, API 서버와 로컬 블록체인 연동), 성능 비교 테스트 (로컬 vs 테스트넷 트랜잭션 속도 비교, 개발 워크플로우 효율성 측정)
+
+# Subtasks:
+## 1. Hardhat 개발 환경 설정 및 프로젝트 초기화 [pending]
+### Dependencies: None
+### Description: Hardhat 패키지 설치 및 기본 프로젝트 구조를 설정하고, TypeScript 기반 설정 파일을 구성합니다. [Updated: 2025. 7. 23.]
+### Details:
+npm install --save-dev hardhat @nomicfoundation/hardhat-ethers ethers @typechain/hardhat typechain @typechain/ethers-v6 실행, npx hardhat init으로 TypeScript 프로젝트 생성, hardhat.config.ts 파일 생성 및 기본 설정 구성, contracts/, scripts/, test/ 디렉토리 구조 설정, .gitignore에 artifacts/, cache/, typechain-types/ 추가, tsconfig.json에 Hardhat 타입 참조 추가
+<info added on 2025-07-23T13:07:54.480Z>
+docker/hardhat 디렉토리 구조 생성: docker/hardhat/ 폴더에 package.json (hardhat, @nomicfoundation/hardhat-ethers, ethers, @typechain/hardhat, typechain 의존성 포함), hardhat.config.js (네트워크 설정 - localhost:8545, chainId:31337, 계정 설정), Docker 환경에서 Hardhat 노드 실행을 위한 Dockerfile 및 docker-compose.yml 서비스 정의, 컨테이너 내부에서 hardhat node 명령어로 로컬 블록체인 네트워크 실행 설정
+</info added on 2025-07-23T13:07:54.480Z>
+<info added on 2025-07-23T13:16:15.109Z>
+BFS-33으로 Jira 키 매핑 추가 - 해당 subtask가 Jira 이슈 BFS-33과 연결되어 있음을 표시
+</info added on 2025-07-23T13:16:15.109Z>
+
+## 2. 로컬 네트워크 설정 및 환경변수 구성 [pending]
+### Dependencies: 22.1
+### Description: Hardhat 로컬 네트워크를 구성하고, LocalStack 개인키를 포함한 환경변수를 설정합니다.
+### Details:
+hardhat.config.ts에 networks.hardhat 설정 추가 (chainId: 31337, mining.auto: true, mining.interval: 3000, accounts 설정 - LocalStack 개인키 0x0000000000000000000000000000000000000000000000000000000000000001 포함하여 서명 주소 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf 생성), .env 파일에 POLYGON_NETWORK=localhost 옵션 추가, LOCALHOST_RPC_URL=http://127.0.0.1:8545 설정, LOCALHOST_SIGNING_PRIVATE_KEY=0x0000000000000000000000000000000000000000000000000000000000000001 추가, packages/shared/src/config/network.config.ts의 NetworkConfig 타입에 localhost 네트워크 추가, getNetworkConfig 함수에 localhost 케이스 추가, 기존 docker-compose.yaml에 hardhat 서비스 통합 (npx hardhat node --hostname 0.0.0.0 실행)
+<info added on 2025-07-23T13:08:14.414Z>
+chains.config.json에 localhost 체인 설정 추가 (chainId: 31337, name: 'Localhost', symbol: 'ETH', decimals: 18, rpcUrl: 'http://127.0.0.1:8545'), packages/shared/src/types/chain.types.ts의 ChainName 타입에 'localhost' 추가, packages/shared/src/providers/chain-provider.factory.ts에서 localhost 케이스 처리 추가 (JsonRpcProvider 인스턴스 생성)
+</info added on 2025-07-23T13:08:14.414Z>
+
+## 3. ERC20 토큰 및 Multicall3 컨트랙트 배포 스크립트 구현 [pending]
+### Dependencies: 22.2
+### Description: 테스트용 ERC20 토큰과 Multicall3 컨트랙트를 배포하고, 모든 토큰을 서명 주소로 전송하는 스크립트를 구현합니다.
+### Details:
+contracts/TestToken.sol 작성 (OpenZeppelin ERC20 상속, 민팅 함수 포함), contracts/Multicall3.sol 추가 (배치 호출용), scripts/deploy-localhost.ts 배포 스크립트 작성, ERC20 토큰 배포 후 모든 토큰(예: 1,000,000 TEST)을 서명 주소 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf로 전송, Multicall3 컨트랙트 배포, 배포된 컨트랙트 주소들을 .env.localhost 파일에 저장 (TEST_TOKEN_ADDRESS, MULTICALL3_ADDRESS), scripts/setup-test-data.ts로 테스트 데이터 설정 (사용자 생성, 출금 요청 샘플 등), TypeChain으로 타입 생성 자동화
+<info added on 2025-07-23T13:08:36.235Z>
+제공된 Multicall3.sol 코드를 사용하여 contracts/Multicall3.sol 파일 생성, contracts/TestToken.sol 파일 생성 (OpenZeppelin ERC20 상속 및 민팅 기능 포함), scripts/deploy.js 배포 스크립트 작성 (두 컨트랙트 모두 배포하고 모든 토큰을 서명 주소 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf로 전송), 배포 정보를 deployment.json 파일에 저장 (기존 .env.localhost 대신 또는 추가로)
+</info added on 2025-07-23T13:08:36.235Z>
+
+## 4. 테스트 헬퍼 유틸리티 및 개발자 도구 구현 [pending]
+### Dependencies: 22.3
+### Description: Hardhat 네트워크에서 효율적인 테스트를 위한 헬퍼 함수들과 개발자 도구를 구현합니다.
+### Details:
+packages/shared/src/utils/hardhat-helpers.ts 생성 (getSigningAccount, fundAccount, advanceTime, takeSnapshot/revertToSnapshot 함수, Multicall3 인터페이스 함수), Hardhat Network Helpers 통합 (@nomicfoundation/hardhat-network-helpers), console.log 디버깅 지원 설정, hardhat-gas-reporter 플러그인 설정, solidity-coverage 플러그인 구성, Fork 모드 지원 추가 (hardhat.config.ts에 forking 설정), 서명 주소 관련 헬퍼 함수 추가
+<info added on 2025-07-23T13:08:56.753Z>
+init-hardhat.sh 스크립트 구현: Hardhat 노드 대기 로직 (curl로 http://127.0.0.1:8545 상태 확인, 최대 30초 대기), 컨트랙트 컴파일 (npx hardhat compile 실행), 배포 스크립트 실행 (node scripts/deploy.js), docker-compose.yaml의 hardhat-deploy 서비스와 통합 (hardhat-node가 준비된 후 실행되도록 depends_on 설정, healthcheck를 통한 의존성 관리), 스크립트 실행 권한 설정 (chmod +x init-hardhat.sh), 에러 처리 및 로깅 (각 단계별 성공/실패 로그 출력)
+</info added on 2025-07-23T13:08:56.753Z>
+
+## 5. 자동화 스크립트 및 개발 워크플로우 통합 [pending]
+### Dependencies: 22.4
+### Description: 로컬 개발 환경을 위한 자동화 스크립트를 작성하고, 기존 Docker Compose 시스템과 완전히 통합합니다.
+### Details:
+package.json에 dev:localhost 스크립트 추가 (순차 실행: Hardhat 노드 시작 → 컨트랙트 배포 → 테스트 데이터 설정 → API 서버 시작), scripts/start-local-dev.sh 쉘 스크립트 작성, 모든 마이크로서비스가 localhost 네트워크와 서명 주소를 인식하도록 수정, withdrawal-api, tx-processor, tx-monitor 서비스의 블록체인 연결 로직을 LocalStack 개인키 사용하도록 업데이트, 기존 docker-compose.yaml 파일에 hardhat 서비스 완전 통합, LocalStack과의 의존성 관리 추가, README.md에 로컬 개발 가이드 업데이트 (LocalStack 개인키, 서명 주소, Multicall3 사용법 포함)
+<info added on 2025-07-23T13:09:21.263Z>
+docker-compose.yaml 파일에 hardhat-node 및 hardhat-deploy 서비스 추가 구성 (hardhat-node: hardhat/hardhat:latest 이미지 사용, 포트 8545:8545 매핑, chain-id 31337 설정; hardhat-deploy: 컨트랙트 배포 전용 서비스, hardhat-node 의존성 설정), 환경변수 CHAIN_NAME=localhost 지원 추가 (기존 amoy/mainnet과 함께 localhost 체인 식별자 추가, LOCALHOST_RPC_URL=http://hardhat-node:8545 내부 네트워크 연결), 모든 마이크로서비스(withdrawal-api, tx-processor, tx-monitor)가 localhost 체인을 인식하도록 환경변수 업데이트, Multicall3 컨트랙트 주소를 localhost 체인용으로 설정 (0xcA11bde05977b3631167028862bE2a173976CA11 표준 주소 또는 배포된 주소), 서비스 간 네트워크 의존성 관리 (hardhat-node → hardhat-deploy → api services 순차 시작), healthcheck 설정으로 서비스 준비 상태 확인
+</info added on 2025-07-23T13:09:21.263Z>
+

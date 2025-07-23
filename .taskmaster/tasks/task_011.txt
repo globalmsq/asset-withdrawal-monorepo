@@ -74,19 +74,25 @@ MulticallService에서 실제 Multicall3 컨트랙트 호출 로직 구현, 배�
 ### Details:
 Ethers.js Interface를 사용한 transfer 메서드 인코딩, Multicall3.Call 구조체 생성 로직, 다중 토큰 전송을 위한 calldata 배열 생성, 각 전송 건별 target, allowFailure, callData 설정, ABI 인코딩 오류 핸들링
 
-## 10. [BFS-21] 배치 크기 최적화 및 가스 계산 로직 [pending]
+## 10. [BFS-21] 배치 크기 최적화 및 가스 계산 로직 [done]
 ### Dependencies: 11.9
 ### Description: 가스 한도 내에서 최적의 배치 크기를 계산하고 동적으로 조정하는 기능 구현
 ### Details:
 가스 한도 기반 최대 배치 크기 계산 알고리즘, 토큰별 전송 비용 추정, 배치 오버헤드 고려한 최적화, 동적 배치 분할 로직, Polygon 네트워크 가스 특성 반영, 배치 크기별 성능 테스트 및 벤치마킹
+<info added on 2025-07-22T15:13:46.918Z>
+구현 완료: Polygon 네트워크 기반 가스 최적화 시스템 - 30M 가스 한도와 75% 안전 마진을 적용한 동적 배치 분할 알고리즘 구현, 토큰별 가스 비용 학습 캐싱 시스템 도입으로 실시간 비용 예측 정확도 향상, 배치 크기에 따른 점감 가스 비용 계산 로직으로 배치 효율성 극대화, 향상된 fallback 가스 추정 메커니즘으로 네트워크 혼잡 상황 대응 강화, 모든 단위 테스트 및 통합 테스트 통과 확인
+</info added on 2025-07-22T15:13:46.918Z>
 
-## 11. [BFS-22] TransactionSigner 배치 전송 기능 확장 [pending]
+## 11. [BFS-22] TransactionSigner 배치 전송 기능 확장 [done]
 ### Dependencies: 11.10
 ### Description: TransactionSigner 클래스에 배치 트랜잭션 서명 기능 추가 및 기존 단일 전송과의 통합
 ### Details:
 signBatchTransaction() 메서드 구현, 배치 트랜잭션 가스 추정 로직, EIP-1559 트랜잭션 타입 지원, 배치와 단일 전송 구분 로직, nonce 관리 개선, 트랜잭션 서명 실패 시 개별 전송으로 fallback 메커니즘
+<info added on 2025-07-22T15:20:23.097Z>
+BFS-22 구현 완료. signBatchTransaction() 메서드와 signBatchTransactionWithSplitting() 메서드 추가하여 Multicall3 배치 전송 서명 지원. getGasPrice() 메서드 추출로 코드 중복 제거. 단일 및 분할 배치, 검증 실패 처리, 가스 추정, Redis 연결 에러 처리, 대용량 배치 시나리오 등에 대한 포괄적인 테스트 커버리지 구현. MulticallService와의 통합으로 배치 준비 및 인코딩 지원. Polygon 네트워크에서 EIP-1559 트랜잭션 지원. 배치 분할 시 순차적 nonce 관리 구현. 모든 테스트, 린트 검사, 타입 검사 통과 확인.
+</info added on 2025-07-22T15:20:23.097Z>
 
-## 12. [BFS-23] WithdrawalRequest 모델 업데이트 및 배치 처리 지원 [pending]
+## 12. [BFS-23] WithdrawalRequest 모델 업데이트 및 배치 처리 지원 [done]
 ### Dependencies: 11.11
 ### Description: WithdrawalRequest 모델에 배치 전송 타입 필드 추가 및 관련 데이터베이스 스키마 업데이트
 ### Details:
@@ -134,7 +140,7 @@ WithdrawalRequest 모델에 type 필드 추가 ('SINGLE' | 'BATCH'), 배치 전�
 새로운 구조: BatchTransaction 테이블을 생성하여 배치 메타데이터 저장 (batchId, totalAmount, tokenAddress, status, createdAt), WithdrawalRequest에 batchId 필드 추가하여 배치와 개별 요청 연결, SignedTransaction은 개별 트랜잭션 처리용으로 유지, 동적 배치 처리를 위한 관계형 구조 설계, 배치 상태 관리 및 추적 기능, 기존 단일 전송과의 하위 호환성 보장
 </info added on 2025-07-22T13:41:16.651Z>
 
-## 19. [BFS-30] SigningWorker 동적 배치 처리 로직 구현 [pending]
+## 19. [BFS-30] SigningWorker 동적 배치 처리 로직 구현 [done]
 ### Dependencies: 11.18
 ### Description: 큐 메시지를 분석하여 배치/단일 처리를 동적으로 결정하고 Multicall3 컨트랙트를 활용한 배치 처리 최적화 구현 [Updated: 2025. 7. 22.] [Updated: 2025. 7. 22.] [Updated: 2025. 7. 22.]
 ### Details:
@@ -215,4 +221,37 @@ Jira 이슈 키: BFS-30
 <info added on 2025-07-22T14:13:27.897Z>
 제목을 "[BFS-30] SigningWorker 동적 배치 처리 로직 구현"으로 업데이트함. Jira 이슈 키 BFS-30이 제목에 접두사로 추가됨.
 </info added on 2025-07-22T14:13:27.897Z>
+<info added on 2025-07-23T02:11:54.817Z>
+코드베이스 분석 결과:
+- SigningWorker가 BaseWorker를 상속받아 processBatch() 메서드 사용
+- 현재는 개별 트랜잭션 처리만 구현되어 있음
+- MulticallService가 이미 구현되어 배치 처리 기능 제공
+- BatchTransaction 모델이 Prisma 스키마에 정의됨
+- Config 클래스를 통한 환경 변수 관리 구조 확인
+
+구현 준비사항:
+- BaseWorker의 기존 processBatch() 메서드를 오버라이드하여 동적 배치 처리 로직 추가
+- MulticallService와의 연동을 통한 실제 배치 트랜잭션 실행
+- Config 클래스에 배치 처리 관련 환경 변수 추가 필요
+- BatchTransaction 모델을 활용한 배치 상태 관리 구현
+</info added on 2025-07-23T02:11:54.817Z>
+<info added on 2025-07-23T02:19:48.749Z>
+구현 완료 - 2025년 7월 23일:
+
+✅ 주요 구현 사항:
+- shouldUseBatchProcessing(): 환경변수(ENABLE_BATCH_PROCESSING), 메시지 수(MIN_BATCH_SIZE), 토큰 그룹 크기(BATCH_THRESHOLD), 가스 절약률(MIN_GAS_SAVINGS_PERCENT) 기반 동적 판단 로직 완성
+- groupByToken(): 토큰 주소별 메시지 그룹화 메서드 구현
+- calculateGasSavings(): 배치 vs 개별 처리 가스 비용 비교 및 절약률 계산 로직 구현
+- processBatch() 메서드 오버라이드: BaseWorker 상속하여 배치/개별 처리 분기 로직 완성
+- processBatchTransactions(): 토큰 그룹별 배치 처리 실행 메서드 구현
+- processBatchGroup(): BatchTransaction 엔티티 생성, Multicall3 컨트랙트 연동, 트랜잭션 서명 및 상태 관리 완성
+
+✅ 검증 완료:
+- 모든 단위 테스트 작성 및 통과
+- TypeScript 타입체크 통과
+- ESLint 코드 품질 검사 통과
+- MulticallService와의 연동 검증 완료
+
+구현된 기능으로 동적 배치 처리 최적화를 통한 가스 비용 절약 및 트랜잭션 처리 효율성 향상 달성.
+</info added on 2025-07-23T02:19:48.749Z>
 

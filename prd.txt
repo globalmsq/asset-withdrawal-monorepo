@@ -13,35 +13,29 @@
 - **확장성**: Redis 기반 nonce 관리, SQS 큐 시스템
 - **운영성**: Admin 페이지를 통한 시스템 관리
 
-## 현재 구현 상태
+## 시스템 요구사항
 
-### ✅ 완료된 기능
+### 필수 구현 기능
 
 #### 핵심 서비스
-- **API 서버** (api-server): REST API, Swagger 문서, 출금 요청/상태 조회
-- **서명 서비스** (signing-service): 트랜잭션 서명, Redis 기반 nonce 관리, 가스 가격 캐싱
-- **큐 시스템**: LocalStack/AWS SQS 통합, 다중 큐 지원, 오류 처리
+1. **api-server**: REST API, Swagger 문서, 출금 요청/상태 조회
+2. **signing-service**: 트랜잭션 서명, Redis 기반 nonce 관리, 가스 가격 캐싱, 배치 처리
+3. **tx-broadcaster**: 서명된 트랜잭션을 블록체인에 브로드캐스트
+4. **tx-monitor**: 트랜잭션 상태 추적 및 확인
+5. **큐 시스템**: LocalStack/AWS SQS 통합, 다중 큐 지원, 오류 처리
 
-#### 데이터베이스 & 보안
-- **데이터베이스**: WithdrawalRequest, Transaction, SignedTransaction 모델
-- **보안**: AWS Secrets Manager + AES-256-GCM 개인키 암호화
-- **인프라**: Docker Compose, Redis, MySQL, LocalStack
+#### 관리 시스템
+1. **Admin API**: 관리자용 REST API, JWT 인증
+2. **Admin UI**: React 기반 관리자 인터페이스
+3. **모니터링**: Prometheus/Grafana 통합, 알림 시스템
 
-#### 핵심 기술적 성취
+#### 기술적 요구사항
 - **Redis 기반 Nonce 관리**: 원자적 연산으로 트랜잭션 충돌 방지
 - **가스 가격 캐싱**: 30초 TTL로 RPC 호출 최적화
-- **서명된 트랜잭션 추적**: 완전한 감사 추적 및 재시도 관리
-- **Multicall3 배치 전송**: ERC20 토큰의 효율적인 배치 처리 (가스 절약)
+- **Multicall3 배치 전송**: ERC20 토큰의 효율적인 배치 처리
 - **다중 인스턴스 지원**: 원자적 메시지 클레임으로 안전한 병렬 처리
-
-### ❌ 미구현 기능 (우선순위순)
-
-1. **tx-broadcaster** ⚠️ **긴급**: 서명된 트랜잭션을 블록체인에 브로드캐스트
-2. **DLQ 핸들러**: 실패한 메시지 처리 및 복구
-3. **실제 잔액 검증**: signing-service에서 토큰 잔액 확인
-4. **tx-monitor**: 트랜잭션 상태 추적 및 확인
-5. **Admin UI + API**: React 기반 관리자 인터페이스와 JWT 인증
-6. **모니터링 시스템**: Prometheus/Grafana, 알림 시스템
+- **DLQ 핸들러**: 실패한 메시지 처리 및 복구
+- **실제 잔액 검증**: signing-service에서 토큰 잔액 확인
 
 ## 시스템 아키텍처
 
@@ -90,25 +84,25 @@ signing-service는 사용자가 배치/단일을 구분하지 않고 요청하�
 
 ### 1단계: 핵심 시스템 완성
 
-#### 1.0 signing-service 기능 확장 ✅ **완료**
+#### 1.0 signing-service 기능 확장
 **목표**: ERC20 토큰 배치 전송 지원 및 다중 인스턴스 지원
 ```typescript
-// 구현된 기능
-- ✅ Multicall3를 활용한 배치 토큰 전송
-- ✅ 동적 배치 처리 결정 로직 (signing-service가 판단)
-- ✅ BatchTransaction 테이블 추가 (배치 트랜잭션 추적용)
-- ✅ WithdrawalRequest에 batchId, processingInstanceId 필드 추가
-- ✅ MulticallService 구현 (calldata 생성, ABI 인코딩)
-- ✅ TransactionSigner에 signBatchTransaction() 메서드 추가
-- ✅ SigningWorker의 지능적 배치/단일 처리 판단
-- ✅ 환경 변수 기반 배치 처리 제어
-- ✅ 배치 전송 검증 및 테스트 케이스
-- ✅ 다중 인스턴스 지원 (원자적 메시지 클레임)
-- ✅ 트랜잭션 기반 동시성 제어
+// 필요 기능
+- Multicall3를 활용한 배치 토큰 전송
+- 동적 배치 처리 결정 로직 (signing-service가 판단)
+- BatchTransaction 테이블 추가 (배치 트랜잭션 추적용)
+- WithdrawalRequest에 batchId, processingInstanceId 필드 추가
+- MulticallService 구현 (calldata 생성, ABI 인코딩)
+- TransactionSigner에 signBatchTransaction() 메서드 추가
+- SigningWorker의 지능적 배치/단일 처리 판단
+- 환경 변수 기반 배치 처리 제어
+- 배치 전송 검증 및 테스트 케이스
+- 다중 인스턴스 지원 (원자적 메시지 클레임)
+- 트랜잭션 기반 동시성 제어
 ```
 
-#### 1.1 tx-broadcaster 구현 ⚠️
-**목표**: 출금 흐름 완료
+#### 1.1 tx-broadcaster 구현
+**목표**: 서명된 트랜잭션의 블록체인 브로드캐스트
 ```typescript
 // 주요 기능
 - signed-tx-queue에서 메시지 폴링
@@ -414,13 +408,13 @@ stages:
 - **M2**: tx-monitor, DLQ 핸들러 및 잔액 검증으로 안정성 확보
 - **M3**: Admin API + 인증 시스템으로 관리 기반 확보
 - **M4**: 모니터링 시스템으로 운영 효율성 확보
-- **M5**: 프로덕션 배포 준비 완료
+- **M5**: 프로덕션 배포 준비
 
 ## 위험 관리
 
 ### 기술적 위험
-1. **nonce 충돌**: ✅ Redis 원자적 연산으로 해결됨
-2. **RPC 실패**: ✅ 가스 가격 캐싱 및 폴백으로 해결됨
+1. **nonce 충돌**: Redis 원자적 연산으로 해결
+2. **RPC 실패**: 가스 가격 캐싱 및 폴백으로 대응
 3. **트랜잭션 실패**: tx-broadcaster에서 재시도 로직 필요
 
 ### 운영 위험
@@ -444,7 +438,7 @@ stages:
 
 ## 데이터 모델 (핵심)
 
-### WithdrawalRequest ✅
+### WithdrawalRequest
 ```prisma
 model WithdrawalRequest {
   id                   BigInt    @id @default(autoincrement())
@@ -466,7 +460,7 @@ model WithdrawalRequest {
 }
 ```
 
-### SignedTransaction ✅
+### SignedTransaction
 ```prisma
 model SignedTransaction {
   id                    BigInt    @id @default(autoincrement())
@@ -494,7 +488,7 @@ model SignedTransaction {
 }
 ```
 
-### BatchTransaction ✅ **신규**
+### BatchTransaction
 ```prisma
 model BatchTransaction {
   id                    BigInt    @id @default(autoincrement())
@@ -596,6 +590,24 @@ REDIS_URL=redis://localhost:6379
 - **이더리움 호환성**: 기존 도구 및 지식 활용 가능
 - **안정성**: 대규모 트랜잭션 검증된 네트워크
 
+### 로컬 개발 환경 지원 (Hardhat) ⚠️ **미구현**
+**목표**: 외부 테스트넷 의존성 없이 빠르고 안정적인 개발 환경 구축
+
+**주요 요구사항**:
+- Hardhat 노드 기반 로컬 블록체인 지원 (Chain ID: 31337)
+- Docker Compose 통합 (hardhat-node, hardhat-deploy 서비스 추가)
+- Multicall3 컨트랙트 자동 배포 (공식 Solidity 0.8.12 코드 사용)
+- TestToken (ERC20) 자동 배포 및 테스트 토큰 발행
+- LocalStack와 동일한 private key 사용 (0x0000...0001)
+- 서명 주소 (0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf)로 모든 테스트 토큰 전송
+- chains.config.json에 localhost 체인 추가 (mainnet/testnet 동일 설정)
+- 모든 마이크로서비스가 localhost 체인 지원
+
+**기술적 세부사항**:
+- Multicall3 주소: 0x5FbDB2315678afecb367f032d93F642f64180aa3 (첫 번째 컨트랙트 주소)
+- 환경 변수로 체인 선택: CHAIN_NAME=localhost
+- init-localstack.sh에서 private key를 Secrets Manager에 저장
+
 ### 향후 확장 계획
 - **4단계**: Ethereum 메인넷 지원
 - **5단계**: BSC, Arbitrum 지원
@@ -662,18 +674,19 @@ REDIS_URL=redis://localhost:6379
 - **PENDING**: 초기 요청 상태
 - **VALIDATING**: 메시지 처리 중 (다중 인스턴스 지원)
 - **SIGNING**: 서명 진행 중
-- **SIGNED**: 서명 완료
+- **SIGNED**: 서명 상태
 - **BROADCASTING**: 브로드캐스트 중
-- **BROADCASTED**: 블록체인 전송 완료
+- **BROADCASTED**: 블록체인 전송 상태
 - **CONFIRMING**: 확인 대기 중
-- **CONFIRMED**: 최종 확인 완료
+- **CONFIRMED**: 최종 확인 상태
 - **FAILED**: 처리 실패
 
 ---
 
 **현재 최우선 과제**: 
-1. tx-broadcaster 구현을 통한 완전한 출금 플로우 완성 ⚠️
-2. tx-monitor 구현으로 트랜잭션 상태 추적
+1. localhost chain 지원 구현 (Hardhat 기반 로컬 개발 환경) ⚠️
+2. tx-broadcaster 구현을 통한 완전한 출금 플로우 완성 ⚠️
+3. tx-monitor 구현으로 트랜잭션 상태 추적
 
 **프로젝트 목표**: 안전하고 확장 가능한 Polygon 네트워크 출금 시스템 구축
 

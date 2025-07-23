@@ -180,12 +180,14 @@ Client → api-server → tx-request-queue → signing-service → signed-tx-que
    - Provides status query endpoints
 
 2. **signing-service**:
-   - Processes messages from tx-request-queue
+   - Processes messages from tx-request-queue with multi-instance support
+   - Atomic message claiming prevents duplicate processing
    - Validates transaction parameters and token balances
    - Retrieves private keys from AWS Secrets Manager
    - Signs transactions for Polygon network (single or batch)
-   - Supports Multicall3 for batch ERC20 transfers
+   - Intelligent batch processing with Multicall3 for ERC20 transfers
    - Manages nonce through Redis for collision prevention
+   - Transaction-based concurrency control for batch creation
    - Sends signed transactions to signed-tx-queue
 
 3. **tx-broadcaster**:

@@ -303,6 +303,9 @@ describe('SigningWorker Validation', () => {
         }),
       };
       (signingWorker as any).gasPriceCache = mockGasPriceCache;
+
+      // Set instance ID for multi-instance testing
+      (signingWorker as any).instanceId = 'test-instance-123';
     });
 
     it('should validate messages immediately after reading from queue', async () => {
@@ -338,7 +341,7 @@ describe('SigningWorker Validation', () => {
       mockDbClient.withdrawalRequest.findUnique
         .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }) // validMessage
         .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }); // invalidMessage
-      
+
       mockDbClient.withdrawalRequest.update
         .mockResolvedValueOnce({ requestId: 'test-1', status: TransactionStatus.VALIDATING })
         .mockResolvedValueOnce({ requestId: 'test-2', status: TransactionStatus.VALIDATING });
@@ -428,16 +431,16 @@ describe('SigningWorker Validation', () => {
       ];
 
       mockInputQueue.receiveMessages.mockResolvedValue(invalidMessages);
-      
+
       // Mock the claiming process - messages are successfully claimed
       mockDbClient.withdrawalRequest.findUnique
         .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }) // msg-1
         .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }); // msg-2
-      
+
       mockDbClient.withdrawalRequest.update
         .mockResolvedValueOnce({ requestId: 'test-1', status: TransactionStatus.VALIDATING })
         .mockResolvedValueOnce({ requestId: 'test-2', status: TransactionStatus.VALIDATING });
-      
+
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
 
       // Execute processBatch
@@ -482,14 +485,14 @@ describe('SigningWorker Validation', () => {
       };
 
       mockInputQueue.receiveMessages.mockResolvedValue([invalidMessage]);
-      
+
       // Mock the claiming process - message is successfully claimed
       mockDbClient.withdrawalRequest.findUnique
         .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null });
-      
+
       mockDbClient.withdrawalRequest.update
         .mockResolvedValueOnce({ requestId: 'test-1', status: TransactionStatus.VALIDATING });
-      
+
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
 
       // Make updateStatusWithError fail
@@ -511,6 +514,115 @@ describe('SigningWorker Validation', () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         'No valid messages to process after validation'
       );
+    });
+
+    it('should handle multi-instance message claiming correctly', async () => {
+      const messages: Message<WithdrawalRequest>[] = [
+        {
+          id: 'msg-1',
+          receiptHandle: 'receipt-1',
+          body: {
+            id: 'test-1',
+            network: 'polygon',
+            toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
+            amount: '1000000000000000000',
+            tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
+            symbol: 'USDT',
+          },
+        },
+        {
+          id: 'msg-2',
+          receiptHandle: 'receipt-2',
+          body: {
+            id: 'test-2',
+            network: 'polygon',
+            toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
+            amount: '2000000000000000000',
+            tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
+            symbol: 'USDT',
+          },
+        },
+      ];
+
+      mockInputQueue.receiveMessages.mockResolvedValue(messages);
+
+      // Mock the claiming process
+      // First message: successfully claimed by this instance
+      // Second message: already claimed by another instance
+      let transactionCallCount = 0;
+      mockDbClient.$transaction.mockImplementation(async (fn) => {
+        transactionCallCount++;
+        if (transactionCallCount === 1) {
+          // First message - successful claim
+          mockDbClient.withdrawalRequest.findUnique.mockResolvedValueOnce({
+            status: TransactionStatus.PENDING,
+            processingInstanceId: null,
+          });
+          mockDbClient.withdrawalRequest.update.mockResolvedValueOnce({
+            requestId: 'test-1',
+            status: TransactionStatus.VALIDATING,
+            processingInstanceId: 'test-instance-123',
+          });
+          return await fn(mockDbClient);
+        } else if (transactionCallCount === 2) {
+          // Second message - already claimed by another instance
+          mockDbClient.withdrawalRequest.findUnique.mockResolvedValueOnce({
+            status: TransactionStatus.VALIDATING,
+            processingInstanceId: 'another-instance',
+          });
+          // Return null to indicate claim failed
+          return null;
+        } else {
+          // Processing phase
+          return await fn(mockDbClient);
+        }
+      });
+
+      // Set up the rest of the mocks
+      mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
+
+      // Mock processMessage to prevent actual processing
+      const processMessageSpy = jest.spyOn(signingWorker as any, 'processMessage')
+        .mockResolvedValue({
+          hash: '0xabcd',
+          nonce: 1,
+          gasLimit: '21000',
+          maxFeePerGas: '20000000000',
+          maxPriorityFeePerGas: '1000000000',
+          from: '0xfrom',
+          to: '0xto',
+          value: '0',
+          data: '0x',
+          chainId: 80002,
+        });
+
+      // Mock the ownership check in processMessage
+      mockDbClient.withdrawalRequest.findUnique.mockResolvedValue({
+        status: TransactionStatus.VALIDATING,
+        processingInstanceId: 'test-instance-123',
+      });
+      mockDbClient.withdrawalRequest.update.mockResolvedValue({
+        requestId: 'test-1',
+        status: TransactionStatus.SIGNING,
+        tryCount: 1,
+      });
+
+      // Execute processBatch
+      await (signingWorker as any).processBatch();
+
+      // Verify the claiming messages were logged
+      expect(mockLogger.info).toHaveBeenCalledWith('Received 2 messages from queue');
+      expect(mockLogger.info).toHaveBeenCalledWith('Successfully claimed 1 messages');
+
+      // Verify the message already claimed by another instance was handled
+      expect(mockInputQueue.deleteMessage).toHaveBeenCalledWith('receipt-2');
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Message already claimed by another instance, removed from queue',
+        { requestId: 'test-2' }
+      );
+
+      // Since only one message was claimed successfully, only it should be processed
+      expect(processMessageSpy).toHaveBeenCalledTimes(1);
     });
   });
 });

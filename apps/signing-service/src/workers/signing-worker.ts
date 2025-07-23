@@ -138,7 +138,7 @@ export class SigningWorker extends BaseWorker<
           requestId: message.body.id,
           error: validationError,
         });
-        
+
         // Mark as FAILED and delete from queue
         try {
           await this.withdrawalRequestService.updateStatusWithError(

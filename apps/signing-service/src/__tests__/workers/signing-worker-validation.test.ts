@@ -267,7 +267,7 @@ describe('SigningWorker Validation', () => {
     beforeEach(async () => {
       // Initialize the worker
       await signingWorker.initialize();
-      
+
       // Mock transaction signer initialization
       const mockTransactionSigner = {
         initialize: jest.fn(),
@@ -285,7 +285,7 @@ describe('SigningWorker Validation', () => {
         }),
       };
       (signingWorker as any).transactionSigner = mockTransactionSigner;
-      
+
       // Mock gas price cache
       const mockGasPriceCache = {
         isValid: jest.fn().mockReturnValue(true),
@@ -328,7 +328,7 @@ describe('SigningWorker Validation', () => {
 
       // Mock withdrawal request findMany to return empty (no previous attempts)
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
-      
+
       // Mock processMessage to prevent actual processing
       const processMessageSpy = jest.spyOn(signingWorker as any, 'processMessage')
         .mockResolvedValue({
@@ -363,11 +363,11 @@ describe('SigningWorker Validation', () => {
         expect.anything(),
         expect.anything()
       );
-      
+
       // Since we have single processing (not batch), the valid message should be processed and deleted
       // after successful processing through processMessage
       expect(mockInputQueue.deleteMessage).toHaveBeenCalledWith('receipt-1');
-      
+
       // Both messages should be deleted: invalid one immediately, valid one after processing
       expect(mockInputQueue.deleteMessage).toHaveBeenCalledTimes(2);
 
@@ -456,7 +456,7 @@ describe('SigningWorker Validation', () => {
 
       mockInputQueue.receiveMessages.mockResolvedValue([invalidMessage]);
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
-      
+
       // Make updateStatusWithError fail
       mockWithdrawalRequestService.updateStatusWithError.mockRejectedValue(
         new Error('Database error')

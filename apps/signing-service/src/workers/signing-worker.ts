@@ -353,15 +353,27 @@ export class SigningWorker extends BaseWorker<
       messageCount: messages.length,
     });
 
-    const batchId = crypto.randomUUID();
+    // Calculate total amount and get symbol (all messages should have the same token/symbol)
+    const totalAmount = messages.reduce((sum, msg) => {
+      return sum + BigInt(msg.body.amount);
+    }, 0n).toString();
 
+    // Get symbol from the first message (all should be the same since they're grouped by token)
+    const symbol = messages[0]?.body.symbol || 'UNKNOWN';
+
+    let batchTransaction: any;
     try {
       // Create BatchTransaction record
-      const batchTransaction = await this.dbClient.batchTransaction.create({
+      batchTransaction = await this.dbClient.batchTransaction.create({
         data: {
-          id: batchId,
           multicallAddress: this.chainProvider.getMulticall3Address(),
           totalRequests: messages.length,
+          totalAmount: totalAmount,
+          symbol: symbol,
+          chainId: this.chainProvider.getChainId(),
+          nonce: 0, // Will be updated when signed
+          gasLimit: '0', // Will be updated when signed
+          tryCount: 0,
           status: 'PENDING',
         },
       });
@@ -371,7 +383,7 @@ export class SigningWorker extends BaseWorker<
       await this.dbClient.withdrawalRequest.updateMany({
         where: { requestId: { in: requestIds } },
         data: {
-          batchId: batchId,
+          batchId: batchTransaction.id.toString(),
           processingMode: 'BATCH',
           status: TransactionStatus.SIGNING,
           tryCount: { increment: 1 },
@@ -450,21 +462,25 @@ export class SigningWorker extends BaseWorker<
       // Sign batch transaction
       const signedBatchTx = await this.transactionSigner.signBatchTransaction({
         transfers,
-        batchId,
+        batchId: batchTransaction.id.toString(),
       });
 
-      // Update batch transaction with txHash
+      // Update batch transaction with txHash and gas details
       await this.dbClient.batchTransaction.update({
-        where: { id: batchId },
+        where: { id: batchTransaction.id },
         data: {
           txHash: signedBatchTx.hash,
+          nonce: signedBatchTx.nonce,
+          gasLimit: signedBatchTx.gasLimit,
+          maxFeePerGas: signedBatchTx.maxFeePerGas,
+          maxPriorityFeePerGas: signedBatchTx.maxPriorityFeePerGas,
           status: 'SIGNED',
         },
       });
 
       // Update withdrawal requests to SIGNED status
       await this.dbClient.withdrawalRequest.updateMany({
-        where: { batchId: batchId },
+        where: { batchId: batchTransaction.id.toString() },
         data: { status: TransactionStatus.SIGNED },
       });
 
@@ -481,40 +497,46 @@ export class SigningWorker extends BaseWorker<
 
       this.auditLogger.auditSuccess('BATCH_SIGN_COMPLETE', {
         metadata: {
-          batchId,
+          batchId: batchTransaction.id.toString(),
           txHash: signedBatchTx.hash,
           messageCount: messages.length,
           tokenAddress,
+          totalAmount,
         },
       });
 
     } catch (error) {
+      const batchId = batchTransaction?.id?.toString();
       this.auditLogger.error('Failed to process batch group', error, {
         batchId,
         tokenAddress,
         messageCount: messages.length,
       });
 
-      // Update batch transaction status to FAILED
-      await this.dbClient.batchTransaction.update({
-        where: { id: batchId },
-        data: {
-          status: 'FAILED',
-          errorMessage: error instanceof Error ? error.message : String(error),
-        },
-      });
+      // Update batch transaction status to FAILED if it was created
+      if (batchTransaction?.id) {
+        await this.dbClient.batchTransaction.update({
+          where: { id: batchTransaction.id },
+          data: {
+            status: 'FAILED',
+            errorMessage: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
 
       // Reset withdrawal requests back to PENDING state for retry
       // Remove batchId and type so they can be processed individually or in a new batch
-      await this.dbClient.withdrawalRequest.updateMany({
-        where: { batchId: batchId },
-        data: {
-          status: TransactionStatus.PENDING,
-          batchId: null,
-          processingMode: 'SINGLE',
-          errorMessage: error instanceof Error ? error.message : String(error),
-        },
-      });
+      if (batchId) {
+        await this.dbClient.withdrawalRequest.updateMany({
+          where: { batchId: batchId },
+          data: {
+            status: TransactionStatus.PENDING,
+            batchId: null,
+            processingMode: 'SINGLE',
+            errorMessage: error instanceof Error ? error.message : String(error),
+          },
+        });
+      }
 
       this.auditLogger.info('Reset withdrawal requests to PENDING for retry', {
         batchId,
@@ -540,6 +562,7 @@ export class SigningWorker extends BaseWorker<
       toAddress: to,
       amount,
       tokenAddress,
+      symbol,
     } = message;
 
     this.auditLogger.info(`Processing withdrawal request: ${transactionId}`, {
@@ -594,7 +617,7 @@ export class SigningWorker extends BaseWorker<
       try {
         // Check if this is a retry by counting existing signed transactions
         const existingTxs = await this.signedTransactionService.findByRequestId(transactionId);
-        const retryCount = existingTxs.length;
+        const tryCount = existingTxs.length;
 
         await this.signedTransactionService.create({
           requestId: transactionId,
@@ -606,16 +629,18 @@ export class SigningWorker extends BaseWorker<
           from: signedTx.from,
           to: signedTx.to,
           value: signedTx.value,
+          amount: amount,
+          symbol: symbol || 'UNKNOWN',
           data: signedTx.data,
           chainId: signedTx.chainId,
-          retryCount,
+          tryCount,
           status: 'SIGNED',
         });
 
         this.auditLogger.info('Signed transaction saved to database', {
           transactionId,
           txHash: signedTx.hash,
-          retryCount,
+          tryCount,
         });
       } catch (dbError) {
         // If DB save fails, log error but continue - we don't want to block the flow

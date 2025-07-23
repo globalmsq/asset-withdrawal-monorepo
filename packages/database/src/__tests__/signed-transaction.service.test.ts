@@ -32,6 +32,8 @@ describe('SignedTransactionService', () => {
         from: '0xfrom',
         to: '0xto',
         value: '1000000000000000000',
+        amount: '1000000000000000000',
+        symbol: 'USDT',
         chainId: 80002,
       };
 
@@ -39,8 +41,10 @@ describe('SignedTransactionService', () => {
         id: 1n,
         ...dto,
         status: 'SIGNED',
-        retryCount: 0,
-        signedAt: new Date(),
+        tryCount: 0,
+        gasUsed: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         broadcastedAt: null,
         confirmedAt: null,
         errorMessage: null,
@@ -70,6 +74,8 @@ describe('SignedTransactionService', () => {
         from: '0xfrom',
         to: '0xto',
         value: '1000000000000000000',
+        amount: '1000000000000000000',
+        symbol: 'USDC',
         chainId: 80002,
         status: 'FAILED',
         errorMessage: 'Test error',
@@ -92,8 +98,8 @@ describe('SignedTransactionService', () => {
     it('should find transactions by request ID', async () => {
       const requestId = 'test-request-id';
       const mockResults = [
-        { id: 1n, requestId, signedAt: new Date('2025-01-01') },
-        { id: 2n, requestId, signedAt: new Date('2025-01-02') },
+        { id: 1n, requestId, createdAt: new Date('2025-01-01') },
+        { id: 2n, requestId, createdAt: new Date('2025-01-02') },
       ];
 
       mockPrismaClient.signedTransaction.findMany.mockResolvedValue(mockResults);
@@ -103,7 +109,7 @@ describe('SignedTransactionService', () => {
       expect(result).toEqual(mockResults);
       expect(mockPrismaClient.signedTransaction.findMany).toHaveBeenCalledWith({
         where: { requestId },
-        orderBy: { signedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
       });
     });
   });
@@ -135,7 +141,7 @@ describe('SignedTransactionService', () => {
   describe('getLatestByRequestId', () => {
     it('should get latest transaction for request', async () => {
       const requestId = 'test-request-id';
-      const mockResult = { id: 2n, requestId, signedAt: new Date() };
+      const mockResult = { id: 2n, requestId, createdAt: new Date() };
 
       mockPrismaClient.signedTransaction.findFirst.mockResolvedValue(mockResult);
 
@@ -144,7 +150,7 @@ describe('SignedTransactionService', () => {
       expect(result).toEqual(mockResult);
       expect(mockPrismaClient.signedTransaction.findFirst).toHaveBeenCalledWith({
         where: { requestId },
-        orderBy: { signedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
       });
     });
   });
@@ -221,8 +227,8 @@ describe('SignedTransactionService', () => {
   describe('getRecentSignedTransactions', () => {
     it('should get recent transactions with default limit', async () => {
       const mockResults = [
-        { id: 1n, signedAt: new Date() },
-        { id: 2n, signedAt: new Date() },
+        { id: 1n, createdAt: new Date() },
+        { id: 2n, createdAt: new Date() },
       ];
 
       mockPrismaClient.signedTransaction.findMany.mockResolvedValue(mockResults);
@@ -232,7 +238,7 @@ describe('SignedTransactionService', () => {
       expect(result).toEqual(mockResults);
       expect(mockPrismaClient.signedTransaction.findMany).toHaveBeenCalledWith({
         take: 10,
-        orderBy: { signedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
       });
     });
 
@@ -243,7 +249,7 @@ describe('SignedTransactionService', () => {
 
       expect(mockPrismaClient.signedTransaction.findMany).toHaveBeenCalledWith({
         take: 20,
-        orderBy: { signedAt: 'desc' },
+        orderBy: { createdAt: 'desc' },
       });
     });
   });
@@ -261,24 +267,7 @@ describe('SignedTransactionService', () => {
       expect(result).toEqual(mockResults);
       expect(mockPrismaClient.signedTransaction.findMany).toHaveBeenCalledWith({
         where: { requestId, status },
-        orderBy: { signedAt: 'desc' },
-      });
-    });
-  });
-
-  describe('incrementRetryCount', () => {
-    it('should increment retry count', async () => {
-      const id = 1n;
-      const mockResult = { id, retryCount: 3 };
-
-      mockPrismaClient.signedTransaction.update.mockResolvedValue(mockResult);
-
-      const result = await service.incrementRetryCount(id);
-
-      expect(result).toEqual(mockResult);
-      expect(mockPrismaClient.signedTransaction.update).toHaveBeenCalledWith({
-        where: { id },
-        data: { retryCount: { increment: 1 } },
+        orderBy: { createdAt: 'desc' },
       });
     });
   });

@@ -21,7 +21,9 @@ export interface WithdrawalRequest {
   symbol?: string;
   network: string;
   type?: WithdrawalType;
+  processingMode?: string;
   batchId?: string;
+  tryCount?: number;
   createdAt?: Date;
 }
 

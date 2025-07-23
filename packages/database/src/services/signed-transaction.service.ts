@@ -12,15 +12,18 @@ export interface CreateSignedTransactionDto {
   from: string;
   to: string;
   value: string;
+  amount: string;
+  symbol: string;
   data?: string;
   chainId: number;
-  retryCount?: number;
+  tryCount?: number;
   status?: string;
   errorMessage?: string;
 }
 
 export interface UpdateSignedTransactionDto {
   status?: string;
+  gasUsed?: string;
   errorMessage?: string;
   broadcastedAt?: Date;
   confirmedAt?: Date;
@@ -51,7 +54,7 @@ export class SignedTransactionService {
   async findByRequestId(requestId: string): Promise<SignedTransaction[]> {
     return this.prisma.signedTransaction.findMany({
       where: { requestId },
-      orderBy: { signedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -64,7 +67,7 @@ export class SignedTransactionService {
   async getLatestByRequestId(requestId: string): Promise<SignedTransaction | null> {
     return this.prisma.signedTransaction.findFirst({
       where: { requestId },
-      orderBy: { signedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -106,7 +109,7 @@ export class SignedTransactionService {
   async getRecentSignedTransactions(limit: number = 10): Promise<SignedTransaction[]> {
     return this.prisma.signedTransaction.findMany({
       take: limit,
-      orderBy: { signedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -119,18 +122,7 @@ export class SignedTransactionService {
         requestId,
         status,
       },
-      orderBy: { signedAt: 'desc' },
-    });
-  }
-
-  async incrementRetryCount(id: bigint): Promise<SignedTransaction> {
-    return this.prisma.signedTransaction.update({
-      where: { id },
-      data: {
-        retryCount: {
-          increment: 1,
-        },
-      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

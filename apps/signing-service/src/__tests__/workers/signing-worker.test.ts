@@ -391,7 +391,7 @@ describe('SigningWorker', () => {
 
       mockDbClient = {
         batchTransaction: {
-          create: jest.fn().mockResolvedValue({ id: 'batch-123' }),
+          create: jest.fn().mockResolvedValue({ id: 123n }),
           update: jest.fn().mockResolvedValue({}),
         },
         withdrawalRequest: {
@@ -412,7 +412,7 @@ describe('SigningWorker', () => {
       mockTransactionSigner = {
         initialize: jest.fn(),
         signBatchTransaction: jest.fn().mockResolvedValue({
-          transactionId: 'batch-123',
+          transactionId: '123',
           hash: '0xbatchhash',
           rawTransaction: '0xraw',
           nonce: 1,
@@ -624,6 +624,9 @@ describe('SigningWorker', () => {
           data: expect.objectContaining({
             multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
             totalRequests: 3,
+            totalAmount: '6000000000000000000',
+            nonce: 0,
+            gasLimit: '0',
             status: 'PENDING',
           }),
         });
@@ -643,9 +646,13 @@ describe('SigningWorker', () => {
 
         // Verify batch transaction update
         expect(mockDbClient.batchTransaction.update).toHaveBeenCalledWith({
-          where: { id: expect.any(String) },
+          where: { id: 123n },
           data: {
             txHash: '0xbatchhash',
+            nonce: 1,
+            gasLimit: '150000',
+            maxFeePerGas: '1000000000',
+            maxPriorityFeePerGas: '1000000000',
             status: 'SIGNED',
           },
         });
@@ -667,7 +674,7 @@ describe('SigningWorker', () => {
 
         // Verify failure handling
         expect(mockDbClient.batchTransaction.update).toHaveBeenCalledWith({
-          where: { id: expect.any(String) },
+          where: { id: 123n },
           data: {
             status: 'FAILED',
             errorMessage: 'Signing failed',
@@ -676,7 +683,7 @@ describe('SigningWorker', () => {
 
         // Verify withdrawal requests are reset to PENDING for retry
         expect(mockDbClient.withdrawalRequest.updateMany).toHaveBeenCalledWith({
-          where: { batchId: expect.any(String) },
+          where: { batchId: '123' },
           data: {
             status: TransactionStatus.PENDING,
             batchId: null,

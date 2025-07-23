@@ -11,8 +11,9 @@ export interface WithdrawalRequest {
   tokenAddress: string;
   network: string;
   status: string;
-  type: string;
+  processingMode: string;
   batchId: string | null;
+  tryCount: number;
   errorMessage: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -37,6 +38,7 @@ export class WithdrawalRequestService {
     return {
       ...prismaRequest,
       id: prismaRequest.id.toString(),
+      tryCount: Number(prismaRequest.tryCount),
     };
   }
 
@@ -85,14 +87,14 @@ export class WithdrawalRequestService {
     tokenAddress: string;
     network: string;
     status?: string;
-    type?: string;
+    processingMode?: string;
     batchId?: string;
   }): Promise<WithdrawalRequest> {
     const prismaRequest = await this.prisma.withdrawalRequest.create({
       data: {
         ...data,
         status: data.status || 'PENDING',
-        type: data.type || 'SINGLE',
+        processingMode: data.processingMode || 'SINGLE',
       },
     });
     return this.convertToWithdrawalRequest(prismaRequest);
@@ -125,7 +127,7 @@ export class WithdrawalRequestService {
           data: {
             ...req,
             status: 'PENDING',
-            type: 'BATCH',
+            processingMode: 'BATCH',
           },
         })
       )

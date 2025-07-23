@@ -78,32 +78,46 @@ model SignedTransaction {
   from                  String              @db.VarChar(42)
   to                    String              @db.VarChar(42)
   value                 String              @db.VarChar(50)
+  amount                String              @db.VarChar(50) // Transaction amount
+  symbol                String              @db.VarChar(10) // Token symbol
   data                  String?             @db.Text // Transaction data (for contract calls)
   chainId               Int                 @db.UnsignedInt
-  retryCount            Int                 @default(0) // Retry count
+  tryCount              Int                 @default(0) // Try count
   status                String              @default("SIGNED") @db.VarChar(20) // SIGNED, BROADCASTED, CONFIRMED, FAILED
+  gasUsed               String?             @db.VarChar(50)
   errorMessage          String?             @db.Text
-  signedAt              DateTime            @default(now())
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
   broadcastedAt         DateTime?
   confirmedAt           DateTime?
   
   @@index([requestId])
   @@index([txHash])
-  @@index([signedAt])
+  @@index([createdAt])
   @@index([status])
   @@map("signed_transactions")
 }
 
 model BatchTransaction {
-  id                    String              @id @default(uuid()) @db.VarChar(36)
+  id                    BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
   txHash                String?             @unique @db.VarChar(66)
   multicallAddress      String              @db.VarChar(42)
   totalRequests         Int                 @db.UnsignedInt
+  totalAmount           String              @db.VarChar(50) // Total amount across all transactions
+  symbol                String              @db.VarChar(10) // Token symbol
+  chainId               Int                 @db.UnsignedInt
+  nonce                 Int                 @db.UnsignedInt
+  gasLimit              String              @db.VarChar(50)
+  maxFeePerGas          String?             @db.VarChar(50) // EIP-1559
+  maxPriorityFeePerGas  String?             @db.VarChar(50) // EIP-1559
+  tryCount              Int                 @default(0) // Try count
   status                String              @default("PENDING") @db.VarChar(20) // PENDING, SIGNING, SIGNED, BROADCASTED, CONFIRMED, FAILED
   gasUsed               String?             @db.VarChar(50)
   errorMessage          String?             @db.Text
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
+  broadcastedAt         DateTime?
+  confirmedAt           DateTime?
   
   @@index([txHash])
   @@index([status])

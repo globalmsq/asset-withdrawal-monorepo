@@ -22,9 +22,23 @@ Jira synchronization means creating, updating, and maintaining consistency betwe
 3. **JSON Storage**: Store Jira key in `jiraKey` field in tasks.json
 4. **Title Updates**: When updating Task Master titles, DO NOT update Jira issue titles
 5. **Bidirectional Sync**: Both Task Master and Jira should always reflect the same status
-6. **Language**: When creating or updating Jira issues, always use English for titles, descriptions, and comments
+6. **Language - MANDATORY**: 
+   - **ALL Jira content MUST be in English**: This includes titles, descriptions, comments, and any other text fields
+   - **Task Master content should also be in English** when it will be synchronized to Jira
+   - **Before creating or updating Jira issues**, translate any non-English content to English
+   - **Example**: Korean "Hardhat 노드를 활용한 로컬호스트 체인 지원 구현" → English "Implement Hardhat node-based localhost chain support"
 7. **Using Existing Jira Keys**: Task Master tasks already contain Jira keys internally. Use `task-master show <id>` to find the Jira key (e.g., BFS-30) and use that key for Jira synchronization
-8. **EPIC Association**: All Jira issues must be associated with an EPIC. When creating or synchronizing Jira issues, always set the EPIC link field
+8. **EPIC Association - MANDATORY**:
+   - **All Story/Task type issues MUST be linked to an EPIC**
+   - **Sub-tasks CANNOT be directly linked to EPICs** (Jira limitation)
+   - **Jira Hierarchy**: EPIC → Story/Task → Sub-task
+   - **When creating new Jira issues**:
+     - Main tasks (Story/Task): Always set the parent field to the appropriate EPIC
+     - Subtasks (Sub-task): Set parent to the corresponding Story/Task (NOT the EPIC)
+   - **Verification**: After creating/updating, always verify EPIC linkage:
+     - Stories/Tasks should show EPIC in parent field
+     - Sub-tasks should show Story/Task in parent field
+   - **Common EPICs**: BFS-1 (Asset Withdrawal System) is the main EPIC for this project
 
 #### Complete Synchronization Workflow
 
@@ -32,7 +46,10 @@ Jira synchronization means creating, updating, and maintaining consistency betwe
 When a new task is created in Task Master:
 1. Create task in Task Master
 2. Create corresponding Jira issue (Story for main tasks, Sub-task for subtasks)
-3. **Set EPIC link**: Associate the Jira issue with the appropriate EPIC
+3. **Set EPIC link (CRITICAL)**:
+   - For Story/Task: Set parent field to EPIC (e.g., BFS-1)
+   - For Sub-task: Set parent field to the Story/Task (NOT the EPIC)
+   - Use MCP command: `editJiraIssue` with `fields: {"parent": {"key": "BFS-1"}}` for Stories
 4. Add Jira key to tasks.json `jiraKey` field
 5. Update Task Master title to include `[PROJECT-KEY]` prefix
 6. Ensure both systems show the same initial status
@@ -41,7 +58,10 @@ When a new task is created in Task Master:
 For tasks that already have Jira keys stored in Task Master:
 1. Use `task-master show <id>` to view task details and find the Jira key
 2. Use the Jira key directly with MCP Atlassian tools (e.g., search with `key = BFS-30`)
-3. **Verify EPIC link**: Ensure the Jira issue is linked to the appropriate EPIC
+3. **Verify EPIC link**:
+   - Check if Story/Task has parent EPIC
+   - If missing EPIC: Use `editJiraIssue` with `fields: {"parent": {"key": "BFS-1"}}`
+   - For Sub-tasks: Verify they have correct Story/Task parent (NOT EPIC)
 4. Update Jira status to match Task Master status
 5. Add implementation notes or completion summaries to Jira
 

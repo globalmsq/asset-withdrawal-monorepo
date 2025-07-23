@@ -13,7 +13,7 @@
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd mustb-asset-withdrawal
+cd asset-withdrawal-monorepo
 
 # Install dependencies
 yarn install

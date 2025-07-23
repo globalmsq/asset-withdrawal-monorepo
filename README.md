@@ -1,4 +1,4 @@
-# MUSTB Asset Withdrawal System
+# Asset Withdrawal System
 
 A high-throughput Polygon blockchain withdrawal system built with TypeScript, Express, and Prisma. The system is designed to handle massive volumes of cryptocurrency withdrawal requests, processing tens of thousands of transactions efficiently through intelligent batch processing with Multicall3. It uses AWS SQS for reliable queue management (LocalStack for development), provides real-time transaction tracking, and achieves 10-100x faster processing speeds while also reducing gas costs by up to 70%.
 

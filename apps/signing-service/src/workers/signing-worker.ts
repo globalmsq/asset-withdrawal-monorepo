@@ -126,8 +126,52 @@ export class SigningWorker extends BaseWorker<
 
     this.auditLogger.info(`Processing batch of ${messages.length} messages`);
 
-    // Separate messages by try count
-    const { messagesForBatch, messagesForSingle } = await this.separateMessagesByTryCount(messages);
+    // Validate messages immediately after reading from queue
+    const validMessages: Message<WithdrawalRequest>[] = [];
+    const invalidMessages: Message<WithdrawalRequest>[] = [];
+
+    for (const message of messages) {
+      const validationError = this.validateWithdrawalRequest(message.body);
+      if (validationError) {
+        invalidMessages.push(message);
+        this.auditLogger.error('Invalid withdrawal request', null, {
+          requestId: message.body.id,
+          error: validationError,
+        });
+        
+        // Mark as FAILED and delete from queue
+        try {
+          await this.withdrawalRequestService.updateStatusWithError(
+            message.body.id,
+            TransactionStatus.FAILED,
+            validationError
+          );
+          await this.inputQueue.deleteMessage(message.receiptHandle);
+          this.auditLogger.info('Invalid request marked as FAILED and removed from queue', {
+            requestId: message.body.id,
+          });
+        } catch (error) {
+          this.auditLogger.error('Failed to update invalid request status', error, {
+            requestId: message.body.id,
+          });
+        }
+      } else {
+        validMessages.push(message);
+      }
+    }
+
+    if (validMessages.length === 0) {
+      this.auditLogger.info('No valid messages to process after validation');
+      return;
+    }
+
+    this.auditLogger.info(`Processing ${validMessages.length} valid messages (${invalidMessages.length} invalid)`, {
+      validIds: validMessages.map(m => m.body.id),
+      invalidIds: invalidMessages.map(m => m.body.id),
+    });
+
+    // Separate valid messages by try count
+    const { messagesForBatch, messagesForSingle } = await this.separateMessagesByTryCount(validMessages);
 
     // Process messages with previous attempts individually
     if (messagesForSingle.length > 0) {
@@ -292,6 +336,39 @@ export class SigningWorker extends BaseWorker<
     return savingsPercent;
   }
 
+  /**
+   * Validates a withdrawal request before processing
+   * @returns Error message if validation fails, null if valid
+   */
+  private validateWithdrawalRequest(request: WithdrawalRequest): string | null {
+    // Validate network support
+    if (request.network !== 'polygon') {
+      return `Unsupported network: ${request.network}. This service only supports Polygon`;
+    }
+
+    // Validate recipient address format
+    if (!request.toAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return `Invalid recipient address format: ${request.toAddress}`;
+    }
+
+    // Validate token address format
+    if (!request.tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return `Invalid token address format: ${request.tokenAddress}`;
+    }
+
+    // Validate amount
+    try {
+      const amountBigInt = BigInt(request.amount);
+      if (amountBigInt <= 0n) {
+        return `Invalid amount: ${request.amount}. Must be positive`;
+      }
+    } catch (error) {
+      return `Invalid amount format: ${request.amount}. Must be a valid number`;
+    }
+
+    return null; // No validation errors
+  }
+
   private async processBatchTransactions(messages: Message<WithdrawalRequest>[]): Promise<void> {
     const tokenGroups = this.groupByToken(messages);
 
@@ -391,61 +468,36 @@ export class SigningWorker extends BaseWorker<
       });
 
       // Prepare batch transfers with address normalization
+      // Note: Basic validation already done in processBatch()
       const transfers: BatchTransferRequest[] = messages.map(message => {
-        // Normalize addresses to handle any formatting issues
+        // Normalize addresses to handle checksum formatting
         let normalizedTokenAddress: string;
         let normalizedToAddress: string;
 
         try {
-          // Trim whitespace and ensure proper format
-          // First try to normalize the address with proper checksum
+          // Normalize token address with proper checksum
           normalizedTokenAddress = ethers.getAddress(message.body.tokenAddress.trim());
         } catch (error) {
-          // If checksum validation fails, try with lowercase
-          try {
-            const lowercaseAddress = message.body.tokenAddress.trim().toLowerCase();
-            normalizedTokenAddress = ethers.getAddress(lowercaseAddress);
-            this.auditLogger.warn('Token address checksum was invalid, normalized to proper format', {
-              transactionId: message.body.id,
-              originalAddress: message.body.tokenAddress,
-              normalizedAddress: normalizedTokenAddress,
-            });
-          } catch (secondError) {
-            this.auditLogger.error('Invalid token address format', secondError, {
-              transactionId: message.body.id,
-              tokenAddress: message.body.tokenAddress,
-              tokenAddressLength: message.body.tokenAddress.length,
-              tokenAddressHex: Buffer.from(message.body.tokenAddress).toString('hex'),
-            });
-            // Use lowercase version as last resort
-            normalizedTokenAddress = message.body.tokenAddress.trim().toLowerCase();
-          }
+          // If checksum validation fails, use lowercase format
+          normalizedTokenAddress = message.body.tokenAddress.trim().toLowerCase();
+          this.auditLogger.warn('Token address checksum normalization', {
+            transactionId: message.body.id,
+            originalAddress: message.body.tokenAddress,
+            normalizedAddress: normalizedTokenAddress,
+          });
         }
 
         try {
-          // Trim whitespace and ensure proper format
-          // First try to normalize the address with proper checksum
+          // Normalize recipient address with proper checksum
           normalizedToAddress = ethers.getAddress(message.body.toAddress.trim());
         } catch (error) {
-          // If checksum validation fails, try with lowercase
-          try {
-            const lowercaseAddress = message.body.toAddress.trim().toLowerCase();
-            normalizedToAddress = ethers.getAddress(lowercaseAddress);
-            this.auditLogger.warn('Address checksum was invalid, normalized to proper format', {
-              transactionId: message.body.id,
-              originalAddress: message.body.toAddress,
-              normalizedAddress: normalizedToAddress,
-            });
-          } catch (secondError) {
-            this.auditLogger.error('Invalid recipient address format', secondError, {
-              transactionId: message.body.id,
-              toAddress: message.body.toAddress,
-              toAddressLength: message.body.toAddress.length,
-              toAddressHex: Buffer.from(message.body.toAddress).toString('hex'),
-            });
-            // Use lowercase version as last resort
-            normalizedToAddress = message.body.toAddress.trim().toLowerCase();
-          }
+          // If checksum validation fails, use lowercase format
+          normalizedToAddress = message.body.toAddress.trim().toLowerCase();
+          this.auditLogger.warn('Recipient address checksum normalization', {
+            transactionId: message.body.id,
+            originalAddress: message.body.toAddress,
+            normalizedAddress: normalizedToAddress,
+          });
         }
 
         return {
@@ -573,23 +625,8 @@ export class SigningWorker extends BaseWorker<
     });
 
     try {
-      // Validate network support
-      if (network !== 'polygon') {
-        throw new Error(
-          `Unsupported network: ${network}. This service only supports Polygon`
-        );
-      }
-
-      // Validate address format
-      if (!to.match(/^0x[a-fA-F0-9]{40}$/)) {
-        throw new Error(`Invalid address format: ${to}`);
-      }
-
-      // Validate amount
-      const amountBigInt = BigInt(amount);
-      if (amountBigInt <= 0n) {
-        throw new Error(`Invalid amount: ${amount}. Must be positive`);
-      }
+      // Validation is already done in processBatch()
+      // This method only handles single transaction signing
 
       // Update withdrawal request status to SIGNING and increment try count
       await this.dbClient.withdrawalRequest.update({

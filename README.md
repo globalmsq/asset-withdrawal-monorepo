@@ -1,6 +1,6 @@
 # Asset Withdrawal System
 
-A high-throughput Polygon blockchain withdrawal system built with TypeScript, Express, and Prisma. The system is designed to handle massive volumes of cryptocurrency withdrawal requests, processing tens of thousands of transactions efficiently through intelligent batch processing with Multicall3. It uses AWS SQS for reliable queue management (LocalStack for development), provides real-time transaction tracking, and achieves 10-100x faster processing speeds while also reducing gas costs by up to 70%.
+High-throughput Polygon blockchain withdrawal system with Multicall3 batch processing. Handles massive volumes of cryptocurrency withdrawals, processing tens of thousands of transactions efficiently. Features 10-100x faster speeds and up to 70% gas cost reduction.
 
 ## 📁 Project Structure
 
@@ -26,63 +26,36 @@ A high-throughput Polygon blockchain withdrawal system built with TypeScript, Ex
 
 ## 🚀 Getting Started
 
-### 1. Prerequisites
+### Prerequisites
 
 - Node.js 18+
 - Docker and Docker Compose
 - AWS CLI (for LocalStack)
 
-### 2. Install Dependencies
+### Quick Start
 
 ```bash
-npm install
-```
-
-### 3. Start Infrastructure Services
-
-```bash
-# Start MySQL and LocalStack
 docker-compose -f docker/docker-compose.yaml up -d
 
-# Initialize LocalStack queues and secrets
-./docker/scripts/init-localstack.sh
+docker-compose logs -f
 ```
 
-### 4. Database Setup
-
-```bash
-# Run database migrations
-npm run db:migrate
-
-# Seed initial data (optional)
-npm run db:seed
-```
-
-### 5. Environment Configuration
-
-Create `.env` file in the root directory:
-
-```bash
-cp .env.example .env
-```
-
-**Key Environment Variables:**
+### Environment Configuration
 
 ```env
 # Database
 DATABASE_URL="mysql://root:root@localhost:3306/withdrawal_db"
 
-# Queue Configuration
-QUEUE_TYPE=localstack          # 'localstack' or 'aws'
+# AWS Services (LocalStack for development)
 AWS_ENDPOINT=http://localhost:4566
 AWS_REGION=ap-northeast-2
 AWS_ACCESS_KEY_ID=test
 AWS_SECRET_ACCESS_KEY=test
 
 # Polygon Network
-POLYGON_NETWORK=amoy           # 'amoy' or 'mainnet'
+POLYGON_NETWORK=amoy                         # 'amoy' or 'mainnet'
 POLYGON_RPC_URL=https://rpc-amoy.polygon.technology
-POLYGON_CHAIN_ID=80002
+POLYGON_CHAIN_ID=80002                       # 80002 (Amoy) or 137 (Mainnet)
 
 # Application Ports
 API_SERVER_PORT=3000
@@ -95,223 +68,176 @@ ADMIN_UI_PORT=3005
 JWT_SECRET=your-secret-key
 ENCRYPTION_KEY=your-32-byte-encryption-key
 
-# Batch Processing (High-Throughput Configuration)
-ENABLE_BATCH_PROCESSING=true     # Enable for high-volume processing
-MIN_BATCH_SIZE=5                 # Start batching at 5 transactions
-BATCH_THRESHOLD=3                # Min transactions per token for batching
-MIN_GAS_SAVINGS_PERCENT=20       # Ensure cost efficiency
-SINGLE_TX_GAS_ESTIMATE=65000     # Gas per single transaction
-BATCH_BASE_GAS=100000            # Base gas for batch transaction
-BATCH_PER_TX_GAS=25000           # Additional gas per tx in batch
+# Batch Processing
+ENABLE_BATCH_PROCESSING=true                 # High-volume processing
+MIN_BATCH_SIZE=5                            # Minimum transactions to batch
+BATCH_THRESHOLD=3                           # Min per token for batching
+MIN_GAS_SAVINGS_PERCENT=20                  # Cost efficiency threshold
+SINGLE_TX_GAS_ESTIMATE=65000               # Gas per single transaction
+BATCH_BASE_GAS=100000                      # Base gas for batch
+BATCH_PER_TX_GAS=25000                     # Additional gas per tx in batch
 ```
 
-### 6. Run Services
-
-```bash
-# Run all services in development mode
-npm run dev
-
-# Run specific service
-npm run dev:api-server
-npm run dev:signing-service
-npm run dev:tx-broadcaster
-npm run dev:tx-monitor
-npm run dev:admin-ui
-
-# Build all services
-npm run build
-
-# Run in production mode
-npm run serve
-```
-
-### 7. Access Services
+## 📍 Service Endpoints
 
 - **API Server**: http://localhost:3000
-- **Swagger Documentation**: http://localhost:3000/api-docs
-- **Admin UI**: http://localhost:3005 (React admin interface)
-- **SQS Admin UI**: http://localhost:3999 (visual queue monitoring)
+- **Swagger Docs**: http://localhost:8080/api-docs
+- **Admin UI**: http://localhost:3005
+- **SQS Admin UI**: http://localhost:3999
 - **LocalStack**: http://localhost:4566
 
-## 📋 Available Commands
+## 📋 Commands
 
 ```bash
-# Build
-yarn build                # Build all projects
-yarn nx build my-package       # Build specific package
+# Development
+npm run dev                     # Start all services
+npm run dev:[service-name]      # Start specific service
+npm run build                   # Build all services
+npm run serve                   # Production mode
 
-# Test
-yarn test                 # Run all tests
-yarn nx test my-package        # Test specific package
-yarn coverage             # Run tests with coverage
+# Database
+npm run db:migrate              # Run migrations
+npm run db:seed                 # Seed data
+npm run db:reset                # Reset database
 
-# Linting
-yarn lint                 # Lint all projects
-yarn lint:fix            # Auto-fix linting issues
-
-# Formatting
-yarn format              # Format code with Prettier
-
-# Dependency check
-yarn depcheck            # Check for unused dependencies
-
-# Clean
-yarn clean               # Clean build artifacts and cache
+# Code Quality
+npm run lint                    # Check code style
+npm run lint:fix                # Auto-fix issues
+npm run typecheck               # TypeScript check
+npm run test                    # Run tests
+npm run test:coverage           # Coverage report
 ```
 
 ## 🏗️ Architecture
 
 ### System Overview
 
-The system follows a queue-based microservices architecture:
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        Client[Client App]
+        Admin[Admin Dashboard]
+    end
 
-```
-Client → api-server → tx-request-queue → signing-service → signed-tx-queue → tx-broadcaster → Blockchain
-                                                   ↓                                          ↓
-                                            (Multicall3 batch)                         tx-monitor
+    subgraph "API Layer"
+        ALB[Load Balancer]
+        API[API Server<br/>:3000]
+    end
+
+    subgraph "Queue System"
+        SQS1[tx-request-queue]
+        SQS2[signed-tx-queue]
+        DLQ[Dead Letter Queue]
+    end
+
+    subgraph "Processing Services"
+        Signer[Signing Service<br/>:3002]
+        Broadcaster[TX Broadcaster<br/>:3004]
+        Monitor[TX Monitor<br/>:3003]
+    end
+
+    subgraph "Data Layer"
+        MySQL[(MySQL<br/>:3306)]
+        Redis[(Redis<br/>:6379)]
+    end
+
+    subgraph "Blockchain"
+        Polygon[Polygon Network]
+    end
+
+    Client --> ALB
+    Admin --> ALB
+    ALB --> API
+
+    API --> SQS1
+    API --> MySQL
+    API --> Redis
+
+    SQS1 --> Signer
+    Signer --> SQS2
+    Signer --> MySQL
+
+    SQS2 --> Broadcaster
+    Broadcaster --> Polygon
+    Broadcaster --> MySQL
+
+    Monitor --> Polygon
+    Monitor --> MySQL
+
+    SQS1 -.->|on failure| DLQ
+    SQS2 -.->|on failure| DLQ
 ```
 
 ### Core Services
 
-1. **api-server**:
-   - Handles HTTP requests for withdrawals
-   - Validates requests and stores in database
-   - Sends messages to tx-request-queue
-   - Provides status query endpoints
+**API Server** - HTTP gateway handling withdrawal requests, authentication, and status queries
 
-2. **signing-service**:
-   - Processes messages from tx-request-queue with multi-instance support
-   - Atomic message claiming prevents duplicate processing
-   - Validates transaction parameters and token balances
-   - Retrieves private keys from AWS Secrets Manager
-   - Signs transactions for Polygon network (single or batch)
-   - Intelligent batch processing with Multicall3 for ERC20 transfers
-   - Manages nonce through Redis for collision prevention
-   - Transaction-based concurrency control for batch creation
-   - Sends signed transactions to signed-tx-queue
+**Signing Service** - High-throughput transaction processor with:
+- Multi-instance support with atomic message claiming
+- Intelligent batch processing via Multicall3 (10-100x faster)
+- Dynamic batch optimization based on gas savings
+- Redis-based nonce management
 
-3. **tx-broadcaster**:
-   - Reads from signed-tx-queue
-   - Broadcasts transactions to Polygon network
-   - Handles nonce collision detection
-   - Implements retry logic for temporary failures
-   - Updates transaction status in database
+**TX Broadcaster** - Broadcasts signed transactions to Polygon with retry logic
 
-4. **tx-monitor**:
-   - Monitors transaction status on blockchain
-   - Tracks confirmation counts (12 confirmations)
-   - Detects failed transactions
-   - Triggers retry for failed transactions
-   - Updates final transaction status
+**TX Monitor** - Tracks blockchain confirmations and handles failed transactions
 
-5. **admin-ui**:
-   - React-based web interface for system management
-   - Real-time dashboard with transaction statistics
-   - Queue monitoring and DLQ management
-   - User and permission management
-   - Built with React 18, TypeScript, Ant Design, and Tailwind CSS
+**Admin UI** - React dashboard for system management and monitoring
 
-### Queue System
+### Key Features
 
-- **Development**: LocalStack SQS emulation
-- **Production**: AWS SQS
-- **Queues**:
-  - `tx-request-queue`: New withdrawal requests
-  - `signed-tx-queue`: Signed transactions ready for broadcast
-  - `invalid-dlq`: Failed validation requests
-  - `tx-dlq`: Failed transaction broadcasts
+- **High Throughput**: Process tens of thousands of transactions efficiently
+- **Batch Processing**: Multicall3 integration for 10-100x speed improvement
+- **Gas Optimization**: 20-70% gas cost reduction through batching
+- **Multi-Instance**: Horizontal scaling with atomic message processing
+- **Fault Tolerance**: DLQ handling and automatic retry mechanisms
+- **Real-time Monitoring**: Admin UI and SQS dashboard
 
-## 🔧 Development Guide
+## 🔧 API Reference
 
-### API Endpoints
-
-**Authentication:**
+### Authentication
 - `POST /auth/register` - User registration
-- `POST /auth/login` - User login with JWT
+- `POST /auth/login` - User login
 
-**Withdrawal:**
-- `POST /withdrawal/request` - Submit withdrawal request
-- `GET /withdrawal/status/:id` - Check withdrawal status
-- `GET /withdrawal/history` - Get user's withdrawal history
-- `GET /withdrawal/queue/status` - Monitor queue status
+### Withdrawal Operations
+- `POST /withdrawal/request` - Submit withdrawal
+- `GET /withdrawal/status/:id` - Check status
+- `GET /withdrawal/history` - User history
+- `GET /withdrawal/queue/status` - Queue metrics
 
-### Security Features
+Full API documentation available at http://localhost:3000/api-docs
 
-- JWT-based authentication
-- Private key encryption (AES-256-GCM)
-- AWS Secrets Manager integration
-- Audit logging for critical operations
-- Input validation and sanitization
+## 🛡️ Security
 
-### Testing
+- JWT authentication with refresh tokens
+- AES-256-GCM encryption for private keys
+- AWS Secrets Manager for sensitive data
+- Comprehensive audit logging
+- Input validation and rate limiting
+
+## 🧪 Testing
 
 ```bash
-# Run all tests
-npm test
-
-# Run specific service tests
-npm run test:api-server
-npm run test:signing-service
-
-# Run with coverage
-npm run test:coverage
+npm test                        # Run all tests
+npm run test:[service-name]     # Test specific service
+npm run test:coverage           # Coverage report
 ```
 
-### Development Workflow
+## 🛠️ Tech Stack
 
-1. Make changes to code
-2. Run linting: `npm run lint`
-3. Run type checking: `npm run typecheck`
-4. Run tests: `npm test`
-5. Build: `npm run build`
-
-## 🛠️ Tools and Technologies
-
-- **Nx**: Monorepo management and build system
-- **TypeScript**: Type safety with strict mode
-- **Express.js**: Web framework
-- **Prisma**: ORM for MySQL database
-- **AWS SDK**: SQS queue management
-- **LocalStack**: Local AWS service emulation
-- **Ethers.js**: Polygon blockchain interaction
-- **Jest**: Testing framework with coverage
-- **Docker**: Containerization
-- **JWT**: Authentication
-- **Bcrypt**: Password hashing
-
-## 📝 Conventions
-
-### Service Naming
-
-- Purpose-specific names (e.g., `signing-service`, not `worker-1`)
-- Use kebab-case
-- Clear separation of concerns
-
-### Environment Variables
-
-- All services share root `.env` file
-- Use `QUEUE_TYPE` to switch between LocalStack and AWS
-- Sensitive data in AWS Secrets Manager
-
-### Error Handling
-
-- Use custom error classes from `@packages/shared`
-- Proper HTTP status codes
-- Detailed error logging
-- DLQ for failed messages
-
-## 🚨 Important Notes
-
-1. **No Database Migrations**: Do not generate Prisma migrations unless explicitly requested
-2. **Security First**: Never expose private keys or sensitive data
-3. **Queue-based Architecture**: All heavy processing through queues
-4. **Polygon Only**: Currently supports only Polygon network
-5. **Development First**: Use LocalStack for local development
+- **Framework**: Express.js with TypeScript
+- **Database**: MySQL with Prisma ORM
+- **Queue**: AWS SQS (LocalStack for dev)
+- **Blockchain**: Ethers.js for Polygon
+- **Testing**: Jest with Supertest
+- **Build**: Nx monorepo tools
+- **Container**: Docker
 
 ## 📚 Documentation
 
-- **Architecture Overview**: See `docs/introduce.md`
-- **Development Plan**: See `docs/plan.md`
-- **Development Guidelines**: See `CLAUDE.md`
-- **API Documentation**: Run the server and visit `/api-docs`
+- [Architecture Overview](./ARCHITECTURE.md)
+- [API Documentation](http://localhost:8080/api-docs)
 
+## 📄 License
+
+MIT

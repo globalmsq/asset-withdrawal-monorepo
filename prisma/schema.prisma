@@ -32,8 +32,9 @@ model WithdrawalRequest {
   network       String             @db.VarChar(50) // Combined blockchain_network format
   status        String             @default("PENDING") @db.VarChar(20) // PENDING, VALIDATING, SIGNING, BROADCASTING, COMPLETED, FAILED
   errorMessage  String?            @db.Text
-  type          String             @default("SINGLE") @db.VarChar(10) // SINGLE or BATCH
+  processingMode String            @default("SINGLE") @db.VarChar(10) // SINGLE, BATCH, or BULK
   batchId       String?            @db.VarChar(36) // Reference to BatchTransaction (nullable for single transactions)
+  tryCount      Int                @default(0) @db.UnsignedInt // Number of signing attempts
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
 
@@ -41,7 +42,7 @@ model WithdrawalRequest {
   @@index([requestId])
   @@index([createdAt]) // Better time-based queries with rearranged UUID
   @@index([batchId])
-  @@index([type])
+  @@index([processingMode])
   @@map("withdrawal_requests")
 }
 

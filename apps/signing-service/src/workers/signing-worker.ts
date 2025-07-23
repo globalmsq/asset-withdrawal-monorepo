@@ -117,8 +117,7 @@ export class SigningWorker extends BaseWorker<
     // Receive messages from queue
     const messages = await this.inputQueue.receiveMessages({
       maxMessages: this.batchSize,
-      waitTimeSeconds: 20,
-      visibilityTimeout: 300,
+      waitTimeSeconds: 20, // Long polling
     });
 
     if (messages.length === 0) {
@@ -127,12 +126,24 @@ export class SigningWorker extends BaseWorker<
 
     this.auditLogger.info(`Processing batch of ${messages.length} messages`);
 
-    // Check if we should use batch processing
-    if (await this.shouldUseBatchProcessing(messages)) {
-      await this.processBatchTransactions(messages);
-    } else {
-      // Process messages individually
-      await this.processSingleTransactions(messages);
+    // Separate messages by try count
+    const { messagesForBatch, messagesForSingle } = await this.separateMessagesByTryCount(messages);
+
+    // Process messages with previous attempts individually
+    if (messagesForSingle.length > 0) {
+      this.auditLogger.info('Processing messages with previous attempts individually', {
+        count: messagesForSingle.length,
+        requestIds: messagesForSingle.map(m => m.body.id),
+      });
+      await this.processSingleTransactions(messagesForSingle);
+    }
+
+    // Check if remaining messages should use batch processing
+    if (messagesForBatch.length > 0 && await this.shouldUseBatchProcessing(messagesForBatch)) {
+      await this.processBatchTransactions(messagesForBatch);
+    } else if (messagesForBatch.length > 0) {
+      // Process remaining messages individually if they don't meet batch criteria
+      await this.processSingleTransactions(messagesForBatch);
     }
   }
 
@@ -160,6 +171,40 @@ export class SigningWorker extends BaseWorker<
       maxFeePerGas: feeData.maxFeePerGas.toString(),
       maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
     });
+  }
+
+  private async separateMessagesByTryCount(messages: Message<WithdrawalRequest>[]): Promise<{
+    messagesForBatch: Message<WithdrawalRequest>[];
+    messagesForSingle: Message<WithdrawalRequest>[];
+  }> {
+    const requestIds = messages.map(m => m.body.id);
+    const withdrawalRequests = await this.dbClient.withdrawalRequest.findMany({
+      where: { requestId: { in: requestIds } },
+      select: { requestId: true, tryCount: true },
+    });
+
+    // Create a map for quick lookup
+    const requestTryCountMap = new Map<string, number>();
+    withdrawalRequests.forEach((req: { requestId: string; tryCount: number }) => {
+      requestTryCountMap.set(req.requestId, req.tryCount);
+    });
+
+    const messagesForBatch: Message<WithdrawalRequest>[] = [];
+    const messagesForSingle: Message<WithdrawalRequest>[] = [];
+
+    // Separate messages based on try count
+    messages.forEach(message => {
+      const tryCount = requestTryCountMap.get(message.body.id) || 0;
+      if (tryCount > 0) {
+        // If already tried, process individually
+        messagesForSingle.push(message);
+      } else {
+        // If first attempt, eligible for batch
+        messagesForBatch.push(message);
+      }
+    });
+
+    return { messagesForBatch, messagesForSingle };
   }
 
   private async shouldUseBatchProcessing(messages: Message<WithdrawalRequest>[]): Promise<boolean> {
@@ -252,8 +297,18 @@ export class SigningWorker extends BaseWorker<
 
     for (const [tokenAddress, groupMessages] of tokenGroups) {
       if (groupMessages.length >= this.config.batchProcessing.batchThreshold) {
-        // Process as batch
-        await this.processBatchGroup(tokenAddress, groupMessages);
+        try {
+          // Process as batch
+          await this.processBatchGroup(tokenAddress, groupMessages);
+        } catch (error) {
+          this.auditLogger.error('Batch processing failed, messages will be retried', error, {
+            tokenAddress,
+            messageCount: groupMessages.length,
+          });
+          // Don't process individually here - messages are still in queue
+          // They will be reprocessed after visibility timeout
+          // The DB has been updated to PENDING with error message
+        }
       } else {
         // Process individually
         await this.processSingleTransactions(groupMessages);
@@ -311,14 +366,15 @@ export class SigningWorker extends BaseWorker<
         },
       });
 
-      // Update withdrawal requests with batchId
+      // Update withdrawal requests with batchId and increment try count
       const requestIds = messages.map(m => m.body.id);
       await this.dbClient.withdrawalRequest.updateMany({
         where: { requestId: { in: requestIds } },
         data: {
           batchId: batchId,
-          type: 'BATCH',
+          processingMode: 'BATCH',
           status: TransactionStatus.SIGNING,
+          tryCount: { increment: 1 },
         },
       });
 
@@ -327,7 +383,7 @@ export class SigningWorker extends BaseWorker<
         // Normalize addresses to handle any formatting issues
         let normalizedTokenAddress: string;
         let normalizedToAddress: string;
-        
+
         try {
           // Trim whitespace and ensure proper format
           // First try to normalize the address with proper checksum
@@ -353,7 +409,7 @@ export class SigningWorker extends BaseWorker<
             normalizedTokenAddress = message.body.tokenAddress.trim().toLowerCase();
           }
         }
-        
+
         try {
           // Trim whitespace and ensure proper format
           // First try to normalize the address with proper checksum
@@ -379,7 +435,7 @@ export class SigningWorker extends BaseWorker<
             normalizedToAddress = message.body.toAddress.trim().toLowerCase();
           }
         }
-        
+
         return {
           tokenAddress: normalizedTokenAddress,
           to: normalizedToAddress,
@@ -448,17 +504,30 @@ export class SigningWorker extends BaseWorker<
         },
       });
 
-      // Update withdrawal requests to FAILED status
+      // Reset withdrawal requests back to PENDING state for retry
+      // Remove batchId and type so they can be processed individually or in a new batch
       await this.dbClient.withdrawalRequest.updateMany({
         where: { batchId: batchId },
         data: {
-          status: TransactionStatus.FAILED,
+          status: TransactionStatus.PENDING,
+          batchId: null,
+          processingMode: 'SINGLE',
           errorMessage: error instanceof Error ? error.message : String(error),
         },
       });
 
-      // Don't delete messages - let them retry
-      throw error;
+      this.auditLogger.info('Reset withdrawal requests to PENDING for retry', {
+        batchId,
+        messageCount: messages.length,
+        reason: 'Batch processing failed',
+      });
+
+      // Don't throw error to prevent service termination
+      // Messages will be processed individually in the catch block of processBatchTransactions
+
+      // IMPORTANT: Don't delete messages from queue on failure
+      // They will become visible again after visibility timeout
+      // and will be reprocessed as individual transactions
     }
   }
 
@@ -499,11 +568,14 @@ export class SigningWorker extends BaseWorker<
         throw new Error(`Invalid amount: ${amount}. Must be positive`);
       }
 
-      // Update withdrawal request status to SIGNING
-      await this.withdrawalRequestService.updateStatus(
-        transactionId,
-        TransactionStatus.SIGNING
-      );
+      // Update withdrawal request status to SIGNING and increment try count
+      await this.dbClient.withdrawalRequest.update({
+        where: { requestId: transactionId },
+        data: {
+          status: TransactionStatus.SIGNING,
+          tryCount: { increment: 1 },
+        },
+      });
 
       this.auditLogger.auditSuccess('SIGN_TRANSACTION_START', {
         transactionId,

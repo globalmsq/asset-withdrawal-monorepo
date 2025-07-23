@@ -69,7 +69,8 @@ export class SQSQueue<T> implements IQueue<T> {
       QueueUrl: queueUrl,
       MaxNumberOfMessages: options?.maxMessages || 1,
       WaitTimeSeconds: options?.waitTimeSeconds || 0,
-      VisibilityTimeout: options?.visibilityTimeout || 300,
+      // Don't set VisibilityTimeout here - use queue's default configuration
+      ...(options?.visibilityTimeout !== undefined && { VisibilityTimeout: options.visibilityTimeout }),
       MessageAttributeNames: ['All'],
     });
 

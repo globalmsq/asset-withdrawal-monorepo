@@ -122,25 +122,47 @@ Claude Code can directly update Jira statuses using the MCP Atlassian server con
 
 ### 4. Testing Requirements
 
-- Write tests for all new endpoints using Jest and Supertest
-- Test both success and error cases
-- Mock external dependencies (database, blockchain services, SQS)
-- Run tests before marking any task as complete:
-  ```bash
-  npm test
+- When creating new features, initially create minimal test files with a single passing test
+- Example of minimal test:
+  ```typescript
+  describe('FeatureName', () => {
+    it('should exist', () => {
+      expect(true).toBe(true);
+    });
+  });
   ```
+- Only implement comprehensive tests when explicitly requested
+- When requested to write tests:
+  - Test both success and error cases
+  - Mock external dependencies (database, blockchain services, SQS)
+  - Use Jest and Supertest for API endpoints
 
-### 5. Before Completing Tasks
+### 5. Code Quality Checks
 
-Always run these commands to ensure code quality:
+**MANDATORY**: Run these commands after any code modification:
 
 ```bash
 npm run lint        # Check code style
 npm run typecheck   # Check TypeScript types
+```
+
+**OPTIONAL**: Run tests only when explicitly requested:
+```bash
 npm test           # Run all tests
 ```
 
-### 6. Documentation
+### 6. Development Workflow
+
+1. **After any code changes**, automatically run:
+   - `npm run lint`
+   - `npm run typecheck`
+   
+2. **For tests**:
+   - Create minimal test file structure when adding new features
+   - Only implement full test coverage when explicitly requested
+   - Do NOT run tests automatically unless asked
+
+### 7. Documentation
 
 - Update API documentation if you modify endpoints
 - Keep inline comments minimal - code should be self-explanatory

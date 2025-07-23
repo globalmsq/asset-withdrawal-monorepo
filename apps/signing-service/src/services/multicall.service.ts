@@ -336,7 +336,7 @@ export class MulticallService {
           errors.push(`Invalid token address in transfer ${transfer.transactionId}: "${transfer.tokenAddress}" - ${error instanceof Error ? error.message : 'Invalid format'}`);
         }
       }
-      
+
       // Validate recipient address - accept both checksummed and lowercase addresses
       try {
         // Try direct validation first

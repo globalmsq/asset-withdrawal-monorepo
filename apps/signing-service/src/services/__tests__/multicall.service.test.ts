@@ -377,7 +377,7 @@ describe('MulticallService', () => {
       );
 
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Invalid address in transfer tx1');
+      expect(result.errors[0]).toMatch(/Invalid token address in transfer tx1/);
     });
 
     it('should detect invalid amounts', async () => {

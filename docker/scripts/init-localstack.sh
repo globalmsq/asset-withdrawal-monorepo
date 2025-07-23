@@ -19,12 +19,12 @@ echo "LocalStack is ready, creating queues..."
 awslocal sqs create-queue \
   --queue-name tx-request-queue \
   --region $REGION \
-  --attributes MessageRetentionPeriod=1209600,VisibilityTimeout=300
+  --attributes MessageRetentionPeriod=1209600,VisibilityTimeout=30
 
 awslocal sqs create-queue \
   --queue-name signed-tx-queue \
   --region $REGION \
-  --attributes MessageRetentionPeriod=1209600,VisibilityTimeout=300
+  --attributes MessageRetentionPeriod=1209600,VisibilityTimeout=30
 
 # Create DLQ queues
 awslocal sqs create-queue \

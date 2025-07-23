@@ -143,7 +143,7 @@ export abstract class BaseWorker<TInput, TOutput = void> {
       const messages = await this.inputQueue.receiveMessages({
         maxMessages: this.batchSize,
         waitTimeSeconds: 20, // Long polling
-        visibilityTimeout: 300, // 5 minutes
+        // visibilityTimeout is configured at queue level
       });
 
       if (messages.length === 0) {

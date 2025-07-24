@@ -19,22 +19,6 @@ export class ChainProviderFactory {
     return this.providers.get(key)!;
   }
 
-  static createPolygonProvider(network: ChainNetwork, rpcUrl?: string): ChainProvider {
-    return this.getProvider('polygon', network, rpcUrl);
-  }
-
-  static createEthereumProvider(network: ChainNetwork, rpcUrl?: string): ChainProvider {
-    return this.getProvider('ethereum', network, rpcUrl);
-  }
-
-  static createBscProvider(network: ChainNetwork, rpcUrl?: string): ChainProvider {
-    return this.getProvider('bsc', network, rpcUrl);
-  }
-
-  static createLocalhostProvider(rpcUrl?: string): ChainProvider {
-    return this.getProvider('localhost', 'localhost', rpcUrl || 'http://127.0.0.1:8545');
-  }
-
   static clearProviders(): void {
     this.providers.clear();
   }

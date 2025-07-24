@@ -63,7 +63,8 @@ export class SigningWorker extends BaseWorker<
 
     // Create chain provider based on config
     const network = config.polygon.chainId === 80002 ? 'testnet' : 'mainnet';
-    this.chainProvider = ChainProviderFactory.createPolygonProvider(
+    this.chainProvider = ChainProviderFactory.getProvider(
+      'polygon',
       network,
       config.polygon.rpcUrl
     );

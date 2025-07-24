@@ -1,5 +1,5 @@
-export type ChainNetwork = 'mainnet' | 'testnet';
-export type ChainName = 'polygon' | 'ethereum' | 'bsc';
+export type ChainNetwork = 'mainnet' | 'testnet' | 'localhost';
+export type ChainName = 'polygon' | 'ethereum' | 'bsc' | 'localhost';
 
 export interface ChainConfig {
   chainId: number;
@@ -16,8 +16,9 @@ export interface ChainConfig {
 
 export interface ChainConfigs {
   [key: string]: {
-    mainnet: ChainConfig;
-    testnet: ChainConfig;
+    mainnet?: ChainConfig;
+    testnet?: ChainConfig;
+    localhost?: ChainConfig;
   };
 }
 

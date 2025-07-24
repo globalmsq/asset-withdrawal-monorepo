@@ -17,7 +17,13 @@ export class ChainProvider {
       throw new Error(`Unsupported chain: ${options.chain}`);
     }
 
-    this.config = chainConfigs[options.network];
+    // Special handling for localhost chain
+    if (options.chain === 'localhost' && options.network === 'localhost') {
+      this.config = (chainConfigs as any).localhost;
+    } else {
+      this.config = (chainConfigs as any)[options.network];
+    }
+
     if (!this.config) {
       throw new Error(`Unsupported network: ${options.network} for chain: ${options.chain}`);
     }
@@ -175,5 +181,9 @@ export class ChainProvider {
 
   isTestnet(): boolean {
     return this.network === 'testnet';
+  }
+
+  isLocalhost(): boolean {
+    return this.chain === 'localhost' && this.network === 'localhost';
   }
 }

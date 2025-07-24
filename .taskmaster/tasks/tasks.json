@@ -387,11 +387,11 @@
             "id": 2,
             "title": "Localhost chain configuration in chains.config.json and ChainProvider integration",
             "description": "Configure localhost chain in chains.config.json and integrate with existing ChainProvider mechanism, removing environment variable dependencies.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
-            "details": "Add localhost chain configuration to chains.config.json (chainId: 31337, name: 'localhost', symbol: 'ETH', decimals: 18, rpcUrl: 'http://127.0.0.1:8545'), add 'localhost' to ChainName type in packages/shared/src/types/chain.types.ts, add localhost case handling in packages/shared/src/providers/chain-provider.factory.ts (create JsonRpcProvider instance), add networks.hardhat configuration to hardhat.config.ts (chainId: 31337, mining.auto: true, mining.interval: 3000, accounts configuration - including LocalStack private key 0x0000000000000000000000000000000000000000000000000000000000000001 to generate signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf), integrate hardhat service into existing docker-compose.yaml (run npx hardhat node --hostname 0.0.0.0), remove environment variable setup for POLYGON_NETWORK=localhost, LOCALHOST_RPC_URL, LOCALHOST_SIGNING_PRIVATE_KEY",
+            "details": "Add localhost chain configuration to chains.config.json (chainId: 31337, name: 'localhost', symbol: 'ETH', decimals: 18, rpcUrl: 'http://127.0.0.1:8545'), add 'localhost' to ChainName type in packages/shared/src/types/chain.types.ts, add localhost case handling in packages/shared/src/providers/chain-provider.factory.ts (create JsonRpcProvider instance), add networks.hardhat configuration to hardhat.config.ts (chainId: 31337, mining.auto: true, mining.interval: 3000, accounts configuration - including LocalStack private key 0x0000000000000000000000000000000000000000000000000000000000000001 to generate signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf), integrate hardhat service into existing docker-compose.yaml (run npx hardhat node --hostname 0.0.0.0), remove environment variable setup for POLYGON_NETWORK=localhost, LOCALHOST_RPC_URL, LOCALHOST_SIGNING_PRIVATE_KEY\n<info added on 2025-07-24T07:36:28.619Z>\n구현 완료: localhost 체인 설정이 성공적으로 완료됨. chains.config.json에 chainId 31337로 localhost 체인 추가, ChainName 및 ChainNetwork 타입에 localhost 포함 업데이트, ChainProviderFactory에 createLocalhostProvider 메서드 추가, hardhat.config.ts에 3초 마이닝 간격과 LocalStack 개인키 설정 적용, docker-compose.yaml에 hardhat-node 및 hardhat-deploy 서비스 추가, signing-service에서 Polygon 관련 환경변수 제거. 모든 TypeScript 타입 검사 및 린트 검사 통과 확인.\n</info added on 2025-07-24T07:36:28.619Z>",
             "testStrategy": "Validate localhost chain configuration loading from chains.config.json, test ChainProvider.getProvider('localhost') functionality, verify hardhat node connection through provider, test signing address generation from LocalStack private key, validate docker-compose hardhat service integration, confirm removal of environment variable dependencies"
           },
           {
@@ -447,7 +447,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-07-24T07:09:11.318Z",
+      "updated": "2025-07-24T07:36:35.631Z",
       "description": "Tasks for master context"
     }
   }

@@ -31,6 +31,10 @@ export class ChainProviderFactory {
     return this.getProvider('bsc', network, rpcUrl);
   }
 
+  static createLocalhostProvider(rpcUrl?: string): ChainProvider {
+    return this.getProvider('localhost', 'localhost', rpcUrl || 'http://127.0.0.1:8545');
+  }
+
   static clearProviders(): void {
     this.providers.clear();
   }

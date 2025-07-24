@@ -86,6 +86,41 @@ services:
       retries: 5
       start_period: 30s
 
+  # Hardhat Local Blockchain
+  hardhat-node:
+    build:
+      context: ./hardhat
+      dockerfile: Dockerfile
+    container_name: withdrawal-hardhat-node
+    ports:
+      - 8545:8545
+    networks:
+      - withdrawal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8545"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Hardhat Contract Deployment
+  hardhat-deploy:
+    build:
+      context: ./hardhat
+      dockerfile: Dockerfile
+    container_name: withdrawal-hardhat-deploy
+    depends_on:
+      hardhat-node:
+        condition: service_healthy
+    working_dir: /app
+    volumes:
+      - ./scripts/init-hardhat.sh:/init-hardhat.sh
+    command: ["/bin/sh", "/init-hardhat.sh"]
+    networks:
+      - withdrawal-network
+    restart: "no"
+
   # API Server
   api-server:
     container_name: withdrawal-api-server
@@ -93,6 +128,8 @@ services:
       mysql:
         condition: service_healthy
       localstack:
+        condition: service_healthy
+      hardhat-node:
         condition: service_healthy
     restart: unless-stopped
     build:
@@ -155,10 +192,8 @@ services:
       TX_REQUEST_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/tx-request-queue
       SIGNED_TX_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue
 
-      # Polygon Configuration
-      POLYGON_NETWORK: amoy
-      POLYGON_RPC_URL: https://rpc-amoy.polygon.technology
-      POLYGON_CHAIN_ID: 80002
+      # Chain and network must be specified in API requests
+      # No default values - all requests must include explicit parameters
 
       # Logging
       SIGNING_SERVICE_LOG_LEVEL: info

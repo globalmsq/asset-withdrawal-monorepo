@@ -405,6 +405,13 @@ These commands make AI calls and may take up to a minute:
 - Use `update-task --id=<id>` for single task updates
 - Use `update-subtask --id=<id>` for implementation logging
 
+### Jira Key Integration for Subtasks
+
+- **Main tasks**: Must include `[BFS-XX]` prefix in Task Master title after Jira creation
+- **Subtasks with own Jira key**: Use their specific Jira key (e.g., [BFS-33] for subtask 22.1)
+- **Subtasks without own Jira key**: Use parent task's Jira key (e.g., [BFS-32] for subtasks of Task 22)
+- **Title format**: `[BFS-XX] 한글 제목` for Task Master, English title only in Jira
+
 ### Research Mode
 
 - Add `--research` flag for research-based AI enhancement

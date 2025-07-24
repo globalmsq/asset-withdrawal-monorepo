@@ -23,11 +23,16 @@ Jira synchronization means creating, updating, and maintaining consistency betwe
 4. **Title Updates**: When updating Task Master titles, DO NOT update Jira issue titles
 5. **Bidirectional Sync**: Both Task Master and Jira should always reflect the same status
 6. **Language - MANDATORY**: 
-   - **ALL Jira content MUST be in English**: This includes titles, descriptions, comments, and any other text fields
-   - **Task Master content should also be in English** when it will be synchronized to Jira
-   - **Before creating or updating Jira issues**, translate any non-English content to English
+   - **Task Master Tasks**: Write in Korean for better local understanding
+   - **Jira Issues**: ALL content MUST be in English (titles, descriptions, comments)
+   - **Translation Required**: Before creating Jira issues, translate Korean Task Master content to English
    - **Example**: Korean "Hardhat 노드를 활용한 로컬호스트 체인 지원 구현" → English "Implement Hardhat node-based localhost chain support"
 7. **Using Existing Jira Keys**: Task Master tasks already contain Jira keys internally. Use `task-master show <id>` to find the Jira key (e.g., BFS-30) and use that key for Jira synchronization
+8. **Jira Key in Task Titles - MANDATORY**:
+   - **Main Tasks**: Must include `[BFS-XX]` prefix in Task Master title after Jira creation
+   - **Subtasks**: Should include `[BFS-XX]` prefix when they have their own Jira issues
+   - **Update Process**: After creating Jira issue, immediately update Task Master title with the key
+   - **Example**: "네이티브 토큰 출금 지원" → "[BFS-38] 네이티브 토큰 출금 지원"
 8. **EPIC Association - MANDATORY**:
    - **All Story/Task type issues MUST be linked to an EPIC**
    - **Sub-tasks CANNOT be directly linked to EPICs** (Jira limitation)

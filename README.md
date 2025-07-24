@@ -31,6 +31,7 @@ High-throughput Polygon blockchain withdrawal system with Multicall3 batch proce
 - Node.js 18+
 - Docker and Docker Compose
 - AWS CLI (for LocalStack)
+- Hardhat (for local blockchain development)
 
 ### Quick Start
 
@@ -52,10 +53,9 @@ AWS_REGION=ap-northeast-2
 AWS_ACCESS_KEY_ID=test
 AWS_SECRET_ACCESS_KEY=test
 
-# Polygon Network
-POLYGON_NETWORK=amoy                         # 'amoy' or 'mainnet'
-POLYGON_RPC_URL=https://rpc-amoy.polygon.technology
-POLYGON_CHAIN_ID=80002                       # 80002 (Amoy) or 137 (Mainnet)
+# Blockchain Configuration
+# Chain and network must be specified in API requests
+# No default values - all requests must include explicit parameters
 
 # Application Ports
 API_SERVER_PORT=3000
@@ -106,6 +106,11 @@ npm run lint:fix                # Auto-fix issues
 npm run typecheck               # TypeScript check
 npm run test                    # Run tests
 npm run test:coverage           # Coverage report
+
+# Local Blockchain (Hardhat)
+npx hardhat node                # Start local blockchain
+npx hardhat compile             # Compile smart contracts
+npx hardhat run scripts/deploy.js --network localhost  # Deploy contracts
 ```
 
 ## 🏗️ Architecture
@@ -192,6 +197,8 @@ graph TB
 - **Multi-Instance**: Horizontal scaling with atomic message processing
 - **Fault Tolerance**: DLQ handling and automatic retry mechanisms
 - **Real-time Monitoring**: Admin UI and SQS dashboard
+- **Multi-Chain Support**: Polygon, Ethereum, BSC, and localhost (Hardhat) chains
+- **Local Development**: Hardhat node with 1-second mining for fast testing
 
 ## 🔧 API Reference
 

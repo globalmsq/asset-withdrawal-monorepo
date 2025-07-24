@@ -1,6 +1,6 @@
 # Task ID: 11
 # Title: [BFS-4] signing-service Multicall3 배치 전송 기능 구현
-# Status: in-progress
+# Status: done
 # Dependencies: None
 # Priority: high
 # Description: ERC20 토큰 배치 전송을 위한 Multicall3 통합 기능 구현

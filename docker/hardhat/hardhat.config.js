@@ -1,4 +1,9 @@
 require('@nomicfoundation/hardhat-toolbox');
+require('@nomicfoundation/hardhat-verify');
+require('@nomicfoundation/hardhat-network-helpers');
+require('hardhat-gas-reporter');
+require('solidity-coverage');
+require('hardhat-contract-sizer');
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -49,5 +54,28 @@ module.exports = {
     tests: './test',
     cache: './cache',
     artifacts: './artifacts',
+  },
+
+  gasReporter: {
+    enabled: process.env.REPORT_GAS !== undefined,
+    currency: 'USD',
+    outputFile: process.env.GAS_REPORT_FILE,
+    noColors: true,
+    coinmarketcap: process.env.COINMARKETCAP_API_KEY,
+    token: 'MATIC', // For Polygon
+  },
+
+  contractSizer: {
+    alphaSort: true,
+    disambiguatePaths: false,
+    runOnCompile: false,
+    strict: true,
+  },
+
+  etherscan: {
+    apiKey: {
+      polygon: process.env.POLYGONSCAN_API_KEY || '',
+      polygonAmoy: process.env.POLYGONSCAN_API_KEY || '',
+    },
   },
 };

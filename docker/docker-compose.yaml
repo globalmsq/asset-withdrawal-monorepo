@@ -115,8 +115,9 @@ services:
         condition: service_healthy
     working_dir: /app
     volumes:
-      - ./scripts/init-hardhat.sh:/init-hardhat.sh
-    command: ["/bin/sh", "/init-hardhat.sh"]
+      - ./scripts/init-hardhat.sh:/app/init-hardhat.sh:ro
+      - deployment-data:/deployment
+    command: ["/bin/sh", "/app/init-hardhat.sh"]
     networks:
       - withdrawal-network
     restart: "no"
@@ -232,4 +233,6 @@ volumes:
   signing-service-logs:
     driver: local
   redis-data:
+    driver: local
+  deployment-data:
     driver: local

@@ -20,16 +20,9 @@
     "prepare": "husky install",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio",
-    "hardhat:node": "npx hardhat node --hostname 0.0.0.0",
-    "hardhat:deploy": "npx hardhat run scripts/deploy.js --network localhost",
-    "hardhat:compile": "npx hardhat compile"
+    "db:studio": "prisma studio"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-ethers": "^3.0.0",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@openzeppelin/contracts": "^5.0.2",
-    "hardhat": "^2.22.4",
     "@babel/core": "^7.27.7",
     "@babel/preset-env": "^7.27.2",
     "@babel/preset-typescript": "^7.27.1",

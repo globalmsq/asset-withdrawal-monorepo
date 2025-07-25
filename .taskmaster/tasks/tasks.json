@@ -398,18 +398,18 @@
             "id": 3,
             "title": "ERC20 token and Multicall3 contract deployment script implementation",
             "description": "Implement scripts to deploy test ERC20 tokens and Multicall3 contract, transferring all tokens to the signing address.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               2
             ],
-            "details": "Create contracts/TestToken.sol (inherit OpenZeppelin ERC20, include minting function), add contracts/Multicall3.sol (for batch calls), write scripts/deploy-localhost.ts deployment script, deploy ERC20 token and transfer all tokens (e.g., 1,000,000 TEST) to signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf, deploy Multicall3 contract, save deployed contract addresses to .env.localhost file (TEST_TOKEN_ADDRESS, MULTICALL3_ADDRESS), create scripts/setup-test-data.ts for test data setup (user creation, sample withdrawal requests, etc.), automate type generation with TypeChain\n<info added on 2025-07-23T13:08:36.235Z>\nCreate contracts/Multicall3.sol file using provided Multicall3.sol code, create contracts/TestToken.sol file (inherit OpenZeppelin ERC20 with minting functionality), write scripts/deploy.js deployment script (deploy both contracts and transfer all tokens to signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf), save deployment information to deployment.json file (instead of or in addition to existing .env.localhost)\n</info added on 2025-07-23T13:08:36.235Z>",
+            "details": "Create contracts/TestToken.sol (inherit OpenZeppelin ERC20, include minting function), add contracts/Multicall3.sol (for batch calls), write scripts/deploy-localhost.ts deployment script, deploy ERC20 token and transfer all tokens (e.g., 1,000,000 TEST) to signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf, deploy Multicall3 contract, save deployed contract addresses to .env.localhost file (TEST_TOKEN_ADDRESS, MULTICALL3_ADDRESS), create scripts/setup-test-data.ts for test data setup (user creation, sample withdrawal requests, etc.), automate type generation with TypeChain\n<info added on 2025-07-23T13:08:36.235Z>\nCreate contracts/Multicall3.sol file using provided Multicall3.sol code, create contracts/TestToken.sol file (inherit OpenZeppelin ERC20 with minting functionality), write scripts/deploy.js deployment script (deploy both contracts and transfer all tokens to signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf), save deployment information to deployment.json file (instead of or in addition to existing .env.localhost)\n</info added on 2025-07-23T13:08:36.235Z>\n<info added on 2025-07-25T01:54:27.287Z>\n구현 완료: contracts/TestToken.sol (OpenZeppelin ERC20 상속 및 minting 기능), contracts/Multicall3.sol (전체 구현), scripts/deploy.js 배포 스크립트 (두 컨트랙트 배포 및 signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf로 모든 토큰 전송), hardhat.config.js 컴파일 설정. 배포 스크립트는 컨트랙트 주소를 deployment.json과 .env.localhost 파일 양쪽에 저장. 컨트랙트 컴파일 성공 확인.\n</info added on 2025-07-25T01:54:27.287Z>",
             "testStrategy": "Verify successful contract compilation, test deployment script execution, confirm all tokens transferred to signing address, test Multicall3 batch call functionality, verify contract addresses saved to environment variables"
           },
           {
             "id": 4,
             "title": "Test helper utilities and developer tools implementation",
             "description": "Implement helper functions for efficient testing on Hardhat network and integrate developer tools.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               3
             ],
@@ -447,7 +447,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-07-24T07:36:35.631Z",
+      "updated": "2025-07-25T08:03:52.005Z",
       "description": "Tasks for master context"
     }
   }

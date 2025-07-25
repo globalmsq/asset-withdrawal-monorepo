@@ -1,5 +1,6 @@
 import { Token, TokenConfig, TokenInfo } from '../types/token.types';
 import tokenConfig from '../config/tokens.config.json';
+import chainConfig from '../config/chains.config.json';
 
 export class TokenService {
   private static instance: TokenService;
@@ -81,18 +82,7 @@ export class TokenService {
   }
 
   private getChainId(blockchain: string, network: string): number {
-    const chainIds: { [key: string]: { [key: string]: number } } = {
-      polygon: {
-        mainnet: 137,
-        amoy: 80002,
-      },
-      bsc: {
-        mainnet: 56,
-        testnet: 97,
-      },
-    };
-
-    return chainIds[blockchain]?.[network] || 0;
+    return (chainConfig as any)[blockchain]?.[network]?.chainId || 0;
   }
 }
 

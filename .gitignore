@@ -162,4 +162,12 @@ docker/hardhat/artifacts
 docker/hardhat/typechain
 docker/hardhat/typechain-types
 docker/hardhat/node_modules
-docker/hardhat/package-lock.json 
+docker/hardhat/package-lock.json
+
+# Hardhat files (Root project)
+/cache
+/artifacts
+/typechain
+/typechain-types
+.env.localhost
+deployment.json

@@ -139,7 +139,7 @@ export class TransactionSigner {
           chainId: this.chainProvider.getChainId(),
         };
       } else {
-        // Native MATIC transfer
+        // Native token transfer
         transaction = {
           to,
           value: amount,
@@ -195,7 +195,7 @@ export class TransactionSigner {
         });
       }
 
-      // Adjust gas price for Polygon (10% higher)
+      // Adjust gas price with a buffer (10% higher)
       maxFeePerGas = (maxFeePerGas * 110n) / 100n;
       maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
 
@@ -337,7 +337,7 @@ export class TransactionSigner {
         });
       }
 
-      // Adjust gas price for Polygon (10% higher)
+      // Adjust gas price with a buffer (10% higher)
       maxFeePerGas = (maxFeePerGas * 110n) / 100n;
       maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
 

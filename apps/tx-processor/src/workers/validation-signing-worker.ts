@@ -1,17 +1,17 @@
-import { IQueue } from '@asset-withdrawal/shared';
+import { IQueue, ChainProviderFactory, ChainProvider } from '@asset-withdrawal/shared';
 import { TransactionService } from '@asset-withdrawal/database';
 import { BaseWorker, WorkerConfig } from './base-worker';
 import { WithdrawalRequest, SignedTransaction } from '../types';
 import { Logger } from '../utils/logger';
 import { config } from '../config';
-import { PolygonProvider, TransactionSigner, SecretsManager } from '../services/blockchain';
+import { TransactionSigner, SecretsManager } from '../services/blockchain';
 
 export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, SignedTransaction> {
   private transactionService: TransactionService;
-  private polygonProvider: PolygonProvider;
-  private transactionSigner: TransactionSigner;
+  private chainProviders: Map<string, ChainProvider>;
+  private signers: Map<string, TransactionSigner>;
   private secretsManager: SecretsManager;
-  private isInitialized: boolean = false;
+  private privateKey?: string;
 
   constructor(
     workerConfig: WorkerConfig,
@@ -20,26 +20,45 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
   ) {
     super(workerConfig, inputQueue, outputQueue);
     this.transactionService = new TransactionService();
-    this.polygonProvider = new PolygonProvider();
+    this.chainProviders = new Map();
+    this.signers = new Map();
     this.secretsManager = new SecretsManager();
-    this.transactionSigner = new TransactionSigner(this.polygonProvider);
   }
 
   async start(): Promise<void> {
-    // Initialize wallet with private key from Secrets Manager
-    if (!this.isInitialized) {
-      try {
-        const privateKey = await this.secretsManager.getPrivateKey();
-        await this.transactionSigner.setPrivateKey(privateKey);
-        this.isInitialized = true;
-        this.logger.info(`Worker wallet initialized: ${this.transactionSigner.getAddress()}`);
-      } catch (error) {
-        this.logger.error('Failed to initialize wallet', error);
-        throw error;
-      }
+    // Get private key from Secrets Manager once
+    try {
+      this.privateKey = await this.secretsManager.getPrivateKey();
+      this.logger.info('Private key loaded from Secrets Manager');
+    } catch (error) {
+      this.logger.error('Failed to load private key', error);
+      throw error;
     }
 
     await super.start();
+  }
+
+  private async getOrCreateSigner(chain: string, network: string): Promise<{ provider: ChainProvider; signer: TransactionSigner }> {
+    const key = `${chain}_${network}`;
+
+    if (!this.chainProviders.has(key)) {
+      this.logger.info('Creating new ChainProvider and TransactionSigner', { chain, network });
+
+      // Create chain provider
+      const chainProvider = ChainProviderFactory.getProvider(chain as any, network as any);
+      this.chainProviders.set(key, chainProvider);
+
+      // Create transaction signer
+      const signer = new TransactionSigner(chainProvider, this.privateKey);
+      this.signers.set(key, signer);
+
+      this.logger.info(`Signer initialized with address: ${signer.getAddress()}`);
+    }
+
+    return {
+      provider: this.chainProviders.get(key)!,
+      signer: this.signers.get(key)!,
+    };
   }
 
   protected async process(
@@ -52,7 +71,7 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
       // Step 1: Validate withdrawal request
       await this.validateRequest(withdrawalRequest);
 
-      // Step 2: Check balance (mock for now)
+      // Step 2: Check balance
       await this.checkBalance(withdrawalRequest);
 
       // Step 3: Build and sign transaction
@@ -63,7 +82,12 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
 
       this.logger.info(`Successfully signed transaction for withdrawal ${withdrawalRequest.id}`);
 
-      return signedTx;
+      // Include chain and network in the response
+      return {
+        ...signedTx,
+        chain: withdrawalRequest.chain || 'polygon',
+        network: withdrawalRequest.network,
+      };
     } catch (error) {
       this.logger.error(`Failed to process withdrawal ${withdrawalRequest.id}`, error);
 
@@ -75,9 +99,16 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
   }
 
   private async validateRequest(request: WithdrawalRequest): Promise<void> {
-    // Validate network
-    if (request.network !== 'polygon') {
-      throw new Error(`Unsupported network: ${request.network}`);
+    // Validate chain and network are provided
+    if (!request.chain || !request.network) {
+      throw new Error(`Missing chain or network information. Chain: ${request.chain}, Network: ${request.network}`);
+    }
+
+    // Validate chain support
+    try {
+      ChainProviderFactory.getProvider(request.chain as any, request.network as any);
+    } catch (error) {
+      throw new Error(`Unsupported chain/network combination: ${request.chain}/${request.network}`);
     }
 
     // Validate address format
@@ -95,16 +126,20 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
   }
 
   private async checkBalance(request: WithdrawalRequest): Promise<void> {
-    if (!this.transactionSigner.getAddress()) {
+    const chain = request.chain || 'polygon';
+    const network = request.network;
+    const { provider, signer } = await this.getOrCreateSigner(chain, network);
+
+    if (!signer.getAddress()) {
       throw new Error('Wallet not initialized');
     }
 
     // Check native token balance for gas fees
-    const walletAddress = this.transactionSigner.getAddress()!;
-    const balance = await this.polygonProvider.getBalance(walletAddress);
+    const walletAddress = signer.getAddress()!;
+    const balance = await provider.getBalance(walletAddress);
 
     // Estimate gas cost
-    const gasPrice = await this.polygonProvider.getGasPrice();
+    const gasPrice = await provider.getGasPrice();
     const estimatedGasLimit = 100000n; // Reasonable estimate for token transfer
     const estimatedGasCost = gasPrice * estimatedGasLimit;
 
@@ -119,12 +154,16 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
   }
 
   private async buildTransaction(request: WithdrawalRequest): Promise<SignedTransaction> {
+    const chain = request.chain || 'polygon';
+    const network = request.network;
+    const { signer } = await this.getOrCreateSigner(chain, network);
+
     // Check if it's a token transfer or native currency
     if (request.tokenAddress && request.tokenAddress !== '0x0000000000000000000000000000000000000000') {
       // ERC-20 token transfer
       // TODO: Get token decimals from contract
       const decimals = 18; // Default for most tokens
-      return await this.transactionSigner.signERC20Transfer(
+      return await signer.signERC20Transfer(
         request.tokenAddress,
         request.toAddress,
         request.amount,
@@ -132,8 +171,8 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
         request.id
       );
     } else {
-      // Native MATIC transfer
-      return await this.transactionSigner.signTransaction(
+      // Native token transfer
+      return await signer.signTransaction(
         {
           to: request.toAddress,
           value: request.amount,

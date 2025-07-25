@@ -1,5 +1,5 @@
 import { BaseWorker } from './base-worker';
-import { WithdrawalRequest, ChainProviderFactory, TransactionStatus, Message } from '@asset-withdrawal/shared';
+import { WithdrawalRequest, ChainProviderFactory, ChainProvider, TransactionStatus, Message } from '@asset-withdrawal/shared';
 import { WithdrawalRequestService, DatabaseService, SignedTransactionService } from '@asset-withdrawal/database';
 import { SignedTransaction } from '../types';
 import { TransactionSigner } from '../services/transaction-signer';
@@ -19,11 +19,11 @@ export class SigningWorker extends BaseWorker<
 > {
   private withdrawalRequestService: WithdrawalRequestService;
   private signedTransactionService: SignedTransactionService;
-  private transactionSigner: TransactionSigner;
+  private transactionSigner!: TransactionSigner; // Will be set dynamically based on chain
   private nonceCache: NonceCacheService;
   private gasPriceCache: GasPriceCache;
-  private multicallService: MulticallService;
-  private chainProvider: any;
+  private multicallServices: Map<string, MulticallService>;
+  private signers: Map<string, TransactionSigner>;
   private auditLogger: Logger;
   private dbClient: any; // Prisma client for BatchTransaction operations
   private readonly instanceId: string;
@@ -61,50 +61,68 @@ export class SigningWorker extends BaseWorker<
     this.withdrawalRequestService = new WithdrawalRequestService(this.dbClient);
     this.signedTransactionService = new SignedTransactionService(this.dbClient);
 
-    // Create chain provider based on config
-    const network = config.polygon.chainId === 80002 ? 'testnet' : 'mainnet';
-    this.chainProvider = ChainProviderFactory.getProvider(
-      'polygon',
-      network,
-      config.polygon.rpcUrl
-    );
+    // Initialize empty maps for multi-chain support
+    this.multicallServices = new Map();
+    this.signers = new Map();
 
     // Create nonce cache service
     this.nonceCache = new NonceCacheService();
 
     // Create gas price cache (30 seconds TTL)
     this.gasPriceCache = new GasPriceCache(30);
-
-    // Create multicall service
-    this.multicallService = new MulticallService(
-      this.chainProvider,
-      this.auditLogger
-    );
-
-    this.transactionSigner = new TransactionSigner(
-      this.chainProvider,
-      this.secretsManager,
-      this.nonceCache,
-      this.gasPriceCache,
-      this.multicallService,
-      this.auditLogger
-    );
   }
 
   async initialize(): Promise<void> {
     await super.initialize();
 
-    // Ensure database is connected before initializing transaction signer
+    // Ensure database is connected before initializing
     const dbService = DatabaseService.getInstance(this.config.database);
     const dbHealthy = await dbService.healthCheck();
     if (!dbHealthy) {
       throw new Error('Database is not healthy during SigningWorker initialization');
     }
 
-    await this.transactionSigner.initialize();
+    // Connect to Redis for nonce management
+    await this.nonceCache.connect();
+
     this.auditLogger.info('SigningWorker initialized successfully', {
       instanceId: this.instanceId,
     });
+  }
+
+  /**
+   * Get or create a TransactionSigner for a specific chain/network combination
+   */
+  private async getOrCreateSigner(chain: string, network: string): Promise<TransactionSigner> {
+    const key = `${chain}_${network}`;
+
+    if (!this.signers.has(key)) {
+      this.auditLogger.info('Creating new TransactionSigner', { chain, network });
+
+      // Create chain provider
+      const chainProvider = ChainProviderFactory.getProvider(chain as any, network as any);
+
+      // Create multicall service for this chain
+      const multicallService = new MulticallService(chainProvider, this.auditLogger);
+      this.multicallServices.set(key, multicallService);
+
+      // Create transaction signer
+      const signer = new TransactionSigner(
+        chainProvider,
+        this.secretsManager,
+        this.nonceCache,
+        this.gasPriceCache,
+        multicallService,
+        this.auditLogger
+      );
+
+      // Initialize the signer
+      await signer.initialize();
+
+      this.signers.set(key, signer);
+    }
+
+    return this.signers.get(key)!;
   }
 
   /**
@@ -283,29 +301,13 @@ export class SigningWorker extends BaseWorker<
   }
 
   private async updateGasPriceCache(): Promise<void> {
-    // Check if cache is still valid
-    if (this.gasPriceCache.isValid()) {
-      return; // Use cached value
-    }
+    // Note: Gas price cache is shared across all chains
+    // This is acceptable as gas prices are fetched per-transaction
+    // and cached values are only used as a performance optimization
 
-    // Fetch new gas price
-    const provider = this.chainProvider.getProvider();
-    const feeData = await provider.getFeeData();
-
-    if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
-      throw new Error('Failed to fetch gas price from provider');
-    }
-
-    // Update cache
-    this.gasPriceCache.set({
-      maxFeePerGas: feeData.maxFeePerGas,
-      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-    });
-
-    this.auditLogger.debug('Gas price updated', {
-      maxFeePerGas: feeData.maxFeePerGas.toString(),
-      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
-    });
+    // For now, we'll skip pre-fetching gas prices since we don't know
+    // which chain will be used until we receive messages
+    this.auditLogger.debug('Gas price cache update skipped - will fetch on demand per chain');
   }
 
   private async separateMessagesByTryCount(messages: Message<WithdrawalRequest>[]): Promise<{
@@ -432,9 +434,16 @@ export class SigningWorker extends BaseWorker<
    * @returns Error message if validation fails, null if valid
    */
   private validateWithdrawalRequest(request: WithdrawalRequest): string | null {
-    // Validate network support
-    if (request.network !== 'polygon') {
-      return `Unsupported network: ${request.network}. This service only supports Polygon`;
+    // Validate chain and network are provided
+    if (!request.chain || !request.network) {
+      return `Missing chain or network information. Chain: ${request.chain}, Network: ${request.network}`;
+    }
+
+    // Validate chain support - try to create a provider to check support
+    try {
+      ChainProviderFactory.getProvider(request.chain as any, request.network as any);
+    } catch (error) {
+      return `Unsupported chain/network combination: ${request.chain}/${request.network}`;
     }
 
     // Validate recipient address format
@@ -550,14 +559,22 @@ export class SigningWorker extends BaseWorker<
 
       const symbol = messages[0]?.body.symbol || 'UNKNOWN';
 
+      // Get chain info from first message (all messages in batch should have same chain)
+      const firstMessage = messages[0];
+      const chain = firstMessage.body.chain || 'polygon';
+      const network = firstMessage.body.network || 'mainnet';
+
+      // Get chain provider to get multicall address and chain ID
+      const chainProvider = ChainProviderFactory.getProvider(chain as any, network as any);
+
       // Create batch transaction
       const batch = await tx.batchTransaction.create({
         data: {
-          multicallAddress: this.chainProvider.getMulticall3Address(),
+          multicallAddress: chainProvider.getMulticall3Address(),
           totalRequests: messages.length,
           totalAmount: totalAmount,
           symbol: symbol,
-          chainId: this.chainProvider.getChainId(),
+          chainId: chainProvider.getChainId(),
           nonce: 0, // Will be updated when signed
           gasLimit: '0', // Will be updated when signed
           tryCount: 0,
@@ -649,11 +666,21 @@ export class SigningWorker extends BaseWorker<
         };
       });
 
+      // Get chain info from first message
+      const firstMessage = messages[0];
+      const chain = firstMessage.body.chain || 'polygon';
+      const network = firstMessage.body.network || 'mainnet';
+
+      // Get appropriate signer and multicall service for this chain
+      const signer = await this.getOrCreateSigner(chain, network);
+      const multicallKey = `${chain}_${network}`;
+      const multicallService = this.multicallServices.get(multicallKey)!;
+
       // Prepare batch transaction data
-      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers);
+      const preparedBatch = await multicallService.prepareBatchTransfer(transfers);
 
       // Sign batch transaction
-      const signedBatchTx = await this.transactionSigner.signBatchTransaction({
+      const signedBatchTx = await signer.signBatchTransaction({
         transfers,
         batchId: batchTransaction.id.toString(),
       });
@@ -808,11 +835,15 @@ export class SigningWorker extends BaseWorker<
 
       this.auditLogger.auditSuccess('SIGN_TRANSACTION_START', {
         transactionId,
-        metadata: { network, to, amount, tokenAddress },
+        metadata: { chain: message.chain, network, to, amount, tokenAddress },
       });
 
+      // Get appropriate signer for this chain
+      const chain = message.chain || 'polygon';
+      const signer = await this.getOrCreateSigner(chain, network);
+
       // Build and sign transaction
-      const signedTx = await this.transactionSigner.signTransaction({
+      const signedTx = await signer.signTransaction({
         to,
         amount,
         tokenAddress,
@@ -921,7 +952,16 @@ export class SigningWorker extends BaseWorker<
 
   async stop(): Promise<void> {
     await super.stop();
-    await this.transactionSigner.cleanup();
+
+    // Clean up all signers
+    for (const [key, signer] of this.signers) {
+      this.auditLogger.info('Cleaning up signer', { key });
+      await signer.cleanup();
+    }
+
+    // Disconnect from Redis
+    await this.nonceCache.disconnect();
+
     this.auditLogger.info('SigningWorker stopped');
   }
 }

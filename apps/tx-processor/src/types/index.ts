@@ -5,6 +5,7 @@ export interface WithdrawalRequest {
   tokenAddress: string;
   symbol?: string;
   network: string;
+  chain?: string;
   createdAt?: Date;
 }
 
@@ -18,4 +19,6 @@ export interface SignedTransaction {
   gasLimit: string;
   nonce: number;
   chainId: number;
+  chain?: string;
+  network?: string;
 }

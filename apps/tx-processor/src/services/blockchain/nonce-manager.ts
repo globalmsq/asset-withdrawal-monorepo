@@ -1,5 +1,5 @@
+import { ChainProvider } from '@asset-withdrawal/shared';
 import { Logger } from '../../utils/logger';
-import { PolygonProvider } from './polygon-provider';
 
 export class NonceManager {
   private logger = new Logger('NonceManager');
@@ -10,7 +10,7 @@ export class NonceManager {
   private lock: Promise<void> = Promise.resolve();
 
   constructor(
-    private provider: PolygonProvider,
+    private provider: ChainProvider,
     private address: string
   ) {}
 

@@ -103,9 +103,9 @@ export class MulticallService {
   private provider: ethers.Provider;
   private gasConfig: GasConfig;
 
-  // Polygon-specific gas constants
-  private static readonly POLYGON_GAS_CONFIG = {
-    blockGasLimit: 30_000_000n, // 30M gas limit on Polygon
+  // Default gas constants for EVM chains
+  private static readonly DEFAULT_GAS_CONFIG = {
+    blockGasLimit: 30_000_000n, // Common gas limit for many chains
     safetyMargin: 0.75, // Use 75% of block gas limit for safety
     multicallOverhead: 35_000n, // Base overhead for Multicall3
     baseTransferGas: 65_000n, // Base gas for ERC20 transfer
@@ -128,12 +128,12 @@ export class MulticallService {
       this.provider
     );
 
-    // Initialize gas configuration
+    // Initialize gas configuration with chain-specific values if available
     this.gasConfig = {
-      blockGasLimit: MulticallService.POLYGON_GAS_CONFIG.blockGasLimit,
-      safetyMargin: MulticallService.POLYGON_GAS_CONFIG.safetyMargin,
-      multicallOverhead: MulticallService.POLYGON_GAS_CONFIG.multicallOverhead,
-      baseTransferGas: MulticallService.POLYGON_GAS_CONFIG.baseTransferGas,
+      blockGasLimit: this.getChainBlockGasLimit(),
+      safetyMargin: MulticallService.DEFAULT_GAS_CONFIG.safetyMargin,
+      multicallOverhead: MulticallService.DEFAULT_GAS_CONFIG.multicallOverhead,
+      baseTransferGas: MulticallService.DEFAULT_GAS_CONFIG.baseTransferGas,
       tokenTransferGas: new Map(), // Will be populated as we learn token-specific costs
     };
 
@@ -236,13 +236,13 @@ export class MulticallService {
       // Try to get actual gas estimate from the network
       const gasEstimate = await this.multicall3Contract.aggregate3.estimateGas(calls);
 
-      // Calculate per-call gas with Polygon-specific adjustments
+      // Calculate per-call gas with chain-specific adjustments
       const basePerCall = gasEstimate / BigInt(calls.length);
 
-      // On Polygon, batch operations have diminishing gas costs per additional call
-      const adjustedPerCall = this.adjustGasForPolygon(basePerCall, calls.length);
+      // On most chains, batch operations have diminishing gas costs per additional call
+      const adjustedPerCall = this.adjustGasForBatchOperations(basePerCall, calls.length);
 
-      // Add 15% buffer for Polygon (lower than Ethereum due to more predictable gas)
+      // Add 15% buffer for gas estimation
       const totalEstimatedGas = (gasEstimate * 115n) / 100n;
 
       this.logger.debug('Batch gas estimation', {
@@ -269,7 +269,7 @@ export class MulticallService {
       const estimatedGasPerCall = this.getFallbackGasEstimate(calls);
       const totalEstimatedGas = this.gasConfig.multicallOverhead +
         (estimatedGasPerCall * BigInt(calls.length)) +
-        (MulticallService.POLYGON_GAS_CONFIG.additionalGasPerCall * BigInt(calls.length - 1));
+        (MulticallService.DEFAULT_GAS_CONFIG.additionalGasPerCall * BigInt(calls.length - 1));
 
       this.logger.warn('Using fallback gas estimation', {
         estimatedGasPerCall: estimatedGasPerCall.toString(),
@@ -404,6 +404,22 @@ export class MulticallService {
   }
 
   /**
+   * Get chain-specific block gas limit
+   */
+  private getChainBlockGasLimit(): bigint {
+    // Chain-specific gas limits (can be extended as needed)
+    const chainGasLimits: Record<string, bigint> = {
+      'ethereum': 30_000_000n,
+      'polygon': 30_000_000n,
+      'bsc': 140_000_000n,
+      'localhost': 30_000_000n,
+    };
+
+    const chain = this.chainProvider.chain;
+    return chainGasLimits[chain] || MulticallService.DEFAULT_GAS_CONFIG.blockGasLimit;
+  }
+
+  /**
    * Get maximum gas for a single batch
    */
   private getMaxBatchGas(): bigint {
@@ -411,10 +427,10 @@ export class MulticallService {
   }
 
   /**
-   * Adjust gas estimate for Polygon network characteristics
+   * Adjust gas estimate for batch operations
    */
-  private adjustGasForPolygon(baseGasPerCall: bigint, callCount: number): bigint {
-    // Polygon has more efficient batch processing
+  private adjustGasForBatchOperations(baseGasPerCall: bigint, callCount: number): bigint {
+    // Most EVM chains have more efficient batch processing
     // Each additional call costs slightly less due to warm storage slots
     const discount = Math.min(0.15, callCount * 0.005); // Max 15% discount
     return (baseGasPerCall * BigInt(Math.floor(100 - discount * 100))) / 100n;

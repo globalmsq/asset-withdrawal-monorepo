@@ -1,17 +1,17 @@
-import { IQueue } from '@asset-withdrawal/shared';
+import { IQueue, ChainProviderFactory, ChainProvider } from '@asset-withdrawal/shared';
 import { TransactionService } from '@asset-withdrawal/database';
 import { BaseWorker, WorkerConfig } from './base-worker';
 import { SignedTransaction } from '../types';
 import { config } from '../config';
-import { PolygonProvider, TransactionSigner } from '../services/blockchain';
+import { TransactionSigner } from '../services/blockchain';
 
 export class TransactionSenderWorker extends BaseWorker<
   SignedTransaction,
   void
 > {
   private transactionService: TransactionService;
-  private polygonProvider: PolygonProvider;
-  private transactionSigner: TransactionSigner;
+  private chainProviders: Map<string, ChainProvider>;
+  private signers: Map<string, TransactionSigner>;
 
   constructor(
     workerConfig: WorkerConfig,
@@ -19,8 +19,8 @@ export class TransactionSenderWorker extends BaseWorker<
   ) {
     super(workerConfig, inputQueue);
     this.transactionService = new TransactionService();
-    this.polygonProvider = new PolygonProvider();
-    this.transactionSigner = new TransactionSigner(this.polygonProvider);
+    this.chainProviders = new Map();
+    this.signers = new Map();
   }
 
   protected async process(
@@ -32,7 +32,7 @@ export class TransactionSenderWorker extends BaseWorker<
     );
 
     try {
-      // Step 1: Broadcast transaction to Polygon network
+      // Step 1: Broadcast transaction to blockchain network
       const txHash = await this.broadcastTransaction(signedTx);
 
       // Step 2: Update transaction with hash
@@ -71,29 +71,59 @@ export class TransactionSenderWorker extends BaseWorker<
     }
   }
 
+  private async getOrCreateSigner(chain: string, network: string): Promise<{ provider: ChainProvider; signer: TransactionSigner }> {
+    const key = `${chain}_${network}`;
+
+    if (!this.chainProviders.has(key)) {
+      this.logger.info('Creating new ChainProvider and TransactionSigner', { chain, network });
+
+      // Create chain provider
+      const chainProvider = ChainProviderFactory.getProvider(chain as any, network as any);
+      this.chainProviders.set(key, chainProvider);
+
+      // Create transaction signer
+      const signer = new TransactionSigner(chainProvider);
+      this.signers.set(key, signer);
+    }
+
+    return {
+      provider: this.chainProviders.get(key)!,
+      signer: this.signers.get(key)!,
+    };
+  }
+
   private async broadcastTransaction(
     signedTx: SignedTransaction
   ): Promise<string> {
-    this.logger.debug(`Broadcasting to Polygon ${config.polygon.network}`);
+    // Extract chain and network from signed transaction
+    // This should be included in the SignedTransaction type
+    const chain = (signedTx as any).chain || 'polygon';
+    const network = (signedTx as any).network || 'mainnet';
+
+    this.logger.debug(`Broadcasting to ${chain} ${network}`);
+
+    // Get appropriate provider and signer
+    const { provider, signer } = await this.getOrCreateSigner(chain, network);
 
     try {
       // Broadcast the signed transaction
-      const txHash = await this.transactionSigner.broadcastTransaction(
+      const txHash = await signer.broadcastTransaction(
         signedTx.signedTx
       );
 
       this.logger.info(
-        `Transaction broadcasted to Polygon network. Hash: ${txHash}`
+        `Transaction broadcasted to ${chain} network. Hash: ${txHash}`
       );
 
       // Optionally wait for initial confirmation
-      if (config.polygon.confirmations > 0) {
+      const confirmations = 1; // Default confirmations
+      if (confirmations > 0) {
         this.logger.debug(
-          `Waiting for ${config.polygon.confirmations} confirmations...`
+          `Waiting for ${confirmations} confirmations...`
         );
-        const receipt = await this.polygonProvider.waitForTransaction(
+        const receipt = await provider.waitForTransaction(
           txHash,
-          1
+          confirmations
         );
 
         if (receipt && receipt.status === 0) {

@@ -426,6 +426,15 @@
             ],
             "details": "Add dev:localhost script to package.json (sequential execution: start Hardhat node → deploy contracts → setup test data → start API server), write scripts/start-local-dev.sh shell script, modify all microservices to recognize localhost chain through explicit chain parameter specification in API requests (not environment variables), update blockchain connection logic in withdrawal-api, tx-processor, tx-monitor services to use ChainProvider with explicit chain='localhost' parameter, fully integrate hardhat service into existing docker-compose.yaml file, add dependency management with LocalStack, update README.md with local development guide (including LocalStack private key, signing address, Multicall3 usage, explicit chain parameter usage), add hardhat-node and hardhat-deploy service configuration to docker-compose.yaml file (hardhat-node: use hardhat/hardhat:latest image, port mapping 8545:8545, chain-id 31337 setting; hardhat-deploy: dedicated service for contract deployment, hardhat-node dependency setting), update all microservices (withdrawal-api, tx-processor, tx-monitor) to handle localhost chain through ChainProvider mechanism, set Multicall3 contract address for localhost chain (0xcA11bde05977b3631167028862bE2a173976CA11 standard address or deployed address), manage inter-service network dependencies (sequential start: hardhat-node → hardhat-deploy → api services), healthcheck configuration to verify service readiness",
             "testStrategy": "Test complete local development environment startup, verify Docker Compose integration, validate inter-service communication with explicit chain parameters, test complete flow using signing address: withdrawal request → processing → monitoring, test batch queries using Multicall3, test automatic restart and state recovery, verify API requests properly specify chain parameter, test ChainProvider localhost chain handling"
+          },
+          {
+            "id": 6,
+            "title": "[BFS-39] 로컬 체인 수동 통합 테스트 및 검증",
+            "description": "Docker 환경에서 Hardhat 노드의 정상 작동을 확인하고, 배포된 토큰 및 Multicall3 컨트랙트를 검증하며, API를 통한 실제 출금 요청부터 트랜잭션 처리까지 전체 플로우를 엔드투엔드로 테스트합니다. [Updated: 2025. 7. 27.]",
+            "status": "pending",
+            "dependencies": [],
+            "details": "**Docker 환경 Hardhat 노드 검증**\n- docker-compose로 Hardhat 노드 컨테이너 실행 확인\n- localhost:8545 RPC 연결 및 chain ID 31337 검증\n- 사전 설정된 계정 잔액 및 시드 데이터 확인\n\n**컨트랙트 배포 및 검증**\n- MOCK ERC20 토큰 컨트랙트 배포 확인 (이름, 심볼, decimals 검증)\n- Multicall3 컨트랙트 배포 확인 (주소: 0xcA11bde05977b3631167028862bE2a173976CA11)\n- 각 컨트랙트의 함수 호출 가능 여부 테스트\n- 초기 토큰 민팅 및 배분 확인\n\n**API 엔드투엔드 테스트**\n- withdrawal-api에 실제 출금 요청 POST /withdrawal\n- 단일 토큰 출금 요청 처리 확인\n- 배치 출금 요청 처리 확인 (Multicall3 사용)\n- 잘못된 주소/토큰으로 실패 케이스 테스트\n\n**트랜잭션 처리 플로우 검증**\n- SQS 큐를 통한 메시지 전달 확인\n- tx-processor의 트랜잭션 서명 및 브로드캐스트\n- tx-monitor의 트랜잭션 상태 추적\n- 데이터베이스에 올바른 상태 업데이트 확인\n\n**가스 추정 및 배치 처리 테스트**\n- 단일 토큰 전송의 가스 추정 정확성 검증\n- Multicall3 배치 전송의 가스 효율성 측정\n- 최대 배치 크기 테스트 (가스 한도 내 최대 전송 수)\n- 가스 가격 변동 시나리오 테스트\n<info added on 2025-07-26T16:34:33.627Z>\n**제목 변경 완료**\n- 기존 제목: \"로컬 체인 수동 통합 테스트 및 검증\"\n- 새 제목: \"[BFS-39] 로컬 체인 수동 통합 테스트 및 검증\"\n\n**Jira 동기화 상태**\n- Task Master 제목에 Jira 키 [BFS-39] 추가됨\n- 부모 Task 22와 동일한 Jira 키 사용 (서브태스크는 별도 Jira 이슈 없음)\n- 제목 업데이트로 Jira 연동 일관성 확보 완료\n</info added on 2025-07-26T16:34:33.627Z>",
+            "testStrategy": "**1. 환경 준비 테스트**\n- Docker 컨테이너 정상 실행 확인 (hardhat-node, mysql, localstack)\n- 모든 서비스 간 네트워크 연결 확인\n- 환경 변수 설정 검증\n\n**2. 컨트랙트 검증 테스트**\n- ethers.js로 MOCK 토큰 컨트랙트 연결 및 기본 정보 조회\n- Multicall3 컨트랙트 연결 및 aggregate 함수 호출 테스트\n- 테스트 계정의 토큰 잔액 확인\n\n**3. API 기능 테스트**\n- Postman/curl로 단일 출금 요청 (200 OK 응답 확인)\n- 배치 출금 요청 (여러 수신자, 동일 토큰)\n- 잘못된 요청 (400/422 에러 응답 확인)\n- 인증되지 않은 요청 (401 에러 확인)\n\n**4. 전체 플로우 통합 테스트**\n- API 요청 → SQS 메시지 → 트랜잭션 서명 → 블록체인 전송 → 상태 업데이트\n- 각 단계별 로그 및 데이터베이스 상태 확인\n- 트랜잭션 해시 및 receipt 검증\n\n**5. 성능 및 한계 테스트**\n- 단일 vs 배치 전송 가스 비용 비교\n- 최대 배치 크기에서의 트랜잭션 성공 여부\n- 동시 다중 요청 처리 능력 테스트\n- 네트워크 지연 시뮬레이션 테스트"
           }
         ]
       },
@@ -447,7 +456,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-07-25T08:54:34.529Z",
+      "updated": "2025-07-26T16:01:43.342Z",
       "description": "Tasks for master context"
     }
   }

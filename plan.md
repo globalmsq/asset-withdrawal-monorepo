@@ -2,10 +2,78 @@
 
 ## 개발 조건
 1. **큐 시스템**: AWS SQS (로컬 개발용 LocalStack)
-2. **블록체인 집중**: Polygon 네트워크만
+2. **블록체인 지원**: Polygon, Ethereum, BSC, Localhost (Hardhat)
 3. **앱 명명**: 목적별 명명 필요
 4. **데이터베이스**: 명시적 요청 전까지 마이그레이션 파일 없음
 5. **아키텍처**: 별도 워커 앱을 가진 마이크로서비스
+
+## Task 22.5 완료 요약
+
+### 구현된 사항
+1. **Docker Compose 최적화**
+   - 모든 서비스가 `docker-compose up`만으로 자동 시작
+   - 서비스 의존성을 올바르게 설정 (hardhat-deploy 완료 후 API 서비스 시작)
+   - 배포 정보를 공유 볼륨으로 서비스 간 공유
+
+2. **Chain/Network 파라미터 지원**
+   - API가 `chain` 및 `network` 파라미터 지원
+   - 후방 호환성을 위해 `network='polygon'`만 있을 경우 자동 처리
+   - TokenService가 다중 체인 지원하도록 업데이트
+   - localhost 체인 토큰 구성 추가
+
+3. **환경 변수 구성**
+   - 모든 서비스에 localhost 블록체인 연결 정보 추가
+   - SUPPORTED_CHAINS 환경 변수로 지원 체인 제어
+
+4. **문서 업데이트**
+   - README에 로컬 개발 가이드 섹션 추가
+   - Hardhat 통합 및 사용법 문서화
+   - 사전 배포된 토큰 주소 목록 제공
+
+5. **편의 스크립트**
+   - package.json에 Docker 관련 편의 스크립트 추가
+   - `npm run docker:up`, `docker:down`, `docker:logs` 등
+
+### 데이터베이스 스키마 참고
+- WithdrawalRequest 모델에 `chain` 필드 추가가 필요하지만, 마이그레이션 파일 생성 정책에 따라 현재는 `network` 필드에 `chain_network` 형식으로 저장
+- 향후 마이그레이션 시 별도 `chain` 필드 추가 고려
+
+## Chain Configuration 개선 작업 완료
+
+### 구현된 사항
+1. **chains.config.json 기반 체인 허용 목록**
+   - withdrawal.ts에서 `tokenService.getSupportedBlockchains()` 사용
+   - 환경변수 SUPPORTED_CHAINS 제거
+
+2. **후방 호환성 제거**
+   - network='polygon'만 있을 때 자동 처리 로직 제거
+   - chain과 network 모두 필수 파라미터로 변경
+
+3. **범용 RPC_URL 오버라이드**
+   - ChainProvider에 RPC_URL, CHAIN_ID 환경변수 오버라이드 추가
+   - 체인별 환경변수 제거 (LOCALHOST_RPC_URL, POLYGON_RPC_URL 등)
+
+4. **Docker 환경변수 정리**
+   - docker-compose.yaml에서 모든 체인별 환경변수 제거
+   - RPC_URL: http://hardhat-node:8545만 설정
+
+5. **서비스 설정 업데이트**
+   - tx-processor, tx-monitor, signing-service에서 기본 체인 설정 제거
+   - 큐 메시지에서 chain/network 정보 받도록 수정
+
+### 미완성 작업
+1. **tx-processor PolygonProvider 대체**
+   - 현재 PolygonProvider가 Polygon에 하드코딩됨
+   - ChainProvider로 대체 필요
+   - 큐 메시지에서 chain/network 정보 추출하여 사용
+
+2. **signing-service 업데이트**
+   - 큐 메시지에서 chain/network 정보 추출
+   - ChainProvider 사용하도록 수정
+
+3. **tx-monitor 업데이트**
+   - 트랜잭션 데이터에서 chain/network 정보 추출
+   - ChainProvider 사용하도록 수정
 
 ## 현재 구현 상태
 

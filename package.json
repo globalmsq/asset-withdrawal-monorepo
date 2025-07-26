@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "bootstrap": "yarn install",
-    "build": "nx run-many --target=build",
+    "build": "nx run-many --target=build --exclude=tx-monitor",
     "clean": "nx run-many --target=clean && rm -rf node_modules .nx/cache",
     "dev": "nx run-many --target=dev --parallel",
     "lint": "nx run-many --target=lint",
@@ -20,7 +20,14 @@
     "prepare": "husky install",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "docker:up": "docker-compose -f docker/docker-compose.yaml up -d",
+    "docker:down": "docker-compose -f docker/docker-compose.yaml down",
+    "docker:logs": "docker-compose -f docker/docker-compose.yaml logs -f",
+    "docker:clean": "docker-compose -f docker/docker-compose.yaml down -v",
+    "docker:rebuild": "docker-compose -f docker/docker-compose.yaml build --no-cache",
+    "dev:local": "npm run docker:up && npm run dev",
+    "dev:logs": "npm run docker:logs"
   },
   "devDependencies": {
     "@babel/core": "^7.27.7",

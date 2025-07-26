@@ -36,9 +36,14 @@ High-throughput Polygon blockchain withdrawal system with Multicall3 batch proce
 ### Quick Start
 
 ```bash
+# Start all services including local blockchain
 docker-compose -f docker/docker-compose.yaml up -d
 
-docker-compose logs -f
+# View logs
+docker-compose -f docker/docker-compose.yaml logs -f
+
+# Stop all services
+docker-compose -f docker/docker-compose.yaml down
 ```
 
 ### Environment Configuration
@@ -212,7 +217,68 @@ graph TB
 - `GET /withdrawal/history` - User history
 - `GET /withdrawal/queue/status` - Queue metrics
 
-Full API documentation available at http://localhost:3000/api-docs
+Full API documentation available at http://localhost:8080/api-docs
+
+## 🏗️ Local Development with Hardhat
+
+### Overview
+
+The system includes a fully integrated Hardhat localhost blockchain for development and testing. This provides:
+- Fast 1-second block times for rapid testing
+- Pre-deployed mock tokens (mUSDC, mUSDT, mDAI)
+- Automatic contract deployment on startup
+- Full integration with all services
+
+### Starting Local Development
+
+```bash
+# Everything starts automatically with docker-compose
+docker-compose -f docker/docker-compose.yaml up -d
+
+# The following happens automatically:
+# 1. Hardhat node starts on port 8545
+# 2. Mock tokens are deployed
+# 3. Deployment info is saved to shared volume
+# 4. All services connect to localhost blockchain
+```
+
+### Accessing Services
+
+- **Hardhat RPC**: http://localhost:8545
+- **API Server**: http://localhost:8080
+- **SQS Admin UI**: http://localhost:3999
+- **Redis Insight**: http://localhost:8001
+
+### Making Localhost Withdrawals
+
+```bash
+# Example withdrawal request for localhost chain
+curl -X POST http://localhost:8080/api/v1/withdrawal/request \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "amount": "100",
+    "toAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd",
+    "tokenAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "chain": "localhost",
+    "network": "testnet"
+  }'
+```
+
+### Pre-deployed Token Addresses
+
+| Token | Address | Decimals |
+|-------|---------|----------|
+| mUSDC | 0x5FbDB2315678afecb367f032d93F642f64180aa3 | 6 |
+| mUSDT | 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 | 6 |
+| mDAI  | 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC | 18 |
+
+### Development Tips
+
+1. **Fast Mining**: Blocks are mined every second for quick transaction confirmations
+2. **Test Accounts**: Use the default Hardhat accounts for testing
+3. **Contract Redeployment**: Contracts are automatically deployed on container restart
+4. **Shared Volume**: Deployment info is shared between services via Docker volume
 
 ## 🛡️ Security
 

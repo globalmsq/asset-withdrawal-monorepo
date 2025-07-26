@@ -32,13 +32,13 @@ describe('TokenService', () => {
     it('should return token info for valid testnet token', () => {
       const token = tokenService.getTokenByAddress(
         '0xfF1d6E9cb940a3D2c596C2B0d670fA72d1f049Cc',
-        'amoy'
+        'testnet'
       );
 
       expect(token).toBeDefined();
       expect(token?.symbol).toBe('USDT');
       expect(token?.decimals).toBe(6);
-      expect(token?.network).toBe('amoy');
+      expect(token?.network).toBe('testnet');
       expect(token?.chainId).toBe(80002);
     });
 
@@ -83,7 +83,7 @@ describe('TokenService', () => {
     });
 
     it('should return token info for valid symbol on testnet', () => {
-      const token = tokenService.getTokenBySymbol('KWT', 'amoy');
+      const token = tokenService.getTokenBySymbol('KWT', 'testnet');
 
       expect(token).toBeDefined();
       expect(token?.address).toBe('0x8Ec17bf427556c3972540aAc01adb6367E32d5D3');
@@ -145,7 +145,7 @@ describe('TokenService', () => {
     });
 
     it('should return all testnet tokens', () => {
-      const tokens = tokenService.getSupportedTokens('amoy');
+      const tokens = tokenService.getSupportedTokens('testnet');
 
       expect(tokens).toHaveLength(5);
       expect(tokens.map(t => t.symbol)).toContain('USDT');
@@ -168,7 +168,7 @@ describe('TokenService', () => {
 
       expect(networks).toHaveLength(2);
       expect(networks).toContain('mainnet');
-      expect(networks).toContain('amoy');
+      expect(networks).toContain('testnet');
     });
   });
 
@@ -176,9 +176,10 @@ describe('TokenService', () => {
     it('should get all supported blockchains', () => {
       const blockchains = tokenService.getSupportedBlockchains();
 
-      expect(blockchains).toHaveLength(2);
+      expect(blockchains).toHaveLength(3);
       expect(blockchains).toContain('polygon');
       expect(blockchains).toContain('bsc');
+      expect(blockchains).toContain('localhost');
     });
   });
 });

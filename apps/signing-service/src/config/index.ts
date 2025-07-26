@@ -25,12 +25,8 @@ const configSchema = z.object({
     signedTxQueueUrl: z.string(),
   }),
 
-  // Polygon
-  polygon: z.object({
-    network: z.enum(['amoy', 'mainnet']).default('amoy'),
-    rpcUrl: z.string(),
-    chainId: z.number(),
-  }),
+  // Chain configuration (should be provided by queue messages)
+  // No default values - chain/network must be explicitly provided
 
   // Logging
   logging: z.object({
@@ -91,12 +87,7 @@ export function loadConfig(): Config {
         'http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue',
     },
 
-    polygon: {
-      network: (process.env.POLYGON_NETWORK || 'amoy') as 'amoy' | 'mainnet',
-      rpcUrl:
-        process.env.POLYGON_RPC_URL || 'https://rpc-amoy.polygon.technology',
-      chainId: parseInt(process.env.POLYGON_CHAIN_ID || '80002', 10),
-    },
+    // Chain configuration will be provided by queue messages
 
     logging: {
       level: (process.env.SIGNING_SERVICE_LOG_LEVEL || 'info') as

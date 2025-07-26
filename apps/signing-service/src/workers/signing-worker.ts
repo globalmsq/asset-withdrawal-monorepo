@@ -451,8 +451,8 @@ export class SigningWorker extends BaseWorker<
       return `Invalid recipient address format: ${request.toAddress}`;
     }
 
-    // Validate token address format
-    if (!request.tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+    // Validate token address format (if provided - null means native token transfer)
+    if (request.tokenAddress && !request.tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
       return `Invalid token address format: ${request.tokenAddress}`;
     }
 

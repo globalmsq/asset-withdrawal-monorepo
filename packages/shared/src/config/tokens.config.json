@@ -32,7 +32,7 @@
         "name": "Point to You Coin"
       }
     },
-    "amoy": {
+    "testnet": {
       "USDT": {
         "address": "0xfF1d6E9cb940a3D2c596C2B0d670fA72d1f049Cc",
         "decimals": 6,
@@ -77,11 +77,23 @@
   },
   "localhost": {
     "testnet": {
-      "MOCK": {
+      "mUSDC": {
         "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+        "decimals": 6,
+        "symbol": "mUSDC",
+        "name": "Mock USDC"
+      },
+      "mUSDT": {
+        "address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "decimals": 6,
+        "symbol": "mUSDT",
+        "name": "Mock USDT"
+      },
+      "mDAI": {
+        "address": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
         "decimals": 18,
-        "symbol": "MOCK",
-        "name": "Mock Token"
+        "symbol": "mDAI",
+        "name": "Mock DAI"
       }
     }
   }

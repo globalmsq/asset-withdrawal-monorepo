@@ -28,11 +28,17 @@ export class ChainProvider {
       throw new Error(`Unsupported network: ${options.network} for chain: ${options.chain}`);
     }
 
-    const rpcUrl = options.rpcUrl || this.config.rpcUrl;
+    // Allow RPC URL override from environment variable
+    const rpcUrl = process.env.RPC_URL || options.rpcUrl || this.config.rpcUrl;
+
+    // Allow Chain ID override from environment variable
+    const chainId = process.env.CHAIN_ID
+      ? parseInt(process.env.CHAIN_ID)
+      : this.config.chainId;
 
     this.provider = new ethers.JsonRpcProvider(rpcUrl, {
       name: this.config.name,
-      chainId: this.config.chainId,
+      chainId: chainId,
     });
   }
 

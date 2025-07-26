@@ -11,6 +11,11 @@ jest.mock('@asset-withdrawal/shared', () => ({
   ...jest.requireActual('@asset-withdrawal/shared'),
   ChainProviderFactory: {
     createPolygonProvider: jest.fn(),
+    getProvider: jest.fn().mockReturnValue({
+      getProvider: jest.fn(),
+      getMulticall3Address: jest.fn().mockReturnValue('0x1234567890123456789012345678901234567890'),
+      getChainId: jest.fn().mockReturnValue(137),
+    }),
   },
   TransactionStatus: {
     PENDING: 'PENDING',
@@ -24,6 +29,16 @@ jest.mock('@asset-withdrawal/shared', () => ({
 }));
 jest.mock('../../services/transaction-signer');
 jest.mock('@aws-sdk/client-sqs');
+jest.mock('../../services/nonce-cache.service', () => ({
+  NonceCacheService: jest.fn().mockImplementation(() => ({
+    connect: jest.fn().mockResolvedValue(undefined),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+    initialize: jest.fn().mockResolvedValue(undefined),
+    get: jest.fn().mockResolvedValue(0),
+    incrementAndGet: jest.fn().mockResolvedValue(1),
+    reset: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
 
 describe('SigningWorker Multi-Instance Support', () => {
   let signingWorker1: SigningWorker;
@@ -146,7 +161,7 @@ describe('SigningWorker Multi-Instance Support', () => {
       getChainId: jest.fn().mockReturnValue(80002),
     };
 
-    (ChainProviderFactory.createPolygonProvider as jest.Mock).mockReturnValue(mockProvider);
+    (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(mockProvider);
 
     // Create two worker instances
     signingWorker1 = new SigningWorker(mockConfig, mockSecretsManager, mockLogger);
@@ -176,7 +191,8 @@ describe('SigningWorker Multi-Instance Support', () => {
           receiptHandle: 'receipt-1',
           body: {
             id: 'test-1',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '1000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -188,7 +204,8 @@ describe('SigningWorker Multi-Instance Support', () => {
           receiptHandle: 'receipt-2',
           body: {
             id: 'test-2',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '2000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -253,7 +270,8 @@ describe('SigningWorker Multi-Instance Support', () => {
           receiptHandle: 'receipt-1',
           body: {
             id: 'non-existent',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '1000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -289,7 +307,8 @@ describe('SigningWorker Multi-Instance Support', () => {
           receiptHandle: 'receipt-1',
           body: {
             id: 'test-1',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '1000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -330,7 +349,8 @@ describe('SigningWorker Multi-Instance Support', () => {
     it('should only process messages owned by the current instance', async () => {
       const withdrawalRequest: WithdrawalRequest = {
         id: 'test-1',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         amount: '1000000000000000000',
         tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -358,6 +378,7 @@ describe('SigningWorker Multi-Instance Support', () => {
         cleanup: jest.fn(),
       };
       (signingWorker1 as any).transactionSigner = mockTransactionSigner;
+      (signingWorker1 as any).getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
 
       // Mock ownership check - message is owned by different instance
       mockDbClient.$transaction.mockImplementation(async (fn: any) => {
@@ -389,7 +410,8 @@ describe('SigningWorker Multi-Instance Support', () => {
     it('should successfully process messages owned by the current instance', async () => {
       const withdrawalRequest: WithdrawalRequest = {
         id: 'test-1',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         amount: '1000000000000000000',
         tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -417,6 +439,7 @@ describe('SigningWorker Multi-Instance Support', () => {
         cleanup: jest.fn(),
       };
       (signingWorker1 as any).transactionSigner = mockTransactionSigner;
+      (signingWorker1 as any).getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
 
       // Mock ownership check - message is owned by current instance
       mockDbClient.$transaction.mockImplementation(async (fn: any) => {
@@ -457,7 +480,8 @@ describe('SigningWorker Multi-Instance Support', () => {
           receiptHandle: 'receipt-1',
           body: {
             id: 'test-1',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '1000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -469,7 +493,8 @@ describe('SigningWorker Multi-Instance Support', () => {
           receiptHandle: 'receipt-2',
           body: {
             id: 'test-2',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '2000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -523,7 +548,8 @@ describe('SigningWorker Multi-Instance Support', () => {
           receiptHandle: 'receipt-1',
           body: {
             id: 'test-1',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '1000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -535,7 +561,8 @@ describe('SigningWorker Multi-Instance Support', () => {
           receiptHandle: 'receipt-2',
           body: {
             id: 'test-2',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '2000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -589,7 +616,8 @@ describe('SigningWorker Multi-Instance Support', () => {
           receiptHandle: 'receipt-1',
           body: {
             id: 'test-1',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '1000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -649,7 +677,8 @@ describe('SigningWorker Multi-Instance Support', () => {
     it('should handle processing timeout scenario', async () => {
       const withdrawalRequest: WithdrawalRequest = {
         id: 'test-1',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         amount: '1000000000000000000',
         tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',

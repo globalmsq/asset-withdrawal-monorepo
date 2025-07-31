@@ -365,7 +365,8 @@ router.post('/request', async (req: Request, res: Response) => {
           symbol: getSymbolFromTokenAddress(tokenAddress, networkType, blockchainName),
           toAddress: toAddress,
           tokenAddress: tokenAddress,
-          network: `${blockchainName}_${networkType}`, // Store as combined format
+          chain: blockchainName,
+          network: networkType,
           status: TransactionStatus.PENDING,
         },
       });

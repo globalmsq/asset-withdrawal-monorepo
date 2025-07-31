@@ -29,7 +29,8 @@ model WithdrawalRequest {
   symbol        String             @db.VarChar(10) // Token symbol
   toAddress     String             @db.VarChar(42)
   tokenAddress  String             @db.VarChar(42)
-  network       String             @db.VarChar(50) // Combined blockchain_network format
+  chain         String             @db.VarChar(20) // Blockchain name (e.g., 'polygon', 'ethereum', 'localhost')
+  network       String             @db.VarChar(50) // Network type (e.g., 'mainnet', 'testnet') or combined format for backward compatibility
   status        String             @default("PENDING") @db.VarChar(20) // PENDING, VALIDATING, SIGNING, BROADCASTING, COMPLETED, FAILED
   errorMessage  String?            @db.Text
   processingMode String            @default("SINGLE") @db.VarChar(10) // SINGLE, BATCH, or BULK
@@ -46,6 +47,8 @@ model WithdrawalRequest {
   @@index([batchId])
   @@index([processingMode])
   @@index([status, processingInstanceId])
+  @@index([chain])
+  @@index([chain, network])
   @@map("withdrawal_requests")
 }
 

@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
     `symbol` VARCHAR(10) NOT NULL,
     `toAddress` VARCHAR(42) NOT NULL,
     `tokenAddress` VARCHAR(42) NOT NULL,
+    `chain` VARCHAR(20) NOT NULL,
     `network` VARCHAR(50) NOT NULL,
     `status` VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     `errorMessage` TEXT NULL,
@@ -70,6 +71,8 @@ CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
     INDEX `withdrawal_requests_batchId_idx`(`batchId`),
     INDEX `withdrawal_requests_processingMode_idx`(`processingMode`),
     INDEX `withdrawal_requests_status_processingInstanceId_idx`(`status`, `processingInstanceId`),
+    INDEX `withdrawal_requests_chain_idx`(`chain`),
+    INDEX `withdrawal_requests_chain_network_idx`(`chain`, `network`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

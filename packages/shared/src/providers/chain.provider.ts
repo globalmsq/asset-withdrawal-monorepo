@@ -31,10 +31,8 @@ export class ChainProvider {
       ? parseInt(process.env.CHAIN_ID)
       : this.config.chainId;
 
-    this.provider = new ethers.JsonRpcProvider(rpcUrl, {
-      name: this.config.name,
-      chainId: chainId,
-    });
+    // Use simplified constructor to avoid network detection issues
+    this.provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
   }
 
   getProvider(): ethers.JsonRpcProvider {

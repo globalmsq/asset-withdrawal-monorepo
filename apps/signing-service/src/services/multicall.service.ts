@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { ChainProvider } from '@asset-withdrawal/shared';
+import { ChainProvider, tokenService } from '@asset-withdrawal/shared';
 import { Logger } from '../utils/logger';
 
 // Multicall3 ABI - only the functions we need
@@ -353,6 +353,13 @@ export class MulticallService {
       txIds.add(transfer.transactionId);
     }
 
+    // Calculate total amounts per token
+    const tokenTotals = new Map<string, { amount: bigint; symbol: string }>();
+
+    // Get chain and network from chainProvider
+    const chain = this.chainProvider.chain;
+    const network = this.chainProvider.network;
+
     // Validate addresses
     for (const transfer of transfers) {
       // Validate token address - accept both checksummed and lowercase addresses
@@ -393,8 +400,31 @@ export class MulticallService {
         if (amount <= 0n) {
           errors.push(`Invalid amount in transfer ${transfer.transactionId}: must be positive`);
         }
+
+        // Accumulate token totals for max amount checking
+        const tokenInfo = tokenService.getTokenByAddress(transfer.tokenAddress, network, chain);
+        if (tokenInfo) {
+          const key = transfer.tokenAddress.toLowerCase();
+          const current = tokenTotals.get(key);
+          if (current) {
+            current.amount += amount;
+          } else {
+            tokenTotals.set(key, { amount, symbol: tokenInfo.symbol });
+          }
+        }
       } catch (error) {
         errors.push(`Invalid amount in transfer ${transfer.transactionId}`);
+      }
+    }
+
+    // Check max transfer amounts
+    for (const [tokenAddress, { amount, symbol }] of tokenTotals) {
+      const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network, chain);
+      if (tokenInfo && tokenInfo.maxTransferAmount) {
+        const maxAmount = BigInt(tokenInfo.maxTransferAmount);
+        if (amount > maxAmount) {
+          errors.push(`Total amount for ${symbol} (${amount.toString()}) exceeds maximum transfer amount (${tokenInfo.maxTransferAmount})`);
+        }
       }
     }
 
@@ -522,16 +552,22 @@ export class MulticallService {
     const maxBatchGas = this.getMaxBatchGas();
     const batchGroups: BatchGroup[] = [];
 
+    // Get chain and network for token lookup
+    const chain = this.chainProvider.chain;
+    const network = this.chainProvider.network;
+
     let currentBatch: {
       calls: Call3[];
       transfers: BatchTransferRequest[];
       estimatedGas: bigint;
       tokenGroups: Map<string, number>;
+      tokenAmounts: Map<string, bigint>; // Track amounts per token
     } = {
       calls: [],
       transfers: [],
       estimatedGas: this.gasConfig.multicallOverhead,
       tokenGroups: new Map(),
+      tokenAmounts: new Map(),
     };
 
     for (let i = 0; i < transfers.length; i++) {
@@ -542,8 +578,21 @@ export class MulticallService {
       const callGas = this.getGasForNthCall(estimatedGasPerCall, currentBatch.calls.length);
       const newTotalGas = currentBatch.estimatedGas + callGas;
 
-      // Check if adding this call would exceed gas limit
-      if (newTotalGas > maxBatchGas && currentBatch.calls.length > 0) {
+      // Check max transfer amount for token
+      const tokenAddress = transfer.tokenAddress.toLowerCase();
+      const transferAmount = BigInt(transfer.amount);
+      const currentTokenAmount = currentBatch.tokenAmounts.get(tokenAddress) || 0n;
+      const newTokenTotal = currentTokenAmount + transferAmount;
+
+      // Get max transfer amount for this token
+      const tokenInfo = tokenService.getTokenByAddress(transfer.tokenAddress, network, chain);
+      const maxTransferAmount = tokenInfo?.maxTransferAmount ? BigInt(tokenInfo.maxTransferAmount) : null;
+
+      // Check if adding this transfer would exceed max amount or gas limit
+      const exceedsMaxAmount = maxTransferAmount && newTokenTotal > maxTransferAmount;
+      const exceedsGasLimit = newTotalGas > maxBatchGas && currentBatch.calls.length > 0;
+
+      if (exceedsMaxAmount || exceedsGasLimit) {
         // Save current batch
         batchGroups.push({
           calls: [...currentBatch.calls],
@@ -558,6 +607,7 @@ export class MulticallService {
           transfers: [],
           estimatedGas: this.gasConfig.multicallOverhead,
           tokenGroups: new Map(),
+          tokenAmounts: new Map(),
         };
       }
 
@@ -566,11 +616,14 @@ export class MulticallService {
       currentBatch.transfers.push(transfer);
       currentBatch.estimatedGas += callGas;
 
-      // Update token groups
-      const tokenAddress = transfer.tokenAddress.toLowerCase();
+      // Update token groups and amounts
       currentBatch.tokenGroups.set(
         tokenAddress,
         (currentBatch.tokenGroups.get(tokenAddress) || 0) + 1
+      );
+      currentBatch.tokenAmounts.set(
+        tokenAddress,
+        (currentBatch.tokenAmounts.get(tokenAddress) || 0n) + transferAmount
       );
     }
 

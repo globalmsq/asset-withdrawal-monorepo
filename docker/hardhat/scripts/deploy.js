@@ -85,6 +85,28 @@ async function main() {
   const multicall3Address = await multicall3.getAddress();
   console.log('Multicall3 deployed to:', multicall3Address);
 
+  // Set up allowances for Multicall3
+  const MAX_UINT256 = hre.ethers.MaxUint256;
+  console.log('\nSetting up token allowances for Multicall3...');
+
+  // Approve all tokens for Multicall3
+  await mockUSDT.approve(multicall3Address, MAX_UINT256);
+  console.log('✓ Mock USDT allowance set for Multicall3');
+
+  await mockMSQ.approve(multicall3Address, MAX_UINT256);
+  console.log('✓ Mock MSQ allowance set for Multicall3');
+
+  await mockSUT.approve(multicall3Address, MAX_UINT256);
+  console.log('✓ Mock SUT allowance set for Multicall3');
+
+  await mockKWT.approve(multicall3Address, MAX_UINT256);
+  console.log('✓ Mock KWT allowance set for Multicall3');
+
+  await mockP2UC.approve(multicall3Address, MAX_UINT256);
+  console.log('✓ Mock P2UC allowance set for Multicall3');
+
+  console.log('\nAll token allowances have been set for Multicall3');
+
   // Save deployment info
   const deploymentInfo = {
     network: 'localhost',

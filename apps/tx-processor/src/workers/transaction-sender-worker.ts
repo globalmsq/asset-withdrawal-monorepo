@@ -28,7 +28,7 @@ export class TransactionSenderWorker extends BaseWorker<
     messageId: string
   ): Promise<void> {
     this.logger.info(
-      `Broadcasting transaction for withdrawal ${signedTx.withdrawalId}`
+      `Broadcasting transaction for request ${signedTx.requestId}`
     );
 
     try {
@@ -37,22 +37,22 @@ export class TransactionSenderWorker extends BaseWorker<
 
       // Step 2: Update transaction with hash
       await this.transactionService.updateTransactionHash(
-        signedTx.withdrawalId,
+        signedTx.requestId,
         txHash
       );
 
       // Step 3: Update status to PENDING (waiting for confirmation)
       await this.transactionService.updateStatus(
-        signedTx.withdrawalId,
+        signedTx.requestId,
         'PENDING'
       );
 
       this.logger.info(
-        `Transaction broadcasted successfully for withdrawal ${signedTx.withdrawalId}. Hash: ${txHash}`
+        `Transaction broadcasted successfully for request ${signedTx.requestId}. Hash: ${txHash}`
       );
     } catch (error) {
       this.logger.error(
-        `Failed to broadcast transaction for withdrawal ${signedTx.withdrawalId}`,
+        `Failed to broadcast transaction for request ${signedTx.requestId}`,
         error
       );
 
@@ -63,7 +63,7 @@ export class TransactionSenderWorker extends BaseWorker<
       } else {
         // Non-recoverable error, mark as failed
         await this.transactionService.updateStatus(
-          signedTx.withdrawalId,
+          signedTx.requestId,
           'FAILED'
         );
         throw error;
@@ -108,7 +108,7 @@ export class TransactionSenderWorker extends BaseWorker<
     try {
       // Broadcast the signed transaction
       const txHash = await signer.broadcastTransaction(
-        signedTx.signedTx
+        signedTx.rawTransaction
       );
 
       this.logger.info(

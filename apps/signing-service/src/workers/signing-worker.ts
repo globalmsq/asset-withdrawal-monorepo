@@ -7,6 +7,7 @@ import { SecureSecretsManager } from '../services/secrets-manager';
 import { NonceCacheService } from '../services/nonce-cache.service';
 import { GasPriceCache } from '../services/gas-price-cache';
 import { MulticallService, BatchTransferRequest } from '../services/multicall.service';
+import { QueueRecoveryService } from '../services/queue-recovery.service';
 import { Logger } from '../utils/logger';
 import { Config } from '../config';
 import { ethers } from 'ethers';
@@ -27,6 +28,7 @@ export class SigningWorker extends BaseWorker<
   private auditLogger: Logger;
   private dbClient: any; // Prisma client for BatchTransaction operations
   private readonly instanceId: string;
+  private queueRecoveryService: QueueRecoveryService;
 
   constructor(
     private config: Config,
@@ -70,6 +72,9 @@ export class SigningWorker extends BaseWorker<
 
     // Create gas price cache (30 seconds TTL)
     this.gasPriceCache = new GasPriceCache(30);
+
+    // Create queue recovery service
+    this.queueRecoveryService = new QueueRecoveryService(this.nonceCache);
   }
 
   async initialize(): Promise<void> {
@@ -556,7 +561,33 @@ export class SigningWorker extends BaseWorker<
         this.logger.error(`Error processing message ${messageId}`, error);
         this.lastError = error instanceof Error ? error.message : 'Unknown error';
         this.errorCount++;
-        // Message will be returned to queue after visibility timeout
+
+        // Check if error is recoverable
+        const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+        const isRecoverable = this.isRecoverableError(errorMessage);
+
+        if (isRecoverable) {
+          this.auditLogger.info('Recoverable error detected, recovering transaction', {
+            withdrawalId: message.body.id,
+            error: errorMessage,
+          });
+
+          try {
+            await this.queueRecoveryService.recoverTransactionOnError(
+              message.body.id,
+              error,
+              message.receiptHandle
+            );
+          } catch (recoveryError) {
+            this.auditLogger.error('Failed to recover transaction', recoveryError, {
+              withdrawalId: message.body.id,
+            });
+            // Message will be returned to queue after visibility timeout
+          }
+        } else {
+          // Non-recoverable error - delete message from queue
+          await this.inputQueue.deleteMessage(message.receiptHandle);
+        }
       } finally {
         this.processingMessages.delete(messageId);
       }
@@ -794,32 +825,57 @@ export class SigningWorker extends BaseWorker<
         });
       }
 
-      // Reset withdrawal requests back to PENDING state for retry
-      // Remove batchId and type so they can be processed individually or in a new batch
-      if (batchId) {
-        await this.dbClient.withdrawalRequest.updateMany({
-          where: { batchId: batchId },
-          data: {
-            status: TransactionStatus.PENDING,
-            batchId: null,
-            processingMode: 'SINGLE',
-            errorMessage: error instanceof Error ? error.message : String(error),
-          },
+      // Check if error is recoverable
+      const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+      const isRecoverable = this.isRecoverableError(errorMessage);
+
+      if (isRecoverable) {
+        this.auditLogger.info('Recoverable error detected, recovering batch transactions', {
+          batchId,
+          messageCount: messages.length,
+          error: errorMessage,
         });
+
+        // Recover each message individually
+        for (const message of messages) {
+          try {
+            await this.queueRecoveryService.recoverTransactionOnError(
+              message.body.id,
+              error,
+              message.receiptHandle
+            );
+          } catch (recoveryError) {
+            this.auditLogger.error('Failed to recover transaction', recoveryError, {
+              withdrawalId: message.body.id,
+            });
+          }
+        }
+      } else {
+        // Non-recoverable error - mark as FAILED
+        if (batchId) {
+          await this.dbClient.withdrawalRequest.updateMany({
+            where: { batchId: batchId },
+            data: {
+              status: TransactionStatus.FAILED,
+              batchId: null,
+              processingMode: 'SINGLE',
+              errorMessage: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
+
+        // Delete messages from queue for non-recoverable errors
+        await Promise.all(messages.map(msg => this.inputQueue.deleteMessage(msg.receiptHandle)));
       }
 
-      this.auditLogger.info('Reset withdrawal requests to PENDING for retry', {
+      this.auditLogger.info('Batch error handling completed', {
         batchId,
         messageCount: messages.length,
+        isRecoverable,
         reason: 'Batch processing failed',
       });
 
       // Don't throw error to prevent service termination
-      // Messages will be processed individually in the catch block of processBatchTransactions
-
-      // IMPORTANT: Don't delete messages from queue on failure
-      // They will become visible again after visibility timeout
-      // and will be reprocessed as individual transactions
     }
   }
 
@@ -972,32 +1028,57 @@ export class SigningWorker extends BaseWorker<
         }
       );
 
-      // Update withdrawal request status to FAILED with error message
-      await this.withdrawalRequestService.updateStatusWithError(
-        transactionId,
-        TransactionStatus.FAILED,
-        error instanceof Error ? error.message : String(error)
-      );
-
-      // Determine if error is recoverable
-      const recoverableErrors = [
-        'nonce too low',
-        'replacement transaction underpriced',
-        'timeout',
-        'network error',
-      ];
-
-      const isRecoverable = recoverableErrors.some(
-        err =>
-          error instanceof Error && error.message.toLowerCase().includes(err)
-      );
+      // Check if error is recoverable
+      const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+      const isRecoverable = this.isRecoverableError(errorMessage);
 
       if (isRecoverable) {
-        throw error; // Let SQS retry
-      }
+        this.auditLogger.info('Recoverable error in processMessage, will be recovered', {
+          transactionId,
+          error: errorMessage,
+        });
 
-      return null; // Non-recoverable, don't retry
+        // Update status to PENDING for recovery
+        await this.withdrawalRequestService.updateStatus(
+          transactionId,
+          TransactionStatus.PENDING
+        );
+
+        throw error; // Let the caller handle recovery
+      } else {
+        // Non-recoverable error - mark as FAILED
+        await this.withdrawalRequestService.updateStatusWithError(
+          transactionId,
+          TransactionStatus.FAILED,
+          error instanceof Error ? error.message : String(error)
+        );
+
+        return null; // Non-recoverable, don't retry
+      }
     }
+  }
+
+  /**
+   * Check if an error is recoverable
+   */
+  private isRecoverableError(errorMessage: string): boolean {
+    const recoverablePatterns = [
+      'insufficient balance',
+      'insufficient funds',
+      'insufficient allowance',
+      'gas required exceeds',
+      'nonce too low',
+      'nonce has already been used',
+      'replacement transaction underpriced',
+      'timeout',
+      'network error',
+      'connection error',
+      'etimedout',
+      'econnrefused',
+      'enotfound',
+    ];
+
+    return recoverablePatterns.some(pattern => errorMessage.includes(pattern));
   }
 
   async stop(): Promise<void> {

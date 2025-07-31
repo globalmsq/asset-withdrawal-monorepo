@@ -1,4 +1,5 @@
 import { createClient } from 'redis';
+import { Logger } from '../utils/logger';
 
 export interface NonceCache {
   getAndIncrement(address: string, chain: string, network: string): Promise<number>;
@@ -6,15 +7,24 @@ export interface NonceCache {
   get(address: string, chain: string, network: string): Promise<number | null>;
   clear(address: string, chain: string, network: string): Promise<void>;
   initialize(address: string, networkNonce: number, chain: string, network: string): Promise<void>;
+  getCurrentNonce(chain: string, network: string, address: string): Promise<number>;
+  setNonce(chain: string, network: string, address: string, nonce: number): Promise<void>;
+  isNonceDuplicate(chain: string, network: string, address: string, nonce: number): Promise<boolean>;
 }
 
 export class NonceCacheService implements NonceCache {
   private client: ReturnType<typeof createClient>;
   private connected = false;
   private readonly keyPrefix = 'nonce:';
+  private readonly usedNoncePrefix = 'used_nonce:';
   private readonly ttl = 86400; // 24 hours in seconds
+  private logger?: Logger;
 
-  constructor(private readonly options?: Parameters<typeof createClient>[0]) {
+  constructor(
+    private readonly options?: Parameters<typeof createClient>[0],
+    logger?: Logger
+  ) {
+    this.logger = logger;
     this.client = createClient({
       socket: {
         host: process.env.REDIS_HOST || 'localhost',
@@ -121,9 +131,52 @@ export class NonceCacheService implements NonceCache {
       await this.connect();
     }
   }
+
+  /**
+   * Get current nonce without incrementing
+   */
+  async getCurrentNonce(chain: string, network: string, address: string): Promise<number> {
+    const nonce = await this.get(address, chain, network);
+    return nonce || 0;
+  }
+
+  /**
+   * Set nonce value directly
+   */
+  async setNonce(chain: string, network: string, address: string, nonce: number): Promise<void> {
+    await this.set(address, nonce, chain, network);
+  }
+
+  /**
+   * Check if a nonce has been used recently (duplicate detection)
+   */
+  async isNonceDuplicate(chain: string, network: string, address: string, nonce: number): Promise<boolean> {
+    await this.ensureConnected();
+
+    const usedKey = this.getUsedNonceKey(address, chain, network, nonce);
+    const exists = await this.client.exists(usedKey);
+
+    if (!exists) {
+      // Mark this nonce as used
+      await this.client.set(usedKey, '1', {
+        EX: 300, // 5 minutes TTL for used nonce tracking
+      });
+      return false;
+    }
+
+    this.logger?.warn(`Nonce ${nonce} already used for ${address} on ${chain}/${network}`);
+    return true;
+  }
+
+  private getUsedNonceKey(address: string, chain: string, network: string, nonce: number): string {
+    return `${this.usedNoncePrefix}${chain}:${network}:${address.toLowerCase()}:${nonce}`;
+  }
 }
 
 // Factory function
-export function createNonceCacheService(options?: Parameters<typeof createClient>[0]): NonceCacheService {
-  return new NonceCacheService(options);
+export function createNonceCacheService(
+  options?: Parameters<typeof createClient>[0],
+  logger?: Logger
+): NonceCacheService {
+  return new NonceCacheService(options, logger);
 }

@@ -93,12 +93,15 @@ export class TransactionSigner {
       const parsedTx = ethers.Transaction.from(signedTx);
 
       return {
-        withdrawalId,
-        signedTx,
+        transactionType: 'SINGLE',
+        requestId: withdrawalId,
+        hash: parsedTx.hash!,
+        rawTransaction: signedTx,
         from: this.wallet.address,
         to: request.to,
         value: request.value,
-        gasPrice: gasPrice.toString(),
+        maxFeePerGas: gasPrice.toString(),
+        maxPriorityFeePerGas: gasPrice.toString(),
         gasLimit: tx.gasLimit!.toString(),
         nonce,
         chainId: this.provider.getChainId(),

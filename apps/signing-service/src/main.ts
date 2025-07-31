@@ -9,6 +9,15 @@ import { Logger } from './utils/logger';
 import { SecureSecretsManager } from './services/secrets-manager';
 import { SigningWorker } from './workers/signing-worker';
 import { DatabaseService } from '@asset-withdrawal/database';
+import { QueueRecoveryService } from './services/queue-recovery.service';
+import { NonceCacheService } from './services/nonce-cache.service';
+import { ChainProviderFactory, ChainName, ChainNetwork } from '@asset-withdrawal/shared';
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
+// Load chains config from file
+const chainsConfigPath = join(__dirname, '../../../packages/shared/src/config/chains.config.json');
+const chainsConfig = JSON.parse(readFileSync(chainsConfigPath, 'utf8'));
 
 async function bootstrap() {
   // Load configuration
@@ -24,19 +33,59 @@ async function bootstrap() {
   const secretsManager = new SecureSecretsManager(config, logger);
   await secretsManager.initialize();
 
-  // Initialize signing worker
-  const signingWorker = new SigningWorker(config, secretsManager, logger);
-  await signingWorker.initialize();
-
-  // Health check - ensure all dependencies are ready
-  logger.info('Performing health checks before starting worker...');
-  // Check database connection
+  // Initialize database first
+  logger.info('Initializing database connection...');
   const dbService = DatabaseService.getInstance(config.database);
   const dbHealthy = await dbService.healthCheck();
   if (!dbHealthy) {
     throw new Error('Database health check failed');
   }
   logger.info('Database connection healthy');
+
+  // Initialize nonce cache service
+  const nonceCacheService = new NonceCacheService(undefined, logger);
+
+  // Initialize queue recovery service - after database is initialized
+  const queueRecoveryService = new QueueRecoveryService(nonceCacheService);
+
+  // Initialize signing worker
+  const signingWorker = new SigningWorker(config, secretsManager, logger);
+  await signingWorker.initialize();
+
+  // Perform queue recovery on startup
+  logger.info('Performing queue recovery on startup...');
+  try {
+    await queueRecoveryService.recoverQueuesOnStartup();
+    logger.info('Queue recovery completed successfully');
+  } catch (error) {
+    logger.error('Queue recovery failed, but continuing startup:', error);
+  }
+
+  // Sync nonce with blockchain
+  logger.info('Synchronizing nonce with blockchain...');
+  try {
+    const signerAddress = await secretsManager.getSignerAddress();
+
+    // Get chains based on environment
+    const chains: { chain: string; network: string }[] = [];
+
+    for (const [chainName, networks] of Object.entries(chainsConfig)) {
+      if (config.nodeEnv === 'development' && chainName !== 'localhost') {
+        continue;
+      }
+
+      for (const networkName of Object.keys(networks)) {
+        chains.push({ chain: chainName, network: networkName });
+      }
+    }
+
+    logger.info(`Found ${chains.length} chain/network combinations for nonce sync`, { chains });
+
+    await queueRecoveryService.syncNonceWithBlockchain(signerAddress, chains);
+    logger.info('Nonce synchronization completed');
+  } catch (error) {
+    logger.error('Nonce synchronization failed, but continuing startup:', error);
+  }
 
   // Add a small delay to ensure all services are fully initialized
   logger.info('Waiting for all services to be ready...');

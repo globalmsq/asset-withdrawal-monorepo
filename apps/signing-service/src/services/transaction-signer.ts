@@ -220,7 +220,8 @@ export class TransactionSigner {
       const parsedTx = ethers.Transaction.from(signedTx);
 
       const result: SignedTransaction = {
-        transactionId,
+        transactionType: 'SINGLE',
+        requestId: transactionId,
         hash: parsedTx.hash!,
         rawTransaction: signedTx,
         nonce: Number(nonce),
@@ -420,7 +421,9 @@ export class TransactionSigner {
       const parsedTx = ethers.Transaction.from(signedTx);
 
       const result: SignedTransaction = {
-        transactionId: batchId,
+        transactionType: 'BATCH',
+        requestId: batchId,
+        batchId: batchId,
         hash: parsedTx.hash!,
         rawTransaction: signedTx,
         nonce: Number(nonce),
@@ -585,7 +588,9 @@ export class TransactionSigner {
           const parsedTx = ethers.Transaction.from(signedTx);
 
           const result: SignedTransaction = {
-            transactionId: groupBatchId,
+            transactionType: 'BATCH',
+            requestId: groupBatchId,
+            batchId: batchId, // Keep original batchId for tracking
             hash: parsedTx.hash!,
             rawTransaction: signedTx,
             nonce: Number(nonce),

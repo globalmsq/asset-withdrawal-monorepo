@@ -197,7 +197,7 @@ services:
       SIGNED_TX_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue
 
       # RPC URL Override for Docker environment
-      RPC_URL: http://hardhat-node:8545
+      # RPC_URL: http://hardhat-node:8545
 
       # Logging
       SIGNING_SERVICE_LOG_LEVEL: info

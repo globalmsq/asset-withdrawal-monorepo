@@ -82,12 +82,8 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
 
       this.logger.info(`Successfully signed transaction for withdrawal ${withdrawalRequest.id}`);
 
-      // Include chain and network in the response
-      return {
-        ...signedTx,
-        chain: withdrawalRequest.chain || 'polygon',
-        network: withdrawalRequest.network,
-      };
+      // Return signed transaction
+      return signedTx;
     } catch (error) {
       this.logger.error(`Failed to process withdrawal ${withdrawalRequest.id}`, error);
 

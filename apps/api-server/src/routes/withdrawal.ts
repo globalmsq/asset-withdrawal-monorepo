@@ -224,6 +224,12 @@ function getSymbolFromTokenAddress(
  *                   success: false
  *                   error: "Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed."
  *                   timestamp: "2025-01-03T10:00:00Z"
+ *               maxTransferAmountExceeded:
+ *                 summary: Transfer amount exceeds maximum limit
+ *                 value:
+ *                   success: false
+ *                   error: "Transfer amount exceeds maximum allowed limit. Maximum: 10000 USDT"
+ *                   timestamp: "2025-01-03T10:00:00Z"
  *       '500':
  *         description: Internal server error
  *         content:
@@ -311,6 +317,21 @@ router.post('/request', async (req: Request, res: Response) => {
         timestamp: new Date(),
       };
       return res.status(400).json(response);
+    }
+
+    // Check if amount exceeds max transfer amount
+    if (tokenInfo.maxTransferAmount) {
+      const requestedAmount = BigInt(amount);
+      const maxAmount = BigInt(tokenInfo.maxTransferAmount);
+
+      if (requestedAmount > maxAmount) {
+        const response: ApiResponse = {
+          success: false,
+          error: `Transfer amount exceeds maximum allowed limit. Maximum: ${tokenInfo.maxTransferAmount} ${tokenInfo.symbol}`,
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
     }
 
     // Generate unique request ID using UUID v4 with rearranged parts for time-based sorting

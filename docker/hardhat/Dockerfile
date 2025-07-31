@@ -5,7 +5,9 @@ RUN apk add --no-cache \
     python3 \
     make \
     g++ \
-    git
+    git \
+    wget \
+    curl
 
 # Create app directory
 WORKDIR /app
@@ -14,7 +16,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Copy hardhat config and contracts
 COPY hardhat.config.js ./

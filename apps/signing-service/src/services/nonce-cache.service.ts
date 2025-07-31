@@ -1,11 +1,11 @@
 import { createClient } from 'redis';
 
 export interface NonceCache {
-  getAndIncrement(address: string): Promise<number>;
-  set(address: string, nonce: number): Promise<void>;
-  get(address: string): Promise<number | null>;
-  clear(address: string): Promise<void>;
-  initialize(address: string, networkNonce: number): Promise<void>;
+  getAndIncrement(address: string, chain: string, network: string): Promise<number>;
+  set(address: string, nonce: number, chain: string, network: string): Promise<void>;
+  get(address: string, chain: string, network: string): Promise<number | null>;
+  clear(address: string, chain: string, network: string): Promise<void>;
+  initialize(address: string, networkNonce: number, chain: string, network: string): Promise<void>;
 }
 
 export class NonceCacheService implements NonceCache {
@@ -59,23 +59,23 @@ export class NonceCacheService implements NonceCache {
     }
   }
 
-  async initialize(address: string, networkNonce: number): Promise<void> {
+  async initialize(address: string, networkNonce: number, chain: string, network: string): Promise<void> {
     await this.ensureConnected();
 
-    const key = this.getKey(address);
-    const cachedNonce = await this.get(address);
+    const key = this.getKey(address, chain, network);
+    const cachedNonce = await this.get(address, chain, network);
 
     // Use the higher value between cached and network nonce
     const startNonce = Math.max(cachedNonce || 0, networkNonce);
 
-    await this.set(address, startNonce);
-    console.log(`Nonce initialized for ${address}: ${startNonce}`);
+    await this.set(address, startNonce, chain, network);
+    console.log(`Nonce initialized for ${address} on ${chain}/${network}: ${startNonce}`);
   }
 
-  async getAndIncrement(address: string): Promise<number> {
+  async getAndIncrement(address: string, chain: string, network: string): Promise<number> {
     await this.ensureConnected();
 
-    const key = this.getKey(address);
+    const key = this.getKey(address, chain, network);
     const nonce = await this.client.incr(key);
 
     // Set TTL on first increment
@@ -87,33 +87,33 @@ export class NonceCacheService implements NonceCache {
     return nonce - 1;
   }
 
-  async set(address: string, nonce: number): Promise<void> {
+  async set(address: string, nonce: number, chain: string, network: string): Promise<void> {
     await this.ensureConnected();
 
-    const key = this.getKey(address);
+    const key = this.getKey(address, chain, network);
     await this.client.set(key, nonce.toString(), {
       EX: this.ttl,
     });
   }
 
-  async get(address: string): Promise<number | null> {
+  async get(address: string, chain: string, network: string): Promise<number | null> {
     await this.ensureConnected();
 
-    const key = this.getKey(address);
+    const key = this.getKey(address, chain, network);
     const value = await this.client.get(key);
 
     return value ? parseInt(value, 10) : null;
   }
 
-  async clear(address: string): Promise<void> {
+  async clear(address: string, chain: string, network: string): Promise<void> {
     await this.ensureConnected();
 
-    const key = this.getKey(address);
+    const key = this.getKey(address, chain, network);
     await this.client.del(key);
   }
 
-  private getKey(address: string): string {
-    return `${this.keyPrefix}${address.toLowerCase()}`;
+  private getKey(address: string, chain: string, network: string): string {
+    return `${this.keyPrefix}${chain}:${network}:${address.toLowerCase()}`;
   }
 
   private async ensureConnected(): Promise<void> {

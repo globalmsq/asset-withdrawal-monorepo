@@ -16,7 +16,8 @@ export interface SecretConfig {
 export class SecretsManager {
   private logger = new Logger('SecretsManager');
   private client: SecretsManagerClient;
-  private secretCache: Map<string, { value: string; timestamp: number }> = new Map();
+  private secretCache: Map<string, { value: string; timestamp: number }> =
+    new Map();
   private readonly CACHE_DURATION = 300000; // 5 minutes
 
   constructor(customConfig?: Partial<SecretConfig>) {
@@ -31,17 +32,23 @@ export class SecretsManager {
     if (endpoint) {
       clientConfig.endpoint = endpoint;
       clientConfig.credentials = {
-        accessKeyId: customConfig?.accessKeyId || config.queue.accessKeyId || 'test',
-        secretAccessKey: customConfig?.secretAccessKey || config.queue.secretAccessKey || 'test',
+        accessKeyId:
+          customConfig?.accessKeyId || config.queue.accessKeyId || 'test',
+        secretAccessKey:
+          customConfig?.secretAccessKey ||
+          config.queue.secretAccessKey ||
+          'test',
       };
     }
 
     this.client = new SecretsManagerClient(clientConfig);
-    this.logger.info(`Initialized Secrets Manager client for region: ${region}`);
+    this.logger.info(
+      `Initialized Secrets Manager client for region: ${region}`
+    );
   }
 
   async getPrivateKey(secretName?: string): Promise<string> {
-    const name = secretName || 'polygon-wallet-key';
+    const name = secretName || 'signing-service/private-key';
 
     try {
       // Check cache first
@@ -77,7 +84,8 @@ export class SecretsManager {
         privateKey = '0x' + privateKey;
       }
 
-      if (privateKey.length !== 66) { // 0x + 64 hex chars
+      if (privateKey.length !== 66) {
+        // 0x + 64 hex chars
         throw new Error('Invalid private key format');
       }
 
@@ -87,7 +95,9 @@ export class SecretsManager {
         timestamp: Date.now(),
       });
 
-      this.logger.info(`Successfully retrieved private key from secret: ${name}`);
+      this.logger.info(
+        `Successfully retrieved private key from secret: ${name}`
+      );
       return privateKey;
     } catch (error) {
       this.logger.error(`Failed to get private key from secret ${name}`, error);

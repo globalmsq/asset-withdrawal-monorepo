@@ -136,13 +136,31 @@ function getSymbolFromTokenAddress(
  *                 symbol: "USDT"
  *                 chain: "polygon"
  *                 network: "mainnet"
- *             localhostMock:
- *               summary: Localhost mock token withdrawal
+ *             localhostMockUSDT:
+ *               summary: Localhost mock USDT withdrawal
  *               value:
  *                 amount: "50"
  *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
  *                 tokenAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
- *                 symbol: "MOCK"
+ *                 symbol: "mUSDT"
+ *                 chain: "localhost"
+ *                 network: "testnet"
+ *             localhostMockMSQ:
+ *               summary: Localhost mock MSQ withdrawal
+ *               value:
+ *                 amount: "100"
+ *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 tokenAddress: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+ *                 symbol: "mMSQ"
+ *                 chain: "localhost"
+ *                 network: "testnet"
+ *             localhostMockKWT:
+ *               summary: Localhost mock KWT withdrawal
+ *               value:
+ *                 amount: "1000"
+ *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 tokenAddress: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+ *                 symbol: "mKWT"
  *                 chain: "localhost"
  *                 network: "testnet"
  *             polygonMSQ:

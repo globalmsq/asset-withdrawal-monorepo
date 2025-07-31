@@ -27,6 +27,9 @@ echo "Hardhat node is ready!"
 echo "Deploying contracts to Hardhat node..."
 cd /app
 
+# Set the Hardhat node URL for Docker network
+export HARDHAT_NODE_URL="http://hardhat-node:8545"
+
 # Run the deployment script
 npx hardhat run scripts/deploy.js --network localhost
 

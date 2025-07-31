@@ -26,25 +26,21 @@ module.exports = {
         auto: true,
         interval: 1000, // 1 second for faster development
       },
-      accounts: [
-        {
-          // LocalStack private key - generates signing address: 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf
-          privateKey: '0x0000000000000000000000000000000000000000000000000000000000000001',
-          balance: '10000000000000000000000', // 10,000 ETH
-        },
-      ],
+      accounts: {
+        mnemonic: 'test test test test test test test test test test test junk',
+        initialIndex: 0,
+        count: 20,
+        accountsBalance: '10000000000000000000000', // 10,000 ETH
+      },
       gas: 30000000,
       gasPrice: 20000000000,
       loggingEnabled: true,
-      forking: {
-        enabled: false,
-      },
     },
     localhost: {
-      url: 'http://127.0.0.1:8545',
+      url: process.env.HARDHAT_NODE_URL || 'http://127.0.0.1:8545',
       chainId: 31337,
       accounts: [
-        '0x0000000000000000000000000000000000000000000000000000000000000001',
+        '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
       ],
     },
   },

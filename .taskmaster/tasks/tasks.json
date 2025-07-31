@@ -452,11 +452,122 @@
         "details": "**Jira 키: BFS-38**\n\n1. **토큰 타입 구분 체계 구현**\n   - WithdrawalRequest 모델에 tokenType 필드 추가 ('NATIVE' | 'ERC20')\n   - 토큰 주소가 '0x0' 또는 null인 경우 네이티브 토큰으로 식별\n   - packages/shared/src/types에 TokenType enum 정의\n\n2. **API 레벨 변경사항**\n   - withdrawal-api의 validator에서 네이티브 토큰 요청 허용\n   - 네이티브 토큰의 경우 tokenAddress를 '0x0000000000000000000000000000000000000000' 또는 null로 처리\n   - 요청 검증 시 네이티브 토큰과 ERC20 토큰 별도 처리 로직 추가\n\n3. **signing-service 수정사항**\n   - TransactionSigner 클래스에 네이티브 토큰 전송 로직 추가\n   - 네이티브 토큰은 배치 처리(Multicall3) 불가능하도록 제한\n   - signNativeTransaction() 메서드 구현:\n     ```typescript\n     async signNativeTransaction(request: WithdrawalRequest): Promise<TransactionResponse> {\n       const tx = {\n         to: request.recipientAddress,\n         value: ethers.parseUnits(request.amount, 18), // 네이티브 토큰은 항상 18 decimals\n         gasLimit: 21000, // 네이티브 전송은 고정 가스\n         maxFeePerGas: await this.provider.getGasPrice(),\n         maxPriorityFeePerGas: ethers.parseUnits('2', 'gwei'),\n         nonce: await this.provider.getTransactionCount(this.signerAddress),\n         chainId: this.chainId\n       };\n       return await this.signer.sendTransaction(tx);\n     }\n     ```\n\n4. **트랜잭션 처리 플로우 수정**\n   - processWithdrawal() 메서드에서 토큰 타입 확인 후 분기 처리\n   - 네이티브 토큰은 개별 트랜잭션으로만 처리\n   - ERC20 토큰은 기존 배치/단일 처리 로직 유지\n\n5. **잔액 검증 로직 업데이트**\n   - BalanceService에서 네이티브 토큰 잔액 확인 로직 추가\n   - provider.getBalance() 사용하여 네이티브 잔액 조회\n   - 가스비 계산 시 네이티브 토큰 전송은 21,000 gas 고정\n\n6. **데이터베이스 마이그레이션**\n   - WithdrawalRequest 테이블에 tokenType 컬럼 추가\n   - 기존 레코드는 모두 'ERC20'로 기본값 설정\n\n7. **에러 처리 강화**\n   - 네이티브 토큰 배치 전송 시도 시 명확한 에러 메시지\n   - 잔액 부족 시 가스비 포함 필요 금액 안내",
         "testStrategy": "1. **단위 테스트**\n   - 네이티브 토큰 식별 로직 테스트 (tokenAddress가 null, '0x0' 등)\n   - signNativeTransaction() 메서드 동작 검증\n   - 네이티브 토큰 잔액 조회 정확성 테스트\n\n2. **통합 테스트**\n   - API 엔드포인트에서 네이티브 토큰 출금 요청 수락 테스트\n   - 네이티브 토큰과 ERC20 토큰 혼합 요청 시나리오\n   - 배치 전송에서 네이티브 토큰 제외 검증\n\n3. **Hardhat 로컬 환경 테스트**\n   - 로컬 체인에서 실제 네이티브 토큰 전송 테스트\n   - 가스비 계산 정확성 검증\n   - 트랜잭션 확인 및 잔액 변화 추적\n\n4. **엣지 케이스 테스트**\n   - 네이티브 토큰 잔액이 정확히 가스비만큼인 경우\n   - 네이티브 토큰 배치 전송 시도 시 에러 처리\n   - 다양한 체인(Polygon, BSC, Ethereum)에서의 네이티브 토큰 처리\n\n5. **성능 테스트**\n   - 대량의 네이티브 토큰 개별 전송 처리 시간 측정\n   - ERC20 배치 전송 대비 처리량 비교",
         "subtasks": []
+      },
+      {
+        "id": 24,
+        "title": "[BFS-40] 배치 트랜잭션 allowance 최적화 구현",
+        "description": "Multicall3 배치 트랜잭션 실행 시 매번 approve 트랜잭션을 보내는 대신 기존 allowance를 확인하고 재사용하여 불필요한 트랜잭션을 줄이고 가스비와 처리 시간을 절약하는 최적화 시스템을 구현합니다.",
+        "status": "done",
+        "dependencies": [
+          22,
+          15,
+          11
+        ],
+        "priority": "medium",
+        "details": "**구현 목표**\n- 현재 매 배치마다 실행되는 approve 트랜잭션을 최소화\n- allowance 상태를 추적하여 필요한 경우에만 approve 실행\n- 가스비 절감 및 트랜잭션 처리 시간 단축\n\n**1. Allowance 추적 시스템 구현**\n- signing-service에 AllowanceManager 클래스 생성\n- Redis를 사용한 allowance 캐싱 시스템 구현\n  ```typescript\n  interface AllowanceCache {\n    tokenAddress: string;\n    spenderAddress: string;\n    allowance: string;\n    lastUpdated: number;\n    blockNumber: number;\n  }\n  ```\n- 캐시 키 구조: `allowance:${chainId}:${tokenAddress}:${ownerAddress}:${spenderAddress}`\n\n**2. Allowance 체크 로직 구현**\n- 배치 실행 전 현재 allowance 확인\n- 온체인 allowance vs 캐시된 allowance 검증\n- 필요한 토큰 수량과 현재 allowance 비교\n  ```typescript\n  async checkAllowance(tokenAddress: string, amount: BigNumber): Promise<boolean> {\n    const currentAllowance = await this.getAllowance(tokenAddress);\n    return currentAllowance.gte(amount);\n  }\n  ```\n\n**3. 조건부 Approve 실행**\n- allowance가 부족한 경우에만 approve 트랜잭션 실행\n- Infinite approval vs 정확한 금액 approval 설정 옵션\n- approve 트랜잭션 실패 시 재시도 로직\n\n**4. Multicall3Service 수정**\n- prepareBatchTransaction() 메서드에 allowance 체크 로직 추가\n- approve 트랜잭션을 조건부로 배치에 포함\n- 배치 실행 후 allowance 캐시 업데이트\n\n**5. 안전장치 구현**\n- allowance 캐시 TTL 설정 (기본 1시간)\n- 블록 번호 기반 캐시 무효화\n- approve 트랜잭션 실패 시 전체 배치 중단\n- Emergency reset 기능 (캐시 전체 삭제)\n\n**6. 설정 옵션**\n- ALLOWANCE_OPTIMIZATION_ENABLED: 최적화 활성화 여부\n- INFINITE_APPROVAL_ENABLED: 무한 approval 사용 여부\n- ALLOWANCE_CACHE_TTL: 캐시 유효 시간\n- MIN_ALLOWANCE_BUFFER: 최소 여유 allowance (10%)\n\n**7. 모니터링 및 메트릭**\n- approve 트랜잭션 절감률 추적\n- 가스비 절감액 계산\n- allowance 캐시 히트률 모니터링\n- approve 트랜잭션 실패율 추적",
+        "testStrategy": "**1. 단위 테스트**\n- AllowanceManager의 캐싱 로직 테스트\n- checkAllowance() 메서드의 정확성 검증\n- 캐시 TTL 및 무효화 로직 테스트\n- Infinite approval vs 정확한 금액 approval 테스트\n\n**2. 통합 테스트**\n- 첫 번째 배치: approve + multicall 실행 확인\n- 두 번째 배치: approve 스킵하고 multicall만 실행 확인\n- allowance 소진 시나리오: 자동 재approve 테스트\n- 다중 토큰 배치에서 선택적 approve 테스트\n\n**3. 시나리오 테스트**\n- 동일 토큰 연속 배치 처리 (approve 1회만 실행)\n- allowance 부족 상황 자동 감지 및 처리\n- 캐시 만료 후 allowance 재확인\n- approve 트랜잭션 실패 시 배치 중단 확인\n\n**4. 성능 테스트**\n- 최적화 전후 가스비 비교 (예상 절감률 30-50%)\n- 배치 처리 시간 비교 (approve 제외로 인한 속도 향상)\n- 캐시 히트률 측정 (목표 80% 이상)\n\n**5. 엣지 케이스**\n- approve 트랜잭션 pending 중 배치 실행 방지\n- 네트워크 재구성 시 캐시 무효화\n- 동시 다중 배치 실행 시 allowance 경합 조건\n- 토큰 컨트랙트의 특수한 approve 구현 대응",
+        "subtasks": []
+      },
+      {
+        "id": 25,
+        "title": "[BFS-25] 프로덕션 allowance 추적 시스템 및 아키텍처 개선",
+        "description": "signing service는 트랜잭션 서명만 담당하고 approve TX는 broadcaster가 처리하도록 아키텍처를 개선하며, 펜딩 트랜잭션의 allowance 소비량을 추적하여 부족 시 큐잉하는 프로덕션 환경용 allowance 관리 시스템을 구현합니다.",
+        "details": "**1. 아키텍처 개선**\n- signing-service에서 approve 트랜잭션 로직을 제거하고 서명 기능만 유지\n- tx-processor(broadcaster)에 approve 트랜잭션 처리 책임 이전\n- 트랜잭션 타입별 처리 분리: APPROVE, MULTICALL 타입 추가\n\n**2. Allowance 추적 시스템**\n- GlobalAllowanceTracker 클래스 구현 (Redis 기반)\n- 펜딩 트랜잭션의 allowance 소비량 예약 시스템\n- 키 구조: `pending_allowance:${chainId}:${tokenAddress}:${spenderAddress}`\n- 실시간 allowance 상태 동기화 및 블록체인 상태와의 일치성 보장\n\n**3. Queue 기반 트랜잭션 관리**\n- allowance 부족 시 트랜잭션을 대기 큐에 저장\n- approve 트랜잭션 완료 후 대기 중인 트랜잭션 자동 재개\n- 큐 우선순위 관리 (고액 트랜잭션 우선 처리)\n\n**4. 블록체인 상태 동기화**\n- 블록 이벤트 리스너를 통한 allowance 변경 감지\n- 트랜잭션 컨펌 후 캐시 업데이트\n- 데드락 방지를 위한 타임아웃 및 정리 로직\n\n**5. 프로덕션 환경 고려사항**\n- 동시성 제어를 위한 Redis 분산 락 구현\n- 메트릭 수집 (allowance 소진율, 대기 큐 길이)\n- 장애 복구 시나리오 처리",
+        "testStrategy": "**1. 아키텍처 분리 테스트**\n- signing-service에서 approve 로직 제거 검증\n- broadcaster의 approve 트랜잭션 처리 능력 테스트\n- 트랜잭션 타입별 라우팅 정확성 검증\n\n**2. Allowance 추적 정확성 테스트**\n- 펜딩 트랜잭션 allowance 예약/해제 테스트\n- 동시 트랜잭션 처리 시 allowance 경합 상황 테스트\n- 블록체인 상태와 캐시 동기화 정확성 검증\n\n**3. 큐잉 시스템 테스트**\n- allowance 부족 시 대기 큐 저장 테스트\n- approve 완료 후 대기 트랜잭션 자동 재개 테스트\n- 큐 우선순위 및 순서 보장 테스트\n\n**4. 동시성 및 성능 테스트**\n- 다중 사용자 동시 트랜잭션 처리 테스트\n- Redis 분산 락 동작 검증\n- 대용량 트랜잭션 처리 성능 테스트\n\n**5. 장애 복구 테스트**\n- 네트워크 단절 시 상태 복구 테스트\n- 서비스 재시작 후 펜딩 상태 복원 테스트\n- 블록체인 노드 장애 시 fallback 처리 테스트",
+        "status": "pending",
+        "dependencies": [
+          24,
+          15,
+          11
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 26,
+        "title": "Signing Service 단순화 및 안정성 개선",
+        "description": "Balance와 Allowance는 충분하다고 가정하고 복잡한 사전 검증을 제거하여 서비스를 단순하게 유지합니다. Approve TX는 모두 제거하고, 오류 발생 시에만 대기 및 복구하는 방식으로 구현합니다.",
+        "status": "pending",
+        "dependencies": [
+          25,
+          24,
+          15,
+          11
+        ],
+        "priority": "medium",
+        "details": "**1. 사전 검증 로직 제거**\n- signing-service에서 BalanceService 및 AllowanceManager의 사전 검증 로직 제거\n- 트랜잭션 서명 전 잔액/allowance 확인 단계 생략\n- Redis 캐싱 기반 잔액 추적 시스템 비활성화\n- 복잡한 allowance 추적 및 예약 시스템 제거\n\n**2. Approve 트랜잭션 완전 제거**\n- MulticallService에서 approve 트랜잭션 생성 로직 제거\n- 배치 트랜잭션 처리 시 approve 단계 생략\n- AllowanceManager.checkAllowance() 호출 제거\n- 모든 토큰이 충분한 allowance를 가지고 있다고 가정\n\n**3. 오류 기반 처리 방식 구현**\n- 트랜잭션 실행 후 실패 결과를 기반으로 처리\n- allowance 부족으로 실패 시 approve 트랜잭션 자동 생성 및 재시도\n- 잔액 부족으로 실패 시 대기 큐에 저장 후 지연 처리\n- 에러 코드 분석을 통한 실패 원인 식별 (ERC20: insufficient allowance, insufficient balance)\n\n**4. 단순화된 트랜잭션 플로우**\n- signing-service: 서명 요청 → 즉시 서명 → 결과 반환\n- tx-processor: 트랜잭션 전송 → 실패 시 복구 로직 실행\n- 성공 케이스에서는 최소한의 처리로 빠른 응답\n- 실패 케이스에서만 복구 메커니즘 동작\n\n**5. 복구 메커니즘 구현**\n- TransactionRecoveryService 클래스 생성\n- 실패 트랜잭션 분석 및 자동 복구 시도\n- approve 후 원본 트랜잭션 재실행\n- 최대 재시도 횟수 제한 (3회)\n- 복구 불가능한 경우 DLQ(Dead Letter Queue)로 이동",
+        "testStrategy": "**1. 단순화 검증 테스트**\n- signing-service에서 잔액/allowance 검증 로직 제거 확인\n- approve 트랜잭션 생성 코드 완전 제거 검증\n- Redis 캐싱 시스템 비활성화 테스트\n- 트랜잭션 서명 속도 개선 측정 (이전 대비 50% 이상 단축 목표)\n\n**2. 오류 기반 처리 테스트**\n- allowance 부족 시나리오에서 자동 approve + 재시도 테스트\n- 잔액 부족 시나리오에서 대기 큐 저장 테스트\n- 다양한 에러 코드에 대한 복구 로직 정확성 검증\n- 최대 재시도 횟수 도달 시 DLQ 처리 테스트\n\n**3. 성능 및 안정성 테스트**\n- 성공 케이스에서의 처리 시간 단축 검증\n- 높은 성공률 환경에서의 시스템 부하 감소 측정\n- 실패율이 높은 환경에서의 복구 메커니즘 안정성 테스트\n- 동시 다중 트랜잭션 처리 시 복구 로직 충돌 방지 테스트\n\n**4. 통합 테스트**\n- Hardhat 로컬 환경에서 충분한 allowance 상황 시뮬레이션\n- 실제 트랜잭션 실행 및 성공률 측정\n- 복구 메커니즘 동작 시 전체 플로우 검증",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "API Server에 최대 전송 금액 검증 로직 추가",
+            "description": "withdrawal request 엔드포인트에서 tokens.config.json의 maxTransferAmount 설정을 참조하여 요청 금액이 초과할 경우 400 Bad Request 에러를 반환하는 유효성 검증을 구현합니다.",
+            "status": "pending",
+            "dependencies": [],
+            "details": "TokenConfigService를 통해 토큰별 최대 전송 금액 조회, 단일 전송 및 배치 전송 모두에 대해 개별 금액 검증 수행, 검증 실패 시 'Transfer amount exceeds maximum allowed limit' 메시지와 함께 적절한 에러 응답 반환, WithdrawalRequestValidator에 최대 금액 검증 로직 통합, 배치 전송의 경우 각 개별 요청에 대해 최대 금액 검증 적용",
+            "testStrategy": "토큰별 최대 전송 금액 초과 시 400 에러 응답 테스트, 단일/배치 전송에서 개별 금액 검증 테스트, 유효한 금액 범위에서 정상 처리 테스트"
+          },
+          {
+            "id": 2,
+            "title": "사전 검증 로직 제거 및 의존성 정리",
+            "description": "signing-service에서 BalanceService, AllowanceManager의 사전 검증 로직을 완전히 제거하고 관련 의존성을 정리합니다.",
+            "status": "pending",
+            "dependencies": [
+              1
+            ],
+            "details": "TransactionSigner에서 BalanceService.checkBalance() 및 AllowanceManager.checkAllowance() 호출 제거, Redis 캐싱 기반 잔액 추적 시스템 비활성화, signing-worker.ts에서 사전 검증 단계 생략하도록 수정, 사용하지 않는 import 및 의존성 정리, 환경 변수에서 잔액 검증 관련 설정 제거",
+            "testStrategy": "사전 검증 로직 제거 후 서명 속도 개선 측정, 트랜잭션 서명 과정에서 잔액/allowance 검증 호출이 없는지 확인"
+          },
+          {
+            "id": 3,
+            "title": "Approve 트랜잭션 생성 로직 완전 제거",
+            "description": "MulticallService와 관련 서비스에서 approve 트랜잭션을 생성하는 모든 로직을 제거합니다.",
+            "status": "pending",
+            "dependencies": [
+              2
+            ],
+            "details": "MulticallService.buildTransaction()에서 approve 트랜잭션 생성 코드 제거, AllowanceManager.checkAllowance() 메서드 호출 제거, 배치 트랜잭션 처리 시 approve 단계 완전 생략, APPROVE 트랜잭션 타입 관련 로직 제거, 모든 토큰이 충분한 allowance를 가지고 있다고 가정하는 주석 추가",
+            "testStrategy": "approve 트랜잭션이 생성되지 않는지 확인, 배치 트랜잭션에서 approve 단계가 생략되는지 테스트"
+          },
+          {
+            "id": 4,
+            "title": "트랜잭션 실패 에러 분석 시스템 구현",
+            "description": "트랜잭션 실행 후 실패 결과를 분석하여 실패 원인을 식별하는 시스템을 구현합니다.",
+            "status": "pending",
+            "dependencies": [
+              3
+            ],
+            "details": "TransactionErrorAnalyzer 클래스 생성, ERC20 표준 에러 코드 분석 (insufficient allowance, insufficient balance), 컨트랙트 revert 메시지 파싱 로직, 에러 타입별 분류 시스템 (ALLOWANCE_ERROR, BALANCE_ERROR, GAS_ERROR, UNKNOWN_ERROR), ethers.js 에러 객체에서 원인 추출 메서드 구현",
+            "testStrategy": "다양한 실패 시나리오에서 에러 분석 정확성 테스트, allowance 부족과 잔액 부족 시나리오 구분 테스트"
+          },
+          {
+            "id": 5,
+            "title": "오류 기반 자동 복구 메커니즘 구현",
+            "description": "실패 분석 결과에 따라 approve 트랜잭션 생성 및 재시도, 또는 대기 큐 저장을 처리하는 복구 시스템을 구현합니다.",
+            "status": "pending",
+            "dependencies": [
+              4
+            ],
+            "details": "TransactionRecoveryService 클래스 생성, allowance 부족 시 approve 트랜잭션 자동 생성 로직, approve 완료 후 원본 트랜잭션 재실행 메커니즘, 잔액 부족 시 대기 큐(Redis)에 저장하는 로직, 최대 재시도 횟수 제한 (3회) 및 재시도 간격 설정, 복구 불가능한 경우 DLQ(Dead Letter Queue)로 이동 처리",
+            "testStrategy": "allowance 부족 시 자동 approve 및 재실행 테스트, 잔액 부족 시 대기 큐 저장 테스트, 최대 재시도 초과 시 DLQ 이동 테스트"
+          },
+          {
+            "id": 6,
+            "title": "단순화된 트랜잭션 플로우 통합 및 테스트",
+            "description": "새로운 오류 기반 처리 방식을 기존 시스템에 통합하고 전체 플로우를 검증합니다.",
+            "status": "pending",
+            "dependencies": [
+              5
+            ],
+            "details": "signing-service와 tx-processor 간의 새로운 플로우 통합, 성공 케이스에서 최소한의 처리로 빠른 응답 보장, 실패 케이스에서만 복구 메커니즘 동작하도록 조건부 처리, WithdrawalRequest 상태 관리 업데이트 (RECOVERY_PENDING, RECOVERY_FAILED 상태 추가), 전체 시스템의 성능 및 안정성 검증을 위한 통합 테스트 구현",
+            "testStrategy": "전체 플로우 통합 테스트, 성공/실패 시나리오별 응답 시간 측정, 복구 메커니즘 동작 검증, 시스템 부하 테스트를 통한 안정성 확인"
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-07-26T16:01:43.342Z",
+      "updated": "2025-07-31T05:36:30.526Z",
       "description": "Tasks for master context"
     }
   }

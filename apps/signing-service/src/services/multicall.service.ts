@@ -47,9 +47,13 @@ const MULTICALL3_ABI = [
   },
 ];
 
-// ERC20 ABI for transfer function
+// ERC20 ABI for transfer functions
 const ERC20_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
+  'function transferFrom(address from, address to, uint256 amount) returns (bool)',
+  'function balanceOf(address account) returns (uint256)',
+  'function allowance(address owner, address spender) returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
 ];
 
 // Interface for Multicall3.Call3 struct
@@ -153,9 +157,9 @@ export class MulticallService {
   /**
    * Prepare batch transfers for Multicall3 with dynamic batch splitting
    */
-  async prepareBatchTransfer(transfers: BatchTransferRequest[]): Promise<PreparedBatch> {
+  async prepareBatchTransfer(transfers: BatchTransferRequest[], fromAddress: string, skipGasEstimation: boolean = false): Promise<PreparedBatch> {
     // First, validate the batch
-    const validation = await this.validateBatch(transfers, '0x0'); // Signer address not needed for basic validation
+    const validation = await this.validateBatch(transfers, fromAddress);
     if (!validation.valid) {
       throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
     }
@@ -171,10 +175,12 @@ export class MulticallService {
       // Create ERC20 interface for encoding
       const erc20Interface = new ethers.Interface(ERC20_ABI);
 
-      // Encode transfer function call
-      const callData = erc20Interface.encodeFunctionData('transfer', [
-        to,
-        amount,
+      // Encode transferFrom function call
+      // Multicall3 will call transferFrom on behalf of the signing wallet
+      const callData = erc20Interface.encodeFunctionData('transferFrom', [
+        fromAddress,  // from: signing service wallet
+        to,           // to: recipient
+        amount,       // amount to transfer
       ]);
 
       // Add to calls array
@@ -186,6 +192,25 @@ export class MulticallService {
 
       // Map call index to transfer for later grouping
       callToTransferMap.set(i, transfer);
+    }
+
+    // If gas estimation is skipped, return basic result
+    if (skipGasEstimation) {
+      this.logger.info('Skipping gas estimation for batch preparation', {
+        totalTransfers: transfers.length,
+      });
+
+      // Use fallback gas estimates based on historical data or defaults
+      const estimatedGasPerCall = this.getFallbackGasEstimate(allCalls);
+      const totalEstimatedGas = this.gasConfig.multicallOverhead +
+        (estimatedGasPerCall * BigInt(allCalls.length)) +
+        (MulticallService.DEFAULT_GAS_CONFIG.additionalGasPerCall * BigInt(allCalls.length - 1));
+
+      return {
+        calls: allCalls,
+        estimatedGasPerCall,
+        totalEstimatedGas,
+      };
     }
 
     // Estimate gas for all calls
@@ -223,6 +248,16 @@ export class MulticallService {
       totalEstimatedGas,
       batchGroups,
     };
+  }
+
+  /**
+   * Estimate gas for already prepared calls (public method for post-approval estimation)
+   */
+  async estimateGasForCalls(calls: Call3[]): Promise<{
+    estimatedGasPerCall: bigint;
+    totalEstimatedGas: bigint;
+  }> {
+    return this.estimateBatchGas(calls);
   }
 
   /**
@@ -558,5 +593,90 @@ export class MulticallService {
     });
 
     return batchGroups;
+  }
+
+  /**
+   * Check and ensure sufficient allowances for all tokens in the batch
+   * Returns a list of tokens that need approval
+   */
+  async checkAndPrepareAllowances(
+    transfers: BatchTransferRequest[],
+    ownerAddress: string,
+    spenderAddress: string
+  ): Promise<{
+    needsApproval: Array<{
+      tokenAddress: string;
+      currentAllowance: bigint;
+      requiredAmount: bigint;
+    }>;
+  }> {
+    const tokenAmounts = new Map<string, bigint>();
+
+    // Aggregate amounts by token
+    for (const transfer of transfers) {
+      const current = tokenAmounts.get(transfer.tokenAddress) || 0n;
+      tokenAmounts.set(transfer.tokenAddress, current + BigInt(transfer.amount));
+    }
+
+    const needsApproval: Array<{
+      tokenAddress: string;
+      currentAllowance: bigint;
+      requiredAmount: bigint;
+    }> = [];
+
+    // Check allowance for each token
+    for (const [tokenAddress, requiredAmount] of tokenAmounts) {
+      try {
+        const tokenContract = new ethers.Contract(
+          tokenAddress,
+          ERC20_ABI,
+          this.provider  // Use provider directly for read operations
+        );
+
+        // Use staticCall to ensure this is treated as a read-only operation
+        const currentAllowance = await tokenContract.allowance.staticCall(ownerAddress, spenderAddress);
+
+        if (currentAllowance < requiredAmount) {
+          needsApproval.push({
+            tokenAddress,
+            currentAllowance,
+            requiredAmount,
+          });
+
+          this.logger.warn('Insufficient allowance for token', {
+            tokenAddress,
+            currentAllowance: currentAllowance.toString(),
+            requiredAmount: requiredAmount.toString(),
+            owner: ownerAddress,
+            spender: spenderAddress,
+          });
+        }
+      } catch (error) {
+        this.logger.error('Failed to check allowance', error, {
+          tokenAddress,
+          owner: ownerAddress,
+          spender: spenderAddress,
+        });
+        // If we can't check allowance, assume it needs approval
+        needsApproval.push({
+          tokenAddress,
+          currentAllowance: 0n,
+          requiredAmount,
+        });
+      }
+    }
+
+    return { needsApproval };
+  }
+
+  /**
+   * Generate approve transaction data for a token
+   */
+  generateApproveCallData(
+    spenderAddress: string,
+    amount: bigint
+  ): string {
+    const erc20Interface = new ethers.Interface(ERC20_ABI);
+    return erc20Interface.encodeFunctionData('approve', [spenderAddress, amount]);
   }
 }

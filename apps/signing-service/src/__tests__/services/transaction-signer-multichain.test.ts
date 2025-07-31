@@ -19,6 +19,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
   let mockGasPriceCache: jest.Mocked<GasPriceCache>;
   let mockMulticallService: jest.Mocked<MulticallService>;
   let mockWallet: jest.Mocked<ethers.Wallet>;
+  let mockConfig: any;
 
   const createMockChainProvider = (chain: string, network: string, chainId: number) => {
     const mockProviderInstance = {
@@ -54,6 +55,14 @@ describe('TransactionSigner - Multi-chain Support', () => {
       auditSuccess: jest.fn(),
       auditFailure: jest.fn(),
     } as any;
+
+    mockConfig = {
+      batchProcessing: {
+        allowanceStrategy: 'multiplier',
+        allowanceMultiplier: 10,
+        allowanceAmount: undefined,
+      },
+    };
 
     mockWallet = {
       connect: jest.fn().mockReturnThis(),
@@ -134,7 +143,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
         mockNonceCache,
         mockGasPriceCache,
         mockMulticallService,
-        mockLogger
+        mockLogger,
+        mockConfig
       );
 
       await transactionSigner.initialize();
@@ -175,7 +185,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
         mockNonceCache,
         mockGasPriceCache,
         mockMulticallService,
-        mockLogger
+        mockLogger,
+        mockConfig
       );
 
       await transactionSigner.initialize();
@@ -216,7 +227,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
         mockNonceCache,
         mockGasPriceCache,
         mockMulticallService,
-        mockLogger
+        mockLogger,
+        mockConfig
       );
 
       await transactionSigner.initialize();
@@ -248,7 +260,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
         mockNonceCache,
         mockGasPriceCache,
         mockMulticallService,
-        mockLogger
+        mockLogger,
+        mockConfig
       );
 
       await transactionSigner.initialize();
@@ -303,7 +316,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
         mockNonceCache,
         mockGasPriceCache,
         mockMulticallService,
-        mockLogger
+        mockLogger,
+        mockConfig
       );
 
       await ethereumSigner.initialize();
@@ -330,7 +344,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
         mockNonceCache,
         mockGasPriceCache,
         mockMulticallService,
-        mockLogger
+        mockLogger,
+        mockConfig
       );
 
       await polygonSigner.initialize();
@@ -366,7 +381,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
           mockNonceCache,
           mockGasPriceCache,
           mockMulticallService,
-          mockLogger
+          mockLogger,
+          mockConfig
         );
 
         await transactionSigner.initialize();
@@ -400,7 +416,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
         mockNonceCache,
         mockGasPriceCache,
         mockMulticallService,
-        mockLogger
+        mockLogger,
+        mockConfig
       );
 
       await transactionSigner.initialize();
@@ -513,7 +530,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
           mockNonceCache,
           mockGasPriceCache,
           mockMulticallService,
-          mockLogger
+          mockLogger,
+          mockConfig
         );
 
         await transactionSigner.initialize();

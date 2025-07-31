@@ -81,14 +81,14 @@
     "testnet": {
       "chainId": 31337,
       "name": "Localhost",
-      "rpcUrl": "http://127.0.0.1:8545",
+      "rpcUrl": "http://hardhat-node:8545",
       "nativeCurrency": {
         "name": "Ether",
         "symbol": "ETH",
         "decimals": 18
       },
       "blockExplorerUrl": "",
-      "multicall3Address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+      "multicall3Address": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707"
     }
   }
 }

@@ -142,16 +142,16 @@ services:
       - 8080:8080
     environment:
       <<: *localstack-account
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: 8080
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       MYSQL_DATABASE: withdrawal_system
       MYSQL_USER: root
       MYSQL_PASSWORD: pass
-      
+
       # RPC URL Override for Docker environment
-      RPC_URL: http://hardhat-node:8545
+      # RPC_URL: http://hardhat-node:8545
     networks:
       - withdrawal-network
     volumes:
@@ -184,7 +184,7 @@ services:
       - 3005:3005
     environment:
       <<: *localstack-account
-      NODE_ENV: production
+      NODE_ENV: development
 
       # Security (change in production)
       SIGNING_SERVICE_ENCRYPTION_KEY: development-encryption-key-change-in-production-32
@@ -226,127 +226,127 @@ services:
       start_period: 40s
 
   # Transaction Processor
-  tx-processor:
-    container_name: withdrawal-tx-processor
-    depends_on:
-      mysql:
-        condition: service_healthy
-      localstack:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      hardhat-deploy:
-        condition: service_completed_successfully
-      signing-service:
-        condition: service_healthy
-    restart: unless-stopped
-    build:
-      context: ..
-      dockerfile: docker/dockerfile.packages
-      target: tx-processor
-    command: ["yarn", "dev"]
-    ports:
-      - 3001:3001
-    environment:
-      <<: *localstack-account
-      NODE_ENV: production
-      TX_PROCESSOR_PORT: 3001
-      
-      # Database
-      DATABASE_URL: mysql://root:pass@mysql:3306/withdrawal_system
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: withdrawal_system
-      MYSQL_USER: root
-      MYSQL_PASSWORD: pass
-      
-      # Queue Configuration
-      VALIDATION_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/validation-queue
-      SIGNING_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signing-queue
-      SENDING_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/sending-queue
-      MONITOR_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/monitor-queue
-      
-      # Worker Configuration
-      VALIDATION_SIGNING_WORKER_ENABLED: true
-      TRANSACTION_SENDER_WORKER_ENABLED: true
-      WORKER_BATCH_SIZE: 5
-      WORKER_INTERVAL: 3000
-      
-      # RPC URL Override for Docker environment
-      RPC_URL: http://hardhat-node:8545
-      
-      # Redis Configuration
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    networks:
-      - withdrawal-network
-    volumes:
-      - deployment-data:/deployment:ro
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+  # tx-processor:
+  #   container_name: withdrawal-tx-processor
+  #   depends_on:
+  #     mysql:
+  #       condition: service_healthy
+  #     localstack:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     hardhat-deploy:
+  #       condition: service_completed_successfully
+  #     signing-service:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/dockerfile.packages
+  #     target: tx-processor
+  #   command: ["yarn", "dev"]
+  #   ports:
+  #     - 3001:3001
+  #   environment:
+  #     <<: *localstack-account
+  #     NODE_ENV: production
+  #     TX_PROCESSOR_PORT: 3001
 
-  # Transaction Monitor
-  tx-monitor:
-    container_name: withdrawal-tx-monitor
-    depends_on:
-      mysql:
-        condition: service_healthy
-      localstack:
-        condition: service_healthy
-      hardhat-deploy:
-        condition: service_completed_successfully
-      tx-processor:
-        condition: service_healthy
-    restart: unless-stopped
-    build:
-      context: ..
-      dockerfile: docker/dockerfile.packages
-      target: tx-monitor
-    command: ["yarn", "dev"]
-    ports:
-      - 3002:3002
-    environment:
-      <<: *localstack-account
-      NODE_ENV: production
-      TX_MONITOR_PORT: 3002
-      
-      # Database
-      DATABASE_URL: mysql://root:pass@mysql:3306/withdrawal_system
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: withdrawal_system
-      MYSQL_USER: root
-      MYSQL_PASSWORD: pass
-      
-      # Queue Configuration
-      MONITOR_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/monitor-queue
-      COMPLETION_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/completion-queue
-      
-      # Worker Configuration
-      MONITOR_WORKER_ENABLED: true
-      WORKER_BATCH_SIZE: 10
-      WORKER_INTERVAL: 5000
-      
-      # RPC URL Override for Docker environment
-      RPC_URL: http://hardhat-node:8545
-      
-      # Monitoring Configuration
-      MONITOR_INTERVAL: 10000
-      MAX_RETRY_COUNT: 5
-    networks:
-      - withdrawal-network
-    volumes:
-      - deployment-data:/deployment:ro
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+  #     # Database
+  #     DATABASE_URL: mysql://root:pass@mysql:3306/withdrawal_system
+  #     MYSQL_HOST: mysql
+  #     MYSQL_PORT: 3306
+  #     MYSQL_DATABASE: withdrawal_system
+  #     MYSQL_USER: root
+  #     MYSQL_PASSWORD: pass
+
+  #     # Queue Configuration
+  #     VALIDATION_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/validation-queue
+  #     SIGNING_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signing-queue
+  #     SENDING_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/sending-queue
+  #     MONITOR_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/monitor-queue
+
+  #     # Worker Configuration
+  #     VALIDATION_SIGNING_WORKER_ENABLED: true
+  #     TRANSACTION_SENDER_WORKER_ENABLED: true
+  #     WORKER_BATCH_SIZE: 5
+  #     WORKER_INTERVAL: 3000
+
+  #     # RPC URL Override for Docker environment
+  #     RPC_URL: http://hardhat-node:8545
+
+  #     # Redis Configuration
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #   networks:
+  #     - withdrawal-network
+  #   volumes:
+  #     - deployment-data:/deployment:ro
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
+
+  # # Transaction Monitor
+  # tx-monitor:
+  #   container_name: withdrawal-tx-monitor
+  #   depends_on:
+  #     mysql:
+  #       condition: service_healthy
+  #     localstack:
+  #       condition: service_healthy
+  #     hardhat-deploy:
+  #       condition: service_completed_successfully
+  #     tx-processor:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+  #   build:
+  #     context: ..
+  #     dockerfile: docker/dockerfile.packages
+  #     target: tx-monitor
+  #   command: ["yarn", "dev"]
+  #   ports:
+  #     - 3002:3002
+  #   environment:
+  #     <<: *localstack-account
+  #     NODE_ENV: production
+  #     TX_MONITOR_PORT: 3002
+
+  #     # Database
+  #     DATABASE_URL: mysql://root:pass@mysql:3306/withdrawal_system
+  #     MYSQL_HOST: mysql
+  #     MYSQL_PORT: 3306
+  #     MYSQL_DATABASE: withdrawal_system
+  #     MYSQL_USER: root
+  #     MYSQL_PASSWORD: pass
+
+  #     # Queue Configuration
+  #     MONITOR_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/monitor-queue
+  #     COMPLETION_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/completion-queue
+
+  #     # Worker Configuration
+  #     MONITOR_WORKER_ENABLED: true
+  #     WORKER_BATCH_SIZE: 10
+  #     WORKER_INTERVAL: 5000
+
+  #     # RPC URL Override for Docker environment
+  #     RPC_URL: http://hardhat-node:8545
+
+  #     # Monitoring Configuration
+  #     MONITOR_INTERVAL: 10000
+  #     MAX_RETRY_COUNT: 5
+  #   networks:
+  #     - withdrawal-network
+  #   volumes:
+  #     - deployment-data:/deployment:ro
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
 
 networks:
   withdrawal-network:

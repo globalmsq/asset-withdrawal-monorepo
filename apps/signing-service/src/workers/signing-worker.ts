@@ -85,9 +85,49 @@ export class SigningWorker extends BaseWorker<
     // Connect to Redis for nonce management
     await this.nonceCache.connect();
 
+    // Skip pre-initialization to avoid network connection issues at startup
+    // Signers will be created on-demand when first message is received
+    // if (this.config.nodeEnv === 'development') {
+    //   await this.preInitializeDevelopmentSigners();
+    // }
+
     this.auditLogger.info('SigningWorker initialized successfully', {
       instanceId: this.instanceId,
     });
+  }
+
+  /**
+   * Pre-initialize signers for commonly used chains in development
+   * This ensures MAX approvals are set on startup
+   */
+  private async preInitializeDevelopmentSigners(): Promise<void> {
+    try {
+      this.auditLogger.info('Pre-initializing signers for development environment');
+      
+      // Initialize signers for common development configurations
+      const developmentChains = [
+        { chain: 'localhost', network: 'testnet' },  // Hardhat localhost only
+        // { chain: 'polygon', network: 'testnet' },    // Skip Polygon Amoy testnet in local development
+      ];
+
+      for (const config of developmentChains) {
+        try {
+          this.auditLogger.info('Pre-initializing signer', config);
+          await this.getOrCreateSigner(config.chain, config.network);
+        } catch (error) {
+          // Log error but continue - some chains might not be configured
+          this.auditLogger.warn('Failed to pre-initialize signer', {
+            ...config,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      this.auditLogger.info('Development signers pre-initialization completed');
+    } catch (error) {
+      this.auditLogger.error('Failed to pre-initialize development signers', error);
+      // Don't throw - this is not critical for operation
+    }
   }
 
   /**
@@ -113,7 +153,8 @@ export class SigningWorker extends BaseWorker<
         this.nonceCache,
         this.gasPriceCache,
         multicallService,
-        this.auditLogger
+        this.auditLogger,
+        this.config
       );
 
       // Initialize the signer
@@ -567,6 +608,15 @@ export class SigningWorker extends BaseWorker<
       // Get chain provider to get multicall address and chain ID
       const chainProvider = ChainProviderFactory.getProvider(chain as any, network as any);
 
+      // Get the signer to get the current nonce
+      const signer = await this.getOrCreateSigner(chain, network);
+      const signerAddress = await signer.getAddress();
+      
+      // Get the next nonce that will be used for this batch
+      // This is important to store even if the transaction fails
+      const nextNonce = await this.nonceCache.get(signerAddress, chain, network);
+      const actualNonce = nextNonce || 0;
+
       // Create batch transaction
       const batch = await tx.batchTransaction.create({
         data: {
@@ -575,7 +625,7 @@ export class SigningWorker extends BaseWorker<
           totalAmount: totalAmount,
           symbol: symbol,
           chainId: chainProvider.getChainId(),
-          nonce: 0, // Will be updated when signed
+          nonce: actualNonce, // Store the actual nonce that will be used
           gasLimit: '0', // Will be updated when signed
           tryCount: 0,
           status: 'PENDING',
@@ -676,8 +726,8 @@ export class SigningWorker extends BaseWorker<
       const multicallKey = `${chain}_${network}`;
       const multicallService = this.multicallServices.get(multicallKey)!;
 
-      // Prepare batch transaction data
-      const preparedBatch = await multicallService.prepareBatchTransfer(transfers);
+      // Prepare batch transaction data (skip gas estimation as it will be done during signing after approvals)
+      const preparedBatch = await multicallService.prepareBatchTransfer(transfers, await signer.getAddress(), true);
 
       // Sign batch transaction
       const signedBatchTx = await signer.signBatchTransaction({

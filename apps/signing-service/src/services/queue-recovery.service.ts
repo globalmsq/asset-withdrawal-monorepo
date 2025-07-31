@@ -1,11 +1,12 @@
 import { IQueue, QueueFactory, ChainProviderFactory } from '@asset-withdrawal/shared';
-import { DatabaseService, WithdrawalRequestService } from '@asset-withdrawal/database';
+import { DatabaseService, WithdrawalRequestService, SignedTransactionService } from '@asset-withdrawal/database';
 import { NonceCacheService } from './nonce-cache.service';
 import { Logger } from '../utils/logger';
 import { ethers } from 'ethers';
 
 export class QueueRecoveryService {
   private withdrawalRequestService: WithdrawalRequestService;
+  private signedTransactionService: SignedTransactionService;
   private signedTxQueue: IQueue<any>;
   private requestQueue: IQueue<any>;
   private nonceCacheService: NonceCacheService;
@@ -16,6 +17,7 @@ export class QueueRecoveryService {
     const dbService = DatabaseService.getInstance();
     this.dbClient = dbService.getClient();
     this.withdrawalRequestService = new WithdrawalRequestService(this.dbClient);
+    this.signedTransactionService = new SignedTransactionService(this.dbClient);
     this.nonceCacheService = nonceCacheService;
     this.signedTxQueue = QueueFactory.createFromEnv('signed-tx-queue');
     this.requestQueue = QueueFactory.createFromEnv('tx-request-queue');
@@ -151,10 +153,22 @@ export class QueueRecoveryService {
     // Send to request queue
     await this.requestQueue.sendMessage(withdrawalRequestMessage);
 
+    // Update signed transactions status to CANCELLED
+    const signedTransactions = await this.signedTransactionService.findByRequestId(withdrawalId);
+    for (const signedTx of signedTransactions) {
+      if (signedTx.status === 'SIGNED') {
+        await this.signedTransactionService.updateStatus(signedTx.id, {
+          status: 'CANCELLED',
+          errorMessage: 'Cancelled due to service restart during processing',
+        });
+        this.logger.info(`Updated signed transaction ${signedTx.txHash} status to CANCELLED`);
+      }
+    }
+
     // Update status to PENDING in database
     const previousStatus = withdrawalRequest.status;
     await this.withdrawalRequestService.updateStatus(withdrawalId, 'PENDING');
-    this.logger.info(`Updated transaction ${withdrawalId} status from ${previousStatus} to PENDING`);
+    this.logger.info(`Updated withdrawal request ${withdrawalId} status from ${previousStatus} to PENDING`);
 
     // Delete from signed-tx-queue
     await this.signedTxQueue.deleteMessage(receiptHandle);

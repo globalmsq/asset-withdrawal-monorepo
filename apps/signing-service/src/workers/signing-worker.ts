@@ -103,7 +103,7 @@ export class SigningWorker extends BaseWorker<
   private async preInitializeDevelopmentSigners(): Promise<void> {
     try {
       this.auditLogger.info('Pre-initializing signers for development environment');
-      
+
       // Initialize signers for common development configurations
       const developmentChains = [
         { chain: 'localhost', network: 'testnet' },  // Hardhat localhost only
@@ -611,7 +611,7 @@ export class SigningWorker extends BaseWorker<
       // Get the signer to get the current nonce
       const signer = await this.getOrCreateSigner(chain, network);
       const signerAddress = await signer.getAddress();
-      
+
       // Get the next nonce that will be used for this batch
       // This is important to store even if the transaction fails
       const nextNonce = await this.nonceCache.get(signerAddress, chain, network);

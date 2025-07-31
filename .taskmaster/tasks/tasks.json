@@ -522,11 +522,11 @@
             "id": 3,
             "title": "Approve 트랜잭션 생성 로직 완전 제거",
             "description": "MulticallService와 관련 서비스에서 approve 트랜잭션을 생성하는 모든 로직을 제거합니다.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               2
             ],
-            "details": "MulticallService.buildTransaction()에서 approve 트랜잭션 생성 코드 제거, AllowanceManager.checkAllowance() 메서드 호출 제거, 배치 트랜잭션 처리 시 approve 단계 완전 생략, APPROVE 트랜잭션 타입 관련 로직 제거, 모든 토큰이 충분한 allowance를 가지고 있다고 가정하는 주석 추가",
+            "details": "MulticallService.buildTransaction()에서 approve 트랜잭션 생성 코드 제거, AllowanceManager.checkAllowance() 메서드 호출 제거, 배치 트랜잭션 처리 시 approve 단계 완전 생략, APPROVE 트랜잭션 타입 관련 로직 제거, 모든 토큰이 충분한 allowance를 가지고 있다고 가정하는 주석 추가\n<info added on 2025-07-31T06:17:31.272Z>\n구현 완료:\n- transaction-signer.ts와 multicall.service.ts에서 ERC20_ABI의 'approve' 함수 제거\n- 시작 시 MAX approval을 생성하던 initializeMaxApprovals() 메서드 삭제\n- approve 트랜잭션을 전송하던 approveToken() 메서드 삭제\n- approval 금액을 계산하던 calculateOptimalAllowance() 메서드 삭제\n- signBatchTransaction()에서 approve 트랜잭션 호출 제거\n- approve 로직이 제거되고 충분한 allowance를 가정한다는 주석 추가\n- allowance 최적화 설정 제거 (allowanceStrategy, allowanceMultiplier, allowanceAmount)\n- env.example에서 BATCH_ALLOWANCE_* 환경 변수 제거\n- allowance 관련 설정을 제거하도록 테스트 파일 업데이트\n- 모든 lint 오류 수정 완료 및 빌드 성공\n</info added on 2025-07-31T06:17:31.272Z>",
             "testStrategy": "approve 트랜잭션이 생성되지 않는지 확인, 배치 트랜잭션에서 approve 단계가 생략되는지 테스트"
           },
           {
@@ -567,7 +567,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-07-31T06:11:25.736Z",
+      "updated": "2025-07-31T06:17:41.051Z",
       "description": "Tasks for master context"
     }
   }

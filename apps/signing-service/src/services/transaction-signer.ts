@@ -10,7 +10,6 @@ import { Config } from '../config';
 
 const ERC20_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
-  'function approve(address spender, uint256 amount) returns (bool)',
   'function decimals() returns (uint8)',
   'function allowance(address owner, address spender) view returns (uint256)',
 ];
@@ -69,12 +68,8 @@ export class TransactionSigner {
         initialNonce: networkNonce,
       });
 
-      // Initialize MAX approvals for development environment
-      // Don't await to avoid blocking initialization
-      this.logger.info('About to call initializeMaxApprovals');
-      this.initializeMaxApprovals(this.chainProvider.chain, this.chainProvider.network).catch(error => {
-        this.logger.error('Failed to initialize MAX approvals', error);
-      });
+      // Note: Approve transactions have been removed - assuming sufficient allowances exist
+      this.logger.info('Initialization complete - approve TX logic removed, assuming sufficient allowances');
     } catch (error) {
       this.logger.error('Failed to initialize transaction signer', error);
       throw error;
@@ -319,19 +314,15 @@ export class TransactionSigner {
           })),
         });
 
-        // Approve tokens automatically
-        // TODO: In production, implement proper allowance tracking:
-        // - Track pending transactions and their allowance consumption
-        // - Queue approval requests when allowance is insufficient
-        // - Sync with blockchain state before approving
-        // - Consider batch approval strategies
-        for (const approval of needsApproval) {
-          await this.approveToken(approval.tokenAddress, multicall3Address, approval.requiredAmount);
-        }
-
-        this.logger.info('Token approvals completed', {
+        // Approve logic removed - assuming sufficient allowances exist
+        // If allowance is insufficient, transaction will fail and be handled by error recovery
+        this.logger.warn('Insufficient allowances detected but approve logic removed', {
           batchId,
-          approvedTokens: needsApproval.map(a => a.tokenAddress),
+          tokensNeedingApproval: needsApproval.map(a => ({
+            token: a.tokenAddress,
+            currentAllowance: a.currentAllowance.toString(),
+            required: a.requiredAmount.toString(),
+          })),
         });
       }
 
@@ -340,7 +331,7 @@ export class TransactionSigner {
 
       // After approvals, estimate gas for the actual calls
       const { totalEstimatedGas } = await this.multicallService.estimateGasForCalls(preparedBatch.calls);
-      
+
       this.logger.info('Gas estimated after approvals', {
         batchId,
         estimatedGas: totalEstimatedGas.toString(),
@@ -525,19 +516,15 @@ export class TransactionSigner {
           })),
         });
 
-        // Approve tokens automatically
-        // TODO: In production, implement proper allowance tracking:
-        // - Track pending transactions and their allowance consumption
-        // - Queue approval requests when allowance is insufficient
-        // - Sync with blockchain state before approving
-        // - Consider batch approval strategies
-        for (const approval of needsApproval) {
-          await this.approveToken(approval.tokenAddress, multicall3Address, approval.requiredAmount);
-        }
-
-        this.logger.info('Token approvals completed', {
+        // Approve logic removed - assuming sufficient allowances exist
+        // If allowance is insufficient, transaction will fail and be handled by error recovery
+        this.logger.warn('Insufficient allowances detected but approve logic removed', {
           batchId,
-          approvedTokens: needsApproval.map(a => a.tokenAddress),
+          tokensNeedingApproval: needsApproval.map(a => ({
+            token: a.tokenAddress,
+            currentAllowance: a.currentAllowance.toString(),
+            required: a.requiredAmount.toString(),
+          })),
         });
       }
 
@@ -635,184 +622,6 @@ export class TransactionSigner {
     }
   }
 
-  /**
-   * Calculate optimal allowance amount based on configuration
-   */
-  private async calculateOptimalAllowance(
-    tokenAddress: string,
-    requiredAmount: bigint
-  ): Promise<bigint> {
-    const { allowanceStrategy, allowanceMultiplier, allowanceAmount } = this.config.batchProcessing;
-
-    if (allowanceStrategy === 'multiplier') {
-      // Multiplier strategy: approve required amount * multiplier
-      return requiredAmount * BigInt(Math.floor(allowanceMultiplier));
-    } else {
-      // Fixed strategy: approve a fixed human-readable amount
-      if (!allowanceAmount) {
-        this.logger.warn('Fixed allowance strategy selected but no amount configured, falling back to multiplier');
-        return requiredAmount * BigInt(10); // Default multiplier
-      }
-
-      try {
-        // Get token decimals
-        const tokenContract = new ethers.Contract(
-          tokenAddress,
-          ERC20_ABI,
-          this.provider
-        );
-
-        const decimals = await tokenContract.decimals();
-
-        // Parse human-readable amount to wei
-        const fixedAmount = ethers.parseUnits(allowanceAmount, decimals);
-
-        // Ensure we approve at least the required amount
-        return fixedAmount > requiredAmount ? fixedAmount : requiredAmount;
-      } catch (error) {
-        this.logger.error('Failed to get token decimals for fixed allowance calculation', error, {
-          tokenAddress,
-          allowanceAmount,
-        });
-        // Fallback to multiplier strategy
-        return requiredAmount * BigInt(10);
-      }
-    }
-  }
-
-  private async approveToken(
-    tokenAddress: string,
-    spenderAddress: string,
-    requiredAmount: bigint
-  ): Promise<void> {
-    // TODO: In production, this method should not send transactions directly.
-    // Instead, it should create approval requests and send them to the tx-broadcaster
-    // via the queue system to maintain proper nonce management and transaction ordering.
-    if (!this.wallet) {
-      throw new Error('Wallet not initialized');
-    }
-
-    try {
-      // Calculate optimal allowance amount based on strategy
-      const approvalAmount = await this.calculateOptimalAllowance(tokenAddress, requiredAmount);
-
-      // Create token contract instance
-      const tokenContract = new ethers.Contract(
-        tokenAddress,
-        ERC20_ABI,
-        this.wallet
-      );
-
-      // Get nonce for approval transaction
-      const nonce = await this.nonceCache.getAndIncrement(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
-
-      this.logger.debug('Approving token for Multicall3', {
-        tokenAddress,
-        spenderAddress,
-        requiredAmount: requiredAmount.toString(),
-        approvalAmount: approvalAmount.toString(),
-        strategy: this.config.batchProcessing.allowanceStrategy,
-        nonce,
-      });
-
-      // Prepare approval transaction
-      const transaction: ethers.TransactionRequest = {
-        to: tokenAddress,
-        data: tokenContract.interface.encodeFunctionData('approve', [
-          spenderAddress,
-          approvalAmount,
-        ]),
-        nonce,
-        chainId: this.chainProvider.getChainId(),
-        type: 2, // EIP-1559
-      };
-
-      // Estimate gas with error handling
-      let gasLimit: bigint;
-      try {
-        const gasEstimate = await this.wallet.estimateGas(transaction);
-        gasLimit = (gasEstimate * 120n) / 100n; // Add 20% buffer
-      } catch (estimateError) {
-        this.logger.error('Failed to estimate gas for approval, using fallback', estimateError, {
-          tokenAddress,
-          nonce,
-        });
-        // Use a reasonable fallback gas limit for approve
-        gasLimit = 100000n;
-      }
-
-      // Get gas price
-      const { maxFeePerGas, maxPriorityFeePerGas } = await this.getGasPrice();
-
-      // Complete transaction object
-      transaction.gasLimit = gasLimit;
-      transaction.maxFeePerGas = maxFeePerGas;
-      transaction.maxPriorityFeePerGas = maxPriorityFeePerGas;
-
-      // Send approval transaction
-      const tx = await this.wallet.sendTransaction(transaction);
-
-      this.logger.info('Approval transaction sent', {
-        tokenAddress,
-        spenderAddress,
-        requiredAmount: requiredAmount.toString(),
-        approvalAmount: approvalAmount.toString(),
-        strategy: this.config.batchProcessing.allowanceStrategy,
-        txHash: tx.hash,
-        nonce,
-      });
-
-      // Wait for confirmation
-      const receipt = await tx.wait();
-
-      if (receipt && receipt.status === 1) {
-        this.logger.info('Token approval confirmed', {
-          tokenAddress,
-          spenderAddress,
-          requiredAmount: requiredAmount.toString(),
-          approvalAmount: approvalAmount.toString(),
-          strategy: this.config.batchProcessing.allowanceStrategy,
-          txHash: tx.hash,
-          blockNumber: receipt.blockNumber,
-          gasUsed: receipt.gasUsed.toString(),
-        });
-      } else {
-        throw new Error(`Approval transaction failed: ${tx.hash}`);
-      }
-    } catch (error) {
-      // If it's a nonce error, we need to handle it specially
-      if (error instanceof Error && error.message.includes('nonce')) {
-        this.logger.error('Nonce error in approval, syncing with network', error, {
-          tokenAddress,
-          spenderAddress,
-        });
-
-        // Try to sync nonce with network
-        try {
-          if (!this.provider) {
-            throw new Error('Provider not initialized');
-          }
-          const networkNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
-          await this.nonceCache.set(this.wallet.address, networkNonce, this.chainProvider.chain, this.chainProvider.network);
-          this.logger.info('Nonce synchronized with network', {
-            address: this.wallet.address,
-            networkNonce,
-          });
-        } catch (syncError) {
-          this.logger.error('Failed to sync nonce with network', syncError);
-        }
-      }
-
-      this.logger.error('Failed to approve token', error, {
-        tokenAddress,
-        spenderAddress,
-        requiredAmount: requiredAmount.toString(),
-        strategy: this.config.batchProcessing.allowanceStrategy,
-      });
-      throw error;
-    }
-  }
-
   private async getGasPrice(): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }> {
     // Get gas price from cache or fetch new one
     let cachedGasPrice = this.gasPriceCache.get();
@@ -873,102 +682,4 @@ export class TransactionSigner {
     await this.nonceCache.disconnect();
   }
 
-  private async initializeMaxApprovals(chain: string, network: string): Promise<void> {
-    try {
-      this.logger.info('Checking MAX approval initialization', {
-        nodeEnv: this.config.nodeEnv,
-        chain: chain,
-        network: network
-      });
-      
-      if (this.config.nodeEnv !== 'development') {
-        this.logger.info('Skipping MAX approvals - not in development environment');
-        return;
-      }
-
-      this.logger.info('Initializing MAX approvals for development environment', {
-        chain: chain,
-        network: network
-      });
-      
-      const multicall3Address = this.chainProvider.getMulticall3Address();
-      this.logger.info('Got multicall3 address', { multicall3Address });
-      
-      const tokens = this.getConfiguredTokens(chain, network);
-      
-      this.logger.info('Found configured tokens', {
-        tokenCount: tokens.length,
-        tokens: tokens.map(t => ({ symbol: t.symbol, address: t.address }))
-      });
-      
-      if (tokens.length === 0) {
-        this.logger.warn('No tokens configured for this chain/network', { chain, network });
-        return;
-      }
-      
-      if (!this.provider) {
-        this.logger.error('Provider not initialized for MAX approval');
-        return;
-      }
-      
-      for (const token of tokens) {
-        try {
-          if (!this.wallet) {
-            this.logger.error('Wallet not initialized for MAX approval');
-            return;
-          }
-          
-          const tokenContract = new ethers.Contract(token.address, ERC20_ABI, this.provider);
-          const currentAllowance = await tokenContract.allowance(this.wallet.address, multicall3Address);
-          
-          if (currentAllowance < ethers.MaxUint256 / 2n) {
-            this.logger.info(`Setting MAX approval for ${token.symbol}`, {
-              tokenAddress: token.address,
-              currentAllowance: currentAllowance.toString()
-            });
-            
-            // Get nonce from cache to avoid conflicts
-            const nonce = await this.nonceCache.getAndIncrement(this.wallet.address, chain, network);
-            
-            const tokenContractWithSigner = new ethers.Contract(token.address, ERC20_ABI, this.wallet);
-            
-            // Build transaction with explicit nonce
-            const transaction = await tokenContractWithSigner.approve.populateTransaction(multicall3Address, ethers.MaxUint256);
-            transaction.nonce = nonce;
-            
-            // Send transaction
-            const tx = await this.wallet.sendTransaction(transaction);
-            const receipt = await tx.wait();
-            
-            this.logger.info(`MAX approval confirmed for ${token.symbol}`, {
-              txHash: tx.hash,
-              blockNumber: receipt?.blockNumber,
-              nonce: nonce
-            });
-          } else {
-            this.logger.info(`${token.symbol} already has sufficient allowance`, {
-              currentAllowance: currentAllowance.toString()
-            });
-          }
-        } catch (error) {
-          this.logger.error(`Failed to set MAX approval for ${token.symbol}`, error);
-        }
-      }
-      
-      this.logger.info('MAX approval initialization completed');
-    } catch (error) {
-      this.logger.error('Failed in initializeMaxApprovals', error);
-    }
-  }
-
-  private getConfiguredTokens(chain: string, network: string) {
-    const tokens = tokenService.getSupportedTokens(network, chain);
-    
-    return tokens.map(token => ({
-      address: token.address,
-      symbol: token.symbol,
-      decimals: token.decimals,
-      name: token.name
-    }));
-  }
 }

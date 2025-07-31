@@ -57,11 +57,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
     } as any;
 
     mockConfig = {
-      batchProcessing: {
-        allowanceStrategy: 'multiplier',
-        allowanceMultiplier: 10,
-        allowanceAmount: undefined,
-      },
+      batchProcessing: {},
     };
 
     mockWallet = {

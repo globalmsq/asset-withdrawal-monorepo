@@ -53,7 +53,6 @@ const ERC20_ABI = [
   'function transferFrom(address from, address to, uint256 amount) returns (bool)',
   'function balanceOf(address account) returns (uint256)',
   'function allowance(address owner, address spender) returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
 ];
 
 // Interface for Multicall3.Call3 struct
@@ -669,14 +668,4 @@ export class MulticallService {
     return { needsApproval };
   }
 
-  /**
-   * Generate approve transaction data for a token
-   */
-  generateApproveCallData(
-    spenderAddress: string,
-    amount: bigint
-  ): string {
-    const erc20Interface = new ethers.Interface(ERC20_ABI);
-    return erc20Interface.encodeFunctionData('approve', [spenderAddress, amount]);
-  }
 }

@@ -53,10 +53,6 @@ const configSchema = z.object({
     batchBaseGas: z.number().default(100000),
     batchPerTxGas: z.number().default(25000),
 
-    // Allowance optimization settings
-    allowanceStrategy: z.enum(['multiplier', 'fixed']).default('multiplier'),
-    allowanceMultiplier: z.number().min(1).default(10),
-    allowanceAmount: z.string().optional(), // Human-readable amount (e.g., "1000", "0.5")
   }),
 });
 
@@ -121,10 +117,6 @@ export function loadConfig(): Config {
       batchBaseGas: parseInt(process.env.BATCH_BASE_GAS || '100000', 10),
       batchPerTxGas: parseInt(process.env.BATCH_PER_TX_GAS || '25000', 10),
 
-      // Allowance optimization settings
-      allowanceStrategy: (process.env.BATCH_ALLOWANCE_STRATEGY as 'multiplier' | 'fixed') || 'multiplier',
-      allowanceMultiplier: parseFloat(process.env.BATCH_ALLOWANCE_MULTIPLIER || '10'),
-      allowanceAmount: process.env.BATCH_ALLOWANCE_AMOUNT,
     },
   };
 

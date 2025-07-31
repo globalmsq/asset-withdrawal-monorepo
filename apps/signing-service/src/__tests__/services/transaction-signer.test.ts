@@ -133,11 +133,7 @@ describe('TransactionSigner', () => {
     });
 
     mockConfig = {
-      batchProcessing: {
-        allowanceStrategy: 'multiplier',
-        allowanceMultiplier: 10,
-        allowanceAmount: undefined,
-      },
+      batchProcessing: {},
     };
 
     transactionSigner = new TransactionSigner(mockChainProvider, mockSecretsManager, mockNonceCache, mockGasPriceCache, mockMulticallService, mockLogger, mockConfig);

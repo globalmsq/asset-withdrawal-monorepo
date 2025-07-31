@@ -158,7 +158,7 @@ describe('SigningWorker', () => {
           processingInstanceId: 'test-instance',
         }),
       },
-      batchTransaction: {
+      signedBatchTransaction: {
         create: jest.fn().mockResolvedValue({ id: 123n }),
         update: jest.fn().mockResolvedValue({}),
       },
@@ -504,7 +504,7 @@ describe('SigningWorker', () => {
       ];
 
       mockDbClient = {
-        batchTransaction: {
+        signedBatchTransaction: {
           create: jest.fn().mockResolvedValue({ id: 123n }),
           update: jest.fn().mockResolvedValue({}),
         },
@@ -754,7 +754,7 @@ describe('SigningWorker', () => {
           { requestId: 'req-3', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
         ]);
 
-        mockDbClient.batchTransaction.create.mockResolvedValue({
+        mockDbClient.signedBatchTransaction.create.mockResolvedValue({
           id: 123n,
           totalAmount: '6000000000000000000',
         });
@@ -775,7 +775,7 @@ describe('SigningWorker', () => {
         expect(mockDbClient.$transaction).toHaveBeenCalled();
 
         // Verify BatchTransaction creation was called within transaction
-        expect(mockDbClient.batchTransaction.create).toHaveBeenCalledWith({
+        expect(mockDbClient.signedBatchTransaction.create).toHaveBeenCalledWith({
           data: expect.objectContaining({
             multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
             totalRequests: 3,
@@ -801,7 +801,7 @@ describe('SigningWorker', () => {
         expect(mockTransactionSigner.signBatchTransaction).toHaveBeenCalled();
 
         // Verify batch transaction update
-        expect(mockDbClient.batchTransaction.update).toHaveBeenCalledWith({
+        expect(mockDbClient.signedBatchTransaction.update).toHaveBeenCalledWith({
           where: { id: 123n },
           data: {
             txHash: '0xbatchhash',
@@ -839,7 +839,7 @@ describe('SigningWorker', () => {
           { requestId: 'req-3', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
         ]);
 
-        mockDbClient.batchTransaction.create.mockResolvedValue({
+        mockDbClient.signedBatchTransaction.create.mockResolvedValue({
           id: 123n,
           totalAmount: '6000000000000000000',
         });
@@ -858,7 +858,7 @@ describe('SigningWorker', () => {
         await signingWorkerAny.processBatchGroup('0xaaa1234567890123456789012345678901234567', messagesWithChain);
 
         // Verify failure handling
-        expect(mockDbClient.batchTransaction.update).toHaveBeenCalledWith({
+        expect(mockDbClient.signedBatchTransaction.update).toHaveBeenCalledWith({
           where: { id: 123n },
           data: {
             status: 'FAILED',

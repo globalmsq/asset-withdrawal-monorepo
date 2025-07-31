@@ -76,8 +76,8 @@ CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- Create signed_transactions table (fully matches Prisma schema)
-CREATE TABLE IF NOT EXISTS `signed_transactions` (
+-- Create signed_single_transactions table (fully matches Prisma schema)
+CREATE TABLE IF NOT EXISTS `signed_single_transactions` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `requestId` VARCHAR(36) NOT NULL,
     `txHash` VARCHAR(66) NOT NULL,
@@ -102,15 +102,15 @@ CREATE TABLE IF NOT EXISTS `signed_transactions` (
     `broadcastedAt` DATETIME(3) NULL,
     `confirmedAt` DATETIME(3) NULL,
 
-    INDEX `signed_transactions_requestId_idx`(`requestId`),
-    INDEX `signed_transactions_txHash_idx`(`txHash`),
-    INDEX `signed_transactions_createdAt_idx`(`createdAt`),
-    INDEX `signed_transactions_status_idx`(`status`),
+    INDEX `signed_single_transactions_requestId_idx`(`requestId`),
+    INDEX `signed_single_transactions_txHash_idx`(`txHash`),
+    INDEX `signed_single_transactions_createdAt_idx`(`createdAt`),
+    INDEX `signed_single_transactions_status_idx`(`status`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- Create batch_transactions table (fully matches Prisma schema)
-CREATE TABLE IF NOT EXISTS `batch_transactions` (
+-- Create signed_batch_transactions table (fully matches Prisma schema)
+CREATE TABLE IF NOT EXISTS `signed_batch_transactions` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `txHash` VARCHAR(66) NULL,
     `multicallAddress` VARCHAR(42) NOT NULL,
@@ -131,10 +131,10 @@ CREATE TABLE IF NOT EXISTS `batch_transactions` (
     `broadcastedAt` DATETIME(3) NULL,
     `confirmedAt` DATETIME(3) NULL,
 
-    UNIQUE INDEX `batch_transactions_txHash_key`(`txHash`),
-    INDEX `batch_transactions_txHash_idx`(`txHash`),
-    INDEX `batch_transactions_status_idx`(`status`),
-    INDEX `batch_transactions_createdAt_idx`(`createdAt`),
+    UNIQUE INDEX `signed_batch_transactions_txHash_key`(`txHash`),
+    INDEX `signed_batch_transactions_txHash_idx`(`txHash`),
+    INDEX `signed_batch_transactions_status_idx`(`status`),
+    INDEX `signed_batch_transactions_createdAt_idx`(`createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

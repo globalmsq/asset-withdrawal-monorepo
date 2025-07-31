@@ -1,8 +1,8 @@
 import { PrismaClient, Prisma } from '@prisma/client';
-import type { BatchTransaction as PrismaBatchTransaction } from '@prisma/client';
+import type { SignedBatchTransaction as PrismaSignedBatchTransaction } from '@prisma/client';
 import { DatabaseService } from './database';
 
-export interface BatchTransaction {
+export interface SignedBatchTransaction {
   id: string;
   txHash: string | null;
   multicallAddress: string;
@@ -24,7 +24,7 @@ export interface BatchTransaction {
   confirmedAt: Date | null;
 }
 
-export class BatchTransactionService {
+export class SignedBatchTransactionService {
   private prisma: PrismaClient;
 
   constructor(prismaClient?: PrismaClient) {
@@ -36,9 +36,9 @@ export class BatchTransactionService {
     }
   }
 
-  private convertToBatchTransaction(
-    prismaBatch: PrismaBatchTransaction
-  ): BatchTransaction {
+  private convertToSignedBatchTransaction(
+    prismaBatch: PrismaSignedBatchTransaction
+  ): SignedBatchTransaction {
     return {
       ...prismaBatch,
       id: prismaBatch.id.toString(), // Convert BigInt to string
@@ -58,23 +58,23 @@ export class BatchTransactionService {
     nonce: number;
     gasLimit: string;
     status?: string;
-  }): Promise<BatchTransaction> {
-    const prismaBatch = await this.prisma.batchTransaction.create({
+  }): Promise<SignedBatchTransaction> {
+    const prismaBatch = await this.prisma.signedBatchTransaction.create({
       data: {
         ...data,
         status: data.status || 'PENDING',
       },
     });
-    return this.convertToBatchTransaction(prismaBatch);
+    return this.convertToSignedBatchTransaction(prismaBatch);
   }
 
   async getBatchTransactionById(
     id: string
-  ): Promise<BatchTransaction | null> {
-    const prismaBatch = await this.prisma.batchTransaction.findUnique({
+  ): Promise<SignedBatchTransaction | null> {
+    const prismaBatch = await this.prisma.signedBatchTransaction.findUnique({
       where: { id: BigInt(id) },
     });
-    return prismaBatch ? this.convertToBatchTransaction(prismaBatch) : null;
+    return prismaBatch ? this.convertToSignedBatchTransaction(prismaBatch) : null;
   }
 
   async updateBatchTransaction(
@@ -91,60 +91,60 @@ export class BatchTransactionService {
       broadcastedAt: Date;
       confirmedAt: Date;
     }>
-  ): Promise<BatchTransaction> {
-    const prismaBatch = await this.prisma.batchTransaction.update({
+  ): Promise<SignedBatchTransaction> {
+    const prismaBatch = await this.prisma.signedBatchTransaction.update({
       where: { id: BigInt(id) },
       data,
     });
-    return this.convertToBatchTransaction(prismaBatch);
+    return this.convertToSignedBatchTransaction(prismaBatch);
   }
 
   async updateBatchStatus(
     id: string,
     status: string
-  ): Promise<BatchTransaction> {
-    const prismaBatch = await this.prisma.batchTransaction.update({
+  ): Promise<SignedBatchTransaction> {
+    const prismaBatch = await this.prisma.signedBatchTransaction.update({
       where: { id: BigInt(id) },
       data: { status },
     });
-    return this.convertToBatchTransaction(prismaBatch);
+    return this.convertToSignedBatchTransaction(prismaBatch);
   }
 
   async updateBatchStatusWithError(
     id: string,
     status: string,
     errorMessage: string
-  ): Promise<BatchTransaction> {
-    const prismaBatch = await this.prisma.batchTransaction.update({
+  ): Promise<SignedBatchTransaction> {
+    const prismaBatch = await this.prisma.signedBatchTransaction.update({
       where: { id: BigInt(id) },
       data: {
         status,
         errorMessage,
       },
     });
-    return this.convertToBatchTransaction(prismaBatch);
+    return this.convertToSignedBatchTransaction(prismaBatch);
   }
 
   async updateBatchWithTxHash(
     id: string,
     txHash: string,
     status: string = 'SIGNED'
-  ): Promise<BatchTransaction> {
-    const prismaBatch = await this.prisma.batchTransaction.update({
+  ): Promise<SignedBatchTransaction> {
+    const prismaBatch = await this.prisma.signedBatchTransaction.update({
       where: { id: BigInt(id) },
       data: {
         txHash,
         status,
       },
     });
-    return this.convertToBatchTransaction(prismaBatch);
+    return this.convertToSignedBatchTransaction(prismaBatch);
   }
 
-  async getPendingBatchTransactions(): Promise<BatchTransaction[]> {
-    const prismaBatches = await this.prisma.batchTransaction.findMany({
+  async getPendingBatchTransactions(): Promise<SignedBatchTransaction[]> {
+    const prismaBatches = await this.prisma.signedBatchTransaction.findMany({
       where: { status: 'PENDING' },
       orderBy: { createdAt: 'asc' },
     });
-    return prismaBatches.map((batch) => this.convertToBatchTransaction(batch));
+    return prismaBatches.map((batch) => this.convertToSignedBatchTransaction(batch));
   }
 }

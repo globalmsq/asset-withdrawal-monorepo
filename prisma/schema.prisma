@@ -72,7 +72,7 @@ model Transaction {
   @@map("transactions")
 }
 
-model SignedTransaction {
+model SignedSingleTransaction {
   id                    BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
   requestId             String              @db.VarChar(36) // UUID from withdrawal_requests
   txHash                String              @db.VarChar(66)
@@ -101,10 +101,10 @@ model SignedTransaction {
   @@index([txHash])
   @@index([createdAt])
   @@index([status])
-  @@map("signed_transactions")
+  @@map("signed_single_transactions")
 }
 
-model BatchTransaction {
+model SignedBatchTransaction {
   id                    BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
   txHash                String?             @unique @db.VarChar(66)
   multicallAddress      String              @db.VarChar(42)
@@ -128,5 +128,5 @@ model BatchTransaction {
   @@index([txHash])
   @@index([status])
   @@index([createdAt])
-  @@map("batch_transactions")
+  @@map("signed_batch_transactions")
 }

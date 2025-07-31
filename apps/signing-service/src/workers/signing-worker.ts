@@ -649,7 +649,7 @@ export class SigningWorker extends BaseWorker<
       const actualNonce = nextNonce || 0;
 
       // Create batch transaction
-      const batch = await tx.batchTransaction.create({
+      const batch = await tx.signedBatchTransaction.create({
         data: {
           multicallAddress: chainProvider.getMulticall3Address(),
           totalRequests: messages.length,
@@ -720,7 +720,7 @@ export class SigningWorker extends BaseWorker<
           // If checksum validation fails, use lowercase format
           normalizedTokenAddress = message.body.tokenAddress.trim().toLowerCase();
           this.auditLogger.warn('Token address checksum normalization', {
-            transactionId: message.body.id,
+            requestId: message.body.id,
             originalAddress: message.body.tokenAddress,
             normalizedAddress: normalizedTokenAddress,
           });
@@ -733,7 +733,7 @@ export class SigningWorker extends BaseWorker<
           // If checksum validation fails, use lowercase format
           normalizedToAddress = message.body.toAddress.trim().toLowerCase();
           this.auditLogger.warn('Recipient address checksum normalization', {
-            transactionId: message.body.id,
+            requestId: message.body.id,
             originalAddress: message.body.toAddress,
             normalizedAddress: normalizedToAddress,
           });
@@ -767,7 +767,7 @@ export class SigningWorker extends BaseWorker<
       });
 
       // Update batch transaction with txHash and gas details
-      await this.dbClient.batchTransaction.update({
+      await this.dbClient.signedBatchTransaction.update({
         where: { id: batchTransaction.id },
         data: {
           txHash: signedBatchTx.hash,
@@ -816,7 +816,7 @@ export class SigningWorker extends BaseWorker<
 
       // Update batch transaction status to FAILED if it was created
       if (batchTransaction?.id) {
-        await this.dbClient.batchTransaction.update({
+        await this.dbClient.signedBatchTransaction.update({
           where: { id: batchTransaction.id },
           data: {
             status: 'FAILED',
@@ -883,7 +883,7 @@ export class SigningWorker extends BaseWorker<
     message: WithdrawalRequest
   ): Promise<SignedTransaction | null> {
     const {
-      id: transactionId,
+      id: requestId,
       network,
       toAddress: to,
       amount,
@@ -891,7 +891,7 @@ export class SigningWorker extends BaseWorker<
       symbol,
     } = message;
 
-    this.auditLogger.info(`Processing withdrawal request: ${transactionId}`, {
+    this.auditLogger.info(`Processing withdrawal request: ${requestId}`, {
       network,
       to,
       amount,
@@ -906,13 +906,13 @@ export class SigningWorker extends BaseWorker<
       const updated = await this.dbClient.$transaction(async (tx: any) => {
         // Verify the request is still owned by this instance
         const existing = await tx.withdrawalRequest.findUnique({
-          where: { requestId: transactionId },
+          where: { requestId: requestId },
           select: { status: true, processingInstanceId: true },
         });
 
         if (!existing || existing.processingInstanceId !== this.instanceId) {
           this.auditLogger.warn('Request no longer owned by this instance', {
-            transactionId,
+            requestId,
             currentInstanceId: this.instanceId,
             ownerInstanceId: existing?.processingInstanceId,
           });
@@ -922,7 +922,7 @@ export class SigningWorker extends BaseWorker<
         // Update status to SIGNING
         return await tx.withdrawalRequest.update({
           where: {
-            requestId: transactionId,
+            requestId: requestId,
             processingInstanceId: this.instanceId, // Ensure we still own it
           },
           data: {
@@ -934,13 +934,13 @@ export class SigningWorker extends BaseWorker<
 
       if (!updated) {
         this.auditLogger.info('Skipping transaction - no longer owned by this instance', {
-          transactionId,
+          requestId,
         });
         return null;
       }
 
       this.auditLogger.auditSuccess('SIGN_TRANSACTION_START', {
-        transactionId,
+        requestId,
         metadata: { chain: message.chain, network, to, amount, tokenAddress },
       });
 
@@ -953,17 +953,17 @@ export class SigningWorker extends BaseWorker<
         to,
         amount,
         tokenAddress,
-        transactionId,
+        transactionId: requestId,
       });
 
       // Save signed transaction to database
       try {
         // Check if this is a retry by counting existing signed transactions
-        const existingTxs = await this.signedTransactionService.findByRequestId(transactionId);
+        const existingTxs = await this.signedTransactionService.findByRequestId(requestId);
         const tryCount = existingTxs.length;
 
         await this.signedTransactionService.create({
-          requestId: transactionId,
+          requestId: requestId,
           txHash: signedTx.hash,
           nonce: signedTx.nonce,
           gasLimit: signedTx.gasLimit,
@@ -981,14 +981,14 @@ export class SigningWorker extends BaseWorker<
         });
 
         this.auditLogger.info('Signed transaction saved to database', {
-          transactionId,
+          requestId,
           txHash: signedTx.hash,
           tryCount,
         });
       } catch (dbError) {
         // If DB save fails, log error but continue - we don't want to block the flow
         this.auditLogger.error('Failed to save signed transaction to database', dbError, {
-          transactionId,
+          requestId,
           txHash: signedTx.hash,
         });
         // Throw error to trigger retry - DB save is critical for tracking
@@ -998,12 +998,12 @@ export class SigningWorker extends BaseWorker<
       // Update withdrawal request status to SIGNED
       // Note: The tx-broadcaster will update to BROADCASTING when it starts broadcasting
       await this.withdrawalRequestService.updateStatus(
-        transactionId,
+        requestId,
         TransactionStatus.SIGNED
       );
 
       this.auditLogger.auditSuccess('SIGN_TRANSACTION_COMPLETE', {
-        transactionId,
+        requestId,
         metadata: {
           hash: signedTx.hash,
           nonce: signedTx.nonce,
@@ -1015,7 +1015,7 @@ export class SigningWorker extends BaseWorker<
       return signedTx;
     } catch (error) {
       this.auditLogger.error(
-        `Failed to sign transaction: ${transactionId}`,
+        `Failed to sign transaction: ${requestId}`,
         error
       );
 
@@ -1023,7 +1023,7 @@ export class SigningWorker extends BaseWorker<
         'SIGN_TRANSACTION_FAILED',
         error instanceof Error ? error.message : String(error),
         {
-          transactionId,
+          requestId,
           metadata: { network, to, amount, tokenAddress },
         }
       );
@@ -1034,13 +1034,13 @@ export class SigningWorker extends BaseWorker<
 
       if (isRecoverable) {
         this.auditLogger.info('Recoverable error in processMessage, will be recovered', {
-          transactionId,
+          requestId,
           error: errorMessage,
         });
 
         // Update status to PENDING for recovery
         await this.withdrawalRequestService.updateStatus(
-          transactionId,
+          requestId,
           TransactionStatus.PENDING
         );
 
@@ -1048,7 +1048,7 @@ export class SigningWorker extends BaseWorker<
       } else {
         // Non-recoverable error - mark as FAILED
         await this.withdrawalRequestService.updateStatusWithError(
-          transactionId,
+          requestId,
           TransactionStatus.FAILED,
           error instanceof Error ? error.message : String(error)
         );

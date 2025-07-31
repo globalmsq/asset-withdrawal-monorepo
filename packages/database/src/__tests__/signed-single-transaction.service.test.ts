@@ -1,14 +1,14 @@
 import { PrismaClient } from '@prisma/client';
-import { SignedTransactionService } from '../services/signed-transaction.service';
-import { CreateSignedTransactionDto } from '../services/signed-transaction.service';
+import { SignedSingleTransactionService } from '../services/signed-single-transaction.service';
+import { CreateSignedTransactionDto } from '../services/signed-single-transaction.service';
 
-describe('SignedTransactionService', () => {
-  let service: SignedTransactionService;
+describe('SignedSingleTransactionService', () => {
+  let service: SignedSingleTransactionService;
   let mockPrismaClient: any;
 
   beforeEach(() => {
     mockPrismaClient = {
-      signedTransaction: {
+      signedSingleTransaction: {
         create: jest.fn(),
         findMany: jest.fn(),
         findFirst: jest.fn(),
@@ -17,7 +17,7 @@ describe('SignedTransactionService', () => {
       },
     };
 
-    service = new SignedTransactionService(mockPrismaClient);
+    service = new SignedSingleTransactionService(mockPrismaClient);
   });
 
   describe('create', () => {
@@ -50,12 +50,12 @@ describe('SignedTransactionService', () => {
         errorMessage: null,
       };
 
-      mockPrismaClient.signedTransaction.create.mockResolvedValue(expectedResult);
+      mockPrismaClient.signedSingleTransaction.create.mockResolvedValue(expectedResult);
 
       const result = await service.create(dto);
 
       expect(result).toEqual(expectedResult);
-      expect(mockPrismaClient.signedTransaction.create).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.create).toHaveBeenCalledWith({
         data: {
           ...dto,
           status: 'SIGNED',
@@ -81,14 +81,14 @@ describe('SignedTransactionService', () => {
         errorMessage: 'Test error',
       };
 
-      mockPrismaClient.signedTransaction.create.mockResolvedValue({
+      mockPrismaClient.signedSingleTransaction.create.mockResolvedValue({
         id: 1n,
         ...dto,
       });
 
       await service.create(dto);
 
-      expect(mockPrismaClient.signedTransaction.create).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.create).toHaveBeenCalledWith({
         data: dto,
       });
     });
@@ -102,12 +102,12 @@ describe('SignedTransactionService', () => {
         { id: 2n, requestId, createdAt: new Date('2025-01-02') },
       ];
 
-      mockPrismaClient.signedTransaction.findMany.mockResolvedValue(mockResults);
+      mockPrismaClient.signedSingleTransaction.findMany.mockResolvedValue(mockResults);
 
       const result = await service.findByRequestId(requestId);
 
       expect(result).toEqual(mockResults);
-      expect(mockPrismaClient.signedTransaction.findMany).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.findMany).toHaveBeenCalledWith({
         where: { requestId },
         orderBy: { createdAt: 'desc' },
       });
@@ -119,18 +119,18 @@ describe('SignedTransactionService', () => {
       const txHash = '0x1234567890abcdef';
       const mockResult = { id: 1n, txHash };
 
-      mockPrismaClient.signedTransaction.findFirst.mockResolvedValue(mockResult);
+      mockPrismaClient.signedSingleTransaction.findFirst.mockResolvedValue(mockResult);
 
       const result = await service.findByTxHash(txHash);
 
       expect(result).toEqual(mockResult);
-      expect(mockPrismaClient.signedTransaction.findFirst).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.findFirst).toHaveBeenCalledWith({
         where: { txHash },
       });
     });
 
     it('should return null when not found', async () => {
-      mockPrismaClient.signedTransaction.findFirst.mockResolvedValue(null);
+      mockPrismaClient.signedSingleTransaction.findFirst.mockResolvedValue(null);
 
       const result = await service.findByTxHash('0xnotfound');
 
@@ -143,12 +143,12 @@ describe('SignedTransactionService', () => {
       const requestId = 'test-request-id';
       const mockResult = { id: 2n, requestId, createdAt: new Date() };
 
-      mockPrismaClient.signedTransaction.findFirst.mockResolvedValue(mockResult);
+      mockPrismaClient.signedSingleTransaction.findFirst.mockResolvedValue(mockResult);
 
       const result = await service.getLatestByRequestId(requestId);
 
       expect(result).toEqual(mockResult);
-      expect(mockPrismaClient.signedTransaction.findFirst).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.findFirst).toHaveBeenCalledWith({
         where: { requestId },
         orderBy: { createdAt: 'desc' },
       });
@@ -164,12 +164,12 @@ describe('SignedTransactionService', () => {
       };
 
       const mockResult = { id, ...updateData };
-      mockPrismaClient.signedTransaction.update.mockResolvedValue(mockResult);
+      mockPrismaClient.signedSingleTransaction.update.mockResolvedValue(mockResult);
 
       const result = await service.updateStatus(id, updateData);
 
       expect(result).toEqual(mockResult);
-      expect(mockPrismaClient.signedTransaction.update).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.update).toHaveBeenCalledWith({
         where: { id },
         data: updateData,
       });
@@ -187,23 +187,23 @@ describe('SignedTransactionService', () => {
       const mockFindResult = { id: 1n, txHash };
       const mockUpdateResult = { ...mockFindResult, ...updateData };
 
-      mockPrismaClient.signedTransaction.findFirst.mockResolvedValue(mockFindResult);
-      mockPrismaClient.signedTransaction.update.mockResolvedValue(mockUpdateResult);
+      mockPrismaClient.signedSingleTransaction.findFirst.mockResolvedValue(mockFindResult);
+      mockPrismaClient.signedSingleTransaction.update.mockResolvedValue(mockUpdateResult);
 
       const result = await service.updateStatusByTxHash(txHash, updateData);
 
       expect(result).toEqual(mockUpdateResult);
-      expect(mockPrismaClient.signedTransaction.findFirst).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.findFirst).toHaveBeenCalledWith({
         where: { txHash },
       });
-      expect(mockPrismaClient.signedTransaction.update).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.update).toHaveBeenCalledWith({
         where: { id: 1n },
         data: updateData,
       });
     });
 
     it('should throw error when transaction not found', async () => {
-      mockPrismaClient.signedTransaction.findFirst.mockResolvedValue(null);
+      mockPrismaClient.signedSingleTransaction.findFirst.mockResolvedValue(null);
 
       await expect(
         service.updateStatusByTxHash('0xnotfound', { status: 'FAILED' })
@@ -213,12 +213,12 @@ describe('SignedTransactionService', () => {
 
   describe('countByStatus', () => {
     it('should count transactions by status', async () => {
-      mockPrismaClient.signedTransaction.count.mockResolvedValue(5);
+      mockPrismaClient.signedSingleTransaction.count.mockResolvedValue(5);
 
       const result = await service.countByStatus('SIGNED');
 
       expect(result).toBe(5);
-      expect(mockPrismaClient.signedTransaction.count).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.count).toHaveBeenCalledWith({
         where: { status: 'SIGNED' },
       });
     });
@@ -231,23 +231,23 @@ describe('SignedTransactionService', () => {
         { id: 2n, createdAt: new Date() },
       ];
 
-      mockPrismaClient.signedTransaction.findMany.mockResolvedValue(mockResults);
+      mockPrismaClient.signedSingleTransaction.findMany.mockResolvedValue(mockResults);
 
       const result = await service.getRecentSignedTransactions();
 
       expect(result).toEqual(mockResults);
-      expect(mockPrismaClient.signedTransaction.findMany).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.findMany).toHaveBeenCalledWith({
         take: 10,
         orderBy: { createdAt: 'desc' },
       });
     });
 
     it('should get recent transactions with custom limit', async () => {
-      mockPrismaClient.signedTransaction.findMany.mockResolvedValue([]);
+      mockPrismaClient.signedSingleTransaction.findMany.mockResolvedValue([]);
 
       await service.getRecentSignedTransactions(20);
 
-      expect(mockPrismaClient.signedTransaction.findMany).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.findMany).toHaveBeenCalledWith({
         take: 20,
         orderBy: { createdAt: 'desc' },
       });
@@ -260,12 +260,12 @@ describe('SignedTransactionService', () => {
       const status = 'SIGNED';
       const mockResults = [{ id: 1n, requestId, status }];
 
-      mockPrismaClient.signedTransaction.findMany.mockResolvedValue(mockResults);
+      mockPrismaClient.signedSingleTransaction.findMany.mockResolvedValue(mockResults);
 
       const result = await service.getByRequestIdAndStatus(requestId, status);
 
       expect(result).toEqual(mockResults);
-      expect(mockPrismaClient.signedTransaction.findMany).toHaveBeenCalledWith({
+      expect(mockPrismaClient.signedSingleTransaction.findMany).toHaveBeenCalledWith({
         where: { requestId, status },
         orderBy: { createdAt: 'desc' },
       });

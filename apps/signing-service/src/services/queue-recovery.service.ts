@@ -1,12 +1,12 @@
 import { IQueue, QueueFactory, ChainProviderFactory } from '@asset-withdrawal/shared';
-import { DatabaseService, WithdrawalRequestService, SignedTransactionService } from '@asset-withdrawal/database';
+import { DatabaseService, WithdrawalRequestService, SignedSingleTransactionService } from '@asset-withdrawal/database';
 import { NonceCacheService } from './nonce-cache.service';
 import { Logger } from '../utils/logger';
 import { ethers } from 'ethers';
 
 export class QueueRecoveryService {
   private withdrawalRequestService: WithdrawalRequestService;
-  private signedTransactionService: SignedTransactionService;
+  private signedTransactionService: SignedSingleTransactionService;
   private signedTxQueue: IQueue<any>;
   private requestQueue: IQueue<any>;
   private nonceCacheService: NonceCacheService;
@@ -17,7 +17,7 @@ export class QueueRecoveryService {
     const dbService = DatabaseService.getInstance();
     this.dbClient = dbService.getClient();
     this.withdrawalRequestService = new WithdrawalRequestService(this.dbClient);
-    this.signedTransactionService = new SignedTransactionService(this.dbClient);
+    this.signedTransactionService = new SignedSingleTransactionService(this.dbClient);
     this.nonceCacheService = nonceCacheService;
     this.signedTxQueue = QueueFactory.createFromEnv('signed-tx-queue');
     this.requestQueue = QueueFactory.createFromEnv('tx-request-queue');
@@ -197,7 +197,7 @@ export class QueueRecoveryService {
 
     try {
       // First, check batch transaction status
-      const batchTransaction = await this.dbClient.batchTransaction.findUnique({
+      const batchTransaction = await this.dbClient.signedBatchTransaction.findUnique({
         where: { id: BigInt(batchId) },
       });
 
@@ -242,7 +242,7 @@ export class QueueRecoveryService {
 
       // Update batch transaction status to CANCELLED
       this.logger.info(`Updating batch transaction ${batchId} from ${batchTransaction.status} to CANCELLED`);
-      await this.dbClient.batchTransaction.update({
+      await this.dbClient.signedBatchTransaction.update({
         where: { id: BigInt(batchId) },
         data: {
           status: 'CANCELLED',

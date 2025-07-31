@@ -55,6 +55,11 @@ export class NonceCacheService implements NonceCache {
       console.log('Redis Client Disconnected');
       this.connected = false;
     });
+
+    this.client.on('error', (err) => {
+      this.logger?.error('Redis Client Error:', err);
+      this.connected = false;
+    });
   }
 
   async connect(): Promise<void> {
@@ -64,8 +69,19 @@ export class NonceCacheService implements NonceCache {
   }
 
   async disconnect(): Promise<void> {
-    if (this.connected) {
-      await this.client.disconnect();
+    try {
+      // Check actual Redis client state instead of just the flag
+      if (this.client.isOpen) {
+        await this.client.disconnect();
+      }
+    } catch (error) {
+      // Ignore if client is already closed
+      if (error instanceof Error && !error.message?.includes('The client is closed')) {
+        throw error;
+      }
+      this.logger?.warn('Redis client already closed during disconnect');
+    } finally {
+      this.connected = false;
     }
   }
 

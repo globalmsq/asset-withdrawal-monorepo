@@ -1091,7 +1091,12 @@ export class SigningWorker extends BaseWorker<
     }
 
     // Disconnect from Redis
-    await this.nonceCache.disconnect();
+    try {
+      await this.nonceCache.disconnect();
+    } catch (error) {
+      this.auditLogger.warn('Error disconnecting from Redis:', error);
+      // Continue with shutdown even if Redis disconnect fails
+    }
 
     this.auditLogger.info('SigningWorker stopped');
   }

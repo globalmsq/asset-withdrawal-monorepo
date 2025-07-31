@@ -128,8 +128,8 @@ export class QueueRecoveryService {
       return false;
     }
 
-    // Only recover transactions that were in SIGNING state
-    if (withdrawalRequest.status !== 'SIGNING') {
+    // Only recover transactions that were in SIGNING or SIGNED state
+    if (withdrawalRequest.status !== 'SIGNING' && withdrawalRequest.status !== 'SIGNED') {
       this.logger.info(`Transaction ${requestId} is ${withdrawalRequest.status}, skipping recovery`);
       await this.signedTxQueue.deleteMessage(receiptHandle);
       return false;
@@ -196,6 +196,26 @@ export class QueueRecoveryService {
     this.logger.info(`Recovering batch transaction ${batchId}`);
 
     try {
+      // First, check batch transaction status
+      const batchTransaction = await this.dbClient.batchTransaction.findUnique({
+        where: { id: BigInt(batchId) },
+      });
+
+      if (!batchTransaction) {
+        this.logger.warn(`Batch transaction not found for id ${batchId}, removing from queue`);
+        await this.signedTxQueue.deleteMessage(receiptHandle);
+        return false;
+      }
+
+      this.logger.info(`Batch transaction ${batchId} status: ${batchTransaction.status}`);
+
+      // Check if batch transaction is in recoverable state
+      if (batchTransaction.status !== 'SIGNING' && batchTransaction.status !== 'SIGNED') {
+        this.logger.info(`Batch transaction ${batchId} is ${batchTransaction.status}, skipping recovery`);
+        await this.signedTxQueue.deleteMessage(receiptHandle);
+        return false;
+      }
+
       // Get all withdrawal requests associated with this batch
       const batchWithdrawalRequests = await this.dbClient.withdrawalRequest.findMany({
         where: { batchId: batchId },
@@ -221,6 +241,7 @@ export class QueueRecoveryService {
       }
 
       // Update batch transaction status to CANCELLED
+      this.logger.info(`Updating batch transaction ${batchId} from ${batchTransaction.status} to CANCELLED`);
       await this.dbClient.batchTransaction.update({
         where: { id: BigInt(batchId) },
         data: {
@@ -236,6 +257,9 @@ export class QueueRecoveryService {
           this.logger.info(`Skipping ${withdrawalRequest.requestId} - already ${withdrawalRequest.status}`);
           continue;
         }
+
+        // Log recovery for SIGNING or SIGNED status
+        this.logger.info(`Recovering ${withdrawalRequest.requestId} from ${withdrawalRequest.status} to PENDING`);
 
         // Create withdrawal request message
         const withdrawalRequestMessage = {

@@ -103,8 +103,8 @@ export class QueueRecoveryService {
       toAddress: withdrawalRequest.toAddress,
       tokenAddress: withdrawalRequest.tokenAddress,
       symbol: withdrawalRequest.symbol,
-      chain: 'polygon', // Default chain for Polygon
-      network: withdrawalRequest.network || 'mainnet',
+      chain: withdrawalRequest.chain,
+      network: withdrawalRequest.network,
       createdAt: withdrawalRequest.createdAt,
     };
 
@@ -178,8 +178,8 @@ export class QueueRecoveryService {
           toAddress: withdrawalRequest.toAddress,
           tokenAddress: withdrawalRequest.tokenAddress,
           symbol: withdrawalRequest.symbol,
-          chain: 'polygon', // Default chain for Polygon
-          network: withdrawalRequest.network || 'mainnet',
+          chain: withdrawalRequest.chain,
+          network: withdrawalRequest.network,
           createdAt: withdrawalRequest.createdAt,
         };
 
@@ -287,8 +287,8 @@ export class QueueRecoveryService {
         toAddress: withdrawalRequest.toAddress,
         tokenAddress: withdrawalRequest.tokenAddress,
         symbol: withdrawalRequest.symbol,
-        chain: 'polygon', // Default chain for Polygon
-        network: withdrawalRequest.network || 'mainnet',
+        chain: withdrawalRequest.chain,
+        network: withdrawalRequest.network,
         createdAt: withdrawalRequest.createdAt,
       };
 

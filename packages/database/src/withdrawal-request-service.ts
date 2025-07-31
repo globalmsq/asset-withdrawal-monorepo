@@ -9,6 +9,7 @@ export interface WithdrawalRequest {
   symbol: string;
   toAddress: string;
   tokenAddress: string;
+  chain: string;
   network: string;
   status: string;
   processingMode: string;
@@ -39,6 +40,7 @@ export class WithdrawalRequestService {
       ...prismaRequest,
       id: prismaRequest.id.toString(),
       tryCount: Number(prismaRequest.tryCount),
+      chain: (prismaRequest as any).chain || 'polygon', // Default to polygon for backward compatibility
     };
   }
 
@@ -85,6 +87,7 @@ export class WithdrawalRequestService {
     symbol: string;
     toAddress: string;
     tokenAddress: string;
+    chain: string;
     network: string;
     status?: string;
     processingMode?: string;
@@ -117,6 +120,7 @@ export class WithdrawalRequestService {
       symbol: string;
       toAddress: string;
       tokenAddress: string;
+      chain: string;
       network: string;
       batchId: string;
     }>

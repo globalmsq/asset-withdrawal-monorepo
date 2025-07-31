@@ -17,7 +17,7 @@ import { join } from 'path';
 
 // Load chains config from file
 const chainsConfigPath = join(__dirname, '../../../packages/shared/src/config/chains.config.json');
-const chainsConfig = JSON.parse(readFileSync(chainsConfigPath, 'utf8'));
+const chainsConfig: Record<string, Record<string, any>> = JSON.parse(readFileSync(chainsConfigPath, 'utf8'));
 
 async function bootstrap() {
   // Load configuration

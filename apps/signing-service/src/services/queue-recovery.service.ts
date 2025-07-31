@@ -109,34 +109,34 @@ export class QueueRecoveryService {
    * Recover individual transaction to request queue
    */
   private async recoverIndividualTransaction(
-    withdrawalId: string,
+    requestId: string,
     receiptHandle: string
   ): Promise<boolean> {
     // Get transaction details from database
-    const withdrawalRequest = await this.withdrawalRequestService.getWithdrawalRequestByRequestId(withdrawalId);
+    const withdrawalRequest = await this.withdrawalRequestService.getWithdrawalRequestByRequestId(requestId);
 
     if (!withdrawalRequest) {
-      this.logger.warn(`Transaction not found in DB for withdrawal ${withdrawalId}, removing from queue`);
+      this.logger.warn(`Transaction not found in DB for requestId ${requestId}, removing from queue`);
       await this.signedTxQueue.deleteMessage(receiptHandle);
       return false;
     }
 
     // Check if transaction is already completed
     if (withdrawalRequest.status === 'COMPLETED' || withdrawalRequest.status === 'FAILED') {
-      this.logger.info(`Transaction ${withdrawalId} already ${withdrawalRequest.status}, removing from queue`);
+      this.logger.info(`Transaction ${requestId} already ${withdrawalRequest.status}, removing from queue`);
       await this.signedTxQueue.deleteMessage(receiptHandle);
       return false;
     }
 
     // Only recover transactions that were in SIGNING state
     if (withdrawalRequest.status !== 'SIGNING') {
-      this.logger.info(`Transaction ${withdrawalId} is ${withdrawalRequest.status}, skipping recovery`);
+      this.logger.info(`Transaction ${requestId} is ${withdrawalRequest.status}, skipping recovery`);
       await this.signedTxQueue.deleteMessage(receiptHandle);
       return false;
     }
 
     // Restore to request queue
-    this.logger.info(`Recovering transaction ${withdrawalId} from ${withdrawalRequest.status} to PENDING`);
+    this.logger.info(`Recovering transaction ${requestId} from ${withdrawalRequest.status} to PENDING`);
 
     // Create withdrawal request message from data
     const withdrawalRequestMessage = {
@@ -154,26 +154,35 @@ export class QueueRecoveryService {
     await this.requestQueue.sendMessage(withdrawalRequestMessage);
 
     // Update signed transactions status to CANCELLED
-    const signedTransactions = await this.signedTransactionService.findByRequestId(withdrawalId);
+    const signedTransactions = await this.signedTransactionService.findByRequestId(requestId);
+    this.logger.info(`Found ${signedTransactions.length} signed transactions for requestId: ${requestId}`);
+
     for (const signedTx of signedTransactions) {
+      this.logger.info(`Processing signed tx - id: ${signedTx.id}, status: ${signedTx.status}, txHash: ${signedTx.txHash}`);
+
       if (signedTx.status === 'SIGNED') {
-        await this.signedTransactionService.updateStatus(signedTx.id, {
-          status: 'CANCELLED',
-          errorMessage: 'Cancelled due to service restart during processing',
-        });
-        this.logger.info(`Updated signed transaction ${signedTx.txHash} status to CANCELLED`);
+        try {
+          await this.signedTransactionService.updateStatus(signedTx.id, {
+            status: 'CANCELLED',
+            errorMessage: 'Cancelled due to service restart during processing',
+          });
+          this.logger.info(`Updated signed transaction ${signedTx.txHash} status to CANCELLED`);
+        } catch (error) {
+          this.logger.error(`Failed to update signed transaction ${signedTx.id}:`, error);
+          // Continue with other transactions even if one fails
+        }
       }
     }
 
     // Update status to PENDING in database
     const previousStatus = withdrawalRequest.status;
-    await this.withdrawalRequestService.updateStatus(withdrawalId, 'PENDING');
-    this.logger.info(`Updated withdrawal request ${withdrawalId} status from ${previousStatus} to PENDING`);
+    await this.withdrawalRequestService.updateStatus(requestId, 'PENDING');
+    this.logger.info(`Updated withdrawal request ${requestId} status from ${previousStatus} to PENDING`);
 
     // Delete from signed-tx-queue
     await this.signedTxQueue.deleteMessage(receiptHandle);
 
-    this.logger.info(`Successfully recovered transaction ${withdrawalId}`);
+    this.logger.info(`Successfully recovered transaction ${requestId}`);
     return true;
   }
 
@@ -324,17 +333,17 @@ export class QueueRecoveryService {
    * Handle nonce collision by recovering transaction to request queue
    */
   async handleNonceCollision(
-    withdrawalId: string,
+    requestId: string,
     receiptHandle?: string
   ): Promise<void> {
-    this.logger.warn(`Handling nonce collision for withdrawal ${withdrawalId}`);
+    this.logger.warn(`Handling nonce collision for requestId ${requestId}`);
 
     try {
       // Get transaction details from database
-      const withdrawalRequest = await this.withdrawalRequestService.getWithdrawalRequestByRequestId(withdrawalId);
+      const withdrawalRequest = await this.withdrawalRequestService.getWithdrawalRequestByRequestId(requestId);
 
       if (!withdrawalRequest) {
-        this.logger.error(`Transaction not found for withdrawal ${withdrawalId}`);
+        this.logger.error(`Transaction not found for requestId ${requestId}`);
         return;
       }
 
@@ -354,16 +363,16 @@ export class QueueRecoveryService {
       await this.requestQueue.sendMessage(withdrawalRequestMessage);
 
       // Update status to PENDING
-      await this.withdrawalRequestService.updateStatus(withdrawalId, 'PENDING');
+      await this.withdrawalRequestService.updateStatus(requestId, 'PENDING');
 
       // Delete from signed-tx-queue if receipt handle provided
       if (receiptHandle) {
         await this.signedTxQueue.deleteMessage(receiptHandle);
       }
 
-      this.logger.info(`Successfully recovered transaction ${withdrawalId} after nonce collision`);
+      this.logger.info(`Successfully recovered transaction ${requestId} after nonce collision`);
     } catch (error) {
-      this.logger.error(`Failed to handle nonce collision for ${withdrawalId}:`, error);
+      this.logger.error(`Failed to handle nonce collision for ${requestId}:`, error);
       throw error;
     }
   }
@@ -372,12 +381,12 @@ export class QueueRecoveryService {
    * Recover transaction to request queue on error
    */
   async recoverTransactionOnError(
-    withdrawalId: string,
+    requestId: string,
     error: any,
     receiptHandle?: string
   ): Promise<void> {
     const errorMessage = error.message || error.toString();
-    this.logger.warn(`Recovering transaction ${withdrawalId} due to error: ${errorMessage}`);
+    this.logger.warn(`Recovering transaction ${requestId} due to error: ${errorMessage}`);
 
     // Check if it's a recoverable error
     const recoverableErrors = [
@@ -394,13 +403,13 @@ export class QueueRecoveryService {
     );
 
     if (!isRecoverable) {
-      this.logger.error(`Non-recoverable error for ${withdrawalId}: ${errorMessage}`);
+      this.logger.error(`Non-recoverable error for ${requestId}: ${errorMessage}`);
       // Update status to FAILED for non-recoverable errors
-      await this.withdrawalRequestService.updateStatus(withdrawalId, 'FAILED');
+      await this.withdrawalRequestService.updateStatus(requestId, 'FAILED');
       return;
     }
 
     // Recover to request queue
-    await this.handleNonceCollision(withdrawalId, receiptHandle);
+    await this.handleNonceCollision(requestId, receiptHandle);
   }
 }

@@ -8,8 +8,10 @@ import authRoutes from './routes/auth';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger';
 import { readinessCheck, readinessHandler } from './middleware/readiness.middleware';
+import { Logger } from './utils/logger';
 
 const app = express();
+const logger = new Logger('ApiServer');
 
 // Security middleware with exceptions for Swagger UI
 app.use(
@@ -157,7 +159,7 @@ app.use(
     res: express.Response,
     next: express.NextFunction
   ) => {
-    console.error('Error:', err);
+    logger.error('Error:', err);
 
     // Handle AppError instances
     if (err instanceof AppError) {

@@ -274,66 +274,6 @@ describe('SigningWorker', () => {
       });
     });
 
-    it.skip('should handle unsupported network error - now handled in processBatch', async () => {
-      const withdrawalRequest: WithdrawalRequest = {
-        id: 'test-tx-123',
-        network: 'ethereum', // Unsupported network
-        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000',
-        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-      };
-
-      await signingWorker.initialize();
-      const result = await signingWorker.processMessage(withdrawalRequest);
-
-      expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
-        'test-tx-123',
-        TransactionStatus.FAILED,
-        expect.stringContaining('Unsupported network')
-      );
-      expect(result).toBeNull();
-    });
-
-    it.skip('should handle invalid address format - now handled in processBatch', async () => {
-      const withdrawalRequest: WithdrawalRequest = {
-        id: 'test-tx-123',
-        network: 'polygon',
-        toAddress: 'invalid-address',
-        amount: '1000000',
-        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-      };
-
-      await signingWorker.initialize();
-      const result = await signingWorker.processMessage(withdrawalRequest);
-
-      expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
-        'test-tx-123',
-        TransactionStatus.FAILED,
-        expect.stringContaining('Invalid address format')
-      );
-      expect(result).toBeNull();
-    });
-
-    it.skip('should handle invalid amount - now handled in processBatch', async () => {
-      const withdrawalRequest: WithdrawalRequest = {
-        id: 'test-tx-123',
-        network: 'polygon',
-        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '-1000', // Invalid negative amount
-        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-      };
-
-      await signingWorker.initialize();
-      const result = await signingWorker.processMessage(withdrawalRequest);
-
-      expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
-        'test-tx-123',
-        TransactionStatus.FAILED,
-        expect.stringContaining('Invalid amount')
-      );
-      expect(result).toBeNull();
-    });
-
     it('should handle recoverable errors and throw for retry', async () => {
       const withdrawalRequest: WithdrawalRequest = {
         id: 'test-tx-123',

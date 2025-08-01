@@ -12,8 +12,10 @@ import {
 } from 'shared';
 import { getDatabase } from '../services/database';
 import { config } from '../config';
+import { Logger } from '../utils/logger';
 
 const router = Router();
+const logger = new Logger('WithdrawalRoute');
 
 // Function to rearrange UUID parts for better time-based sorting
 // Original UUID format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx (1-2-3-4-5)
@@ -32,10 +34,10 @@ let txRequestQueue: IQueue<WithdrawalRequest>;
 
 // Delay queue initialization to ensure env vars are loaded
 async function initializeQueue() {
-  console.log('Initializing queue with environment:');
-  console.log('AWS_ENDPOINT:', process.env.AWS_ENDPOINT);
-  console.log('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID);
-  console.log('AWS_REGION:', process.env.AWS_REGION);
+  logger.info('Initializing queue with environment:');
+  logger.info('AWS_ENDPOINT:', process.env.AWS_ENDPOINT);
+  logger.info('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID);
+  logger.info('AWS_REGION:', process.env.AWS_REGION);
 
   txRequestQueue =
     QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
@@ -43,9 +45,9 @@ async function initializeQueue() {
   // Initialize queue URL for SQS
   try {
     await txRequestQueue.getQueueUrl();
-    console.log('Queue initialized successfully');
+    logger.info('Queue initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize queue:', error);
+    logger.error('Failed to initialize queue:', error);
     throw error; // Re-throw to ensure error propagates
   }
 }
@@ -58,7 +60,7 @@ async function ensureQueueInitialized() {
       await initializeQueue();
       queueInitialized = true;
     } catch (error) {
-      console.error('Failed to ensure queue initialization:', error);
+      logger.error('Failed to ensure queue initialization:', error);
       throw error; // Re-throw to ensure error propagates
     }
   }
@@ -339,8 +341,8 @@ router.post('/request', async (req: Request, res: Response) => {
     }
 
     // Create withdrawal request in database
-    console.log('Creating withdrawal request with ID:', requestId);
-    console.log(
+    logger.info('Creating withdrawal request with ID:', requestId);
+    logger.debug(
       'Database client type:',
       typeof db,
       'has withdrawalRequest:',
@@ -349,7 +351,7 @@ router.post('/request', async (req: Request, res: Response) => {
 
     let savedRequest;
     try {
-      console.log('TransactionStatus.PENDING value:', TransactionStatus.PENDING);
+      logger.debug('TransactionStatus.PENDING value:', TransactionStatus.PENDING);
       savedRequest = await db.withdrawalRequest.create({
         data: {
           requestId: requestId,
@@ -362,14 +364,14 @@ router.post('/request', async (req: Request, res: Response) => {
           status: TransactionStatus.PENDING,
         },
       });
-      console.log(
+      logger.info(
         'Withdrawal request saved with ID:',
         savedRequest.id,
         'requestId:',
         savedRequest.requestId
       );
     } catch (dbError: any) {
-      console.error('Database error:', dbError);
+      logger.error('Database error:', dbError);
       throw dbError;
     }
 
@@ -388,22 +390,22 @@ router.post('/request', async (req: Request, res: Response) => {
     // Try to send message to SQS
     try {
       // Ensure queue is initialized and add to queue for processing
-      console.log('Attempting to send message to SQS...');
+      logger.debug('Attempting to send message to SQS...');
       await ensureQueueInitialized();
-      console.log('Queue initialized, sending message...');
+      logger.debug('Queue initialized, sending message...');
       if (!txRequestQueue) {
         throw new Error('Queue not initialized properly');
       }
       await txRequestQueue.sendMessage(withdrawalRequest);
-      console.log('Message sent to SQS successfully');
+      logger.info('Message sent to SQS successfully');
     } catch (sqsError: any) {
-      console.error('Failed to send message to SQS:', sqsError);
+      logger.error('Failed to send message to SQS:', sqsError);
 
       // Update the withdrawal request status to FAILED
       try {
-        console.log('Updating withdrawal request status to FAILED...');
-        console.log('Current savedRequest:', savedRequest);
-        console.log('TransactionStatus.FAILED value:', TransactionStatus.FAILED);
+        logger.debug('Updating withdrawal request status to FAILED...');
+        logger.debug('Current savedRequest:', savedRequest);
+        logger.debug('TransactionStatus.FAILED value:', TransactionStatus.FAILED);
         const updateResult = await db.withdrawalRequest.update({
           where: { id: savedRequest.id },
           data: {
@@ -411,10 +413,10 @@ router.post('/request', async (req: Request, res: Response) => {
             errorMessage: `Failed to queue for processing: ${sqsError.message || 'Unknown error'}`,
           },
         });
-        console.log('Update result:', updateResult);
-        console.log('Status after update:', updateResult.status);
+        logger.debug('Update result:', updateResult);
+        logger.debug('Status after update:', updateResult.status);
       } catch (updateError) {
-        console.error('Failed to update withdrawal request status:', updateError);
+        logger.error('Failed to update withdrawal request status:', updateError);
       }
 
       // Return error response
@@ -443,7 +445,7 @@ router.post('/request', async (req: Request, res: Response) => {
 
     res.status(201).json(response);
   } catch (error) {
-    console.error('Error processing withdrawal request:', error);
+    logger.error('Error processing withdrawal request:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Internal server error',
@@ -521,7 +523,7 @@ router.get('/status/:id', async (req: Request, res: Response) => {
 
     // Get database instance and find withdrawal request
     const dbService = getDatabase();
-    console.log(
+    logger.debug(
       'dbService type:',
       typeof dbService,
       'has getClient:',
@@ -536,7 +538,7 @@ router.get('/status/:id', async (req: Request, res: Response) => {
       db = dbService;
     }
 
-    console.log('Searching for withdrawal request with requestId:', id);
+    logger.debug('Searching for withdrawal request with requestId:', id);
 
     const withdrawalRequest = await db.withdrawalRequest.findUnique({
       where: { requestId: id },
@@ -580,8 +582,8 @@ router.get('/status/:id', async (req: Request, res: Response) => {
 
     res.json(response);
   } catch (error: any) {
-    console.error('Error getting withdrawal status:', error);
-    console.error('Error details:', {
+    logger.error('Error getting withdrawal status:', error);
+    logger.error('Error details:', {
       message: error.message,
       stack: error.stack,
       name: error.name,
@@ -646,7 +648,7 @@ router.get('/request-queue/status', async (_req: Request, res: Response) => {
         // Note: approximateNumberOfMessagesNotVisible includes messages being processed
       } else {
         // Fallback if getQueueAttributes is not implemented
-        console.warn(
+        logger.warn(
           'getQueueAttributes not implemented, using fallback method'
         );
         const messages = await txRequestQueue.receiveMessages({
@@ -678,7 +680,7 @@ router.get('/request-queue/status', async (_req: Request, res: Response) => {
 
       queueStatus.processing = processingCount;
     } catch (e: any) {
-      console.error('Error getting request queue status:', e);
+      logger.error('Error getting request queue status:', e);
       // Return zeros if there's an error
     }
 
@@ -689,7 +691,7 @@ router.get('/request-queue/status', async (_req: Request, res: Response) => {
     };
     res.json(response);
   } catch (error) {
-    console.error('Error in request queue status:', error);
+    logger.error('Error in request queue status:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Internal server error',
@@ -747,7 +749,7 @@ router.get('/tx-queue/status', async (_req: Request, res: Response) => {
         queueStatus.size = attributes.approximateNumberOfMessages || 0;
       } else {
         // Fallback if getQueueAttributes is not implemented
-        console.warn(
+        logger.warn(
           'getQueueAttributes not implemented for signed tx queue, using fallback method'
         );
         const messages = await signedTxQueue.receiveMessages({
@@ -777,7 +779,7 @@ router.get('/tx-queue/status', async (_req: Request, res: Response) => {
 
       queueStatus.broadcasting = broadcastingCount;
     } catch (e: any) {
-      console.error('Error getting tx queue status:', e);
+      logger.error('Error getting tx queue status:', e);
       // Return zeros if there's an error
     }
 
@@ -788,7 +790,7 @@ router.get('/tx-queue/status', async (_req: Request, res: Response) => {
     };
     res.json(response);
   } catch (error) {
-    console.error('Error in tx queue status:', error);
+    logger.error('Error in tx queue status:', error);
     const response: ApiResponse = {
       success: false,
       error: 'Internal server error',

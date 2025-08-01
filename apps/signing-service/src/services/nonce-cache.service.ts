@@ -18,24 +18,31 @@ export class NonceCacheService implements NonceCache {
   private readonly keyPrefix = 'nonce:';
   private readonly usedNoncePrefix = 'used_nonce:';
   private readonly ttl = 86400; // 24 hours in seconds
-  private logger?: Logger;
+  private logger: Logger;
 
   constructor(
     private readonly options?: Parameters<typeof createClient>[0],
     logger?: Logger
   ) {
-    this.logger = logger;
+    // Create a minimal config for the logger if not provided
+    const minimalConfig = {
+      logging: {
+        level: 'info' as const,
+        auditLogPath: './logs/audit.log',
+      },
+    } as any;
+    this.logger = logger || new Logger(minimalConfig);
     this.client = createClient({
       socket: {
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379', 10),
         reconnectStrategy: (retries) => {
           if (retries > 10) {
-            console.error('Redis: Max reconnection attempts reached');
+            this.logger.error('Redis: Max reconnection attempts reached');
             return false;
           }
           const delay = Math.min(retries * 100, 3000);
-          console.log(`Redis: Reconnecting in ${delay}ms...`);
+          this.logger.info(`Redis: Reconnecting in ${delay}ms...`);
           return delay;
         },
       },
@@ -43,23 +50,20 @@ export class NonceCacheService implements NonceCache {
     });
 
     this.client.on('error', (err) => {
-      console.error('Redis Client Error:', err);
+      this.logger.error('Redis Client Error:', err);
     });
 
     this.client.on('connect', () => {
-      console.log('Redis Client Connected');
+      this.logger.info('Redis Client Connected');
       this.connected = true;
     });
 
     this.client.on('disconnect', () => {
-      console.log('Redis Client Disconnected');
+      this.logger.info('Redis Client Disconnected');
       this.connected = false;
     });
 
-    this.client.on('error', (err) => {
-      this.logger?.error('Redis Client Error:', err);
-      this.connected = false;
-    });
+    // Duplicate error handler removed - already handled above
   }
 
   async connect(): Promise<void> {
@@ -95,7 +99,7 @@ export class NonceCacheService implements NonceCache {
     const startNonce = Math.max(cachedNonce || 0, networkNonce);
 
     await this.set(address, startNonce, chain, network);
-    console.log(`Nonce initialized for ${address} on ${chain}/${network}: ${startNonce}`);
+    this.logger.info(`Nonce initialized for ${address} on ${chain}/${network}: ${startNonce}`);
   }
 
   async getAndIncrement(address: string, chain: string, network: string): Promise<number> {

@@ -94,6 +94,7 @@ describe('TransactionSigner', () => {
       encodeBatchTransaction: jest.fn().mockReturnValue('0xbatchencoded'),
       decodeBatchResult: jest.fn(),
       getOptimalBatchSize: jest.fn().mockReturnValue(50),
+      checkAndPrepareAllowances: jest.fn().mockResolvedValue({ needsApproval: [] }),
     } as any;
 
     (ethers.Wallet as jest.Mock).mockImplementation(() => mockWallet);
@@ -145,7 +146,7 @@ describe('TransactionSigner', () => {
 
       expect(ethers.Wallet).toHaveBeenCalled();
       expect(mockNonceCache.connect).toHaveBeenCalled();
-      expect(mockNonceCache.initialize).toHaveBeenCalledWith('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', 10);
+      expect(mockNonceCache.initialize).toHaveBeenCalledWith('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', 10, 'polygon', 'testnet');
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Transaction signer initialized',
         expect.objectContaining({
@@ -178,7 +179,8 @@ describe('TransactionSigner', () => {
       const result = await transactionSigner.signTransaction(transactionData);
 
       expect(result).toEqual({
-        transactionId: 'test-tx-123',
+        transactionType: 'SINGLE',
+        requestId: 'test-tx-123',
         hash: '0xabc123def456789',
         rawTransaction: signedTx,
         nonce: 10,
@@ -215,7 +217,8 @@ describe('TransactionSigner', () => {
       const result = await transactionSigner.signTransaction(transactionData);
 
       expect(result).toEqual({
-        transactionId: 'test-tx-456',
+        transactionType: 'SINGLE',
+        requestId: 'test-tx-456',
         hash: '0xabc123def456789',
         rawTransaction: signedTx,
         nonce: 10,
@@ -308,7 +311,8 @@ describe('TransactionSigner', () => {
 
       // Verify the result contains all required fields
       expect(result).toMatchObject({
-        transactionId: 'test-tx-123',
+        transactionType: 'SINGLE',
+        requestId: 'test-tx-123',
         from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         to: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         chainId: 80002,
@@ -366,7 +370,8 @@ describe('TransactionSigner', () => {
 
       // Verify the result contains all required fields
       expect(result).toMatchObject({
-        transactionId: 'test-tx-123',
+        transactionType: 'SINGLE',
+        requestId: 'test-tx-123',
         from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         to: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         chainId: 80002,
@@ -428,11 +433,17 @@ describe('TransactionSigner', () => {
         batchRequest.transfers,
         '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'
       );
-      expect(mockMulticallService.prepareBatchTransfer).toHaveBeenCalledWith(batchRequest.transfers);
+      expect(mockMulticallService.prepareBatchTransfer).toHaveBeenCalledWith(
+        batchRequest.transfers,
+        '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+        false
+      );
       expect(mockMulticallService.encodeBatchTransaction).toHaveBeenCalledWith([]);
 
       expect(result).toEqual({
-        transactionId: 'batch-123',
+        transactionType: 'BATCH',
+        requestId: 'batch-123',
+        batchId: 'batch-123',
         hash: '0xabc123def456789',
         rawTransaction: signedTx,
         nonce: 10,
@@ -603,7 +614,8 @@ describe('TransactionSigner', () => {
       const result = await transactionSigner.signBatchTransaction(batchRequest);
 
       expect(result).toMatchObject({
-        transactionId: 'batch-large',
+        transactionType: 'BATCH',
+        batchId: 'batch-large',
         gasLimit: '3500000',
       });
 
@@ -668,8 +680,12 @@ describe('TransactionSigner', () => {
       const results = await transactionSigner.signBatchTransactionWithSplitting(batchRequest);
 
       expect(results).toHaveLength(1);
-      expect(results[0].transactionId).toBe('batch-single');
-      expect(mockMulticallService.prepareBatchTransfer).toHaveBeenCalledWith(batchRequest.transfers);
+      expect(results[0].batchId).toBe('batch-single');
+      expect(mockMulticallService.prepareBatchTransfer).toHaveBeenCalledWith(
+        batchRequest.transfers,
+        '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+        false
+      );
     });
 
     it('should split and sign multiple batches when required', async () => {
@@ -725,8 +741,8 @@ describe('TransactionSigner', () => {
       const results = await transactionSigner.signBatchTransactionWithSplitting(batchRequest);
 
       expect(results).toHaveLength(2);
-      expect(results[0].transactionId).toBe('batch-split-1');
-      expect(results[1].transactionId).toBe('batch-split-2');
+      expect(results[0].batchId).toBe('batch-split');
+      expect(results[1].batchId).toBe('batch-split');
       expect(results[0].hash).toBe('0xhash1');
       expect(results[1].hash).toBe('0xhash2');
       expect(results[0].nonce).toBe(10);

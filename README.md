@@ -10,6 +10,7 @@ High-throughput Polygon blockchain withdrawal system with Multicall3 batch proce
 │   ├── signing-service/         # High-throughput transaction signer (Multicall3 batch)
 │   ├── tx-broadcaster/          # Blockchain broadcaster (sends signed transactions)
 │   ├── tx-monitor/              # Transaction monitor (tracks blockchain status)
+│   ├── account-manager/         # Automated balance management for sub-accounts
 │   └── admin-ui/                # Admin web interface (React + Tailwind CSS)
 ├── packages/                    # Shared libraries
 │   ├── database/                # Prisma ORM and database services
@@ -67,7 +68,8 @@ API_SERVER_PORT=3000
 SIGNING_SERVICE_PORT=3002
 TX_BROADCASTER_PORT=3004
 TX_MONITOR_PORT=3003
-ADMIN_UI_PORT=3005
+ACCOUNT_MANAGER_PORT=3005
+ADMIN_UI_PORT=3006
 
 # Security
 JWT_SECRET=your-secret-key
@@ -81,13 +83,20 @@ MIN_GAS_SAVINGS_PERCENT=20                  # Cost efficiency threshold
 SINGLE_TX_GAS_ESTIMATE=65000               # Gas per single transaction
 BATCH_BASE_GAS=100000                      # Base gas for batch
 BATCH_PER_TX_GAS=25000                     # Additional gas per tx in batch
+
+# Account Manager Configuration
+BALANCE_CHECK_INTERVAL=300000               # 5 minutes (milliseconds)
+MIN_BALANCE_THRESHOLD=0.1                   # ETH minimum balance
+TARGET_BALANCE=0.5                          # ETH target balance for refill
+BATCH_TRANSFER_ENABLED=true                 # Enable batch transfers
+MAX_BATCH_SIZE=10                           # Max accounts per batch transfer
 ```
 
 ## 📍 Service Endpoints
 
 - **API Server**: http://localhost:3000
 - **Swagger Docs**: http://localhost:8080/api-docs
-- **Admin UI**: http://localhost:3005
+- **Admin UI**: http://localhost:3006
 - **SQS Admin UI**: http://localhost:3999
 - **LocalStack**: http://localhost:4566
 
@@ -137,6 +146,9 @@ graph TB
     subgraph "Queue System"
         SQS1[tx-request-queue]
         SQS2[signed-tx-queue]
+        SQS3[tx-monitor-queue]
+        SQS4[balance-check-queue]
+        SQS5[balance-transfer-queue]
         DLQ[Dead Letter Queue]
     end
 
@@ -144,6 +156,7 @@ graph TB
         Signer[Signing Service<br/>:3002]
         Broadcaster[TX Broadcaster<br/>:3004]
         Monitor[TX Monitor<br/>:3003]
+        AcctMgr[Account Manager<br/>:3005]
     end
 
     subgraph "Data Layer"
@@ -169,13 +182,24 @@ graph TB
 
     SQS2 --> Broadcaster
     Broadcaster --> Polygon
+    Broadcaster --> SQS3
     Broadcaster --> MySQL
 
+    SQS3 --> Monitor
     Monitor --> Polygon
     Monitor --> MySQL
 
+    AcctMgr --> SQS4
+    AcctMgr --> SQS5
+    AcctMgr --> MySQL
+    AcctMgr --> Polygon
+    SQS5 --> Signer
+
     SQS1 -.->|on failure| DLQ
     SQS2 -.->|on failure| DLQ
+    SQS3 -.->|on failure| DLQ
+    SQS4 -.->|on failure| DLQ
+    SQS5 -.->|on failure| DLQ
 ```
 
 ### Core Services
@@ -194,6 +218,12 @@ graph TB
 
 **Admin UI** - React dashboard for system management and monitoring
 
+**Account Manager** - Automated balance management system that:
+- Monitors sub-account balances periodically
+- Automatically transfers funds from main account when below threshold
+- Optimizes gas costs through batch transfers
+- Provides REST API for manual balance management
+
 ### Key Features
 
 - **High Throughput**: Process tens of thousands of transactions efficiently
@@ -204,18 +234,20 @@ graph TB
 - **Real-time Monitoring**: Admin UI and SQS dashboard
 - **Multi-Chain Support**: Polygon, Ethereum, BSC, and localhost (Hardhat) chains
 - **Local Development**: Hardhat node with 1-second mining for fast testing
+- **Automated Balance Management**: Account Manager maintains optimal sub-account balances
 
 ## 🔧 API Reference
 
 ### Authentication
 - `POST /auth/register` - User registration
 - `POST /auth/login` - User login
+- `GET /auth/me` - Get current user info (requires authentication)
 
 ### Withdrawal Operations
-- `POST /withdrawal/request` - Submit withdrawal
-- `GET /withdrawal/status/:id` - Check status
-- `GET /withdrawal/history` - User history
-- `GET /withdrawal/queue/status` - Queue metrics
+- `POST /withdrawal/request` - Submit withdrawal request
+- `GET /withdrawal/status/:id` - Check withdrawal status
+- `GET /withdrawal/request-queue/status` - Request queue metrics
+- `GET /withdrawal/tx-queue/status` - Transaction queue metrics
 
 Full API documentation available at http://localhost:8080/api-docs
 

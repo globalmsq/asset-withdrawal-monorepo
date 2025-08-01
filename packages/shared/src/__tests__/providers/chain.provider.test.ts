@@ -94,10 +94,7 @@ describe('ChainProvider', () => {
         rpcUrl: customRpcUrl,
       });
 
-      expect(ethers.JsonRpcProvider).toHaveBeenCalledWith(customRpcUrl, {
-        name: 'Polygon Mainnet',
-        chainId: 137,
-      });
+      expect(ethers.JsonRpcProvider).toHaveBeenCalledWith(customRpcUrl, 137);
     });
 
     it('should throw error for unsupported chain', () => {

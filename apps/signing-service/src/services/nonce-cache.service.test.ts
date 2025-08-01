@@ -45,10 +45,10 @@ describe('NonceCacheService', () => {
   describe('initialize', () => {
     it('should use network nonce if no cached value', async () => {
       mockRedisClient.get.mockResolvedValue(null);
-      await service.initialize('0x123', 5);
+      await service.initialize('0x123', 5, 'polygon', 'mainnet');
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'nonce:0x123',
+        'nonce:polygon:mainnet:0x123',
         '5',
         { EX: 86400 }
       );
@@ -56,10 +56,10 @@ describe('NonceCacheService', () => {
 
     it('should use cached nonce if higher than network', async () => {
       mockRedisClient.get.mockResolvedValue('10');
-      await service.initialize('0x123', 5);
+      await service.initialize('0x123', 5, 'polygon', 'mainnet');
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'nonce:0x123',
+        'nonce:polygon:mainnet:0x123',
         '10',
         { EX: 86400 }
       );
@@ -67,10 +67,10 @@ describe('NonceCacheService', () => {
 
     it('should use network nonce if higher than cached', async () => {
       mockRedisClient.get.mockResolvedValue('3');
-      await service.initialize('0x123', 5);
+      await service.initialize('0x123', 5, 'polygon', 'mainnet');
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'nonce:0x123',
+        'nonce:polygon:mainnet:0x123',
         '5',
         { EX: 86400 }
       );
@@ -80,33 +80,33 @@ describe('NonceCacheService', () => {
   describe('getAndIncrement', () => {
     it('should increment and return previous value', async () => {
       mockRedisClient.incr.mockResolvedValue(6);
-      const nonce = await service.getAndIncrement('0x123');
+      const nonce = await service.getAndIncrement('0x123', 'polygon', 'mainnet');
 
       expect(nonce).toBe(5);
-      expect(mockRedisClient.incr).toHaveBeenCalledWith('nonce:0x123');
+      expect(mockRedisClient.incr).toHaveBeenCalledWith('nonce:polygon:mainnet:0x123');
     });
 
     it('should set TTL on first increment', async () => {
       mockRedisClient.incr.mockResolvedValue(1);
-      await service.getAndIncrement('0x123');
+      await service.getAndIncrement('0x123', 'polygon', 'mainnet');
 
-      expect(mockRedisClient.expire).toHaveBeenCalledWith('nonce:0x123', 86400);
+      expect(mockRedisClient.expire).toHaveBeenCalledWith('nonce:polygon:mainnet:0x123', 86400);
     });
 
     it('should lowercase address for key', async () => {
       mockRedisClient.incr.mockResolvedValue(2);
-      await service.getAndIncrement('0xABC');
+      await service.getAndIncrement('0xABC', 'polygon', 'mainnet');
 
-      expect(mockRedisClient.incr).toHaveBeenCalledWith('nonce:0xabc');
+      expect(mockRedisClient.incr).toHaveBeenCalledWith('nonce:polygon:mainnet:0xabc');
     });
   });
 
   describe('set', () => {
     it('should set nonce with TTL', async () => {
-      await service.set('0x123', 42);
+      await service.set('0x123', 42, 'polygon', 'mainnet');
 
       expect(mockRedisClient.set).toHaveBeenCalledWith(
-        'nonce:0x123',
+        'nonce:polygon:mainnet:0x123',
         '42',
         { EX: 86400 }
       );
@@ -116,15 +116,15 @@ describe('NonceCacheService', () => {
   describe('get', () => {
     it('should return parsed nonce', async () => {
       mockRedisClient.get.mockResolvedValue('42');
-      const nonce = await service.get('0x123');
+      const nonce = await service.get('0x123', 'polygon', 'mainnet');
 
       expect(nonce).toBe(42);
-      expect(mockRedisClient.get).toHaveBeenCalledWith('nonce:0x123');
+      expect(mockRedisClient.get).toHaveBeenCalledWith('nonce:polygon:mainnet:0x123');
     });
 
     it('should return null if no value', async () => {
       mockRedisClient.get.mockResolvedValue(null);
-      const nonce = await service.get('0x123');
+      const nonce = await service.get('0x123', 'polygon', 'mainnet');
 
       expect(nonce).toBeNull();
     });
@@ -132,9 +132,9 @@ describe('NonceCacheService', () => {
 
   describe('clear', () => {
     it('should delete the key', async () => {
-      await service.clear('0x123');
+      await service.clear('0x123', 'polygon', 'mainnet');
 
-      expect(mockRedisClient.del).toHaveBeenCalledWith('nonce:0x123');
+      expect(mockRedisClient.del).toHaveBeenCalledWith('nonce:polygon:mainnet:0x123');
     });
   });
 });

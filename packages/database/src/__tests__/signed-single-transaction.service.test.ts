@@ -207,7 +207,7 @@ describe('SignedSingleTransactionService', () => {
 
       await expect(
         service.updateStatusByTxHash('0xnotfound', { status: 'FAILED' })
-      ).rejects.toThrow('SignedTransaction with txHash 0xnotfound not found');
+      ).rejects.toThrow('SignedSingleTransaction with txHash 0xnotfound not found');
     });
   });
 

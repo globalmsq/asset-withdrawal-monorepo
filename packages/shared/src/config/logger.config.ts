@@ -20,7 +20,6 @@ export const getDefaultLoggerConfig = (service: string, environment = 'developme
 export const SENSITIVE_PATTERNS = [
   // Private keys
   /private[_-]?key["\s]*[:=]\s*["']?[a-fA-F0-9]{64}["']?/gi,
-  /0x[a-fA-F0-9]{64}/g,
 
   // AWS credentials
   /aws[_-]?access[_-]?key[_-]?id["\s]*[:=]\s*["']?[A-Z0-9]{20}["']?/gi,

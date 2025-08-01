@@ -96,47 +96,49 @@ export class LoggerService {
   }
 
   private createSensitiveDataFilter(): winston.Logform.Format {
-    return winston.format((info) => {
-      let message = info.message;
-      let metadata = { ...info };
+    return {
+      transform: (info: winston.Logform.TransformableInfo) => {
+        let message = info.message;
+        let metadata = { ...info };
 
-      // Filter sensitive data from message
-      if (typeof message === 'string') {
-        SENSITIVE_PATTERNS.forEach((pattern) => {
-          message = (message as string).replace(pattern, SENSITIVE_REPLACEMENT);
-        });
-      }
-
-      // Filter sensitive data from metadata
-      const filterObject = (obj: any): any => {
-        if (typeof obj === 'string') {
-          let filtered = obj;
+        // Filter sensitive data from message
+        if (typeof message === 'string') {
           SENSITIVE_PATTERNS.forEach((pattern) => {
-            filtered = filtered.replace(pattern, SENSITIVE_REPLACEMENT);
+            message = (message as string).replace(pattern, SENSITIVE_REPLACEMENT);
           });
-          return filtered;
-        } else if (typeof obj === 'bigint') {
-          // Convert BigInt to string for safe serialization
-          return obj.toString();
-        } else if (Array.isArray(obj)) {
-          return obj.map(filterObject);
-        } else if (obj && typeof obj === 'object') {
-          const filtered: any = {};
-          for (const key in obj) {
-            filtered[key] = filterObject(obj[key]);
-          }
-          return filtered;
         }
-        return obj;
-      };
 
-      metadata = filterObject(metadata);
+        // Filter sensitive data from metadata
+        const filterObject = (obj: any): any => {
+          if (typeof obj === 'string') {
+            let filtered = obj;
+            SENSITIVE_PATTERNS.forEach((pattern) => {
+              filtered = filtered.replace(pattern, SENSITIVE_REPLACEMENT);
+            });
+            return filtered;
+          } else if (typeof obj === 'bigint') {
+            // Convert BigInt to string for safe serialization
+            return obj.toString();
+          } else if (Array.isArray(obj)) {
+            return obj.map(filterObject);
+          } else if (obj && typeof obj === 'object') {
+            const filtered: any = {};
+            for (const key in obj) {
+              filtered[key] = filterObject(obj[key]);
+            }
+            return filtered;
+          }
+          return obj;
+        };
 
-      return {
-        ...metadata,
-        message,
-      };
-    })();
+        metadata = filterObject(metadata);
+
+        return {
+          ...metadata,
+          message,
+        };
+      },
+    };
   }
 
   private formatContext(meta: any): string {
@@ -214,8 +216,15 @@ export class LoggerService {
 
   // Create a child logger with additional context
   child(context: Partial<LogContext>): LoggerService {
-    const childLogger = new LoggerService(this.config);
-    childLogger.setContext({ ...this.context, ...context });
+    // Create a wrapper around winston's child logger
+    const childWinston = this.winston.child({ ...this.context, ...context });
+
+    // Create a new LoggerService instance that wraps the child winston logger
+    const childLogger = Object.create(LoggerService.prototype);
+    childLogger.winston = childWinston;
+    childLogger.config = this.config;
+    childLogger.context = { ...this.context, ...context };
+
     return childLogger;
   }
 

@@ -9,22 +9,23 @@ export class Logger {
     });
   }
 
-  info(message: string, data?: any) {
-    const metadata = data ? { metadata: { data } } : undefined;
+  info(message: string, ...args: any[]) {
+    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
     this.logger.info(message, metadata);
   }
 
-  error(message: string, error?: any) {
-    this.logger.error(message, error);
+  error(message: string, error?: any, ...args: any[]) {
+    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
+    this.logger.error(message, error, metadata);
   }
 
-  warn(message: string, data?: any) {
-    const metadata = data ? { metadata: { data } } : undefined;
+  warn(message: string, ...args: any[]) {
+    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
     this.logger.warn(message, metadata);
   }
 
-  debug(message: string, data?: any) {
-    const metadata = data ? { metadata: { data } } : undefined;
+  debug(message: string, ...args: any[]) {
+    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
     this.logger.debug(message, metadata);
   }
 }

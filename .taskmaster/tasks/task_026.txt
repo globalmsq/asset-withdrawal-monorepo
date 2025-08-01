@@ -1,0 +1,115 @@
+# Task ID: 26
+# Title: Signing Service 단순화 및 안정성 개선
+# Status: pending
+# Dependencies: 25, 24, 15, 11
+# Priority: medium
+# Description: Balance와 Allowance는 충분하다고 가정하고 복잡한 사전 검증을 제거하여 서비스를 단순하게 유지합니다. Approve TX는 모두 제거하고, 오류 발생 시에만 대기 및 복구하는 방식으로 구현합니다.
+# Details:
+**1. 사전 검증 로직 제거**
+- signing-service에서 BalanceService 및 AllowanceManager의 사전 검증 로직 제거
+- 트랜잭션 서명 전 잔액/allowance 확인 단계 생략
+- Redis 캐싱 기반 잔액 추적 시스템 비활성화
+- 복잡한 allowance 추적 및 예약 시스템 제거
+
+**2. Approve 트랜잭션 완전 제거**
+- MulticallService에서 approve 트랜잭션 생성 로직 제거
+- 배치 트랜잭션 처리 시 approve 단계 생략
+- AllowanceManager.checkAllowance() 호출 제거
+- 모든 토큰이 충분한 allowance를 가지고 있다고 가정
+
+**3. 오류 기반 처리 방식 구현**
+- 트랜잭션 실행 후 실패 결과를 기반으로 처리
+- allowance 부족으로 실패 시 approve 트랜잭션 자동 생성 및 재시도
+- 잔액 부족으로 실패 시 대기 큐에 저장 후 지연 처리
+- 에러 코드 분석을 통한 실패 원인 식별 (ERC20: insufficient allowance, insufficient balance)
+
+**4. 단순화된 트랜잭션 플로우**
+- signing-service: 서명 요청 → 즉시 서명 → 결과 반환
+- tx-processor: 트랜잭션 전송 → 실패 시 복구 로직 실행
+- 성공 케이스에서는 최소한의 처리로 빠른 응답
+- 실패 케이스에서만 복구 메커니즘 동작
+
+**5. 복구 메커니즘 구현**
+- TransactionRecoveryService 클래스 생성
+- 실패 트랜잭션 분석 및 자동 복구 시도
+- approve 후 원본 트랜잭션 재실행
+- 최대 재시도 횟수 제한 (3회)
+- 복구 불가능한 경우 DLQ(Dead Letter Queue)로 이동
+
+# Test Strategy:
+**1. 단순화 검증 테스트**
+- signing-service에서 잔액/allowance 검증 로직 제거 확인
+- approve 트랜잭션 생성 코드 완전 제거 검증
+- Redis 캐싱 시스템 비활성화 테스트
+- 트랜잭션 서명 속도 개선 측정 (이전 대비 50% 이상 단축 목표)
+
+**2. 오류 기반 처리 테스트**
+- allowance 부족 시나리오에서 자동 approve + 재시도 테스트
+- 잔액 부족 시나리오에서 대기 큐 저장 테스트
+- 다양한 에러 코드에 대한 복구 로직 정확성 검증
+- 최대 재시도 횟수 도달 시 DLQ 처리 테스트
+
+**3. 성능 및 안정성 테스트**
+- 성공 케이스에서의 처리 시간 단축 검증
+- 높은 성공률 환경에서의 시스템 부하 감소 측정
+- 실패율이 높은 환경에서의 복구 메커니즘 안정성 테스트
+- 동시 다중 트랜잭션 처리 시 복구 로직 충돌 방지 테스트
+
+**4. 통합 테스트**
+- Hardhat 로컬 환경에서 충분한 allowance 상황 시뮬레이션
+- 실제 트랜잭션 실행 및 성공률 측정
+- 복구 메커니즘 동작 시 전체 플로우 검증
+
+# Subtasks:
+## 1. API Server에 최대 전송 금액 검증 로직 추가 [done]
+### Dependencies: None
+### Description: withdrawal request 엔드포인트에서 tokens.config.json의 maxTransferAmount 설정을 참조하여 요청 금액이 초과할 경우 400 Bad Request 에러를 반환하는 유효성 검증을 구현합니다.
+### Details:
+TokenConfigService를 통해 토큰별 최대 전송 금액 조회, 단일 전송 및 배치 전송 모두에 대해 개별 금액 검증 수행, 검증 실패 시 'Transfer amount exceeds maximum allowed limit' 메시지와 함께 적절한 에러 응답 반환, WithdrawalRequestValidator에 최대 금액 검증 로직 통합, 배치 전송의 경우 각 개별 요청에 대해 최대 금액 검증 적용
+
+## 2. 사전 검증 로직 제거 및 의존성 정리 [done]
+### Dependencies: 26.1
+### Description: signing-service에서 BalanceService, AllowanceManager의 사전 검증 로직을 완전히 제거하고 관련 의존성을 정리합니다.
+### Details:
+TransactionSigner에서 BalanceService.checkBalance() 및 AllowanceManager.checkAllowance() 호출 제거, Redis 캐싱 기반 잔액 추적 시스템 비활성화, signing-worker.ts에서 사전 검증 단계 생략하도록 수정, 사용하지 않는 import 및 의존성 정리, 환경 변수에서 잔액 검증 관련 설정 제거
+<info added on 2025-07-31T06:11:00.598Z>
+사전 검증 로직 분석 완료: BalanceService, AllowanceManager 클래스 및 관련 메서드들이 이미 제거된 상태임을 확인. Redis 기반 잔액 추적 시스템도 비활성화됨. 현재 config에 남아있는 allowance 관련 설정(allowanceStrategy, allowanceMultiplier, allowanceAmount)은 approve 트랜잭션 최적화용이며, Task 26.3에서 approve 로직과 함께 제거 예정. 해당 서브태스크는 실질적으로 완료된 상태로 판단됨.
+</info added on 2025-07-31T06:11:00.598Z>
+
+## 3. Approve 트랜잭션 생성 로직 완전 제거 [done]
+### Dependencies: 26.2
+### Description: MulticallService와 관련 서비스에서 approve 트랜잭션을 생성하는 모든 로직을 제거합니다.
+### Details:
+MulticallService.buildTransaction()에서 approve 트랜잭션 생성 코드 제거, AllowanceManager.checkAllowance() 메서드 호출 제거, 배치 트랜잭션 처리 시 approve 단계 완전 생략, APPROVE 트랜잭션 타입 관련 로직 제거, 모든 토큰이 충분한 allowance를 가지고 있다고 가정하는 주석 추가
+<info added on 2025-07-31T06:17:31.272Z>
+구현 완료:
+- transaction-signer.ts와 multicall.service.ts에서 ERC20_ABI의 'approve' 함수 제거
+- 시작 시 MAX approval을 생성하던 initializeMaxApprovals() 메서드 삭제
+- approve 트랜잭션을 전송하던 approveToken() 메서드 삭제
+- approval 금액을 계산하던 calculateOptimalAllowance() 메서드 삭제
+- signBatchTransaction()에서 approve 트랜잭션 호출 제거
+- approve 로직이 제거되고 충분한 allowance를 가정한다는 주석 추가
+- allowance 최적화 설정 제거 (allowanceStrategy, allowanceMultiplier, allowanceAmount)
+- env.example에서 BATCH_ALLOWANCE_* 환경 변수 제거
+- allowance 관련 설정을 제거하도록 테스트 파일 업데이트
+- 모든 lint 오류 수정 완료 및 빌드 성공
+</info added on 2025-07-31T06:17:31.272Z>
+
+## 4. 트랜잭션 실패 에러 분석 시스템 구현 [pending]
+### Dependencies: 26.3
+### Description: 트랜잭션 실행 후 실패 결과를 분석하여 실패 원인을 식별하는 시스템을 구현합니다.
+### Details:
+TransactionErrorAnalyzer 클래스 생성, ERC20 표준 에러 코드 분석 (insufficient allowance, insufficient balance), 컨트랙트 revert 메시지 파싱 로직, 에러 타입별 분류 시스템 (ALLOWANCE_ERROR, BALANCE_ERROR, GAS_ERROR, UNKNOWN_ERROR), ethers.js 에러 객체에서 원인 추출 메서드 구현
+
+## 5. 오류 기반 자동 복구 메커니즘 구현 [pending]
+### Dependencies: 26.4
+### Description: 실패 분석 결과에 따라 approve 트랜잭션 생성 및 재시도, 또는 대기 큐 저장을 처리하는 복구 시스템을 구현합니다.
+### Details:
+TransactionRecoveryService 클래스 생성, allowance 부족 시 approve 트랜잭션 자동 생성 로직, approve 완료 후 원본 트랜잭션 재실행 메커니즘, 잔액 부족 시 대기 큐(Redis)에 저장하는 로직, 최대 재시도 횟수 제한 (3회) 및 재시도 간격 설정, 복구 불가능한 경우 DLQ(Dead Letter Queue)로 이동 처리
+
+## 6. 단순화된 트랜잭션 플로우 통합 및 테스트 [pending]
+### Dependencies: 26.5
+### Description: 새로운 오류 기반 처리 방식을 기존 시스템에 통합하고 전체 플로우를 검증합니다.
+### Details:
+signing-service와 tx-processor 간의 새로운 플로우 통합, 성공 케이스에서 최소한의 처리로 빠른 응답 보장, 실패 케이스에서만 복구 메커니즘 동작하도록 조건부 처리, WithdrawalRequest 상태 관리 업데이트 (RECOVERY_PENDING, RECOVERY_FAILED 상태 추가), 전체 시스템의 성능 및 안정성 검증을 위한 통합 테스트 구현
+

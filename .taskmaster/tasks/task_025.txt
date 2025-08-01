@@ -1,0 +1,58 @@
+# Task ID: 25
+# Title: [BFS-25] 프로덕션 allowance 추적 시스템 및 아키텍처 개선
+# Status: pending
+# Dependencies: 24, 15, 11
+# Priority: medium
+# Description: signing service는 트랜잭션 서명만 담당하고 approve TX는 broadcaster가 처리하도록 아키텍처를 개선하며, 펜딩 트랜잭션의 allowance 소비량을 추적하여 부족 시 큐잉하는 프로덕션 환경용 allowance 관리 시스템을 구현합니다.
+# Details:
+**1. 아키텍처 개선**
+- signing-service에서 approve 트랜잭션 로직을 제거하고 서명 기능만 유지
+- tx-processor(broadcaster)에 approve 트랜잭션 처리 책임 이전
+- 트랜잭션 타입별 처리 분리: APPROVE, MULTICALL 타입 추가
+
+**2. Allowance 추적 시스템**
+- GlobalAllowanceTracker 클래스 구현 (Redis 기반)
+- 펜딩 트랜잭션의 allowance 소비량 예약 시스템
+- 키 구조: `pending_allowance:${chainId}:${tokenAddress}:${spenderAddress}`
+- 실시간 allowance 상태 동기화 및 블록체인 상태와의 일치성 보장
+
+**3. Queue 기반 트랜잭션 관리**
+- allowance 부족 시 트랜잭션을 대기 큐에 저장
+- approve 트랜잭션 완료 후 대기 중인 트랜잭션 자동 재개
+- 큐 우선순위 관리 (고액 트랜잭션 우선 처리)
+
+**4. 블록체인 상태 동기화**
+- 블록 이벤트 리스너를 통한 allowance 변경 감지
+- 트랜잭션 컨펌 후 캐시 업데이트
+- 데드락 방지를 위한 타임아웃 및 정리 로직
+
+**5. 프로덕션 환경 고려사항**
+- 동시성 제어를 위한 Redis 분산 락 구현
+- 메트릭 수집 (allowance 소진율, 대기 큐 길이)
+- 장애 복구 시나리오 처리
+
+# Test Strategy:
+**1. 아키텍처 분리 테스트**
+- signing-service에서 approve 로직 제거 검증
+- broadcaster의 approve 트랜잭션 처리 능력 테스트
+- 트랜잭션 타입별 라우팅 정확성 검증
+
+**2. Allowance 추적 정확성 테스트**
+- 펜딩 트랜잭션 allowance 예약/해제 테스트
+- 동시 트랜잭션 처리 시 allowance 경합 상황 테스트
+- 블록체인 상태와 캐시 동기화 정확성 검증
+
+**3. 큐잉 시스템 테스트**
+- allowance 부족 시 대기 큐 저장 테스트
+- approve 완료 후 대기 트랜잭션 자동 재개 테스트
+- 큐 우선순위 및 순서 보장 테스트
+
+**4. 동시성 및 성능 테스트**
+- 다중 사용자 동시 트랜잭션 처리 테스트
+- Redis 분산 락 동작 검증
+- 대용량 트랜잭션 처리 성능 테스트
+
+**5. 장애 복구 테스트**
+- 네트워크 단절 시 상태 복구 테스트
+- 서비스 재시작 후 펜딩 상태 복원 테스트
+- 블록체인 노드 장애 시 fallback 처리 테스트

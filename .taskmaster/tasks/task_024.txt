@@ -1,0 +1,94 @@
+# Task ID: 24
+# Title: [BFS-40] 배치 트랜잭션 allowance 최적화 구현
+# Status: done
+# Dependencies: 22, 15, 11
+# Priority: medium
+# Description: Multicall3 배치 트랜잭션 실행 시 매번 approve 트랜잭션을 보내는 대신 기존 allowance를 확인하고 재사용하여 불필요한 트랜잭션을 줄이고 가스비와 처리 시간을 절약하는 최적화 시스템을 구현합니다.
+# Details:
+**구현 목표**
+- 현재 매 배치마다 실행되는 approve 트랜잭션을 최소화
+- allowance 상태를 추적하여 필요한 경우에만 approve 실행
+- 가스비 절감 및 트랜잭션 처리 시간 단축
+
+**1. Allowance 추적 시스템 구현**
+- signing-service에 AllowanceManager 클래스 생성
+- Redis를 사용한 allowance 캐싱 시스템 구현
+  ```typescript
+  interface AllowanceCache {
+    tokenAddress: string;
+    spenderAddress: string;
+    allowance: string;
+    lastUpdated: number;
+    blockNumber: number;
+  }
+  ```
+- 캐시 키 구조: `allowance:${chainId}:${tokenAddress}:${ownerAddress}:${spenderAddress}`
+
+**2. Allowance 체크 로직 구현**
+- 배치 실행 전 현재 allowance 확인
+- 온체인 allowance vs 캐시된 allowance 검증
+- 필요한 토큰 수량과 현재 allowance 비교
+  ```typescript
+  async checkAllowance(tokenAddress: string, amount: BigNumber): Promise<boolean> {
+    const currentAllowance = await this.getAllowance(tokenAddress);
+    return currentAllowance.gte(amount);
+  }
+  ```
+
+**3. 조건부 Approve 실행**
+- allowance가 부족한 경우에만 approve 트랜잭션 실행
+- Infinite approval vs 정확한 금액 approval 설정 옵션
+- approve 트랜잭션 실패 시 재시도 로직
+
+**4. Multicall3Service 수정**
+- prepareBatchTransaction() 메서드에 allowance 체크 로직 추가
+- approve 트랜잭션을 조건부로 배치에 포함
+- 배치 실행 후 allowance 캐시 업데이트
+
+**5. 안전장치 구현**
+- allowance 캐시 TTL 설정 (기본 1시간)
+- 블록 번호 기반 캐시 무효화
+- approve 트랜잭션 실패 시 전체 배치 중단
+- Emergency reset 기능 (캐시 전체 삭제)
+
+**6. 설정 옵션**
+- ALLOWANCE_OPTIMIZATION_ENABLED: 최적화 활성화 여부
+- INFINITE_APPROVAL_ENABLED: 무한 approval 사용 여부
+- ALLOWANCE_CACHE_TTL: 캐시 유효 시간
+- MIN_ALLOWANCE_BUFFER: 최소 여유 allowance (10%)
+
+**7. 모니터링 및 메트릭**
+- approve 트랜잭션 절감률 추적
+- 가스비 절감액 계산
+- allowance 캐시 히트률 모니터링
+- approve 트랜잭션 실패율 추적
+
+# Test Strategy:
+**1. 단위 테스트**
+- AllowanceManager의 캐싱 로직 테스트
+- checkAllowance() 메서드의 정확성 검증
+- 캐시 TTL 및 무효화 로직 테스트
+- Infinite approval vs 정확한 금액 approval 테스트
+
+**2. 통합 테스트**
+- 첫 번째 배치: approve + multicall 실행 확인
+- 두 번째 배치: approve 스킵하고 multicall만 실행 확인
+- allowance 소진 시나리오: 자동 재approve 테스트
+- 다중 토큰 배치에서 선택적 approve 테스트
+
+**3. 시나리오 테스트**
+- 동일 토큰 연속 배치 처리 (approve 1회만 실행)
+- allowance 부족 상황 자동 감지 및 처리
+- 캐시 만료 후 allowance 재확인
+- approve 트랜잭션 실패 시 배치 중단 확인
+
+**4. 성능 테스트**
+- 최적화 전후 가스비 비교 (예상 절감률 30-50%)
+- 배치 처리 시간 비교 (approve 제외로 인한 속도 향상)
+- 캐시 히트률 측정 (목표 80% 이상)
+
+**5. 엣지 케이스**
+- approve 트랜잭션 pending 중 배치 실행 방지
+- 네트워크 재구성 시 캐시 무효화
+- 동시 다중 배치 실행 시 allowance 경합 조건
+- 토큰 컨트랙트의 특수한 approve 구현 대응

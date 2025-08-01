@@ -115,6 +115,9 @@ export class LoggerService {
             filtered = filtered.replace(pattern, SENSITIVE_REPLACEMENT);
           });
           return filtered;
+        } else if (typeof obj === 'bigint') {
+          // Convert BigInt to string for safe serialization
+          return obj.toString();
         } else if (Array.isArray(obj)) {
           return obj.map(filterObject);
         } else if (obj && typeof obj === 'object') {
@@ -147,7 +150,15 @@ export class LoggerService {
       return '';
     }
 
-    return ` ${JSON.stringify(relevantMeta)}`;
+    // Handle BigInt serialization
+    const replacer = (key: string, value: any) => {
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      return value;
+    };
+
+    return ` ${JSON.stringify(relevantMeta, replacer)}`;
   }
 
   // Set context for all subsequent logs

@@ -448,8 +448,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
       const result = await transactionSigner.signBatchTransaction(batchRequest);
 
       expect(result).toMatchObject({
-        transactionType: 'SINGLE',
-        requestId: 'batch-ethereum',
+        transactionType: 'BATCH',
+        batchId: 'batch-ethereum',
         chainId: 1,
         to: '0xcA11bde05977b3631167028862bE2a173976CA11', // Multicall3 address
       });
@@ -505,8 +505,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
       const result = await bscSigner.signBatchTransaction(batchRequest);
 
       expect(result).toMatchObject({
-        transactionType: 'SINGLE',
-        requestId: 'batch-bsc-large',
+        transactionType: 'BATCH',
+        batchId: 'batch-bsc-large',
         chainId: 56,
         gasLimit: '7000000', // BSC can handle this
       });

@@ -524,7 +524,7 @@ describe('SigningWorker Multi-Instance Support', () => {
             ]),
             updateMany: jest.fn().mockResolvedValueOnce({ count: 2 }),
           },
-          batchTransaction: {
+          signedBatchTransaction: {
             create: jest.fn().mockResolvedValueOnce({
               id: 123n,
               totalAmount: '3000000000000000000',

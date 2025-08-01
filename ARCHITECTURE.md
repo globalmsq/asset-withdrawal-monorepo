@@ -19,16 +19,19 @@ graph TB
     end
 
     subgraph "큐 시스템"
-        SQS1[출금 요청 큐]
-        SQS2[서명 큐]
-        SQS3[모니터링 큐]
+        SQS1[tx-request-queue<br/>출금 요청 큐]
+        SQS2[signed-tx-queue<br/>서명된 트랜잭션 큐]
+        SQS3[tx-monitor-queue<br/>모니터링 큐]
+        SQS4[balance-check-queue<br/>잔액 확인 큐]
+        SQS5[balance-transfer-queue<br/>잔액 전송 큐]
         DLQ[Dead Letter Queue]
     end
 
     subgraph "처리 서비스"
-        Processor[TX Processor<br/>포트: 3001]
         Signer[Signing Service<br/>포트: 3002]
-        Monitor[TX Monitor<br/>포트: 3003]
+        Broadcaster[TX Broadcaster<br/>포트: 3004<br/>(개발 예정)]
+        Monitor[TX Monitor<br/>포트: 3003<br/>(개발 예정)]
+        AcctMgr[Account Manager<br/>포트: 3005<br/>(개발 예정)]
     end
 
     subgraph "데이터 레이어"
@@ -48,22 +51,31 @@ graph TB
     API --> MySQL
     API --> Redis
     
-    SQS1 --> Processor
-    Processor --> SQS2
-    Processor --> MySQL
-    
-    SQS2 --> Signer
-    Signer --> Polygon
-    Signer --> SQS3
+    SQS1 --> Signer
+    Signer --> SQS2
     Signer --> MySQL
+    Signer --> Redis
+    
+    SQS2 --> Broadcaster
+    Broadcaster --> Polygon
+    Broadcaster --> SQS3
+    Broadcaster --> MySQL
     
     SQS3 --> Monitor
     Monitor --> Polygon
     Monitor --> MySQL
     
+    AcctMgr --> SQS4
+    AcctMgr --> SQS5
+    AcctMgr --> MySQL
+    AcctMgr --> Polygon
+    SQS5 --> Signer
+    
     SQS1 -.->|실패 시| DLQ
     SQS2 -.->|실패 시| DLQ
     SQS3 -.->|실패 시| DLQ
+    SQS4 -.->|실패 시| DLQ
+    SQS5 -.->|실패 시| DLQ
 ```
 
 ## 서비스별 상세 설명
@@ -77,34 +89,50 @@ graph TB
   - 속도 제한 및 API 보안
 - **기술 스택**: Express.js, TypeScript, JWT
 
-### 2. Transaction Processor (tx-processor)
-- **역할**: 트랜잭션 처리 오케스트레이터
+### 2. Signing Service (signing-service)
+- **역할**: 트랜잭션 서명 전문 서비스
 - **주요 기능**:
-  - 출금 요청 큐 소비
-  - 비즈니스 로직 검증
-  - 서명 작업 큐잉
-  - 워크플로우 조정
-- **기술 스택**: Node.js Worker, SQS Consumer
-
-### 3. Signing Service (signing-service)
-- **역할**: 트랜잭션 서명 및 브로드캐스트
-- **주요 기능**:
-  - 안전한 키 관리
+  - 출금 요청 큐(tx-request-queue) 소비
+  - 안전한 키 관리 (AWS Secrets Manager)
   - 트랜잭션 서명 (단일/배치)
-  - 가스 가격 최적화
+  - 가스 가격 최적화 및 캐싱
+  - nonce 관리 (Redis 기반)
   - 동적 배치 처리 결정
   - Multicall3를 통한 배치 최적화
-  - 블록체인 브로드캐스트
-- **기술 스택**: Ethers.js, AWS KMS, Multicall3
+  - 서명된 트랜잭션 큐잉
+- **기술 스택**: Ethers.js, AWS Secrets Manager, Multicall3, Redis
 
-### 4. Transaction Monitor (tx-monitor)
+### 3. Transaction Broadcaster (tx-broadcaster) - 개발 예정
+- **역할**: 블록체인 트랜잭션 전송
+- **주요 기능**:
+  - 서명된 트랜잭션 큐(signed-tx-queue) 소비
+  - 블록체인 네트워크로 브로드캐스트
+  - 트랜잭션 상태 업데이트
+  - nonce 충돌 감지 및 처리
+  - 실패 시 재시도 로직
+  - 모니터링 큐로 전달
+- **기술 스택**: Ethers.js, 재시도 라이브러리
+
+### 4. Transaction Monitor (tx-monitor) - 개발 예정
 - **역할**: 트랜잭션 상태 모니터링
 - **주요 기능**:
+  - 모니터링 큐(tx-monitor-queue) 소비
   - 블록체인 상태 추적
-  - 확인 수 모니터링
-  - 실패 감지 및 재시도
-  - 웹훅 알림 발송
+  - 확인 수 모니터링 (12 confirmations)
+  - 실패 감지 및 알림
+  - 최종 상태 업데이트
 - **기술 스택**: Ethers.js, WebSocket
+
+### 5. Account Manager (account-manager) - 개발 예정
+- **역할**: 계정 잔액 자동 관리
+- **주요 기능**:
+  - 서브 계정 잔액 모니터링
+  - 임계값 기반 자동 충전
+  - 메인 계정에서 서브 계정으로 잔액 전송
+  - 배치 처리를 통한 가스비 절감
+  - 메인 계정 잔액 부족 시 알림
+  - ManagedAccount 및 BalanceTransfer 모델 관리
+- **기술 스택**: Cron Jobs, Ethers.js, Redis
 
 ## 데이터 플로우
 
@@ -120,8 +148,10 @@ graph TB
 8. TX Broadcaster → signed-tx-queue: 메시지 소비
 9. TX Broadcaster → Polygon: 트랜잭션 브로드캐스트
 10. TX Broadcaster → MySQL: 상태 업데이트 (상태: BROADCASTED)
-11. TX Monitor → Polygon: 트랜잭션 확인 추적
-12. TX Monitor → MySQL: 최종 상태 업데이트 (상태: CONFIRMED/FAILED)
+11. TX Broadcaster → tx-monitor-queue: 모니터링 요청 큐잉
+12. TX Monitor → tx-monitor-queue: 메시지 소비
+13. TX Monitor → Polygon: 트랜잭션 확인 추적
+14. TX Monitor → MySQL: 최종 상태 업데이트 (상태: CONFIRMED/FAILED/CANCELED)
 ```
 
 ### 배치 전송 플로우 (Multicall3) - 고속 처리
@@ -141,6 +171,21 @@ graph TB
    - 가스비 절감: 20-70% (부가적 이점)
 ```
 
+### 계정 관리 플로우 (Account Manager) - 개발 예정
+```
+1. Account Manager → 서브 계정 잔액 조회 (주기적)
+2. 임계값 이하 감지 시:
+   - balance-check-queue: 잔액 확인 메시지 큐잉
+   - 메인 계정 잔액 확인
+   - 충전 금액 계산
+3. balance-transfer-queue: 잔액 전송 요청 큐잉
+4. Signing Service → balance-transfer-queue: 메시지 소비
+5. Signing Service: 잔액 전송 트랜잭션 서명
+6. TX Broadcaster → 블록체인: 잔액 전송 실행
+7. Account Manager → MySQL: BalanceTransfer 기록 저장
+8. 메인 계정 잔액 부족 시: 알림 발송
+```
+
 ## 보안 아키텍처
 
 ### 네트워크 보안
@@ -156,9 +201,16 @@ graph TB
 
 ### 데이터 보안
 - 전송 중 암호화 (TLS)
-- 저장 시 암호화 (AES-256)
-- 키 관리 (AWS KMS)
+- 저장 시 암호화 (AES-256-GCM)
+- 키 관리 (AWS Secrets Manager)
+- 개인키 이중 암호화
 - 감사 로깅
+
+### 트랜잭션 보안
+- nonce 관리: Redis 원자적 연산
+- 가스 가격 검증 및 상한선 설정
+- 주소 체크섬 검증
+- 트랜잭션 서명 검증
 
 ## 확장성 전략
 
@@ -168,7 +220,7 @@ graph TB
 - 큐 깊이 기반 워커 스케일링
 
 ### 성능 최적화
-- Redis 캐싱 레이어
+- Redis 캐싱 레이어 (nonce, 가스 가격, 잔액)
 - 데이터베이스 읽기 복제본
 - CDN을 통한 정적 자산 제공
 - 동적 배치 처리 최적화 (고속 대량 처리)
@@ -177,6 +229,13 @@ graph TB
   - 블록체인 네트워크 부하 대폭 감소
   - 처리 속도: 단일 처리 대비 10-100배 향상
   - 부가 이점: 가스비 20-70% 절감
+
+### 지원 블록체인
+- **Polygon**: Mainnet, Amoy Testnet (구현 완료)
+- **Localhost**: Hardhat 개발 환경 (구현 완료)
+- **Ethereum**: Mainnet, Sepolia (예정)
+- **BSC**: Mainnet, Testnet (예정)
+- **Arbitrum**: One, Nova (예정)
 
 ## 모니터링 및 관찰성
 

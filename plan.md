@@ -129,16 +129,28 @@
 
 ### Phase 1: 핵심 시스템 완성
 
-#### 1.0 signing-service 기능 확장 🆕
+#### 1.0 signing-service 기능 확장 ✅ 완료
 **목표**: ERC20 토큰 Batch 전송 지원 (Multicall 활용)
 ```typescript
-// 주요 기능
+// 완료된 기능
 - Multicall3을 활용한 배치 토큰 전송
 - WithdrawalRequest 타입 확장 (SINGLE, BATCH)
 - MulticallService 구현 (calldata 생성, ABI 인코딩)
 - TransactionSigner에 signBatchTransaction() 메서드 추가
 - SigningWorker 단일/배치 메시지 구분 처리
 - 배치 전송 검증 및 테스트 케이스
+```
+
+#### 1.1 account-manager 서비스 구현 🆕
+**목표**: 메인 계정에서 서브 계정으로 자동 잔액 밸런싱
+```typescript
+// 주요 기능
+- 서브 계정 잔액 주기적 모니터링
+- 임계값 기반 자동 충전 로직
+- 배치 처리를 통한 가스비 최적화
+- 메인 계정 잔액 부족 시 알림
+- ManagedAccount 및 BalanceTransfer 모델 구현
+- REST API 엔드포인트 제공
 ```
 
 #### 1.2 tx-broadcaster 구현 ⚠️
@@ -184,6 +196,41 @@
 ```
 
 ### Phase 2: 관리 시스템
+
+#### 2.0 Account Manager API 엔드포인트 🆕
+```typescript
+// 관리 계정 등록
+POST /api/v1/accounts
+{
+  "address": "0x...",
+  "accountType": "MAIN" | "SUB",
+  "chain": "polygon",
+  "network": "mainnet",
+  "minBalance": "0.1",    // ETH
+  "targetBalance": "0.5"  // ETH
+}
+
+// 계정 목록 조회
+GET /api/v1/accounts
+
+// 잔액 상태 조회
+GET /api/v1/accounts/:address/balance
+
+// 수동 잔액 전송
+POST /api/v1/accounts/transfer
+{
+  "fromAccount": "0x...",
+  "toAccount": "0x...",
+  "amount": "0.5",
+  "symbol": "ETH"
+}
+
+// 계정 활성화/비활성화
+PATCH /api/v1/accounts/:address
+{
+  "isActive": true | false
+}
+```
 
 ##### 2.1.1 Admin UI 애플리케이션 (React + Tailwind CSS)
 ```bash
@@ -492,7 +539,7 @@ class GasPriceCache {
 model WithdrawalRequest {
   id            BigInt   @id @default(autoincrement())
   requestId     String   @unique // tx-{timestamp}-{random}
-  status        String   @default("PENDING") // PENDING → SIGNING → BROADCASTING → COMPLETED
+  status        String   @default("PENDING") // PENDING → SIGNING → BROADCASTING → COMPLETED → FAILED → CANCELED
   amount        String
   currency      String
   toAddress     String
@@ -521,10 +568,42 @@ model SignedTransaction {
   value                 String
   chainId               Int
   retryCount            Int       @default(0)
-  status                String    @default("SIGNED") // SIGNED → BROADCASTED → CONFIRMED
+  status                String    @default("SIGNED") // SIGNED → BROADCASTED → CONFIRMED → FAILED → CANCELED
   signedAt              DateTime  @default(now())
   broadcastedAt         DateTime?
   confirmedAt           DateTime?
+}
+```
+
+### Account Manager 모델 🆕
+```prisma
+model ManagedAccount {
+  id               BigInt    @id @default(autoincrement())
+  address          String    @unique
+  accountType      String    // MAIN, SUB
+  chain            String    // 블록체인 이름
+  network          String    // 네트워크 타입
+  minBalance       String    // 최소 유지 잔액 (ETH)
+  targetBalance    String    // 목표 충전 잔액 (ETH)
+  isActive         Boolean   @default(true)
+  lastCheckedAt    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model BalanceTransfer {
+  id               BigInt    @id @default(autoincrement())
+  fromAccount      String
+  toAccount        String
+  amount           String
+  symbol           String    // ETH 또는 토큰 심볼
+  chain            String
+  network          String
+  status           String    // PENDING, SIGNING, BROADCASTED, CONFIRMED, FAILED, CANCELED
+  txHash           String?
+  errorMessage     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 ```
 
@@ -595,7 +674,7 @@ REDIS_URL=redis://localhost:6379
 
 ## 즉시 해야 할 작업
 
-### 1. tx-broadcaster 서비스 생성 ⚠️
+### 1. tx-broadcaster 서비스 생성 ⚠️ 최우선
 ```bash
 nx g @nx/node:app tx-broadcaster
 ```
@@ -603,14 +682,27 @@ nx g @nx/node:app tx-broadcaster
 - [ ] SQS 메시지 폴링 워커
 - [ ] 서명된 트랜잭션 DB 조회
 - [ ] Polygon 네트워크 브로드캐스트
-- [ ] 트랜잭션 상태 업데이트
+- [ ] 트랜잭션 상태 업데이트 (CANCELED 상태 포함)
 - [ ] 오류 처리 및 재시도 로직
 
-### 2. 테스트 케이스
+### 2. account-manager 서비스 생성 🆕
+```bash
+nx g @nx/node:app account-manager
+```
+**핵심 구현 요소**:
+- [ ] ManagedAccount, BalanceTransfer 모델 추가
+- [ ] 잔액 모니터링 크론 작업
+- [ ] 임계값 확인 및 자동 충전 로직
+- [ ] 배치 전송 최적화
+- [ ] REST API 엔드포인트 구현
+
+### 3. 테스트 케이스
 - [ ] 정상 브로드캐스트 플로우
 - [ ] nonce 충돌 시나리오
 - [ ] RPC 실패 시나리오
 - [ ] 재시도 한도 초과 시나리오
+- [ ] 자동 잔액 충전 시나리오
+- [ ] 배치 전송 최적화 테스트
 
 ---
 

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { ethers } from 'ethers';
 import {
   WithdrawalRequest,
   WithdrawalResponse,
@@ -321,8 +322,9 @@ router.post('/request', async (req: Request, res: Response) => {
 
     // Check if amount exceeds max transfer amount
     if (tokenInfo.maxTransferAmount) {
-      const requestedAmount = BigInt(amount);
-      const maxAmount = BigInt(tokenInfo.maxTransferAmount);
+      // Use parseUnits to handle decimal amounts correctly
+      const requestedAmount = ethers.parseUnits(amount, tokenInfo.decimals);
+      const maxAmount = ethers.parseUnits(tokenInfo.maxTransferAmount, tokenInfo.decimals);
 
       if (requestedAmount > maxAmount) {
         const response: ApiResponse = {

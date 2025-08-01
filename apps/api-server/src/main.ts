@@ -8,32 +8,35 @@ import { config } from './config';
 import { initializeDatabase } from './services/database';
 import { QueueFactory, IQueue, WithdrawalRequest } from 'shared';
 import { setReadiness } from './middleware/readiness.middleware';
+import { Logger } from './utils/logger';
+
+const logger = new Logger('ApiServer');
 
 async function connectWithRetry(dbService: any, maxRetries = 10, delay = 5000) {
   for (let i = 0; i < maxRetries; i++) {
     try {
       await dbService.connect();
-      console.log('Database connected successfully');
+      logger.info('Database connected successfully');
       return;
     } catch (error) {
-      console.log(
+      logger.warn(
         `Database connection attempt ${i + 1}/${maxRetries} failed:`,
         error instanceof Error ? error.message : String(error)
       );
 
       if (i === maxRetries - 1) {
-        console.error('Failed to connect to database after maximum retries');
+        logger.error('Failed to connect to database after maximum retries');
         process.exit(1);
       }
 
-      console.log(`Retrying in ${delay / 1000} seconds...`);
+      logger.info(`Retrying in ${delay / 1000} seconds...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 }
 
 async function startServer() {
-  console.log('Starting API server initialization...');
+  logger.info('Starting API server initialization...');
 
   // Initialize database with configuration
   const dbService = await initializeDatabase(config.mysql);
@@ -45,14 +48,14 @@ async function startServer() {
     if (!dbHealthy) {
       throw new Error('Database health check failed');
     }
-    console.log('Database health check passed');
+    logger.info('Database health check passed');
   } catch (error) {
-    console.error('Database initialization failed:', error);
+    logger.error('Database initialization failed:', error);
     process.exit(1);
   }
 
   // Initialize and test SQS queues
-  console.log('Initializing SQS queues...');
+  logger.info('Initializing SQS queues...');
   try {
     const txRequestQueue = QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
     const signedTxQueue = QueueFactory.createFromEnv('signed-tx-queue');
@@ -60,42 +63,42 @@ async function startServer() {
     // Test queue connectivity
     await txRequestQueue.getQueueUrl();
     await signedTxQueue.getQueueUrl();
-    console.log('SQS queues initialized successfully');
+    logger.info('SQS queues initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize SQS queues:', error);
+    logger.error('Failed to initialize SQS queues:', error);
     if (config.nodeEnv === 'production') {
       process.exit(1);
     } else {
-      console.warn('Continuing without SQS in development mode');
+      logger.warn('Continuing without SQS in development mode');
     }
   }
 
   // All dependencies ready, start listening
-  console.log('All dependencies ready, starting HTTP server...');
+  logger.info('All dependencies ready, starting HTTP server...');
 
   // Set readiness to true
   setReadiness(true);
 
   const server = app.listen(config.port, () => {
-    console.log(`API Server running on port ${config.port}`);
+    logger.info(`API Server running on port ${config.port}`);
     const displayUrl = 'localhost';
-    console.log(
+    logger.info(
       `API Documentation available at http://${displayUrl}:${config.port}/api-docs`
     );
-    console.log(`Readiness check available at http://${displayUrl}:${config.port}/ready`);
+    logger.info(`Readiness check available at http://${displayUrl}:${config.port}/ready`);
   });
 
   // Graceful shutdown
   const gracefulShutdown = async () => {
-    console.log('Shutting down gracefully...');
+    logger.info('Shutting down gracefully...');
     server.close(async () => {
       try {
         await dbService.disconnect();
-        console.log('Database disconnected');
+        logger.info('Database disconnected');
       } catch (error) {
-        console.error('Error disconnecting database:', error);
+        logger.error('Error disconnecting database:', error);
       }
-      console.log('Server closed');
+      logger.info('Server closed');
       process.exit(0);
     });
   };
@@ -106,6 +109,6 @@ async function startServer() {
 
 // Start the server
 startServer().catch(error => {
-  console.error('Failed to start server:', error);
+  logger.error('Failed to start server:', error);
   process.exit(1);
 });

@@ -399,7 +399,7 @@ describe('SigningWorker Multi-Instance Support', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith(
         'Request no longer owned by this instance',
         expect.objectContaining({
-          transactionId: 'test-1',
+          requestId: 'test-1',
           currentInstanceId: instanceId1,
           ownerInstanceId: 'different-instance',
         })
@@ -524,7 +524,7 @@ describe('SigningWorker Multi-Instance Support', () => {
             ]),
             updateMany: jest.fn().mockResolvedValueOnce({ count: 2 }),
           },
-          batchTransaction: {
+          signedBatchTransaction: {
             create: jest.fn().mockResolvedValueOnce({
               id: 123n,
               totalAmount: '3000000000000000000',

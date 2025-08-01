@@ -97,6 +97,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
       encodeBatchTransaction: jest.fn().mockReturnValue('0xbatchencoded'),
       decodeBatchResult: jest.fn(),
       getOptimalBatchSize: jest.fn().mockReturnValue(50),
+      checkAndPrepareAllowances: jest.fn().mockResolvedValue({ needsApproval: [] }),
     } as any;
 
     (ethers.Wallet as jest.Mock).mockImplementation(() => mockWallet);
@@ -157,7 +158,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
       const result = await transactionSigner.signTransaction(transactionData);
 
       expect(result).toMatchObject({
-        transactionId: 'test-polygon-mainnet',
+        transactionType: 'SINGLE',
+        requestId: 'test-polygon-mainnet',
         chainId: 137,
         from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
@@ -199,7 +201,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
       const result = await transactionSigner.signTransaction(transactionData);
 
       expect(result).toMatchObject({
-        transactionId: 'test-ethereum-mainnet',
+        transactionType: 'SINGLE',
+        requestId: 'test-ethereum-mainnet',
         chainId: 1,
         from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
@@ -241,7 +244,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
       const result = await transactionSigner.signTransaction(transactionData);
 
       expect(result).toMatchObject({
-        transactionId: 'test-bsc-mainnet',
+        transactionType: 'SINGLE',
+        requestId: 'test-bsc-mainnet',
         chainId: 56,
         from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
@@ -274,7 +278,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
       const result = await transactionSigner.signTransaction(transactionData);
 
       expect(result).toMatchObject({
-        transactionId: 'test-localhost',
+        transactionType: 'SINGLE',
+        requestId: 'test-localhost',
         chainId: 31337,
         from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
@@ -396,7 +401,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
         const result = await transactionSigner.signTransaction(transactionData);
 
         expect(result).toMatchObject({
-          transactionId: `test-${chainInfo.chain}-erc20`,
+          transactionType: 'SINGLE',
+          requestId: `test-${chainInfo.chain}-erc20`,
           chainId: chainInfo.chainId,
           to: chainInfo.tokenAddress, // ERC20 transactions go to token contract
           value: '0', // ERC20 transfers have 0 native value
@@ -442,7 +448,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
       const result = await transactionSigner.signBatchTransaction(batchRequest);
 
       expect(result).toMatchObject({
-        transactionId: 'batch-ethereum',
+        transactionType: 'BATCH',
+        batchId: 'batch-ethereum',
         chainId: 1,
         to: '0xcA11bde05977b3631167028862bE2a173976CA11', // Multicall3 address
       });
@@ -498,7 +505,8 @@ describe('TransactionSigner - Multi-chain Support', () => {
       const result = await bscSigner.signBatchTransaction(batchRequest);
 
       expect(result).toMatchObject({
-        transactionId: 'batch-bsc-large',
+        transactionType: 'BATCH',
+        batchId: 'batch-bsc-large',
         chainId: 56,
         gasLimit: '7000000', // BSC can handle this
       });

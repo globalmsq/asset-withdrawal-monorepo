@@ -1,10 +1,11 @@
-import { IQueue, ChainProviderFactory, ChainProvider } from '@asset-withdrawal/shared';
+import { IQueue, ChainProviderFactory, ChainProvider, tokenService } from '@asset-withdrawal/shared';
 import { TransactionService } from '@asset-withdrawal/database';
 import { BaseWorker, WorkerConfig } from './base-worker';
 import { WithdrawalRequest, SignedTransaction } from '../types';
 import { Logger } from '../utils/logger';
 import { config } from '../config';
 import { TransactionSigner, SecretsManager } from '../services/blockchain';
+import { ethers } from 'ethers';
 
 export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, SignedTransaction> {
   private transactionService: TransactionService;
@@ -133,6 +134,7 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
     // Check native token balance for gas fees
     const walletAddress = signer.getAddress()!;
     const balance = await provider.getBalance(walletAddress);
+    const ethersProvider = provider.getProvider() as ethers.Provider;
 
     // Estimate gas cost
     const gasPrice = await provider.getGasPrice();
@@ -145,7 +147,30 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
       );
     }
 
-    // TODO: Check token balance if ERC-20 transfer
+    // Check token balance if ERC-20 transfer
+    if (request.tokenAddress && request.tokenAddress !== '0x0000000000000000000000000000000000000000') {
+      const tokenContract = new ethers.Contract(
+        request.tokenAddress,
+        ['function balanceOf(address) view returns (uint256)'],
+        ethersProvider
+      );
+
+      // Get token decimals from tokenService
+      const tokenInfo = tokenService.getTokenByAddress(request.tokenAddress, request.network, request.chain || 'polygon');
+      const decimals = tokenInfo?.decimals || 18;
+
+      const tokenBalance = await tokenContract.balanceOf(walletAddress);
+      const requiredAmount = ethers.parseUnits(request.amount, decimals);
+
+      if (tokenBalance < requiredAmount) {
+        throw new Error(
+          `Insufficient token balance. Required: ${request.amount}, Available: ${ethers.formatUnits(tokenBalance, decimals)}`
+        );
+      }
+
+      this.logger.debug(`Token balance check passed for withdrawal ${request.id}`);
+    }
+
     this.logger.debug(`Balance check passed for withdrawal ${request.id}`);
   }
 
@@ -157,8 +182,14 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
     // Check if it's a token transfer or native currency
     if (request.tokenAddress && request.tokenAddress !== '0x0000000000000000000000000000000000000000') {
       // ERC-20 token transfer
-      // TODO: Get token decimals from contract
-      const decimals = 18; // Default for most tokens
+      // Get token decimals from tokenService
+      const tokenInfo = tokenService.getTokenByAddress(request.tokenAddress, network, chain);
+      const decimals = tokenInfo?.decimals || 18; // Default to 18 if not found
+
+      if (!tokenInfo) {
+        this.logger.warn(`Token ${request.tokenAddress} not found in configuration, using default decimals: ${decimals}`);
+      }
+
       return await signer.signERC20Transfer(
         request.tokenAddress,
         request.toAddress,

@@ -107,7 +107,7 @@ describe('MulticallService', () => {
         },
       ];
 
-      const result = await multicallService.prepareBatchTransfer(transfers);
+      const result = await multicallService.prepareBatchTransfer(transfers, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       expect(result.calls).toHaveLength(2);
       expect(result.calls[0]).toEqual({
@@ -135,7 +135,7 @@ describe('MulticallService', () => {
         },
       ];
 
-      await multicallService.prepareBatchTransfer(transfers);
+      await multicallService.prepareBatchTransfer(transfers, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       // Find the correct log call (not the initialization log)
       const infoCalls = mockLogger.info.mock.calls;
@@ -160,7 +160,7 @@ describe('MulticallService', () => {
         },
       ];
 
-      const result = await multicallService.prepareBatchTransfer(transfers);
+      const result = await multicallService.prepareBatchTransfer(transfers, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'Failed to estimate batch gas',
@@ -177,7 +177,7 @@ describe('MulticallService', () => {
 
     it('should encode ERC20 transfer calldata correctly', async () => {
       // Create a new instance with proper mocking for this specific test
-      const mockEncodeFunctionData = jest.fn().mockReturnValue('0xa9059cbb000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000000de0b6b3a7640000');
+      const mockEncodeFunctionData = jest.fn().mockReturnValue('0x23b872dd0000000000000000000000007e5f4552091a69125d5dfcb7b8c2659029395bdf000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000000de0b6b3a7640000');
       jest.spyOn(ethers, 'Interface').mockImplementation(() => ({
         encodeFunctionData: mockEncodeFunctionData,
       } as any));
@@ -194,10 +194,11 @@ describe('MulticallService', () => {
         },
       ];
 
-      const result = await service.prepareBatchTransfer(transfers);
+      const result = await service.prepareBatchTransfer(transfers, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       // Verify encoding was called with correct parameters
-      expect(mockEncodeFunctionData).toHaveBeenCalledWith('transfer', [
+      expect(mockEncodeFunctionData).toHaveBeenCalledWith('transferFrom', [
+        '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         TEST_RECIPIENT,
         '1000000000000000000',
       ]);
@@ -207,12 +208,12 @@ describe('MulticallService', () => {
       expect(result.calls[0]).toEqual({
         target: TEST_TOKEN_ADDRESS,
         allowFailure: false,
-        callData: '0xa9059cbb000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000000de0b6b3a7640000',
+        callData: '0x23b872dd0000000000000000000000007e5f4552091a69125d5dfcb7b8c2659029395bdf000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000000de0b6b3a7640000',
       });
 
-      // Verify calldata format (0xa9059cbb is the function selector for transfer(address,uint256))
-      expect(result.calls[0].callData.startsWith('0xa9059cbb')).toBe(true);
-      expect(result.calls[0].callData.length).toBe(138); // 2 (0x) + 8 (selector) + 64 (address) + 64 (amount)
+      // Verify calldata format (0x23b872dd is the function selector for transferFrom(address,address,uint256))
+      expect(result.calls[0].callData.startsWith('0x23b872dd')).toBe(true);
+      expect(result.calls[0].callData.length).toBe(202); // 2 (0x) + 8 (selector) + 64 (from) + 64 (to) + 64 (amount)
     });
   });
 
@@ -240,12 +241,12 @@ describe('MulticallService', () => {
         {
           target: TEST_TOKEN_ADDRESS,
           allowFailure: false,
-          callData: '0xa9059cbb000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000000de0b6b3a7640000',
+          callData: '0x23b872dd000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000000de0b6b3a7640000',
         },
         {
           target: TEST_TOKEN_ADDRESS,
           allowFailure: false,
-          callData: '0xa9059cbb000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000001bc16d674ec80000',
+          callData: '0x23b872dd000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd000000000000000000000000abcdefabcdefabcdefabcdefabcdefabcdefabcd0000000000000000000000000000000000000000000000001bc16d674ec80000',
         },
       ];
 
@@ -467,7 +468,7 @@ describe('MulticallService', () => {
       // Mock gas estimation to return high value
       mockMulticall3Contract.aggregate3.estimateGas.mockResolvedValue(BigInt(25_000_000));
 
-      const result = await multicallService.prepareBatchTransfer(largeBatch);
+      const result = await multicallService.prepareBatchTransfer(largeBatch, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       expect(result.batchGroups).toBeDefined();
       // With diminishing gas costs and high total gas, should split into at least 2 batches
@@ -498,7 +499,7 @@ describe('MulticallService', () => {
         },
       ];
 
-      const result = await multicallService.prepareBatchTransfer(smallBatch);
+      const result = await multicallService.prepareBatchTransfer(smallBatch, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       expect(result.batchGroups).toBeUndefined();
       expect(result.calls).toHaveLength(2);
@@ -523,7 +524,7 @@ describe('MulticallService', () => {
       // Mock to force splitting
       mockMulticall3Contract.aggregate3.estimateGas.mockResolvedValue(BigInt(20_000_000));
 
-      const result = await multicallService.prepareBatchTransfer(mixedBatch);
+      const result = await multicallService.prepareBatchTransfer(mixedBatch, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       expect(result.batchGroups).toBeDefined();
 
@@ -544,7 +545,7 @@ describe('MulticallService', () => {
         transactionId: `tx${i}`,
       }));
 
-      const result = await multicallService.prepareBatchTransfer(transfers);
+      const result = await multicallService.prepareBatchTransfer(transfers, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       // With 10 calls, should get some discount
       const basePerCall = 300000n / 10n; // 30000
@@ -560,7 +561,7 @@ describe('MulticallService', () => {
         transactionId: 'tx1',
       }];
 
-      await multicallService.prepareBatchTransfer(firstBatch);
+      await multicallService.prepareBatchTransfer(firstBatch, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       // Force fallback on second call
       mockMulticall3Contract.aggregate3.estimateGas.mockRejectedValue(new Error('Network error'));
@@ -572,7 +573,7 @@ describe('MulticallService', () => {
         transactionId: 'tx2',
       }];
 
-      const result = await multicallService.prepareBatchTransfer(secondBatch);
+      const result = await multicallService.prepareBatchTransfer(secondBatch, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       // Should use learned gas cost, not just default
       expect(result.estimatedGasPerCall).toBeGreaterThan(0n);
@@ -588,7 +589,7 @@ describe('MulticallService', () => {
         transactionId: 'tx1',
       }];
 
-      await expect(multicallService.prepareBatchTransfer(invalidBatch))
+      await expect(multicallService.prepareBatchTransfer(invalidBatch, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false))
         .rejects.toThrow('Batch validation failed');
     });
   });

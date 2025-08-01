@@ -3,9 +3,11 @@ import { UserService } from 'database';
 import { authService } from '../services/auth.service';
 import { LoginRequest, UserRole, ApiResponse, LoginResponse } from 'shared';
 import { AuthRequest, authenticate } from '../middleware/auth.middleware';
+import { Logger } from '../utils/logger';
 
 const router = Router();
 const userService = new UserService();
+const logger = new Logger('AuthRoute');
 
 router.post('/register', async (req: Request, res: Response) => {
   try {
@@ -60,7 +62,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
     res.status(201).json(response);
   } catch (error) {
-    console.error('Registration error:', error);
+    logger.error('Registration error:', error);
     res.status(500).json({
       success: false,
       error: 'Registration failed',
@@ -128,7 +130,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
     res.json(response);
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     res.status(500).json({
       success: false,
       error: 'Login failed',

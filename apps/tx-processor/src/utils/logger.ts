@@ -1,21 +1,31 @@
+import { LoggerService } from '@asset-withdrawal/shared';
+
 export class Logger {
-  constructor(private context: string) {}
+  private logger: LoggerService;
+
+  constructor(private context: string) {
+    this.logger = new LoggerService({
+      service: `tx-processor:${context}`,
+    });
+  }
 
   info(message: string, ...args: any[]) {
-    console.log(`[${new Date().toISOString()}] [INFO] [${this.context}] ${message}`, ...args);
+    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
+    this.logger.info(message, metadata);
   }
 
   error(message: string, error?: any, ...args: any[]) {
-    console.error(`[${new Date().toISOString()}] [ERROR] [${this.context}] ${message}`, error, ...args);
+    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
+    this.logger.error(message, error, metadata);
   }
 
   warn(message: string, ...args: any[]) {
-    console.warn(`[${new Date().toISOString()}] [WARN] [${this.context}] ${message}`, ...args);
+    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
+    this.logger.warn(message, metadata);
   }
 
   debug(message: string, ...args: any[]) {
-    if (process.env.LOG_LEVEL === 'debug') {
-      console.debug(`[${new Date().toISOString()}] [DEBUG] [${this.context}] ${message}`, ...args);
-    }
+    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
+    this.logger.debug(message, metadata);
   }
 }

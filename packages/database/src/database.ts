@@ -1,3 +1,5 @@
+import { LoggerService } from 'shared';
+
 // Import PrismaClient
 let PrismaClient: any;
 try {
@@ -25,8 +27,11 @@ export interface DatabaseConfig {
 export class DatabaseService {
   private static instance: DatabaseService;
   private prisma: any;
+  private logger: LoggerService;
 
   constructor(config?: DatabaseConfig) {
+    this.logger = new LoggerService({ service: 'database' });
+
     if (config) {
       // Set DATABASE_URL environment variable for Prisma
       const databaseUrl = `mysql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`;
@@ -60,7 +65,7 @@ export class DatabaseService {
       await this.prisma.$queryRaw`SELECT 1`;
       return true;
     } catch (error) {
-      console.error('Database health check failed:', error);
+      this.logger.error('Database health check failed:', error);
       return false;
     }
   }

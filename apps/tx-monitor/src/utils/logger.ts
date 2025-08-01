@@ -1,21 +1,30 @@
+import { LoggerService } from 'shared';
+
 export class Logger {
-  constructor(private context: string) {}
+  private logger: LoggerService;
+
+  constructor(private context: string) {
+    this.logger = new LoggerService({
+      service: `tx-monitor:${context}`,
+    });
+  }
 
   info(message: string, data?: any) {
-    console.log(`[${new Date().toISOString()}] [${this.context}] [INFO] ${message}`, data || '');
+    const metadata = data ? { metadata: { data } } : undefined;
+    this.logger.info(message, metadata);
   }
 
   error(message: string, error?: any) {
-    console.error(`[${new Date().toISOString()}] [${this.context}] [ERROR] ${message}`, error || '');
+    this.logger.error(message, error);
   }
 
   warn(message: string, data?: any) {
-    console.warn(`[${new Date().toISOString()}] [${this.context}] [WARN] ${message}`, data || '');
+    const metadata = data ? { metadata: { data } } : undefined;
+    this.logger.warn(message, metadata);
   }
 
   debug(message: string, data?: any) {
-    if (process.env.NODE_ENV === 'development') {
-      console.debug(`[${new Date().toISOString()}] [${this.context}] [DEBUG] ${message}`, data || '');
-    }
+    const metadata = data ? { metadata: { data } } : undefined;
+    this.logger.debug(message, metadata);
   }
 }

@@ -14,14 +14,17 @@ import {
   QueueConfig,
   QueueAttributes,
 } from './interfaces';
+import { LoggerService } from '../services/logger.service';
 
 export class SQSQueue<T> implements IQueue<T> {
   private client: SQSClient;
   private queueUrl?: string;
   private queueName: string;
+  private logger: LoggerService;
 
   constructor(private config: QueueConfig) {
     this.queueName = config.queueName;
+    this.logger = config.logger || new LoggerService({ service: 'sqs-queue' });
 
     const clientConfig: any = {
       region: config.region || 'ap-northeast-2',
@@ -146,7 +149,7 @@ export class SQSQueue<T> implements IQueue<T> {
         ),
       };
     } catch (error) {
-      console.error('Error getting queue attributes:', error);
+      this.logger.error('Error getting queue attributes:', error);
       // Return zeros if there's an error
       return {
         approximateNumberOfMessages: 0,

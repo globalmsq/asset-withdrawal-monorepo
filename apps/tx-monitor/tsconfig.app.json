@@ -3,7 +3,14 @@
   "compilerOptions": {
     "outDir": "../../dist/out-tsc",
     "module": "commonjs",
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "shared": ["../../packages/shared/src"],
+      "shared/*": ["../../packages/shared/src/*"],
+      "database": ["../../packages/database/src"],
+      "database/*": ["../../packages/database/src/*"]
+    }
   },
   "include": ["src/**/*.ts"]
 }

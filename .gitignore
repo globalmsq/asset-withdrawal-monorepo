@@ -152,10 +152,6 @@ dev-debug.log
 *.sw?
 # OS specific
 
-# Task files
-# tasks.json
-# tasks/
-
 # Hardhat files (Docker-specific)
 docker/hardhat/cache
 docker/hardhat/artifacts
@@ -167,3 +163,7 @@ docker/hardhat/coverage
 docker/hardhat/coverage.json
 docker/hardhat/.env
 docker/hardhat/deployment.json
+
+# Task files
+# tasks.json
+# tasks/ 

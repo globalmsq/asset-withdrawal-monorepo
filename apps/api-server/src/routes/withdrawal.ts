@@ -36,7 +36,7 @@ let txRequestQueue: IQueue<WithdrawalRequest>;
 async function initializeQueue() {
   logger.info('Initializing queue with environment:');
   logger.info('AWS_ENDPOINT:', process.env.AWS_ENDPOINT);
-  logger.info('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID);
+  logger.debug('AWS_ACCESS_KEY_ID:', process.env.AWS_ACCESS_KEY_ID);
   logger.info('AWS_REGION:', process.env.AWS_REGION);
 
   txRequestQueue =

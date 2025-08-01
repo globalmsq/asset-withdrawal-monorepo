@@ -26,14 +26,8 @@ export const config = {
     },
   },
 
-  // Polygon configuration
-  polygon: {
-    network: process.env.POLYGON_NETWORK || 'amoy',
-    rpcUrl:
-      process.env.POLYGON_RPC_URL || 'https://rpc-amoy.polygon.technology',
-    chainId: Number(process.env.POLYGON_CHAIN_ID) || 80002,
-    confirmations: Number(process.env.POLYGON_CONFIRMATIONS) || 3,
-  },
+  // Chain configuration (should be provided by queue messages)
+  // No default values - chain/network must be explicitly provided
 
   // Database URL (from shared database package)
   databaseUrl:

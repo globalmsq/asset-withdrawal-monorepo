@@ -20,6 +20,7 @@ export interface WithdrawalRequest {
   tokenAddress: string;
   symbol?: string;
   network: string;
+  chain?: string; // Chain name (e.g., 'polygon', 'localhost')
   type?: WithdrawalType;
   processingMode?: string;
   batchId?: string;

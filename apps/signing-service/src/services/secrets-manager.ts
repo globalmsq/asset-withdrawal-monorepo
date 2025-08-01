@@ -4,6 +4,7 @@ import {
   SecretsManagerClientConfig,
 } from '@aws-sdk/client-secrets-manager';
 import * as crypto from 'crypto';
+import { ethers } from 'ethers';
 import { Config } from '../config';
 import { Logger } from '../utils/logger';
 
@@ -128,6 +129,12 @@ export class SecureSecretsManager {
 
     // Decrypt private key when needed
     return this.decrypt(this.privateKey);
+  }
+
+  getSignerAddress(): string {
+    const privateKey = this.getPrivateKey();
+    const wallet = new ethers.Wallet(privateKey);
+    return wallet.address;
   }
 
   // Encryption helpers for additional security

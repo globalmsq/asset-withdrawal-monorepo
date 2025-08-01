@@ -212,8 +212,8 @@ describe('ChainProviderFactory', () => {
   });
 
   it('should create and cache Polygon provider', () => {
-    const provider1 = ChainProviderFactory.createPolygonProvider('mainnet');
-    const provider2 = ChainProviderFactory.createPolygonProvider('mainnet');
+    const provider1 = ChainProviderFactory.getProvider('polygon', 'mainnet');
+    const provider2 = ChainProviderFactory.getProvider('polygon', 'mainnet');
 
     expect(provider1).toBe(provider2); // Should return cached instance
     expect(provider1.chain).toBe('polygon');
@@ -221,8 +221,8 @@ describe('ChainProviderFactory', () => {
   });
 
   it('should create and cache Ethereum provider', () => {
-    const provider1 = ChainProviderFactory.createEthereumProvider('testnet');
-    const provider2 = ChainProviderFactory.createEthereumProvider('testnet');
+    const provider1 = ChainProviderFactory.getProvider('ethereum', 'testnet');
+    const provider2 = ChainProviderFactory.getProvider('ethereum', 'testnet');
 
     expect(provider1).toBe(provider2); // Should return cached instance
     expect(provider1.chain).toBe('ethereum');
@@ -230,8 +230,8 @@ describe('ChainProviderFactory', () => {
   });
 
   it('should create and cache BSC provider', () => {
-    const provider1 = ChainProviderFactory.createBscProvider('mainnet');
-    const provider2 = ChainProviderFactory.createBscProvider('mainnet');
+    const provider1 = ChainProviderFactory.getProvider('bsc', 'mainnet');
+    const provider2 = ChainProviderFactory.getProvider('bsc', 'mainnet');
 
     expect(provider1).toBe(provider2); // Should return cached instance
     expect(provider1.chain).toBe('bsc');
@@ -239,8 +239,8 @@ describe('ChainProviderFactory', () => {
   });
 
   it('should create different instances for different networks', () => {
-    const mainnetProvider = ChainProviderFactory.createPolygonProvider('mainnet');
-    const testnetProvider = ChainProviderFactory.createPolygonProvider('testnet');
+    const mainnetProvider = ChainProviderFactory.getProvider('polygon', 'mainnet');
+    const testnetProvider = ChainProviderFactory.getProvider('polygon', 'testnet');
 
     expect(mainnetProvider).not.toBe(testnetProvider);
     expect(mainnetProvider.getChainId()).toBe(137);
@@ -248,16 +248,16 @@ describe('ChainProviderFactory', () => {
   });
 
   it('should create different instances for custom RPC URLs', () => {
-    const defaultProvider = ChainProviderFactory.createPolygonProvider('mainnet');
-    const customProvider = ChainProviderFactory.createPolygonProvider('mainnet', 'https://custom-rpc.com');
+    const defaultProvider = ChainProviderFactory.getProvider('polygon', 'mainnet');
+    const customProvider = ChainProviderFactory.getProvider('polygon', 'mainnet', 'https://custom-rpc.com');
 
     expect(defaultProvider).not.toBe(customProvider);
   });
 
   it('should clear all cached providers', () => {
-    const provider1 = ChainProviderFactory.createPolygonProvider('mainnet');
+    const provider1 = ChainProviderFactory.getProvider('polygon', 'mainnet');
     ChainProviderFactory.clearProviders();
-    const provider2 = ChainProviderFactory.createPolygonProvider('mainnet');
+    const provider2 = ChainProviderFactory.getProvider('polygon', 'mainnet');
 
     expect(provider1).not.toBe(provider2); // Should be different instances after clear
   });

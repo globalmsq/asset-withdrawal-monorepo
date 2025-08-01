@@ -9,6 +9,7 @@ import { Logger } from './utils/logger';
 import { SecureSecretsManager } from './services/secrets-manager';
 import { SigningWorker } from './workers/signing-worker';
 import { DatabaseService } from '@asset-withdrawal/database';
+import { NonceCacheService } from './services/nonce-cache.service';
 
 async function bootstrap() {
   // Load configuration
@@ -24,19 +25,21 @@ async function bootstrap() {
   const secretsManager = new SecureSecretsManager(config, logger);
   await secretsManager.initialize();
 
-  // Initialize signing worker
-  const signingWorker = new SigningWorker(config, secretsManager, logger);
-  await signingWorker.initialize();
-
-  // Health check - ensure all dependencies are ready
-  logger.info('Performing health checks before starting worker...');
-  // Check database connection
+  // Initialize database first
+  logger.info('Initializing database connection...');
   const dbService = DatabaseService.getInstance(config.database);
   const dbHealthy = await dbService.healthCheck();
   if (!dbHealthy) {
     throw new Error('Database health check failed');
   }
   logger.info('Database connection healthy');
+
+  // Initialize nonce cache service
+  const nonceCacheService = new NonceCacheService(undefined, logger);
+
+  // Initialize signing worker
+  const signingWorker = new SigningWorker(config, secretsManager, logger);
+  await signingWorker.initialize();
 
   // Add a small delay to ensure all services are fully initialized
   logger.info('Waiting for all services to be ready...');

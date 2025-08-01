@@ -34,6 +34,7 @@ The signing service is a high-performance worker that:
    - Uses Multicall3 to process hundreds of transfers in one transaction
 3. Signs transactions securely (single or batch)
 4. Outputs signed transactions to the `signed-tx-queue`
+5. Supports multiple chains: Polygon, Ethereum, BSC, and localhost (Hardhat)
 
 **Performance**: Capable of processing tens of thousands of transactions efficiently by reducing blockchain congestion and maximizing throughput.
 
@@ -44,10 +45,9 @@ See `.env.sample` for all configuration options. Key settings:
 ### Core Settings
 - `SIGNING_SERVICE_ENCRYPTION_KEY`: Key for encrypting private keys in memory (32 characters)
 - `SIGNING_SERVICE_PRIVATE_KEY_SECRET`: AWS Secrets Manager key for private key
-- `POLYGON_NETWORK`: Network to use (amoy or mainnet)
-- `POLYGON_RPC_URL`: RPC URL for Polygon network
 - `TX_REQUEST_QUEUE_URL`: Queue URL for incoming withdrawal requests
 - `SIGNED_TX_QUEUE_URL`: Queue URL for signed transactions
+- **Note**: Chain and network must be specified in API requests (no default values)
 
 ### Batch Processing Settings
 - `ENABLE_BATCH_PROCESSING`: Enable/disable batch processing (default: true)

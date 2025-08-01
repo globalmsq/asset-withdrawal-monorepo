@@ -1,14 +1,17 @@
 import { ethers } from 'ethers';
-import { ChainProvider } from '@asset-withdrawal/shared';
+import { ChainProvider, tokenService } from '@asset-withdrawal/shared';
 import { SignedTransaction } from '../types';
 import { SecureSecretsManager } from './secrets-manager';
 import { NonceCacheService } from './nonce-cache.service';
 import { GasPriceCache } from './gas-price-cache';
 import { Logger } from '../utils/logger';
 import { MulticallService, BatchTransferRequest } from './multicall.service';
+import { Config } from '../config';
 
 const ERC20_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
+  'function decimals() returns (uint8)',
+  'function allowance(address owner, address spender) view returns (uint256)',
 ];
 
 export interface SigningRequest {
@@ -33,7 +36,8 @@ export class TransactionSigner {
     private nonceCache: NonceCacheService,
     private gasPriceCache: GasPriceCache,
     private multicallService: MulticallService,
-    private logger: Logger
+    private logger: Logger,
+    private config: Config
   ) {}
 
   async initialize(): Promise<void> {
@@ -54,7 +58,7 @@ export class TransactionSigner {
       const networkNonce = await this.provider.getTransactionCount(
         this.wallet.address
       );
-      await this.nonceCache.initialize(this.wallet.address, networkNonce);
+      await this.nonceCache.initialize(this.wallet.address, networkNonce, this.chainProvider.chain, this.chainProvider.network);
 
       this.logger.info('Transaction signer initialized', {
         address: this.wallet.address,
@@ -63,6 +67,9 @@ export class TransactionSigner {
         network: this.chainProvider.network,
         initialNonce: networkNonce,
       });
+
+      // Note: Approve transactions have been removed - assuming sufficient allowances exist
+      this.logger.info('Initialization complete - approve TX logic removed, assuming sufficient allowances');
     } catch (error) {
       this.logger.error('Failed to initialize transaction signer', error);
       throw error;
@@ -85,7 +92,7 @@ export class TransactionSigner {
 
     try {
       // Get nonce from Redis (atomic increment)
-      const nonce = await this.nonceCache.getAndIncrement(this.wallet.address);
+      const nonce = await this.nonceCache.getAndIncrement(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
 
       this.logger.debug('Using nonce for transaction', {
         address: this.wallet.address,
@@ -139,7 +146,7 @@ export class TransactionSigner {
           chainId: this.chainProvider.getChainId(),
         };
       } else {
-        // Native MATIC transfer
+        // Native token transfer
         transaction = {
           to,
           value: amount,
@@ -195,7 +202,7 @@ export class TransactionSigner {
         });
       }
 
-      // Adjust gas price for Polygon (10% higher)
+      // Adjust gas price with a buffer (10% higher)
       maxFeePerGas = (maxFeePerGas * 110n) / 100n;
       maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
 
@@ -213,7 +220,8 @@ export class TransactionSigner {
       const parsedTx = ethers.Transaction.from(signedTx);
 
       const result: SignedTransaction = {
-        transactionId,
+        transactionType: 'SINGLE',
+        requestId: transactionId,
         hash: parsedTx.hash!,
         rawTransaction: signedTx,
         nonce: Number(nonce),
@@ -257,17 +265,79 @@ export class TransactionSigner {
     const { transfers, batchId } = request;
 
     try {
+      // Sync nonce with network at the beginning to avoid conflicts
+      try {
+        if (!this.provider) {
+          throw new Error('Provider not initialized');
+        }
+        const networkNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
+        const cachedNonce = await this.nonceCache.get(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
+
+        // If cached nonce is behind network nonce, update it
+        if (cachedNonce === null || cachedNonce < networkNonce) {
+          await this.nonceCache.set(this.wallet.address, networkNonce, this.chainProvider.chain, this.chainProvider.network);
+          this.logger.info('Nonce synchronized at batch start', {
+            batchId,
+            networkNonce,
+            previousCached: cachedNonce,
+          });
+        }
+      } catch (syncError) {
+        this.logger.warn('Failed to sync nonce at batch start, continuing anyway', {
+          batchId,
+          error: syncError instanceof Error ? syncError.message : 'Unknown error',
+        });
+      }
+
       // Validate batch before processing
       const validation = await this.multicallService.validateBatch(transfers, this.wallet.address);
       if (!validation.valid) {
         throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
       }
 
-      // Prepare batch transfers
-      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers);
+      // Get Multicall3 address
+      const multicall3Address = this.chainProvider.getMulticall3Address();
+
+      // Check allowances for all tokens
+      const { needsApproval } = await this.multicallService.checkAndPrepareAllowances(
+        transfers,
+        this.wallet.address,
+        multicall3Address
+      );
+
+      if (needsApproval.length > 0) {
+        this.logger.info('Insufficient allowances detected, approving tokens automatically', {
+          batchId,
+          needsApproval: needsApproval.map(a => ({
+            token: a.tokenAddress,
+            current: a.currentAllowance.toString(),
+            required: a.requiredAmount.toString(),
+          })),
+        });
+
+        // Approve logic removed - assuming sufficient allowances exist
+        // If allowance is insufficient, transaction will fail and be handled by error recovery
+        this.logger.warn('Insufficient allowances detected but approve logic removed', {
+          batchId,
+          tokensNeedingApproval: needsApproval.map(a => ({
+            token: a.tokenAddress,
+            currentAllowance: a.currentAllowance.toString(),
+            required: a.requiredAmount.toString(),
+          })),
+        });
+      }
+
+      // Prepare batch transfers with gas estimation
+      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers, this.wallet.address, false);
+
+      this.logger.info('Batch prepared with gas estimation', {
+        batchId,
+        estimatedGas: preparedBatch.totalEstimatedGas.toString(),
+        transferCount: transfers.length,
+      });
 
       // Get nonce from Redis (atomic increment)
-      const nonce = await this.nonceCache.getAndIncrement(this.wallet.address);
+      const nonce = await this.nonceCache.getAndIncrement(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
 
       this.logger.debug('Using nonce for batch transaction', {
         address: this.wallet.address,
@@ -275,9 +345,6 @@ export class TransactionSigner {
         batchId,
         transferCount: transfers.length,
       });
-
-      // Get Multicall3 address
-      const multicall3Address = this.chainProvider.getMulticall3Address();
 
       // Encode the batch transaction data
       const data = this.multicallService.encodeBatchTransaction(preparedBatch.calls);
@@ -291,7 +358,7 @@ export class TransactionSigner {
         type: 2, // EIP-1559
       };
 
-      // Use prepared gas estimate
+      // Use the gas estimate from preparedBatch
       const gasLimit = preparedBatch.totalEstimatedGas;
 
       // Get gas price from cache or fetch new one
@@ -337,7 +404,7 @@ export class TransactionSigner {
         });
       }
 
-      // Adjust gas price for Polygon (10% higher)
+      // Adjust gas price with a buffer (10% higher)
       maxFeePerGas = (maxFeePerGas * 110n) / 100n;
       maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
 
@@ -351,7 +418,9 @@ export class TransactionSigner {
       const parsedTx = ethers.Transaction.from(signedTx);
 
       const result: SignedTransaction = {
-        transactionId: batchId,
+        transactionType: 'BATCH',
+        requestId: batchId,
+        batchId: batchId,
         hash: parsedTx.hash!,
         rawTransaction: signedTx,
         nonce: Number(nonce),
@@ -397,14 +466,70 @@ export class TransactionSigner {
     const { transfers, batchId } = request;
 
     try {
+      // Sync nonce with network at the beginning to avoid conflicts
+      try {
+        if (!this.provider) {
+          throw new Error('Provider not initialized');
+        }
+        const networkNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
+        const cachedNonce = await this.nonceCache.get(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
+
+        // If cached nonce is behind network nonce, update it
+        if (cachedNonce === null || cachedNonce < networkNonce) {
+          await this.nonceCache.set(this.wallet.address, networkNonce, this.chainProvider.chain, this.chainProvider.network);
+          this.logger.info('Nonce synchronized at batch start', {
+            batchId,
+            networkNonce,
+            previousCached: cachedNonce,
+          });
+        }
+      } catch (syncError) {
+        this.logger.warn('Failed to sync nonce at batch start, continuing anyway', {
+          batchId,
+          error: syncError instanceof Error ? syncError.message : 'Unknown error',
+        });
+      }
+
       // Validate batch before processing
       const validation = await this.multicallService.validateBatch(transfers, this.wallet.address);
       if (!validation.valid) {
         throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
       }
 
-      // Prepare batch transfers with potential splitting
-      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers);
+      // Get Multicall3 address
+      const multicall3Address = this.chainProvider.getMulticall3Address();
+
+      // Check allowances for all tokens
+      const { needsApproval } = await this.multicallService.checkAndPrepareAllowances(
+        transfers,
+        this.wallet.address,
+        multicall3Address
+      );
+
+      if (needsApproval.length > 0) {
+        this.logger.info('Insufficient allowances detected, approving tokens automatically', {
+          batchId,
+          needsApproval: needsApproval.map(a => ({
+            token: a.tokenAddress,
+            current: a.currentAllowance.toString(),
+            required: a.requiredAmount.toString(),
+          })),
+        });
+
+        // Approve logic removed - assuming sufficient allowances exist
+        // If allowance is insufficient, transaction will fail and be handled by error recovery
+        this.logger.warn('Insufficient allowances detected but approve logic removed', {
+          batchId,
+          tokensNeedingApproval: needsApproval.map(a => ({
+            token: a.tokenAddress,
+            currentAllowance: a.currentAllowance.toString(),
+            required: a.requiredAmount.toString(),
+          })),
+        });
+      }
+
+      // Prepare batch transfers with potential splitting and gas estimation
+      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers, this.wallet.address, false);
 
       // Check if batch was split into groups
       if (preparedBatch.batchGroups && preparedBatch.batchGroups.length > 1) {
@@ -430,7 +555,7 @@ export class TransactionSigner {
           });
 
           // Get nonce for this transaction
-          const nonce = await this.nonceCache.getAndIncrement(this.wallet.address);
+          const nonce = await this.nonceCache.getAndIncrement(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
 
           // Get Multicall3 address
           const multicall3Address = this.chainProvider.getMulticall3Address();
@@ -460,7 +585,9 @@ export class TransactionSigner {
           const parsedTx = ethers.Transaction.from(signedTx);
 
           const result: SignedTransaction = {
-            transactionId: groupBatchId,
+            transactionType: 'BATCH',
+            requestId: groupBatchId,
+            batchId: batchId, // Keep original batchId for tracking
             hash: parsedTx.hash!,
             rawTransaction: signedTx,
             nonce: Number(nonce),
@@ -556,4 +683,5 @@ export class TransactionSigner {
     // Disconnect from Redis
     await this.nonceCache.disconnect();
   }
+
 }

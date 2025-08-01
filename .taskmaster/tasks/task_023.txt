@@ -1,0 +1,80 @@
+# Task ID: 23
+# Title: [BFS-38] 네이티브 토큰(ETH, MATIC, BNB 등) 출금 지원 구현
+# Status: pending
+# Dependencies: 11, 15, 22
+# Priority: medium
+# Description: 현재 ERC-20 토큰만 지원하는 시스템을 확장하여 네이티브 토큰(ETH, MATIC, BNB 등)의 출금을 지원하도록 구현합니다. API 레벨에서의 검증부터 signing-service의 트랜잭션 처리까지 전체 파이프라인을 수정합니다.
+# Details:
+**Jira 키: BFS-38**
+
+1. **토큰 타입 구분 체계 구현**
+   - WithdrawalRequest 모델에 tokenType 필드 추가 ('NATIVE' | 'ERC20')
+   - 토큰 주소가 '0x0' 또는 null인 경우 네이티브 토큰으로 식별
+   - packages/shared/src/types에 TokenType enum 정의
+
+2. **API 레벨 변경사항**
+   - withdrawal-api의 validator에서 네이티브 토큰 요청 허용
+   - 네이티브 토큰의 경우 tokenAddress를 '0x0000000000000000000000000000000000000000' 또는 null로 처리
+   - 요청 검증 시 네이티브 토큰과 ERC20 토큰 별도 처리 로직 추가
+
+3. **signing-service 수정사항**
+   - TransactionSigner 클래스에 네이티브 토큰 전송 로직 추가
+   - 네이티브 토큰은 배치 처리(Multicall3) 불가능하도록 제한
+   - signNativeTransaction() 메서드 구현:
+     ```typescript
+     async signNativeTransaction(request: WithdrawalRequest): Promise<TransactionResponse> {
+       const tx = {
+         to: request.recipientAddress,
+         value: ethers.parseUnits(request.amount, 18), // 네이티브 토큰은 항상 18 decimals
+         gasLimit: 21000, // 네이티브 전송은 고정 가스
+         maxFeePerGas: await this.provider.getGasPrice(),
+         maxPriorityFeePerGas: ethers.parseUnits('2', 'gwei'),
+         nonce: await this.provider.getTransactionCount(this.signerAddress),
+         chainId: this.chainId
+       };
+       return await this.signer.sendTransaction(tx);
+     }
+     ```
+
+4. **트랜잭션 처리 플로우 수정**
+   - processWithdrawal() 메서드에서 토큰 타입 확인 후 분기 처리
+   - 네이티브 토큰은 개별 트랜잭션으로만 처리
+   - ERC20 토큰은 기존 배치/단일 처리 로직 유지
+
+5. **잔액 검증 로직 업데이트**
+   - BalanceService에서 네이티브 토큰 잔액 확인 로직 추가
+   - provider.getBalance() 사용하여 네이티브 잔액 조회
+   - 가스비 계산 시 네이티브 토큰 전송은 21,000 gas 고정
+
+6. **데이터베이스 마이그레이션**
+   - WithdrawalRequest 테이블에 tokenType 컬럼 추가
+   - 기존 레코드는 모두 'ERC20'로 기본값 설정
+
+7. **에러 처리 강화**
+   - 네이티브 토큰 배치 전송 시도 시 명확한 에러 메시지
+   - 잔액 부족 시 가스비 포함 필요 금액 안내
+
+# Test Strategy:
+1. **단위 테스트**
+   - 네이티브 토큰 식별 로직 테스트 (tokenAddress가 null, '0x0' 등)
+   - signNativeTransaction() 메서드 동작 검증
+   - 네이티브 토큰 잔액 조회 정확성 테스트
+
+2. **통합 테스트**
+   - API 엔드포인트에서 네이티브 토큰 출금 요청 수락 테스트
+   - 네이티브 토큰과 ERC20 토큰 혼합 요청 시나리오
+   - 배치 전송에서 네이티브 토큰 제외 검증
+
+3. **Hardhat 로컬 환경 테스트**
+   - 로컬 체인에서 실제 네이티브 토큰 전송 테스트
+   - 가스비 계산 정확성 검증
+   - 트랜잭션 확인 및 잔액 변화 추적
+
+4. **엣지 케이스 테스트**
+   - 네이티브 토큰 잔액이 정확히 가스비만큼인 경우
+   - 네이티브 토큰 배치 전송 시도 시 에러 처리
+   - 다양한 체인(Polygon, BSC, Ethereum)에서의 네이티브 토큰 처리
+
+5. **성능 테스트**
+   - 대량의 네이티브 토큰 개별 전송 처리 시간 측정
+   - ERC20 배치 전송 대비 처리량 비교

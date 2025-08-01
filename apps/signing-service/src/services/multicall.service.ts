@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { ChainProvider } from '@asset-withdrawal/shared';
+import { ChainProvider, tokenService } from '@asset-withdrawal/shared';
 import { Logger } from '../utils/logger';
 
 // Multicall3 ABI - only the functions we need
@@ -47,9 +47,12 @@ const MULTICALL3_ABI = [
   },
 ];
 
-// ERC20 ABI for transfer function
+// ERC20 ABI for transfer functions
 const ERC20_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
+  'function transferFrom(address from, address to, uint256 amount) returns (bool)',
+  'function balanceOf(address account) returns (uint256)',
+  'function allowance(address owner, address spender) returns (uint256)',
 ];
 
 // Interface for Multicall3.Call3 struct
@@ -103,9 +106,9 @@ export class MulticallService {
   private provider: ethers.Provider;
   private gasConfig: GasConfig;
 
-  // Polygon-specific gas constants
-  private static readonly POLYGON_GAS_CONFIG = {
-    blockGasLimit: 30_000_000n, // 30M gas limit on Polygon
+  // Default gas constants for EVM chains
+  private static readonly DEFAULT_GAS_CONFIG = {
+    blockGasLimit: 30_000_000n, // Common gas limit for many chains
     safetyMargin: 0.75, // Use 75% of block gas limit for safety
     multicallOverhead: 35_000n, // Base overhead for Multicall3
     baseTransferGas: 65_000n, // Base gas for ERC20 transfer
@@ -128,12 +131,12 @@ export class MulticallService {
       this.provider
     );
 
-    // Initialize gas configuration
+    // Initialize gas configuration with chain-specific values if available
     this.gasConfig = {
-      blockGasLimit: MulticallService.POLYGON_GAS_CONFIG.blockGasLimit,
-      safetyMargin: MulticallService.POLYGON_GAS_CONFIG.safetyMargin,
-      multicallOverhead: MulticallService.POLYGON_GAS_CONFIG.multicallOverhead,
-      baseTransferGas: MulticallService.POLYGON_GAS_CONFIG.baseTransferGas,
+      blockGasLimit: this.getChainBlockGasLimit(),
+      safetyMargin: MulticallService.DEFAULT_GAS_CONFIG.safetyMargin,
+      multicallOverhead: MulticallService.DEFAULT_GAS_CONFIG.multicallOverhead,
+      baseTransferGas: MulticallService.DEFAULT_GAS_CONFIG.baseTransferGas,
       tokenTransferGas: new Map(), // Will be populated as we learn token-specific costs
     };
 
@@ -153,9 +156,9 @@ export class MulticallService {
   /**
    * Prepare batch transfers for Multicall3 with dynamic batch splitting
    */
-  async prepareBatchTransfer(transfers: BatchTransferRequest[]): Promise<PreparedBatch> {
+  async prepareBatchTransfer(transfers: BatchTransferRequest[], fromAddress: string, skipGasEstimation: boolean = false): Promise<PreparedBatch> {
     // First, validate the batch
-    const validation = await this.validateBatch(transfers, '0x0'); // Signer address not needed for basic validation
+    const validation = await this.validateBatch(transfers, fromAddress);
     if (!validation.valid) {
       throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
     }
@@ -171,10 +174,12 @@ export class MulticallService {
       // Create ERC20 interface for encoding
       const erc20Interface = new ethers.Interface(ERC20_ABI);
 
-      // Encode transfer function call
-      const callData = erc20Interface.encodeFunctionData('transfer', [
-        to,
-        amount,
+      // Encode transferFrom function call
+      // Multicall3 will call transferFrom on behalf of the signing wallet
+      const callData = erc20Interface.encodeFunctionData('transferFrom', [
+        fromAddress,  // from: signing service wallet
+        to,           // to: recipient
+        amount,       // amount to transfer
       ]);
 
       // Add to calls array
@@ -186,6 +191,25 @@ export class MulticallService {
 
       // Map call index to transfer for later grouping
       callToTransferMap.set(i, transfer);
+    }
+
+    // If gas estimation is skipped, return basic result
+    if (skipGasEstimation) {
+      this.logger.info('Skipping gas estimation for batch preparation', {
+        totalTransfers: transfers.length,
+      });
+
+      // Use fallback gas estimates based on historical data or defaults
+      const estimatedGasPerCall = this.getFallbackGasEstimate(allCalls);
+      const totalEstimatedGas = this.gasConfig.multicallOverhead +
+        (estimatedGasPerCall * BigInt(allCalls.length)) +
+        (MulticallService.DEFAULT_GAS_CONFIG.additionalGasPerCall * BigInt(allCalls.length - 1));
+
+      return {
+        calls: allCalls,
+        estimatedGasPerCall,
+        totalEstimatedGas,
+      };
     }
 
     // Estimate gas for all calls
@@ -226,6 +250,16 @@ export class MulticallService {
   }
 
   /**
+   * Estimate gas for already prepared calls (public method for post-approval estimation)
+   */
+  async estimateGasForCalls(calls: Call3[]): Promise<{
+    estimatedGasPerCall: bigint;
+    totalEstimatedGas: bigint;
+  }> {
+    return this.estimateBatchGas(calls);
+  }
+
+  /**
    * Estimate gas for batch transaction with improved token-specific estimation
    */
   private async estimateBatchGas(calls: Call3[]): Promise<{
@@ -236,13 +270,13 @@ export class MulticallService {
       // Try to get actual gas estimate from the network
       const gasEstimate = await this.multicall3Contract.aggregate3.estimateGas(calls);
 
-      // Calculate per-call gas with Polygon-specific adjustments
+      // Calculate per-call gas with chain-specific adjustments
       const basePerCall = gasEstimate / BigInt(calls.length);
 
-      // On Polygon, batch operations have diminishing gas costs per additional call
-      const adjustedPerCall = this.adjustGasForPolygon(basePerCall, calls.length);
+      // On most chains, batch operations have diminishing gas costs per additional call
+      const adjustedPerCall = this.adjustGasForBatchOperations(basePerCall, calls.length);
 
-      // Add 15% buffer for Polygon (lower than Ethereum due to more predictable gas)
+      // Add 15% buffer for gas estimation
       const totalEstimatedGas = (gasEstimate * 115n) / 100n;
 
       this.logger.debug('Batch gas estimation', {
@@ -269,7 +303,7 @@ export class MulticallService {
       const estimatedGasPerCall = this.getFallbackGasEstimate(calls);
       const totalEstimatedGas = this.gasConfig.multicallOverhead +
         (estimatedGasPerCall * BigInt(calls.length)) +
-        (MulticallService.POLYGON_GAS_CONFIG.additionalGasPerCall * BigInt(calls.length - 1));
+        (MulticallService.DEFAULT_GAS_CONFIG.additionalGasPerCall * BigInt(calls.length - 1));
 
       this.logger.warn('Using fallback gas estimation', {
         estimatedGasPerCall: estimatedGasPerCall.toString(),
@@ -319,6 +353,13 @@ export class MulticallService {
       txIds.add(transfer.transactionId);
     }
 
+    // Calculate total amounts per token
+    const tokenTotals = new Map<string, { amount: bigint; symbol: string }>();
+
+    // Get chain and network from chainProvider
+    const chain = this.chainProvider.chain;
+    const network = this.chainProvider.network;
+
     // Validate addresses
     for (const transfer of transfers) {
       // Validate token address - accept both checksummed and lowercase addresses
@@ -359,8 +400,31 @@ export class MulticallService {
         if (amount <= 0n) {
           errors.push(`Invalid amount in transfer ${transfer.transactionId}: must be positive`);
         }
+
+        // Accumulate token totals for max amount checking
+        const tokenInfo = tokenService.getTokenByAddress(transfer.tokenAddress, network, chain);
+        if (tokenInfo) {
+          const key = transfer.tokenAddress.toLowerCase();
+          const current = tokenTotals.get(key);
+          if (current) {
+            current.amount += amount;
+          } else {
+            tokenTotals.set(key, { amount, symbol: tokenInfo.symbol });
+          }
+        }
       } catch (error) {
         errors.push(`Invalid amount in transfer ${transfer.transactionId}`);
+      }
+    }
+
+    // Check max transfer amounts
+    for (const [tokenAddress, { amount, symbol }] of tokenTotals) {
+      const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network, chain);
+      if (tokenInfo && tokenInfo.maxTransferAmount) {
+        const maxAmount = BigInt(tokenInfo.maxTransferAmount);
+        if (amount > maxAmount) {
+          errors.push(`Total amount for ${symbol} (${amount.toString()}) exceeds maximum transfer amount (${tokenInfo.maxTransferAmount})`);
+        }
       }
     }
 
@@ -404,6 +468,22 @@ export class MulticallService {
   }
 
   /**
+   * Get chain-specific block gas limit
+   */
+  private getChainBlockGasLimit(): bigint {
+    // Chain-specific gas limits (can be extended as needed)
+    const chainGasLimits: Record<string, bigint> = {
+      'ethereum': 30_000_000n,
+      'polygon': 30_000_000n,
+      'bsc': 140_000_000n,
+      'localhost': 30_000_000n,
+    };
+
+    const chain = this.chainProvider.chain;
+    return chainGasLimits[chain] || MulticallService.DEFAULT_GAS_CONFIG.blockGasLimit;
+  }
+
+  /**
    * Get maximum gas for a single batch
    */
   private getMaxBatchGas(): bigint {
@@ -411,10 +491,10 @@ export class MulticallService {
   }
 
   /**
-   * Adjust gas estimate for Polygon network characteristics
+   * Adjust gas estimate for batch operations
    */
-  private adjustGasForPolygon(baseGasPerCall: bigint, callCount: number): bigint {
-    // Polygon has more efficient batch processing
+  private adjustGasForBatchOperations(baseGasPerCall: bigint, callCount: number): bigint {
+    // Most EVM chains have more efficient batch processing
     // Each additional call costs slightly less due to warm storage slots
     const discount = Math.min(0.15, callCount * 0.005); // Max 15% discount
     return (baseGasPerCall * BigInt(Math.floor(100 - discount * 100))) / 100n;
@@ -472,16 +552,22 @@ export class MulticallService {
     const maxBatchGas = this.getMaxBatchGas();
     const batchGroups: BatchGroup[] = [];
 
+    // Get chain and network for token lookup
+    const chain = this.chainProvider.chain;
+    const network = this.chainProvider.network;
+
     let currentBatch: {
       calls: Call3[];
       transfers: BatchTransferRequest[];
       estimatedGas: bigint;
       tokenGroups: Map<string, number>;
+      tokenAmounts: Map<string, bigint>; // Track amounts per token
     } = {
       calls: [],
       transfers: [],
       estimatedGas: this.gasConfig.multicallOverhead,
       tokenGroups: new Map(),
+      tokenAmounts: new Map(),
     };
 
     for (let i = 0; i < transfers.length; i++) {
@@ -492,8 +578,21 @@ export class MulticallService {
       const callGas = this.getGasForNthCall(estimatedGasPerCall, currentBatch.calls.length);
       const newTotalGas = currentBatch.estimatedGas + callGas;
 
-      // Check if adding this call would exceed gas limit
-      if (newTotalGas > maxBatchGas && currentBatch.calls.length > 0) {
+      // Check max transfer amount for token
+      const tokenAddress = transfer.tokenAddress.toLowerCase();
+      const transferAmount = BigInt(transfer.amount);
+      const currentTokenAmount = currentBatch.tokenAmounts.get(tokenAddress) || 0n;
+      const newTokenTotal = currentTokenAmount + transferAmount;
+
+      // Get max transfer amount for this token
+      const tokenInfo = tokenService.getTokenByAddress(transfer.tokenAddress, network, chain);
+      const maxTransferAmount = tokenInfo?.maxTransferAmount ? BigInt(tokenInfo.maxTransferAmount) : null;
+
+      // Check if adding this transfer would exceed max amount or gas limit
+      const exceedsMaxAmount = maxTransferAmount && newTokenTotal > maxTransferAmount;
+      const exceedsGasLimit = newTotalGas > maxBatchGas && currentBatch.calls.length > 0;
+
+      if (exceedsMaxAmount || exceedsGasLimit) {
         // Save current batch
         batchGroups.push({
           calls: [...currentBatch.calls],
@@ -508,6 +607,7 @@ export class MulticallService {
           transfers: [],
           estimatedGas: this.gasConfig.multicallOverhead,
           tokenGroups: new Map(),
+          tokenAmounts: new Map(),
         };
       }
 
@@ -516,11 +616,14 @@ export class MulticallService {
       currentBatch.transfers.push(transfer);
       currentBatch.estimatedGas += callGas;
 
-      // Update token groups
-      const tokenAddress = transfer.tokenAddress.toLowerCase();
+      // Update token groups and amounts
       currentBatch.tokenGroups.set(
         tokenAddress,
         (currentBatch.tokenGroups.get(tokenAddress) || 0) + 1
+      );
+      currentBatch.tokenAmounts.set(
+        tokenAddress,
+        (currentBatch.tokenAmounts.get(tokenAddress) || 0n) + transferAmount
       );
     }
 
@@ -543,4 +646,79 @@ export class MulticallService {
 
     return batchGroups;
   }
+
+  /**
+   * Check and ensure sufficient allowances for all tokens in the batch
+   * Returns a list of tokens that need approval
+   */
+  async checkAndPrepareAllowances(
+    transfers: BatchTransferRequest[],
+    ownerAddress: string,
+    spenderAddress: string
+  ): Promise<{
+    needsApproval: Array<{
+      tokenAddress: string;
+      currentAllowance: bigint;
+      requiredAmount: bigint;
+    }>;
+  }> {
+    const tokenAmounts = new Map<string, bigint>();
+
+    // Aggregate amounts by token
+    for (const transfer of transfers) {
+      const current = tokenAmounts.get(transfer.tokenAddress) || 0n;
+      tokenAmounts.set(transfer.tokenAddress, current + BigInt(transfer.amount));
+    }
+
+    const needsApproval: Array<{
+      tokenAddress: string;
+      currentAllowance: bigint;
+      requiredAmount: bigint;
+    }> = [];
+
+    // Check allowance for each token
+    for (const [tokenAddress, requiredAmount] of tokenAmounts) {
+      try {
+        const tokenContract = new ethers.Contract(
+          tokenAddress,
+          ERC20_ABI,
+          this.provider  // Use provider directly for read operations
+        );
+
+        // Use staticCall to ensure this is treated as a read-only operation
+        const currentAllowance = await tokenContract.allowance.staticCall(ownerAddress, spenderAddress);
+
+        if (currentAllowance < requiredAmount) {
+          needsApproval.push({
+            tokenAddress,
+            currentAllowance,
+            requiredAmount,
+          });
+
+          this.logger.warn('Insufficient allowance for token', {
+            tokenAddress,
+            currentAllowance: currentAllowance.toString(),
+            requiredAmount: requiredAmount.toString(),
+            owner: ownerAddress,
+            spender: spenderAddress,
+          });
+        }
+      } catch (error) {
+        this.logger.error('Failed to check allowance', error, {
+          tokenAddress,
+          owner: ownerAddress,
+          spender: spenderAddress,
+        });
+        // If we can't check allowance, assume it needs approval
+        needsApproval.push({
+          tokenAddress,
+          currentAllowance: 0n,
+          requiredAmount,
+        });
+      }
+    }
+
+    return { needsApproval };
+  }
+
 }

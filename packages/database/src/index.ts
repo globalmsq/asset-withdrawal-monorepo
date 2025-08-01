@@ -5,10 +5,15 @@ export { TransactionService } from './transaction-service';
 export { UserService } from './user-service';
 export { WithdrawalRequestService } from './withdrawal-request-service';
 export type { WithdrawalRequest } from './withdrawal-request-service';
-export { SignedTransactionService } from './services/signed-transaction.service';
-export type { CreateSignedTransactionDto, UpdateSignedTransactionDto } from './services/signed-transaction.service';
-export { BatchTransactionService } from './batch-transaction-service';
-export type { BatchTransaction } from './batch-transaction-service';
+export { SignedSingleTransactionService } from './services/signed-single-transaction.service';
+export type { CreateSignedTransactionDto, UpdateSignedTransactionDto } from './services/signed-single-transaction.service';
+export { SignedBatchTransactionService } from './signed-batch-transaction-service';
+export type { SignedBatchTransaction } from './signed-batch-transaction-service';
 
 // Prisma client export for direct use if needed
 export { PrismaClient } from '@prisma/client';
+
+// Backward compatibility aliases (to be removed in future)
+export { SignedSingleTransactionService as SignedTransactionService } from './services/signed-single-transaction.service';
+export { SignedBatchTransactionService as BatchTransactionService } from './signed-batch-transaction-service';
+export type { SignedBatchTransaction as BatchTransaction } from './signed-batch-transaction-service';

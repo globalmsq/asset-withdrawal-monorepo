@@ -48,20 +48,36 @@ AWS_ACCESS_KEY_ID=test
 AWS_SECRET_ACCESS_KEY=test
 
 # 블록체인 설정
-POLYGON_NETWORK=amoy
-POLYGON_RPC_URL=https://rpc-amoy.polygon.technology
-POLYGON_CHAIN_ID=80002
-PRIVATE_KEY="0x..."
+# RPC_URL과 CHAIN_ID는 오버라이드용 (선택사항)
+RPC_URL=http://localhost:8545  # Hardhat 로컬 개발용
+CHAIN_ID=31337  # Hardhat 체인 ID
+
+# 서명 서비스 설정
+SIGNING_SERVICE_PRIVATE_KEY_SECRET=signing-service/private-key
+SIGNING_SERVICE_LOG_LEVEL=info
 
 # 서비스 포트
 API_SERVER_PORT=3000
-TX_PROCESSOR_PORT=3001
 SIGNING_SERVICE_PORT=3002
-TX_MONITOR_PORT=3003
-TX_BROADCASTER_PORT=3004
+TX_BROADCASTER_PORT=3004  # 개발 예정
+TX_MONITOR_PORT=3003  # 개발 예정
+ACCOUNT_MANAGER_PORT=3005  # 개발 예정
 
 # Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
 REDIS_URL=redis://localhost:6379
+
+# 배치 처리 설정
+ENABLE_BATCH_PROCESSING=true
+BATCH_THRESHOLD=5
+MIN_GAS_SAVINGS_PERCENT=20
+
+# Account Manager 설정 (개발 예정)
+BALANCE_CHECK_INTERVAL=300000  # 5분 (밀리초)
+MIN_BALANCE_THRESHOLD=0.1      # ETH
+BATCH_TRANSFER_ENABLED=true
+MAX_BATCH_SIZE=10
 
 # 로깅
 LOG_LEVEL=debug
@@ -84,6 +100,14 @@ docker-compose -f docker/docker-compose.yaml up -d mysql redis localstack
 ./docker/scripts/init-localstack.sh
 ```
 
+이 스크립트는 다음 큐들을 생성합니다:
+- `tx-request-queue`: 출금 요청 큐
+- `signed-tx-queue`: 서명된 트랜잭션 큐  
+- `tx-monitor-queue`: 모니터링 대상 트랜잭션 큐
+- `balance-check-queue`: 잔액 확인 요청 큐 (Account Manager용)
+- `balance-transfer-queue`: 잔액 전송 요청 큐 (Account Manager용)
+- 각 큐의 DLQ (Dead Letter Queue)
+
 ### 6. 데이터베이스 마이그레이션
 
 ```bash
@@ -104,19 +128,22 @@ npm run dev
 ### 개별 서비스 실행
 ```bash
 # API 서버만
-npm run dev:api
+nx serve api-server
 
 # 서명 서비스만
-npm run dev:signing
+nx serve signing-service
 
-# 모니터링 서비스만
-npm run dev:monitor
+# TX Broadcaster (개발 예정)
+nx serve tx-broadcaster
 
-# 프로세서만
-npm run dev:processor
+# TX Monitor (개발 예정)
+nx serve tx-monitor
 
-# Admin UI (React 앱)
-npm run dev:admin-ui
+# Account Manager (개발 예정)
+nx serve account-manager
+
+# Admin UI (React 앱, 개발 예정)
+nx serve admin-ui
 ```
 
 ## 빌드 및 프로덕션 실행
@@ -189,6 +216,18 @@ tail -f logs/app.log
 - LocalStack 대시보드: http://localhost:4566
 - SQS 관리 UI: http://localhost:3999
 
+### Hardhat 로컬 블록체인
+- Hardhat 노드 시작: `npx hardhat node --hostname 0.0.0.0`
+- 로컬 체인 ID: 31337
+- RPC URL: http://localhost:8545
+- 테스트 계정은 Hardhat이 자동 생성
+
+### 지원 블록체인
+- **Polygon**: Mainnet, Amoy Testnet
+- **Ethereum**: Mainnet, Sepolia (예정)
+- **BSC**: Mainnet, Testnet (예정)
+- **Localhost**: Hardhat 개발 환경
+
 ### 디버깅
 1. VS Code의 디버그 설정 사용
 2. Chrome DevTools를 사용한 Node.js 디버깅
@@ -197,6 +236,11 @@ tail -f logs/app.log
 ### API 테스트
 - Swagger UI: http://localhost:3000/api-docs
 - 포스트맨 컬렉션: `/docs/postman/collection.json`
+
+### 배치 처리 테스트
+- 최소 5개 이상의 출금 요청 생성
+- 동일 토큰으로 요청하면 자동으로 배치 처리
+- Multicall3 컨트랙트 주소: `0xcA11bde05977b3631167028862bE2a173976CA11`
 
 ## 문제 해결
 

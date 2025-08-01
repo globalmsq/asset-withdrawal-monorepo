@@ -3,6 +3,7 @@ export interface Token {
   decimals: number;
   symbol: string;
   name: string;
+  maxTransferAmount?: string;
 }
 
 export interface TokenConfig {

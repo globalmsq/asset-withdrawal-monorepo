@@ -9,6 +9,7 @@ export interface AuditLog {
   userId?: string;
   apiKey?: string;
   transactionId?: string;
+  requestId?: string;
   requestData?: any;
   responseData?: any;
   success: boolean;

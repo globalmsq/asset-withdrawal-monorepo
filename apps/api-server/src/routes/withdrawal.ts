@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { ethers } from 'ethers';
 import {
   WithdrawalRequest,
   WithdrawalResponse,
@@ -66,10 +67,11 @@ async function ensureQueueInitialized() {
 // Helper function to determine symbol from token address
 function getSymbolFromTokenAddress(
   tokenAddress: string,
-  network: string
+  network: string,
+  chain: string = 'polygon'
 ): string {
   // Look up token in our configuration
-  const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network);
+  const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network, chain);
 
   if (tokenInfo) {
     return tokenInfo.symbol;
@@ -98,6 +100,7 @@ function getSymbolFromTokenAddress(
  *               - amount
  *               - toAddress
  *               - tokenAddress
+ *               - chain
  *               - network
  *             properties:
  *               amount:
@@ -116,10 +119,14 @@ function getSymbolFromTokenAddress(
  *                 type: string
  *                 description: Token symbol (optional, but must match if provided)
  *                 example: "USDT"
+ *               chain:
+ *                 type: string
+ *                 description: Blockchain name (e.g., 'polygon', 'localhost', 'ethereum', 'bsc'). Required.
+ *                 example: "localhost"
  *               network:
  *                 type: string
- *                 description: Network name (currently only 'polygon' supported)
- *                 example: "polygon"
+ *                 description: Network name (e.g., 'mainnet', 'testnet', 'amoy'). Required.
+ *                 example: "testnet"
  *           examples:
  *             polygonUSDT:
  *               summary: Polygon USDT withdrawal
@@ -128,7 +135,35 @@ function getSymbolFromTokenAddress(
  *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
  *                 tokenAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
  *                 symbol: "USDT"
- *                 network: "polygon"
+ *                 chain: "polygon"
+ *                 network: "mainnet"
+ *             localhostMockUSDT:
+ *               summary: Localhost mock USDT withdrawal
+ *               value:
+ *                 amount: "50"
+ *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 tokenAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+ *                 symbol: "mUSDT"
+ *                 chain: "localhost"
+ *                 network: "testnet"
+ *             localhostMockMSQ:
+ *               summary: Localhost mock MSQ withdrawal
+ *               value:
+ *                 amount: "100"
+ *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 tokenAddress: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+ *                 symbol: "mMSQ"
+ *                 chain: "localhost"
+ *                 network: "testnet"
+ *             localhostMockKWT:
+ *               summary: Localhost mock KWT withdrawal
+ *               value:
+ *                 amount: "1000"
+ *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 tokenAddress: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+ *                 symbol: "mKWT"
+ *                 chain: "localhost"
+ *                 network: "testnet"
  *             polygonMSQ:
  *               summary: Polygon MSQ withdrawal with symbol validation
  *               value:
@@ -136,7 +171,8 @@ function getSymbolFromTokenAddress(
  *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
  *                 tokenAddress: "0x6A8Ec2d9BfBDD20A7F5A4E89D640F7E7cebA4499"
  *                 symbol: "MSQ"
- *                 network: "polygon"
+ *                 chain: "polygon"
+ *                 network: "mainnet"
  *     responses:
  *       '201':
  *         description: Withdrawal request created successfully
@@ -189,6 +225,12 @@ function getSymbolFromTokenAddress(
  *                   success: false
  *                   error: "Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed."
  *                   timestamp: "2025-01-03T10:00:00Z"
+ *               maxTransferAmountExceeded:
+ *                 summary: Transfer amount exceeds maximum limit
+ *                 value:
+ *                   success: false
+ *                   error: "Transfer amount exceeds maximum allowed limit. Maximum: 10000 USDT"
+ *                   timestamp: "2025-01-03T10:00:00Z"
  *       '500':
  *         description: Internal server error
  *         content:
@@ -198,18 +240,21 @@ function getSymbolFromTokenAddress(
  */
 router.post('/request', async (req: Request, res: Response) => {
   try {
-    const { amount, toAddress, tokenAddress, symbol, network } = req.body;
+    const { amount, toAddress, tokenAddress, symbol, network, chain } = req.body;
 
     // Basic validation
-    if (!amount || !toAddress || !tokenAddress || !network) {
+    if (!amount || !toAddress || !tokenAddress || !chain || !network) {
       const response: ApiResponse = {
         success: false,
         error:
-          'Missing required fields: amount, toAddress, tokenAddress, network',
+          'Missing required fields: amount, toAddress, tokenAddress, chain, network',
         timestamp: new Date(),
       };
       return res.status(400).json(response);
     }
+
+    const blockchainName = chain;
+    const networkType = network;
 
     // Validate amount
     if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
@@ -221,18 +266,16 @@ router.post('/request', async (req: Request, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Validate network (only polygon supported for backward compatibility)
-    if (network !== 'polygon') {
+    // Validate supported chains using tokenService
+    const supportedChains = tokenService.getSupportedBlockchains();
+    if (!supportedChains.includes(blockchainName)) {
       const response: ApiResponse = {
         success: false,
-        error: 'Only polygon network is supported',
+        error: `Chain '${blockchainName}' is not supported. Supported chains: ${supportedChains.join(', ')}`,
         timestamp: new Date(),
       };
       return res.status(400).json(response);
     }
-
-    // Determine network type from the token configuration
-    const networkType = process.env.POLYGON_NETWORK || 'mainnet';
 
     // Validate token address - Native tokens (0x0000...) are not supported
     if (tokenAddress === '0x0000000000000000000000000000000000000000') {
@@ -246,12 +289,12 @@ router.post('/request', async (req: Request, res: Response) => {
     }
 
     // Validate token is in our supported list
-    const tokenInfo = tokenService.getTokenByAddress(tokenAddress, networkType);
+    const tokenInfo = tokenService.getTokenByAddress(tokenAddress, networkType, blockchainName);
 
     if (!tokenInfo) {
       const response: ApiResponse = {
         success: false,
-        error: `Token ${tokenAddress} is not supported on ${networkType} network`,
+        error: `Token ${tokenAddress} is not supported on ${blockchainName} ${networkType} network`,
         timestamp: new Date(),
       };
       return res.status(400).json(response);
@@ -265,6 +308,22 @@ router.post('/request', async (req: Request, res: Response) => {
         timestamp: new Date(),
       };
       return res.status(400).json(response);
+    }
+
+    // Check if amount exceeds max transfer amount
+    if (tokenInfo.maxTransferAmount) {
+      // Use parseUnits to handle decimal amounts correctly
+      const requestedAmount = ethers.parseUnits(amount, tokenInfo.decimals);
+      const maxAmount = ethers.parseUnits(tokenInfo.maxTransferAmount, tokenInfo.decimals);
+
+      if (requestedAmount > maxAmount) {
+        const response: ApiResponse = {
+          success: false,
+          error: `Transfer amount exceeds maximum allowed limit. Maximum: ${tokenInfo.maxTransferAmount} ${tokenInfo.symbol}`,
+          timestamp: new Date(),
+        };
+        return res.status(400).json(response);
+      }
     }
 
     // Generate unique request ID using UUID v4 with rearranged parts for time-based sorting
@@ -295,10 +354,11 @@ router.post('/request', async (req: Request, res: Response) => {
         data: {
           requestId: requestId,
           amount: amount,
-          symbol: getSymbolFromTokenAddress(tokenAddress, networkType),
+          symbol: getSymbolFromTokenAddress(tokenAddress, networkType, blockchainName),
           toAddress: toAddress,
           tokenAddress: tokenAddress,
-          network: network,
+          chain: blockchainName,
+          network: networkType,
           status: TransactionStatus.PENDING,
         },
       });
@@ -319,7 +379,8 @@ router.post('/request', async (req: Request, res: Response) => {
       amount: amount,
       toAddress: toAddress,
       tokenAddress: tokenAddress,
-      symbol: symbol,
+      symbol: symbol || tokenInfo.symbol,
+      chain: blockchainName,
       network: network,
       createdAt: savedRequest.createdAt,
     };

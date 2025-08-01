@@ -1,5 +1,6 @@
 import { Token, TokenConfig, TokenInfo } from '../types/token.types';
 import tokenConfig from '../config/tokens.config.json';
+import chainConfig from '../config/chains.config.json';
 
 export class TokenService {
   private static instance: TokenService;
@@ -16,10 +17,9 @@ export class TokenService {
     return TokenService.instance;
   }
 
-  public getTokenByAddress(address: string, network: string): TokenInfo | null {
+  public getTokenByAddress(address: string, network: string, chain: string = 'polygon'): TokenInfo | null {
     const normalizedAddress = address.toLowerCase();
-    // Default to polygon since it's the only supported blockchain
-    const blockchainConfig = this.tokenConfig['polygon'];
+    const blockchainConfig = this.tokenConfig[chain];
 
     if (!blockchainConfig) {
       return null;
@@ -36,7 +36,7 @@ export class TokenService {
         return {
           ...token,
           network,
-          chainId: this.getChainId('polygon', network),
+          chainId: this.getChainId(chain, network),
         };
       }
     }
@@ -44,8 +44,8 @@ export class TokenService {
     return null;
   }
 
-  public getTokenBySymbol(symbol: string, network: string): TokenInfo | null {
-    const token = this.tokenConfig['polygon']?.[network]?.[symbol];
+  public getTokenBySymbol(symbol: string, network: string, chain: string = 'polygon'): TokenInfo | null {
+    const token = this.tokenConfig[chain]?.[network]?.[symbol];
 
     if (!token) {
       return null;
@@ -54,16 +54,16 @@ export class TokenService {
     return {
       ...token,
       network,
-      chainId: this.getChainId('polygon', network),
+      chainId: this.getChainId(chain, network),
     };
   }
 
-  public isTokenSupported(address: string, network: string): boolean {
-    return this.getTokenByAddress(address, network) !== null;
+  public isTokenSupported(address: string, network: string, chain: string = 'polygon'): boolean {
+    return this.getTokenByAddress(address, network, chain) !== null;
   }
 
-  public getSupportedTokens(network: string): Token[] {
-    const networkConfig = this.tokenConfig['polygon']?.[network];
+  public getSupportedTokens(network: string, chain: string = 'polygon'): Token[] {
+    const networkConfig = this.tokenConfig[chain]?.[network];
 
     if (!networkConfig) {
       return [];
@@ -72,8 +72,8 @@ export class TokenService {
     return Object.values(networkConfig);
   }
 
-  public getSupportedNetworks(): string[] {
-    return Object.keys(this.tokenConfig['polygon'] || {});
+  public getSupportedNetworks(chain: string = 'polygon'): string[] {
+    return Object.keys(this.tokenConfig[chain] || {});
   }
 
   public getSupportedBlockchains(): string[] {
@@ -81,18 +81,7 @@ export class TokenService {
   }
 
   private getChainId(blockchain: string, network: string): number {
-    const chainIds: { [key: string]: { [key: string]: number } } = {
-      polygon: {
-        mainnet: 137,
-        amoy: 80002,
-      },
-      bsc: {
-        mainnet: 56,
-        testnet: 97,
-      },
-    };
-
-    return chainIds[blockchain]?.[network] || 0;
+    return (chainConfig as any)[blockchain]?.[network]?.chainId || 0;
   }
 }
 

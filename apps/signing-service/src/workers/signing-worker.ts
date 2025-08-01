@@ -1,5 +1,5 @@
 import { BaseWorker } from './base-worker';
-import { WithdrawalRequest, ChainProviderFactory, TransactionStatus, Message } from '@asset-withdrawal/shared';
+import { WithdrawalRequest, ChainProviderFactory, ChainProvider, TransactionStatus, Message } from '@asset-withdrawal/shared';
 import { WithdrawalRequestService, DatabaseService, SignedTransactionService } from '@asset-withdrawal/database';
 import { SignedTransaction } from '../types';
 import { TransactionSigner } from '../services/transaction-signer';
@@ -7,6 +7,7 @@ import { SecureSecretsManager } from '../services/secrets-manager';
 import { NonceCacheService } from '../services/nonce-cache.service';
 import { GasPriceCache } from '../services/gas-price-cache';
 import { MulticallService, BatchTransferRequest } from '../services/multicall.service';
+import { QueueRecoveryService } from '../services/queue-recovery.service';
 import { Logger } from '../utils/logger';
 import { Config } from '../config';
 import { ethers } from 'ethers';
@@ -19,14 +20,14 @@ export class SigningWorker extends BaseWorker<
 > {
   private withdrawalRequestService: WithdrawalRequestService;
   private signedTransactionService: SignedTransactionService;
-  private transactionSigner: TransactionSigner;
   private nonceCache: NonceCacheService;
   private gasPriceCache: GasPriceCache;
-  private multicallService: MulticallService;
-  private chainProvider: any;
+  private multicallServices: Map<string, MulticallService>;
+  private signers: Map<string, TransactionSigner>;
   private auditLogger: Logger;
   private dbClient: any; // Prisma client for BatchTransaction operations
   private readonly instanceId: string;
+  private queueRecoveryService: QueueRecoveryService;
 
   constructor(
     private config: Config,
@@ -61,12 +62,9 @@ export class SigningWorker extends BaseWorker<
     this.withdrawalRequestService = new WithdrawalRequestService(this.dbClient);
     this.signedTransactionService = new SignedTransactionService(this.dbClient);
 
-    // Create chain provider based on config
-    const network = config.polygon.chainId === 80002 ? 'testnet' : 'mainnet';
-    this.chainProvider = ChainProviderFactory.createPolygonProvider(
-      network,
-      config.polygon.rpcUrl
-    );
+    // Initialize empty maps for multi-chain support
+    this.multicallServices = new Map();
+    this.signers = new Map();
 
     // Create nonce cache service
     this.nonceCache = new NonceCacheService();
@@ -74,36 +72,102 @@ export class SigningWorker extends BaseWorker<
     // Create gas price cache (30 seconds TTL)
     this.gasPriceCache = new GasPriceCache(30);
 
-    // Create multicall service
-    this.multicallService = new MulticallService(
-      this.chainProvider,
-      this.auditLogger
-    );
-
-    this.transactionSigner = new TransactionSigner(
-      this.chainProvider,
-      this.secretsManager,
-      this.nonceCache,
-      this.gasPriceCache,
-      this.multicallService,
-      this.auditLogger
-    );
+    // Create queue recovery service
+    this.queueRecoveryService = new QueueRecoveryService(this.nonceCache);
   }
 
   async initialize(): Promise<void> {
     await super.initialize();
 
-    // Ensure database is connected before initializing transaction signer
+    // Ensure database is connected before initializing
     const dbService = DatabaseService.getInstance(this.config.database);
     const dbHealthy = await dbService.healthCheck();
     if (!dbHealthy) {
       throw new Error('Database is not healthy during SigningWorker initialization');
     }
 
-    await this.transactionSigner.initialize();
+    // Connect to Redis for nonce management
+    await this.nonceCache.connect();
+
+    // Skip pre-initialization to avoid network connection issues at startup
+    // Signers will be created on-demand when first message is received
+    // if (this.config.nodeEnv === 'development') {
+    //   await this.preInitializeDevelopmentSigners();
+    // }
+
     this.auditLogger.info('SigningWorker initialized successfully', {
       instanceId: this.instanceId,
     });
+  }
+
+  /**
+   * Pre-initialize signers for commonly used chains in development
+   * This ensures MAX approvals are set on startup
+   */
+  private async preInitializeDevelopmentSigners(): Promise<void> {
+    try {
+      this.auditLogger.info('Pre-initializing signers for development environment');
+
+      // Initialize signers for common development configurations
+      const developmentChains = [
+        { chain: 'localhost', network: 'testnet' },  // Hardhat localhost only
+        // { chain: 'polygon', network: 'testnet' },    // Skip Polygon Amoy testnet in local development
+      ];
+
+      for (const config of developmentChains) {
+        try {
+          this.auditLogger.info('Pre-initializing signer', config);
+          await this.getOrCreateSigner(config.chain, config.network);
+        } catch (error) {
+          // Log error but continue - some chains might not be configured
+          this.auditLogger.warn('Failed to pre-initialize signer', {
+            ...config,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      this.auditLogger.info('Development signers pre-initialization completed');
+    } catch (error) {
+      this.auditLogger.error('Failed to pre-initialize development signers', error);
+      // Don't throw - this is not critical for operation
+    }
+  }
+
+  /**
+   * Get or create a TransactionSigner for a specific chain/network combination
+   */
+  private async getOrCreateSigner(chain: string, network: string): Promise<TransactionSigner> {
+    const key = `${chain}_${network}`;
+
+    if (!this.signers.has(key)) {
+      this.auditLogger.info('Creating new TransactionSigner', { chain, network });
+
+      // Create chain provider
+      const chainProvider = ChainProviderFactory.getProvider(chain as any, network as any);
+
+      // Create multicall service for this chain
+      const multicallService = new MulticallService(chainProvider, this.auditLogger);
+      this.multicallServices.set(key, multicallService);
+
+      // Create transaction signer
+      const signer = new TransactionSigner(
+        chainProvider,
+        this.secretsManager,
+        this.nonceCache,
+        this.gasPriceCache,
+        multicallService,
+        this.auditLogger,
+        this.config
+      );
+
+      // Initialize the signer
+      await signer.initialize();
+
+      this.signers.set(key, signer);
+    }
+
+    return this.signers.get(key)!;
   }
 
   /**
@@ -282,29 +346,13 @@ export class SigningWorker extends BaseWorker<
   }
 
   private async updateGasPriceCache(): Promise<void> {
-    // Check if cache is still valid
-    if (this.gasPriceCache.isValid()) {
-      return; // Use cached value
-    }
+    // Note: Gas price cache is shared across all chains
+    // This is acceptable as gas prices are fetched per-transaction
+    // and cached values are only used as a performance optimization
 
-    // Fetch new gas price
-    const provider = this.chainProvider.getProvider();
-    const feeData = await provider.getFeeData();
-
-    if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
-      throw new Error('Failed to fetch gas price from provider');
-    }
-
-    // Update cache
-    this.gasPriceCache.set({
-      maxFeePerGas: feeData.maxFeePerGas,
-      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-    });
-
-    this.auditLogger.debug('Gas price updated', {
-      maxFeePerGas: feeData.maxFeePerGas.toString(),
-      maxPriorityFeePerGas: feeData.maxPriorityFeePerGas.toString(),
-    });
+    // For now, we'll skip pre-fetching gas prices since we don't know
+    // which chain will be used until we receive messages
+    this.auditLogger.debug('Gas price cache update skipped - will fetch on demand per chain');
   }
 
   private async separateMessagesByTryCount(messages: Message<WithdrawalRequest>[]): Promise<{
@@ -431,9 +479,16 @@ export class SigningWorker extends BaseWorker<
    * @returns Error message if validation fails, null if valid
    */
   private validateWithdrawalRequest(request: WithdrawalRequest): string | null {
-    // Validate network support
-    if (request.network !== 'polygon') {
-      return `Unsupported network: ${request.network}. This service only supports Polygon`;
+    // Validate chain and network are provided
+    if (!request.chain || !request.network) {
+      return `Missing chain or network information. Chain: ${request.chain}, Network: ${request.network}`;
+    }
+
+    // Validate chain support - try to create a provider to check support
+    try {
+      ChainProviderFactory.getProvider(request.chain as any, request.network as any);
+    } catch (error) {
+      return `Unsupported chain/network combination: ${request.chain}/${request.network}`;
     }
 
     // Validate recipient address format
@@ -441,8 +496,8 @@ export class SigningWorker extends BaseWorker<
       return `Invalid recipient address format: ${request.toAddress}`;
     }
 
-    // Validate token address format
-    if (!request.tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
+    // Validate token address format (if provided - null means native token transfer)
+    if (request.tokenAddress && !request.tokenAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
       return `Invalid token address format: ${request.tokenAddress}`;
     }
 
@@ -505,7 +560,33 @@ export class SigningWorker extends BaseWorker<
         this.logger.error(`Error processing message ${messageId}`, error);
         this.lastError = error instanceof Error ? error.message : 'Unknown error';
         this.errorCount++;
-        // Message will be returned to queue after visibility timeout
+
+        // Check if error is recoverable
+        const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+        const isRecoverable = this.isRecoverableError(errorMessage);
+
+        if (isRecoverable) {
+          this.auditLogger.info('Recoverable error detected, recovering transaction', {
+            withdrawalId: message.body.id,
+            error: errorMessage,
+          });
+
+          try {
+            await this.queueRecoveryService.recoverTransactionOnError(
+              message.body.id,
+              error,
+              message.receiptHandle
+            );
+          } catch (recoveryError) {
+            this.auditLogger.error('Failed to recover transaction', recoveryError, {
+              withdrawalId: message.body.id,
+            });
+            // Message will be returned to queue after visibility timeout
+          }
+        } else {
+          // Non-recoverable error - delete message from queue
+          await this.inputQueue.deleteMessage(message.receiptHandle);
+        }
       } finally {
         this.processingMessages.delete(messageId);
       }
@@ -549,15 +630,32 @@ export class SigningWorker extends BaseWorker<
 
       const symbol = messages[0]?.body.symbol || 'UNKNOWN';
 
+      // Get chain info from first message (all messages in batch should have same chain)
+      const firstMessage = messages[0];
+      const chain = firstMessage.body.chain || 'polygon';
+      const network = firstMessage.body.network || 'mainnet';
+
+      // Get chain provider to get multicall address and chain ID
+      const chainProvider = ChainProviderFactory.getProvider(chain as any, network as any);
+
+      // Get the signer to get the current nonce
+      const signer = await this.getOrCreateSigner(chain, network);
+      const signerAddress = await signer.getAddress();
+
+      // Get the next nonce that will be used for this batch
+      // This is important to store even if the transaction fails
+      const nextNonce = await this.nonceCache.get(signerAddress, chain, network);
+      const actualNonce = nextNonce || 0;
+
       // Create batch transaction
-      const batch = await tx.batchTransaction.create({
+      const batch = await tx.signedBatchTransaction.create({
         data: {
-          multicallAddress: this.chainProvider.getMulticall3Address(),
+          multicallAddress: chainProvider.getMulticall3Address(),
           totalRequests: messages.length,
           totalAmount: totalAmount,
           symbol: symbol,
-          chainId: this.chainProvider.getChainId(),
-          nonce: 0, // Will be updated when signed
+          chainId: chainProvider.getChainId(),
+          nonce: actualNonce, // Store the actual nonce that will be used
           gasLimit: '0', // Will be updated when signed
           tryCount: 0,
           status: 'PENDING',
@@ -621,7 +719,7 @@ export class SigningWorker extends BaseWorker<
           // If checksum validation fails, use lowercase format
           normalizedTokenAddress = message.body.tokenAddress.trim().toLowerCase();
           this.auditLogger.warn('Token address checksum normalization', {
-            transactionId: message.body.id,
+            requestId: message.body.id,
             originalAddress: message.body.tokenAddress,
             normalizedAddress: normalizedTokenAddress,
           });
@@ -634,7 +732,7 @@ export class SigningWorker extends BaseWorker<
           // If checksum validation fails, use lowercase format
           normalizedToAddress = message.body.toAddress.trim().toLowerCase();
           this.auditLogger.warn('Recipient address checksum normalization', {
-            transactionId: message.body.id,
+            requestId: message.body.id,
             originalAddress: message.body.toAddress,
             normalizedAddress: normalizedToAddress,
           });
@@ -648,17 +746,27 @@ export class SigningWorker extends BaseWorker<
         };
       });
 
-      // Prepare batch transaction data
-      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers);
+      // Get chain info from first message
+      const firstMessage = messages[0];
+      const chain = firstMessage.body.chain || 'polygon';
+      const network = firstMessage.body.network || 'mainnet';
+
+      // Get appropriate signer and multicall service for this chain
+      const signer = await this.getOrCreateSigner(chain, network);
+      const multicallKey = `${chain}_${network}`;
+      const multicallService = this.multicallServices.get(multicallKey)!;
+
+      // Prepare batch transaction data (skip gas estimation as it will be done during signing after approvals)
+      const preparedBatch = await multicallService.prepareBatchTransfer(transfers, await signer.getAddress(), true);
 
       // Sign batch transaction
-      const signedBatchTx = await this.transactionSigner.signBatchTransaction({
+      const signedBatchTx = await signer.signBatchTransaction({
         transfers,
         batchId: batchTransaction.id.toString(),
       });
 
       // Update batch transaction with txHash and gas details
-      await this.dbClient.batchTransaction.update({
+      await this.dbClient.signedBatchTransaction.update({
         where: { id: batchTransaction.id },
         data: {
           txHash: signedBatchTx.hash,
@@ -707,7 +815,7 @@ export class SigningWorker extends BaseWorker<
 
       // Update batch transaction status to FAILED if it was created
       if (batchTransaction?.id) {
-        await this.dbClient.batchTransaction.update({
+        await this.dbClient.signedBatchTransaction.update({
           where: { id: batchTransaction.id },
           data: {
             status: 'FAILED',
@@ -716,32 +824,57 @@ export class SigningWorker extends BaseWorker<
         });
       }
 
-      // Reset withdrawal requests back to PENDING state for retry
-      // Remove batchId and type so they can be processed individually or in a new batch
-      if (batchId) {
-        await this.dbClient.withdrawalRequest.updateMany({
-          where: { batchId: batchId },
-          data: {
-            status: TransactionStatus.PENDING,
-            batchId: null,
-            processingMode: 'SINGLE',
-            errorMessage: error instanceof Error ? error.message : String(error),
-          },
+      // Check if error is recoverable
+      const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+      const isRecoverable = this.isRecoverableError(errorMessage);
+
+      if (isRecoverable) {
+        this.auditLogger.info('Recoverable error detected, recovering batch transactions', {
+          batchId,
+          messageCount: messages.length,
+          error: errorMessage,
         });
+
+        // Recover each message individually
+        for (const message of messages) {
+          try {
+            await this.queueRecoveryService.recoverTransactionOnError(
+              message.body.id,
+              error,
+              message.receiptHandle
+            );
+          } catch (recoveryError) {
+            this.auditLogger.error('Failed to recover transaction', recoveryError, {
+              withdrawalId: message.body.id,
+            });
+          }
+        }
+      } else {
+        // Non-recoverable error - mark as FAILED
+        if (batchId) {
+          await this.dbClient.withdrawalRequest.updateMany({
+            where: { batchId: batchId },
+            data: {
+              status: TransactionStatus.FAILED,
+              batchId: null,
+              processingMode: 'SINGLE',
+              errorMessage: error instanceof Error ? error.message : String(error),
+            },
+          });
+        }
+
+        // Delete messages from queue for non-recoverable errors
+        await Promise.all(messages.map(msg => this.inputQueue.deleteMessage(msg.receiptHandle)));
       }
 
-      this.auditLogger.info('Reset withdrawal requests to PENDING for retry', {
+      this.auditLogger.info('Batch error handling completed', {
         batchId,
         messageCount: messages.length,
+        isRecoverable,
         reason: 'Batch processing failed',
       });
 
       // Don't throw error to prevent service termination
-      // Messages will be processed individually in the catch block of processBatchTransactions
-
-      // IMPORTANT: Don't delete messages from queue on failure
-      // They will become visible again after visibility timeout
-      // and will be reprocessed as individual transactions
     }
   }
 
@@ -749,7 +882,7 @@ export class SigningWorker extends BaseWorker<
     message: WithdrawalRequest
   ): Promise<SignedTransaction | null> {
     const {
-      id: transactionId,
+      id: requestId,
       network,
       toAddress: to,
       amount,
@@ -757,7 +890,7 @@ export class SigningWorker extends BaseWorker<
       symbol,
     } = message;
 
-    this.auditLogger.info(`Processing withdrawal request: ${transactionId}`, {
+    this.auditLogger.info(`Processing withdrawal request: ${requestId}`, {
       network,
       to,
       amount,
@@ -772,13 +905,13 @@ export class SigningWorker extends BaseWorker<
       const updated = await this.dbClient.$transaction(async (tx: any) => {
         // Verify the request is still owned by this instance
         const existing = await tx.withdrawalRequest.findUnique({
-          where: { requestId: transactionId },
+          where: { requestId: requestId },
           select: { status: true, processingInstanceId: true },
         });
 
         if (!existing || existing.processingInstanceId !== this.instanceId) {
           this.auditLogger.warn('Request no longer owned by this instance', {
-            transactionId,
+            requestId,
             currentInstanceId: this.instanceId,
             ownerInstanceId: existing?.processingInstanceId,
           });
@@ -788,7 +921,7 @@ export class SigningWorker extends BaseWorker<
         // Update status to SIGNING
         return await tx.withdrawalRequest.update({
           where: {
-            requestId: transactionId,
+            requestId: requestId,
             processingInstanceId: this.instanceId, // Ensure we still own it
           },
           data: {
@@ -800,32 +933,36 @@ export class SigningWorker extends BaseWorker<
 
       if (!updated) {
         this.auditLogger.info('Skipping transaction - no longer owned by this instance', {
-          transactionId,
+          requestId,
         });
         return null;
       }
 
       this.auditLogger.auditSuccess('SIGN_TRANSACTION_START', {
-        transactionId,
-        metadata: { network, to, amount, tokenAddress },
+        requestId,
+        metadata: { chain: message.chain, network, to, amount, tokenAddress },
       });
 
+      // Get appropriate signer for this chain
+      const chain = message.chain || 'polygon';
+      const signer = await this.getOrCreateSigner(chain, network);
+
       // Build and sign transaction
-      const signedTx = await this.transactionSigner.signTransaction({
+      const signedTx = await signer.signTransaction({
         to,
         amount,
         tokenAddress,
-        transactionId,
+        transactionId: requestId,
       });
 
       // Save signed transaction to database
       try {
         // Check if this is a retry by counting existing signed transactions
-        const existingTxs = await this.signedTransactionService.findByRequestId(transactionId);
+        const existingTxs = await this.signedTransactionService.findByRequestId(requestId);
         const tryCount = existingTxs.length;
 
         await this.signedTransactionService.create({
-          requestId: transactionId,
+          requestId: requestId,
           txHash: signedTx.hash,
           nonce: signedTx.nonce,
           gasLimit: signedTx.gasLimit,
@@ -843,14 +980,14 @@ export class SigningWorker extends BaseWorker<
         });
 
         this.auditLogger.info('Signed transaction saved to database', {
-          transactionId,
+          requestId,
           txHash: signedTx.hash,
           tryCount,
         });
       } catch (dbError) {
         // If DB save fails, log error but continue - we don't want to block the flow
         this.auditLogger.error('Failed to save signed transaction to database', dbError, {
-          transactionId,
+          requestId,
           txHash: signedTx.hash,
         });
         // Throw error to trigger retry - DB save is critical for tracking
@@ -860,12 +997,12 @@ export class SigningWorker extends BaseWorker<
       // Update withdrawal request status to SIGNED
       // Note: The tx-broadcaster will update to BROADCASTING when it starts broadcasting
       await this.withdrawalRequestService.updateStatus(
-        transactionId,
+        requestId,
         TransactionStatus.SIGNED
       );
 
       this.auditLogger.auditSuccess('SIGN_TRANSACTION_COMPLETE', {
-        transactionId,
+        requestId,
         metadata: {
           hash: signedTx.hash,
           nonce: signedTx.nonce,
@@ -877,7 +1014,7 @@ export class SigningWorker extends BaseWorker<
       return signedTx;
     } catch (error) {
       this.auditLogger.error(
-        `Failed to sign transaction: ${transactionId}`,
+        `Failed to sign transaction: ${requestId}`,
         error
       );
 
@@ -885,42 +1022,81 @@ export class SigningWorker extends BaseWorker<
         'SIGN_TRANSACTION_FAILED',
         error instanceof Error ? error.message : String(error),
         {
-          transactionId,
+          requestId,
           metadata: { network, to, amount, tokenAddress },
         }
       );
 
-      // Update withdrawal request status to FAILED with error message
-      await this.withdrawalRequestService.updateStatusWithError(
-        transactionId,
-        TransactionStatus.FAILED,
-        error instanceof Error ? error.message : String(error)
-      );
-
-      // Determine if error is recoverable
-      const recoverableErrors = [
-        'nonce too low',
-        'replacement transaction underpriced',
-        'timeout',
-        'network error',
-      ];
-
-      const isRecoverable = recoverableErrors.some(
-        err =>
-          error instanceof Error && error.message.toLowerCase().includes(err)
-      );
+      // Check if error is recoverable
+      const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+      const isRecoverable = this.isRecoverableError(errorMessage);
 
       if (isRecoverable) {
-        throw error; // Let SQS retry
-      }
+        this.auditLogger.info('Recoverable error in processMessage, will be recovered', {
+          requestId,
+          error: errorMessage,
+        });
 
-      return null; // Non-recoverable, don't retry
+        // Update status to PENDING for recovery
+        await this.withdrawalRequestService.updateStatus(
+          requestId,
+          TransactionStatus.PENDING
+        );
+
+        throw error; // Let the caller handle recovery
+      } else {
+        // Non-recoverable error - mark as FAILED
+        await this.withdrawalRequestService.updateStatusWithError(
+          requestId,
+          TransactionStatus.FAILED,
+          error instanceof Error ? error.message : String(error)
+        );
+
+        return null; // Non-recoverable, don't retry
+      }
     }
+  }
+
+  /**
+   * Check if an error is recoverable
+   */
+  private isRecoverableError(errorMessage: string): boolean {
+    const recoverablePatterns = [
+      'insufficient balance',
+      'insufficient funds',
+      'insufficient allowance',
+      'gas required exceeds',
+      'nonce too low',
+      'nonce has already been used',
+      'replacement transaction underpriced',
+      'timeout',
+      'network error',
+      'connection error',
+      'etimedout',
+      'econnrefused',
+      'enotfound',
+    ];
+
+    return recoverablePatterns.some(pattern => errorMessage.includes(pattern));
   }
 
   async stop(): Promise<void> {
     await super.stop();
-    await this.transactionSigner.cleanup();
+
+    // Clean up all signers
+    for (const [key, signer] of this.signers) {
+      this.auditLogger.info('Cleaning up signer', { key });
+      await signer.cleanup();
+    }
+
+    // Disconnect from Redis
+    try {
+      await this.nonceCache.disconnect();
+    } catch (error) {
+      this.auditLogger.warn('Error disconnecting from Redis:', error);
+      // Continue with shutdown even if Redis disconnect fails
+    }
+
     this.auditLogger.info('SigningWorker stopped');
   }
 }

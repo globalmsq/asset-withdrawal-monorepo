@@ -13,11 +13,8 @@ export const config = {
     batchSize: parseInt(process.env.MONITOR_BATCH_SIZE || '20', 10),
   },
 
-  blockchain: {
-    network: process.env.POLYGON_NETWORK || 'amoy',
-    rpcUrl: process.env.POLYGON_RPC_URL || 'https://rpc-amoy.polygon.technology',
-    chainId: parseInt(process.env.POLYGON_CHAIN_ID || '80002', 10),
-  },
+  // Chain configuration (should be provided by transaction data)
+  // No default values - chain/network must be explicitly provided
 
   database: {
     url: process.env.DATABASE_URL || 'mysql://root:password@localhost:3306/withdrawal_db',

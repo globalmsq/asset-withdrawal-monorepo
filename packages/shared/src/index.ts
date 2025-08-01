@@ -8,3 +8,4 @@ export * from './queue/index';
 export * from './services/token.service';
 export * from './providers/chain.provider';
 export * from './providers/chain-provider.factory';
+export * from './utils/hardhat-helpers';

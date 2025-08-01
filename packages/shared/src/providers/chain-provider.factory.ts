@@ -19,18 +19,6 @@ export class ChainProviderFactory {
     return this.providers.get(key)!;
   }
 
-  static createPolygonProvider(network: ChainNetwork, rpcUrl?: string): ChainProvider {
-    return this.getProvider('polygon', network, rpcUrl);
-  }
-
-  static createEthereumProvider(network: ChainNetwork, rpcUrl?: string): ChainProvider {
-    return this.getProvider('ethereum', network, rpcUrl);
-  }
-
-  static createBscProvider(network: ChainNetwork, rpcUrl?: string): ChainProvider {
-    return this.getProvider('bsc', network, rpcUrl);
-  }
-
   static clearProviders(): void {
     this.providers.clear();
   }

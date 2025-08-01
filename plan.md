@@ -2,10 +2,78 @@
 
 ## 개발 조건
 1. **큐 시스템**: AWS SQS (로컬 개발용 LocalStack)
-2. **블록체인 집중**: Polygon 네트워크만
+2. **블록체인 지원**: Polygon, Ethereum, BSC, Localhost (Hardhat)
 3. **앱 명명**: 목적별 명명 필요
 4. **데이터베이스**: 명시적 요청 전까지 마이그레이션 파일 없음
 5. **아키텍처**: 별도 워커 앱을 가진 마이크로서비스
+
+## Task 22.5 완료 요약
+
+### 구현된 사항
+1. **Docker Compose 최적화**
+   - 모든 서비스가 `docker-compose up`만으로 자동 시작
+   - 서비스 의존성을 올바르게 설정 (hardhat-deploy 완료 후 API 서비스 시작)
+   - 배포 정보를 공유 볼륨으로 서비스 간 공유
+
+2. **Chain/Network 파라미터 지원**
+   - API가 `chain` 및 `network` 파라미터 지원
+   - 후방 호환성을 위해 `network='polygon'`만 있을 경우 자동 처리
+   - TokenService가 다중 체인 지원하도록 업데이트
+   - localhost 체인 토큰 구성 추가
+
+3. **환경 변수 구성**
+   - 모든 서비스에 localhost 블록체인 연결 정보 추가
+   - SUPPORTED_CHAINS 환경 변수로 지원 체인 제어
+
+4. **문서 업데이트**
+   - README에 로컬 개발 가이드 섹션 추가
+   - Hardhat 통합 및 사용법 문서화
+   - 사전 배포된 토큰 주소 목록 제공
+
+5. **편의 스크립트**
+   - package.json에 Docker 관련 편의 스크립트 추가
+   - `npm run docker:up`, `docker:down`, `docker:logs` 등
+
+### 데이터베이스 스키마 참고
+- WithdrawalRequest 모델에 `chain` 필드 추가가 필요하지만, 마이그레이션 파일 생성 정책에 따라 현재는 `network` 필드에 `chain_network` 형식으로 저장
+- 향후 마이그레이션 시 별도 `chain` 필드 추가 고려
+
+## Chain Configuration 개선 작업 완료
+
+### 구현된 사항
+1. **chains.config.json 기반 체인 허용 목록**
+   - withdrawal.ts에서 `tokenService.getSupportedBlockchains()` 사용
+   - 환경변수 SUPPORTED_CHAINS 제거
+
+2. **후방 호환성 제거**
+   - network='polygon'만 있을 때 자동 처리 로직 제거
+   - chain과 network 모두 필수 파라미터로 변경
+
+3. **범용 RPC_URL 오버라이드**
+   - ChainProvider에 RPC_URL, CHAIN_ID 환경변수 오버라이드 추가
+   - 체인별 환경변수 제거 (LOCALHOST_RPC_URL, POLYGON_RPC_URL 등)
+
+4. **Docker 환경변수 정리**
+   - docker-compose.yaml에서 모든 체인별 환경변수 제거
+   - RPC_URL: http://hardhat-node:8545만 설정
+
+5. **서비스 설정 업데이트**
+   - tx-processor, tx-monitor, signing-service에서 기본 체인 설정 제거
+   - 큐 메시지에서 chain/network 정보 받도록 수정
+
+### 미완성 작업
+1. **tx-processor PolygonProvider 대체**
+   - 현재 PolygonProvider가 Polygon에 하드코딩됨
+   - ChainProvider로 대체 필요
+   - 큐 메시지에서 chain/network 정보 추출하여 사용
+
+2. **signing-service 업데이트**
+   - 큐 메시지에서 chain/network 정보 추출
+   - ChainProvider 사용하도록 수정
+
+3. **tx-monitor 업데이트**
+   - 트랜잭션 데이터에서 chain/network 정보 추출
+   - ChainProvider 사용하도록 수정
 
 ## 현재 구현 상태
 
@@ -61,16 +129,28 @@
 
 ### Phase 1: 핵심 시스템 완성
 
-#### 1.0 signing-service 기능 확장 🆕
+#### 1.0 signing-service 기능 확장 ✅ 완료
 **목표**: ERC20 토큰 Batch 전송 지원 (Multicall 활용)
 ```typescript
-// 주요 기능
+// 완료된 기능
 - Multicall3을 활용한 배치 토큰 전송
 - WithdrawalRequest 타입 확장 (SINGLE, BATCH)
 - MulticallService 구현 (calldata 생성, ABI 인코딩)
 - TransactionSigner에 signBatchTransaction() 메서드 추가
 - SigningWorker 단일/배치 메시지 구분 처리
 - 배치 전송 검증 및 테스트 케이스
+```
+
+#### 1.1 account-manager 서비스 구현 🆕
+**목표**: 메인 계정에서 서브 계정으로 자동 잔액 밸런싱
+```typescript
+// 주요 기능
+- 서브 계정 잔액 주기적 모니터링
+- 임계값 기반 자동 충전 로직
+- 배치 처리를 통한 가스비 최적화
+- 메인 계정 잔액 부족 시 알림
+- ManagedAccount 및 BalanceTransfer 모델 구현
+- REST API 엔드포인트 제공
 ```
 
 #### 1.2 tx-broadcaster 구현 ⚠️
@@ -116,6 +196,41 @@
 ```
 
 ### Phase 2: 관리 시스템
+
+#### 2.0 Account Manager API 엔드포인트 🆕
+```typescript
+// 관리 계정 등록
+POST /api/v1/accounts
+{
+  "address": "0x...",
+  "accountType": "MAIN" | "SUB",
+  "chain": "polygon",
+  "network": "mainnet",
+  "minBalance": "0.1",    // ETH
+  "targetBalance": "0.5"  // ETH
+}
+
+// 계정 목록 조회
+GET /api/v1/accounts
+
+// 잔액 상태 조회
+GET /api/v1/accounts/:address/balance
+
+// 수동 잔액 전송
+POST /api/v1/accounts/transfer
+{
+  "fromAccount": "0x...",
+  "toAccount": "0x...",
+  "amount": "0.5",
+  "symbol": "ETH"
+}
+
+// 계정 활성화/비활성화
+PATCH /api/v1/accounts/:address
+{
+  "isActive": true | false
+}
+```
 
 ##### 2.1.1 Admin UI 애플리케이션 (React + Tailwind CSS)
 ```bash
@@ -424,7 +539,7 @@ class GasPriceCache {
 model WithdrawalRequest {
   id            BigInt   @id @default(autoincrement())
   requestId     String   @unique // tx-{timestamp}-{random}
-  status        String   @default("PENDING") // PENDING → SIGNING → BROADCASTING → COMPLETED
+  status        String   @default("PENDING") // PENDING → SIGNING → BROADCASTING → COMPLETED → FAILED → CANCELED
   amount        String
   currency      String
   toAddress     String
@@ -453,10 +568,42 @@ model SignedTransaction {
   value                 String
   chainId               Int
   retryCount            Int       @default(0)
-  status                String    @default("SIGNED") // SIGNED → BROADCASTED → CONFIRMED
+  status                String    @default("SIGNED") // SIGNED → BROADCASTED → CONFIRMED → FAILED → CANCELED
   signedAt              DateTime  @default(now())
   broadcastedAt         DateTime?
   confirmedAt           DateTime?
+}
+```
+
+### Account Manager 모델 🆕
+```prisma
+model ManagedAccount {
+  id               BigInt    @id @default(autoincrement())
+  address          String    @unique
+  accountType      String    // MAIN, SUB
+  chain            String    // 블록체인 이름
+  network          String    // 네트워크 타입
+  minBalance       String    // 최소 유지 잔액 (ETH)
+  targetBalance    String    // 목표 충전 잔액 (ETH)
+  isActive         Boolean   @default(true)
+  lastCheckedAt    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model BalanceTransfer {
+  id               BigInt    @id @default(autoincrement())
+  fromAccount      String
+  toAccount        String
+  amount           String
+  symbol           String    // ETH 또는 토큰 심볼
+  chain            String
+  network          String
+  status           String    // PENDING, SIGNING, BROADCASTED, CONFIRMED, FAILED, CANCELED
+  txHash           String?
+  errorMessage     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 ```
 
@@ -527,7 +674,7 @@ REDIS_URL=redis://localhost:6379
 
 ## 즉시 해야 할 작업
 
-### 1. tx-broadcaster 서비스 생성 ⚠️
+### 1. tx-broadcaster 서비스 생성 ⚠️ 최우선
 ```bash
 nx g @nx/node:app tx-broadcaster
 ```
@@ -535,14 +682,27 @@ nx g @nx/node:app tx-broadcaster
 - [ ] SQS 메시지 폴링 워커
 - [ ] 서명된 트랜잭션 DB 조회
 - [ ] Polygon 네트워크 브로드캐스트
-- [ ] 트랜잭션 상태 업데이트
+- [ ] 트랜잭션 상태 업데이트 (CANCELED 상태 포함)
 - [ ] 오류 처리 및 재시도 로직
 
-### 2. 테스트 케이스
+### 2. account-manager 서비스 생성 🆕
+```bash
+nx g @nx/node:app account-manager
+```
+**핵심 구현 요소**:
+- [ ] ManagedAccount, BalanceTransfer 모델 추가
+- [ ] 잔액 모니터링 크론 작업
+- [ ] 임계값 확인 및 자동 충전 로직
+- [ ] 배치 전송 최적화
+- [ ] REST API 엔드포인트 구현
+
+### 3. 테스트 케이스
 - [ ] 정상 브로드캐스트 플로우
 - [ ] nonce 충돌 시나리오
 - [ ] RPC 실패 시나리오
 - [ ] 재시도 한도 초과 시나리오
+- [ ] 자동 잔액 충전 시나리오
+- [ ] 배치 전송 최적화 테스트
 
 ---
 

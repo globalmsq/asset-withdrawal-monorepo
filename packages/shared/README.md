@@ -33,6 +33,11 @@ Shared 패키지는 모든 서비스에서 공통으로 사용되는 타입, 유
 - 에러 코드 정의
 - 에러 핸들링 유틸리티
 
+### 6. 체인 설정 (Chain Config)
+- 다중 체인 지원: Polygon, Ethereum, BSC, localhost (Hardhat)
+- ChainProvider를 통한 체인별 설정 관리
+- API 요청에서 체인/네트워크 명시적 지정 필요 (기본값 없음)
+
 ## 프로젝트 구조
 
 ```

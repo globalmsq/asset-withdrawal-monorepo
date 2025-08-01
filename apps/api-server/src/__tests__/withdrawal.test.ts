@@ -37,13 +37,18 @@ jest.mock('shared', () => ({
     }),
   },
   tokenService: {
-    getTokenByAddress: jest.fn().mockImplementation((address, network) => {
-      if (address === '0xc2132D05D31c914a87C6611C10748AEb04B58e8F') {
-        return { address, symbol: 'USDT', decimals: 6, name: 'Tether USD' };
+    getTokenByAddress: jest.fn().mockImplementation((address, network, chain) => {
+      if (address === '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' && chain === 'polygon') {
+        return { address, symbol: 'USDT', decimals: 6, name: 'Tether USD', network, chainId: 137 };
       }
       return null;
     }),
-    isTokenSupported: jest.fn().mockReturnValue(true),
+    isTokenSupported: jest.fn().mockImplementation((address, network, chain) => {
+      if (address === '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' && chain === 'polygon') {
+        return true;
+      }
+      return false;
+    }),
     getSupportedBlockchains: jest.fn().mockReturnValue(['polygon', 'bsc']),
     getSupportedNetworks: jest.fn().mockReturnValue(['mainnet', 'amoy']),
   },
@@ -60,7 +65,8 @@ const mockWithdrawalRequest = {
   symbol: 'USDT',
   toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
   tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-  network: 'polygon',
+  network: 'mainnet',
+  chain: 'polygon',
   status: 'PENDING',
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -111,7 +117,8 @@ describe('Withdrawal API', () => {
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         symbol: 'USDT',
-        network: 'polygon',
+        network: 'mainnet',
+        chain: 'polygon',
       };
 
       const response = await request(app)
@@ -144,7 +151,8 @@ describe('Withdrawal API', () => {
         amount: 'invalid',
         toAddress: '0x742D35Cc6634C0532925a3b8D45a0E5e7F3d1234',
         tokenAddress: '0xA0b86991c431e60e50074006c5a5B4234e5f50D',
-        network: 'polygon',
+        network: 'mainnet',
+        chain: 'polygon',
       };
 
       const response = await request(app)
@@ -161,7 +169,8 @@ describe('Withdrawal API', () => {
         amount: '0.5',
         toAddress: '0x742D35Cc6634C0532925a3b8D45a0E5e7F3d1234',
         tokenAddress: '0x0000000000000000000000000000000000000000',
-        network: 'ethereum',
+        network: 'mainnet',
+        chain: 'ethereum',
       };
 
       const response = await request(app)
@@ -170,7 +179,7 @@ describe('Withdrawal API', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Only polygon network is supported');
+      expect(response.body.error).toContain('is not supported');
     });
 
     it('should return 400 for symbol mismatch', async () => {
@@ -179,7 +188,8 @@ describe('Withdrawal API', () => {
         toAddress: '0x742D35Cc6634C0532925a3b8D45a0E5e7F3d1234',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', // USDT address
         symbol: 'USDC', // Wrong symbol
-        network: 'polygon',
+        network: 'mainnet',
+        chain: 'polygon',
       };
 
       const response = await request(app)
@@ -196,7 +206,8 @@ describe('Withdrawal API', () => {
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-        network: 'polygon',
+        network: 'mainnet',
+        chain: 'polygon',
       };
 
       const response = await request(app)
@@ -214,7 +225,8 @@ describe('Withdrawal API', () => {
         amount: '0.5',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         tokenAddress: '0x0000000000000000000000000000000000000000',
-        network: 'polygon',
+        network: 'mainnet',
+        chain: 'polygon',
       };
 
       const response = await request(app)

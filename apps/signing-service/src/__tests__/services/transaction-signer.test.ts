@@ -21,6 +21,7 @@ describe('TransactionSigner', () => {
   let mockMulticallService: jest.Mocked<MulticallService>;
   let mockLogger: jest.Mocked<Logger>;
   let mockWallet: jest.Mocked<ethers.Wallet>;
+  let mockConfig: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -131,7 +132,11 @@ describe('TransactionSigner', () => {
       return BigInt(value);
     });
 
-    transactionSigner = new TransactionSigner(mockChainProvider, mockSecretsManager, mockNonceCache, mockGasPriceCache, mockMulticallService, mockLogger);
+    mockConfig = {
+      batchProcessing: {},
+    };
+
+    transactionSigner = new TransactionSigner(mockChainProvider, mockSecretsManager, mockNonceCache, mockGasPriceCache, mockMulticallService, mockLogger, mockConfig);
   });
 
   describe('initialize', () => {

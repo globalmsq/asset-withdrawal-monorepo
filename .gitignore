@@ -154,4 +154,16 @@ dev-debug.log
 
 # Task files
 # tasks.json
-# tasks/ 
+# tasks/
+
+# Hardhat files (Docker-specific)
+docker/hardhat/cache
+docker/hardhat/artifacts
+docker/hardhat/typechain
+docker/hardhat/typechain-types
+docker/hardhat/node_modules
+docker/hardhat/package-lock.json
+docker/hardhat/coverage
+docker/hardhat/coverage.json
+docker/hardhat/.env
+docker/hardhat/deployment.json

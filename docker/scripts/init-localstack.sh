@@ -69,19 +69,12 @@ echo "- signed-tx-queue (DLQ: tx-dlq)"
 echo "- invalid-dlq"
 echo "- tx-dlq"
 
-# Create test secrets in Secrets Manager (for development)
-# Create polygon-wallet-key for backward compatibility
-awslocal secretsmanager create-secret \
-  --name polygon-wallet-key \
-  --region $REGION \
-  --secret-string '{"privateKey":"0x0000000000000000000000000000000000000000000000000000000000000001"}' \
-  2>/dev/null || echo "Secret 'polygon-wallet-key' already exists"
-
+# Create development secrets in Secrets Manager (using Hardhat's first account)
 # Create signing-service private key (matches SIGNING_SERVICE_PRIVATE_KEY_SECRET default value)
 awslocal secretsmanager create-secret \
   --name signing-service/private-key \
   --region $REGION \
-  --secret-string '0x0000000000000000000000000000000000000000000000000000000000000001' \
+  --secret-string '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' \
   2>/dev/null || echo "Secret 'signing-service/private-key' already exists"
 
 echo "LocalStack initialization complete!"

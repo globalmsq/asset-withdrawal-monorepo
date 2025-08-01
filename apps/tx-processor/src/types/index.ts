@@ -5,17 +5,23 @@ export interface WithdrawalRequest {
   tokenAddress: string;
   symbol?: string;
   network: string;
+  chain?: string;
   createdAt?: Date;
 }
 
 export interface SignedTransaction {
-  withdrawalId: string;
-  signedTx: string;
+  transactionType: 'SINGLE' | 'BATCH';
+  requestId: string;        // For individual transactions (replaces withdrawalId)
+  batchId?: string;         // For batch transactions (optional)
+  hash: string;
+  rawTransaction: string;   // Standardized field name (replaces signedTx)
+  nonce: number;
+  gasLimit: string;
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
   from: string;
   to: string;
   value: string;
-  gasPrice: string;
-  gasLimit: string;
-  nonce: number;
+  data?: string;
   chainId: number;
 }

@@ -25,12 +25,8 @@ const configSchema = z.object({
     signedTxQueueUrl: z.string(),
   }),
 
-  // Polygon
-  polygon: z.object({
-    network: z.enum(['amoy', 'mainnet']).default('amoy'),
-    rpcUrl: z.string(),
-    chainId: z.number(),
-  }),
+  // Chain configuration (should be provided by queue messages)
+  // No default values - chain/network must be explicitly provided
 
   // Logging
   logging: z.object({
@@ -57,6 +53,12 @@ const configSchema = z.object({
     batchBaseGas: z.number().default(100000),
     batchPerTxGas: z.number().default(25000),
   }),
+
+  // Redis configuration
+  redis: z.object({
+    host: z.string().default('localhost'),
+    port: z.number().default(6379),
+  }).optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -91,12 +93,7 @@ export function loadConfig(): Config {
         'http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue',
     },
 
-    polygon: {
-      network: (process.env.POLYGON_NETWORK || 'amoy') as 'amoy' | 'mainnet',
-      rpcUrl:
-        process.env.POLYGON_RPC_URL || 'https://rpc-amoy.polygon.technology',
-      chainId: parseInt(process.env.POLYGON_CHAIN_ID || '80002', 10),
-    },
+    // Chain configuration will be provided by queue messages
 
     logging: {
       level: (process.env.SIGNING_SERVICE_LOG_LEVEL || 'info') as
@@ -124,6 +121,11 @@ export function loadConfig(): Config {
       singleTxGasEstimate: parseInt(process.env.SINGLE_TX_GAS_ESTIMATE || '65000', 10),
       batchBaseGas: parseInt(process.env.BATCH_BASE_GAS || '100000', 10),
       batchPerTxGas: parseInt(process.env.BATCH_PER_TX_GAS || '25000', 10),
+    },
+
+    redis: {
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
     },
   };
 

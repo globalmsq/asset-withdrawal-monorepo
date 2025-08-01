@@ -17,17 +17,22 @@ export class ChainProvider {
       throw new Error(`Unsupported chain: ${options.chain}`);
     }
 
-    this.config = chainConfigs[options.network];
+    this.config = (chainConfigs as any)[options.network];
+
     if (!this.config) {
       throw new Error(`Unsupported network: ${options.network} for chain: ${options.chain}`);
     }
 
-    const rpcUrl = options.rpcUrl || this.config.rpcUrl;
+    // Allow RPC URL override from environment variable
+    const rpcUrl = process.env.RPC_URL || options.rpcUrl || this.config.rpcUrl;
 
-    this.provider = new ethers.JsonRpcProvider(rpcUrl, {
-      name: this.config.name,
-      chainId: this.config.chainId,
-    });
+    // Allow Chain ID override from environment variable
+    const chainId = process.env.CHAIN_ID
+      ? parseInt(process.env.CHAIN_ID)
+      : this.config.chainId;
+
+    // Use simplified constructor to avoid network detection issues
+    this.provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
   }
 
   getProvider(): ethers.JsonRpcProvider {
@@ -175,5 +180,9 @@ export class ChainProvider {
 
   isTestnet(): boolean {
     return this.network === 'testnet';
+  }
+
+  isLocalhost(): boolean {
+    return this.chain === 'localhost';
   }
 }

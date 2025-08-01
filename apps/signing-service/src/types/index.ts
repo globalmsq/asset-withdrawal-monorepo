@@ -1,6 +1,8 @@
 export interface SignedTransaction {
-  transactionId: string; // Maps to requestId in database
-  hash: string; // Maps to txHash in database
+  transactionType: 'SINGLE' | 'BATCH';
+  requestId: string;        // For individual transactions (replaces withdrawalId)
+  batchId?: string;         // For batch transactions (optional)
+  hash: string;             // Maps to txHash in database
   rawTransaction: string;
   nonce: number;
   gasLimit: string;

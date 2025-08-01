@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { Logger } from '../../utils/logger';
-import { PolygonProvider } from './polygon-provider';
+import { ChainProvider } from '@asset-withdrawal/shared';
 import { NonceManager } from './nonce-manager';
 import { SignedTransaction } from '../../types';
 
@@ -21,7 +21,7 @@ export class TransactionSigner {
   private nonceManager: NonceManager;
 
   constructor(
-    private provider: PolygonProvider,
+    private provider: ChainProvider,
     privateKey?: string
   ) {
     if (privateKey) {
@@ -93,12 +93,15 @@ export class TransactionSigner {
       const parsedTx = ethers.Transaction.from(signedTx);
 
       return {
-        withdrawalId,
-        signedTx,
+        transactionType: 'SINGLE',
+        requestId: withdrawalId,
+        hash: parsedTx.hash!,
+        rawTransaction: signedTx,
         from: this.wallet.address,
         to: request.to,
         value: request.value,
-        gasPrice: gasPrice.toString(),
+        maxFeePerGas: gasPrice.toString(),
+        maxPriorityFeePerGas: gasPrice.toString(),
         gasLimit: tx.gasLimit!.toString(),
         nonce,
         chainId: this.provider.getChainId(),
@@ -145,7 +148,7 @@ export class TransactionSigner {
 
   async broadcastTransaction(signedTx: string): Promise<string> {
     try {
-      const txResponse = await this.provider.getProvider().broadcastTransaction(signedTx);
+      const txResponse = await this.provider.sendTransaction(signedTx);
       this.logger.info(`Transaction broadcasted: ${txResponse.hash}`);
       return txResponse.hash;
     } catch (error) {

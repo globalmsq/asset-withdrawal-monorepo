@@ -11,6 +11,11 @@ jest.mock('@asset-withdrawal/shared', () => ({
   ...jest.requireActual('@asset-withdrawal/shared'),
   ChainProviderFactory: {
     createPolygonProvider: jest.fn(),
+    getProvider: jest.fn().mockReturnValue({
+      getProvider: jest.fn(),
+      getMulticall3Address: jest.fn().mockReturnValue('0x1234567890123456789012345678901234567890'),
+      getChainId: jest.fn().mockReturnValue(137),
+    }),
   },
   TransactionStatus: {
     PENDING: 'PENDING',
@@ -24,6 +29,16 @@ jest.mock('@asset-withdrawal/shared', () => ({
 }));
 jest.mock('../../services/transaction-signer');
 jest.mock('@aws-sdk/client-sqs');
+jest.mock('../../services/nonce-cache.service', () => ({
+  NonceCacheService: jest.fn().mockImplementation(() => ({
+    connect: jest.fn().mockResolvedValue(undefined),
+    disconnect: jest.fn().mockResolvedValue(undefined),
+    initialize: jest.fn().mockResolvedValue(undefined),
+    get: jest.fn().mockResolvedValue(0),
+    incrementAndGet: jest.fn().mockResolvedValue(1),
+    reset: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
 
 describe('SigningWorker Validation', () => {
   let signingWorker: SigningWorker;
@@ -36,6 +51,7 @@ describe('SigningWorker Validation', () => {
   let mockDbClient: any;
   let mockInputQueue: any;
   let mockOutputQueue: any;
+  let mockProvider: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -140,7 +156,7 @@ describe('SigningWorker Validation', () => {
     (SignedTransactionService as jest.Mock).mockImplementation(() => mockSignedTransactionService);
 
     // Mock chain provider
-    const mockProvider = {
+    mockProvider = {
       getProvider: jest.fn().mockReturnValue({
         getFeeData: jest.fn().mockResolvedValue({
           maxFeePerGas: BigInt('20000000000'),
@@ -152,6 +168,7 @@ describe('SigningWorker Validation', () => {
     };
 
     (ChainProviderFactory.createPolygonProvider as jest.Mock).mockReturnValue(mockProvider);
+    (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(mockProvider);
 
     // Create worker instance
     signingWorker = new SigningWorker(mockConfig, mockSecretsManager, mockLogger);
@@ -175,7 +192,8 @@ describe('SigningWorker Validation', () => {
     it('should return null for valid request', () => {
       const validRequest: WithdrawalRequest = {
         id: 'test-id',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         amount: '1000000000000000000',
         tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -186,24 +204,45 @@ describe('SigningWorker Validation', () => {
       expect(result).toBeNull();
     });
 
-    it('should return error for unsupported network', () => {
+    it('should return error for unsupported chain/network combination', () => {
       const invalidRequest: WithdrawalRequest = {
         id: 'test-id',
-        network: 'ethereum', // Not polygon
+        chain: 'unsupported',
+        network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         amount: '1000000000000000000',
         tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         symbol: 'USDT',
       };
 
+      // Mock ChainProviderFactory to throw error for unsupported chain
+      (ChainProviderFactory.getProvider as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('Unsupported chain: unsupported');
+      });
+
       const result = (signingWorker as any).validateWithdrawalRequest(invalidRequest);
-      expect(result).toBe('Unsupported network: ethereum. This service only supports Polygon');
+      expect(result).toBe('Unsupported chain/network combination: unsupported/mainnet');
+    });
+
+    it('should return error for missing chain or network information', () => {
+      const invalidRequest: WithdrawalRequest = {
+        id: 'test-id',
+        // Missing chain and network fields
+        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
+        amount: '1000000000000000000',
+        tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
+        symbol: 'USDT',
+      } as any;
+
+      const result = (signingWorker as any).validateWithdrawalRequest(invalidRequest);
+      expect(result).toContain('Missing chain or network information');
     });
 
     it('should return error for invalid recipient address', () => {
       const invalidRequest: WithdrawalRequest = {
         id: 'test-id',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'mainnet',
         toAddress: 'invalid-address', // Invalid format
         amount: '1000000000000000000',
         tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -217,7 +256,8 @@ describe('SigningWorker Validation', () => {
     it('should return error for invalid token address', () => {
       const invalidRequest: WithdrawalRequest = {
         id: 'test-id',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         amount: '1000000000000000000',
         tokenAddress: '0xINVALID', // Invalid format
@@ -228,10 +268,26 @@ describe('SigningWorker Validation', () => {
       expect(result).toBe('Invalid token address format: 0xINVALID');
     });
 
+    it('should allow null token address for native token transfers', () => {
+      const validRequest: WithdrawalRequest = {
+        id: 'test-id',
+        chain: 'polygon',
+        network: 'mainnet',
+        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
+        amount: '1000000000000000000',
+        tokenAddress: null, // Native token transfer
+        symbol: 'MATIC',
+      } as any;
+
+      const result = (signingWorker as any).validateWithdrawalRequest(validRequest);
+      expect(result).toBeNull();
+    });
+
     it('should return error for invalid amount', () => {
       const invalidRequest: WithdrawalRequest = {
         id: 'test-id',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         amount: '-1000', // Negative amount
         tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -245,7 +301,8 @@ describe('SigningWorker Validation', () => {
     it('should return error for zero amount', () => {
       const invalidRequest: WithdrawalRequest = {
         id: 'test-id',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         amount: '0', // Zero amount
         tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -259,7 +316,8 @@ describe('SigningWorker Validation', () => {
     it('should return error for non-numeric amount', () => {
       const invalidRequest: WithdrawalRequest = {
         id: 'test-id',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         amount: 'not-a-number', // Non-numeric
         tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -314,7 +372,8 @@ describe('SigningWorker Validation', () => {
         receiptHandle: 'receipt-1',
         body: {
           id: 'test-1',
-          network: 'polygon',
+          chain: 'polygon',
+          network: 'mainnet',
           toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
           amount: '1000000000000000000',
           tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -327,13 +386,22 @@ describe('SigningWorker Validation', () => {
         receiptHandle: 'receipt-2',
         body: {
           id: 'test-2',
-          network: 'ethereum', // Invalid network
+          chain: 'unsupported', // Invalid chain
+          network: 'mainnet',
           toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
           amount: '1000000000000000000',
           tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
           symbol: 'USDT',
         },
       };
+
+      // Mock ChainProviderFactory to throw error for unsupported chain
+      (ChainProviderFactory.getProvider as jest.Mock).mockReset();
+      (ChainProviderFactory.getProvider as jest.Mock)
+        .mockReturnValueOnce(mockProvider) // Valid chain
+        .mockImplementationOnce(() => {
+          throw new Error('Unsupported chain: unsupported');
+        });
 
       mockInputQueue.receiveMessages.mockResolvedValue([validMessage, invalidMessage]);
 
@@ -371,7 +439,7 @@ describe('SigningWorker Validation', () => {
       expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
         'test-2',
         TransactionStatus.FAILED,
-        'Unsupported network: ethereum. This service only supports Polygon'
+        'Unsupported chain/network combination: unsupported/mainnet'
       );
 
       // Verify invalid message was deleted from queue
@@ -397,7 +465,7 @@ describe('SigningWorker Validation', () => {
         null,
         {
           requestId: 'test-2',
-          error: 'Unsupported network: ethereum. This service only supports Polygon',
+          error: 'Unsupported chain/network combination: unsupported/mainnet',
         }
       );
     });
@@ -409,7 +477,8 @@ describe('SigningWorker Validation', () => {
           receiptHandle: 'receipt-1',
           body: {
             id: 'test-1',
-            network: 'ethereum', // Invalid network
+            chain: 'ethereum', // Invalid chain
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '1000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -421,7 +490,8 @@ describe('SigningWorker Validation', () => {
           receiptHandle: 'receipt-2',
           body: {
             id: 'test-2',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: 'invalid-address', // Invalid address
             amount: '1000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -429,6 +499,14 @@ describe('SigningWorker Validation', () => {
           },
         },
       ];
+
+      // Mock ChainProviderFactory to throw error for ethereum chain
+      (ChainProviderFactory.getProvider as jest.Mock).mockReset();
+      (ChainProviderFactory.getProvider as jest.Mock)
+        .mockImplementationOnce(() => {
+          throw new Error('Unsupported chain: ethereum');
+        })
+        .mockReturnValueOnce(mockProvider); // Valid for polygon
 
       mockInputQueue.receiveMessages.mockResolvedValue(invalidMessages);
 
@@ -451,7 +529,7 @@ describe('SigningWorker Validation', () => {
       expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
         'test-1',
         TransactionStatus.FAILED,
-        'Unsupported network: ethereum. This service only supports Polygon'
+        'Unsupported chain/network combination: ethereum/mainnet'
       );
       expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
         'test-2',
@@ -476,13 +554,20 @@ describe('SigningWorker Validation', () => {
         receiptHandle: 'receipt-1',
         body: {
           id: 'test-1',
-          network: 'ethereum',
+          chain: 'ethereum',
+          network: 'mainnet',
           toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
           amount: '1000',
           tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
           symbol: 'USDT',
         },
       };
+
+      // Mock ChainProviderFactory to throw error for ethereum chain
+      (ChainProviderFactory.getProvider as jest.Mock).mockReset();
+      (ChainProviderFactory.getProvider as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('Unsupported chain: ethereum');
+      });
 
       mockInputQueue.receiveMessages.mockResolvedValue([invalidMessage]);
 
@@ -523,7 +608,8 @@ describe('SigningWorker Validation', () => {
           receiptHandle: 'receipt-1',
           body: {
             id: 'test-1',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '1000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -535,7 +621,8 @@ describe('SigningWorker Validation', () => {
           receiptHandle: 'receipt-2',
           body: {
             id: 'test-2',
-            network: 'polygon',
+            chain: 'polygon',
+            network: 'mainnet',
             toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
             amount: '2000000000000000000',
             tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
@@ -606,6 +693,16 @@ describe('SigningWorker Validation', () => {
         status: TransactionStatus.SIGNING,
         tryCount: 1,
       });
+
+      // Mock the gas price cache to avoid fetching gas prices
+      const mockGasPriceCache = {
+        isValid: jest.fn().mockReturnValue(true),
+        get: jest.fn().mockReturnValue({
+          maxFeePerGas: BigInt('20000000000'),
+          maxPriorityFeePerGas: BigInt('1000000000'),
+        }),
+      };
+      (signingWorker as any).gasPriceCache = mockGasPriceCache;
 
       // Execute processBatch
       await (signingWorker as any).processBatch();

@@ -1,4 +1,4 @@
-import { PrismaClient, SignedTransaction, Prisma } from '@prisma/client';
+import { PrismaClient, SignedSingleTransaction, Prisma } from '@prisma/client';
 import { DatabaseService } from '../database';
 
 export interface CreateSignedTransactionDto {
@@ -29,7 +29,7 @@ export interface UpdateSignedTransactionDto {
   confirmedAt?: Date;
 }
 
-export class SignedTransactionService {
+export class SignedSingleTransactionService {
   private prisma: PrismaClient;
 
   constructor(prismaClient?: PrismaClient) {
@@ -42,8 +42,8 @@ export class SignedTransactionService {
     }
   }
 
-  async create(data: CreateSignedTransactionDto): Promise<SignedTransaction> {
-    return this.prisma.signedTransaction.create({
+  async create(data: CreateSignedTransactionDto): Promise<SignedSingleTransaction> {
+    return this.prisma.signedSingleTransaction.create({
       data: {
         ...data,
         status: data.status || 'SIGNED',
@@ -51,21 +51,21 @@ export class SignedTransactionService {
     });
   }
 
-  async findByRequestId(requestId: string): Promise<SignedTransaction[]> {
-    return this.prisma.signedTransaction.findMany({
+  async findByRequestId(requestId: string): Promise<SignedSingleTransaction[]> {
+    return this.prisma.signedSingleTransaction.findMany({
       where: { requestId },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async findByTxHash(txHash: string): Promise<SignedTransaction | null> {
-    return this.prisma.signedTransaction.findFirst({
+  async findByTxHash(txHash: string): Promise<SignedSingleTransaction | null> {
+    return this.prisma.signedSingleTransaction.findFirst({
       where: { txHash },
     });
   }
 
-  async getLatestByRequestId(requestId: string): Promise<SignedTransaction | null> {
-    return this.prisma.signedTransaction.findFirst({
+  async getLatestByRequestId(requestId: string): Promise<SignedSingleTransaction | null> {
+    return this.prisma.signedSingleTransaction.findFirst({
       where: { requestId },
       orderBy: { createdAt: 'desc' },
     });
@@ -74,8 +74,8 @@ export class SignedTransactionService {
   async updateStatus(
     id: bigint,
     data: UpdateSignedTransactionDto
-  ): Promise<SignedTransaction> {
-    return this.prisma.signedTransaction.update({
+  ): Promise<SignedSingleTransaction> {
+    return this.prisma.signedSingleTransaction.update({
       where: { id },
       data,
     });
@@ -84,30 +84,30 @@ export class SignedTransactionService {
   async updateStatusByTxHash(
     txHash: string,
     data: UpdateSignedTransactionDto
-  ): Promise<SignedTransaction> {
+  ): Promise<SignedSingleTransaction> {
     // Since txHash is not unique, we need to find first and then update
-    const transaction = await this.prisma.signedTransaction.findFirst({
+    const transaction = await this.prisma.signedSingleTransaction.findFirst({
       where: { txHash },
     });
 
     if (!transaction) {
-      throw new Error(`SignedTransaction with txHash ${txHash} not found`);
+      throw new Error(`SignedSingleTransaction with txHash ${txHash} not found`);
     }
 
-    return this.prisma.signedTransaction.update({
+    return this.prisma.signedSingleTransaction.update({
       where: { id: transaction.id },
       data,
     });
   }
 
   async countByStatus(status: string): Promise<number> {
-    return this.prisma.signedTransaction.count({
+    return this.prisma.signedSingleTransaction.count({
       where: { status },
     });
   }
 
-  async getRecentSignedTransactions(limit: number = 10): Promise<SignedTransaction[]> {
-    return this.prisma.signedTransaction.findMany({
+  async getRecentSignedTransactions(limit: number = 10): Promise<SignedSingleTransaction[]> {
+    return this.prisma.signedSingleTransaction.findMany({
       take: limit,
       orderBy: { createdAt: 'desc' },
     });
@@ -116,8 +116,8 @@ export class SignedTransactionService {
   async getByRequestIdAndStatus(
     requestId: string,
     status: string
-  ): Promise<SignedTransaction[]> {
-    return this.prisma.signedTransaction.findMany({
+  ): Promise<SignedSingleTransaction[]> {
+    return this.prisma.signedSingleTransaction.findMany({
       where: {
         requestId,
         status,

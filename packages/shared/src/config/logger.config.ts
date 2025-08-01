@@ -12,7 +12,7 @@ export const getDefaultLoggerConfig = (service: string, environment = 'developme
     filePath: process.env.LOG_FILE_PATH || './logs',
     maxFileSize: process.env.LOG_MAX_FILE_SIZE || '20m',
     maxFiles: process.env.LOG_MAX_FILES || '14d',
-    format: isProduction ? 'json' : 'simple',
+    format: (process.env.LOG_FORMAT as 'json' | 'simple') || (isProduction ? 'json' : 'simple'),
   };
 };
 

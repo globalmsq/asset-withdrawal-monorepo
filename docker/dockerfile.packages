@@ -52,6 +52,7 @@ COPY --from=base /app/node_modules/@prisma ./node_modules/@prisma
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=8080
+ENV DOCKER=true
 
 # Expose port
 EXPOSE 8080
@@ -82,6 +83,7 @@ COPY --from=base /app/node_modules/@prisma ./node_modules/@prisma
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3005
+ENV DOCKER=true
 
 # Expose port
 EXPOSE 3005
@@ -112,6 +114,7 @@ COPY --from=base /app/node_modules/@prisma ./node_modules/@prisma
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV DOCKER=true
 
 # Expose port
 EXPOSE 3001
@@ -142,6 +145,7 @@ COPY --from=base /app/node_modules/@prisma ./node_modules/@prisma
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3002
+ENV DOCKER=true
 
 # Expose port
 EXPOSE 3002

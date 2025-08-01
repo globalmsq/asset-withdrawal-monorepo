@@ -1,14 +1,14 @@
-export type LogLevel = 'error' | 'warn' | 'info' | 'http' | 'verbose' | 'debug' | 'silly';
-
 export const LogLevel = {
-  ERROR: 'error' as LogLevel,
-  WARN: 'warn' as LogLevel,
-  INFO: 'info' as LogLevel,
-  HTTP: 'http' as LogLevel,
-  VERBOSE: 'verbose' as LogLevel,
-  DEBUG: 'debug' as LogLevel,
-  SILLY: 'silly' as LogLevel,
+  ERROR: 'error',
+  WARN: 'warn',
+  INFO: 'info',
+  HTTP: 'http',
+  VERBOSE: 'verbose',
+  DEBUG: 'debug',
+  SILLY: 'silly',
 } as const;
+
+export type LogLevel = typeof LogLevel[keyof typeof LogLevel];
 
 export interface LogContext {
   service: string;

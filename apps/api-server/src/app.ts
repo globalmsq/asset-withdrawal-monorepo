@@ -32,11 +32,21 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logging middleware
-app.use(morgan('combined'));
-
 // Readiness check middleware - block requests until server is ready
 app.use(readinessCheck);
+
+// HTTP request logging with Morgan -> Winston integration
+const morganStream = {
+  write: (message: string) => {
+    // Remove trailing newline and log as info level
+    // Using info level since http level might not be visible in current log configuration
+    logger.info(message.trim(), { type: 'http-access' });
+  },
+};
+
+// Use 'combined' format for production-like logs, 'dev' for development
+const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
+app.use(morgan(morganFormat, { stream: morganStream }));
 
 // Routes
 app.use('/auth', authRoutes);

@@ -10,22 +10,34 @@ export class Logger {
   }
 
   info(message: string, ...args: any[]) {
-    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
-    this.logger.info(message, metadata);
+    // If args are provided, concatenate them to the message like console.log
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.info(finalMessage);
   }
 
   error(message: string, error?: any, ...args: any[]) {
-    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
-    this.logger.error(message, error, metadata);
+    // If additional args are provided, concatenate them to the message
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.error(finalMessage, error);
   }
 
   warn(message: string, ...args: any[]) {
-    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
-    this.logger.warn(message, metadata);
+    // If args are provided, concatenate them to the message like console.log
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.warn(finalMessage);
   }
 
   debug(message: string, ...args: any[]) {
-    const metadata = args.length > 0 ? { metadata: { data: args } } : undefined;
-    this.logger.debug(message, metadata);
+    // If args are provided, concatenate them to the message like console.log
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.debug(finalMessage);
   }
 }

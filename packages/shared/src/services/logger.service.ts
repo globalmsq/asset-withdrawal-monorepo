@@ -10,17 +10,31 @@ export class LoggerService {
   private config: LoggerConfig;
   private context: LogContext;
 
-  constructor(config?: Partial<LoggerConfig>) {
-    this.config = {
-      ...getDefaultLoggerConfig(config?.service || 'default', process.env.NODE_ENV),
-      ...config,
-    };
+  constructor(config?: Partial<LoggerConfig>);
+  constructor(winstonLogger: winston.Logger, config: LoggerConfig, context: LogContext);
+  constructor(
+    configOrLogger?: Partial<LoggerConfig> | winston.Logger,
+    config?: LoggerConfig,
+    context?: LogContext
+  ) {
+    if (configOrLogger && typeof configOrLogger === 'object' && 'info' in configOrLogger && 'error' in configOrLogger) {
+      // Private constructor for child loggers
+      this.winston = configOrLogger;
+      this.config = config!;
+      this.context = context!;
+    } else {
+      // Public constructor
+      this.config = {
+        ...getDefaultLoggerConfig(configOrLogger?.service || 'default', process.env.NODE_ENV),
+        ...configOrLogger,
+      };
 
-    this.context = {
-      service: this.config.service,
-    };
+      this.context = {
+        service: this.config.service,
+      };
 
-    this.winston = this.createLogger();
+      this.winston = this.createLogger();
+    }
   }
 
   private createLogger(): winston.Logger {
@@ -36,7 +50,14 @@ export class LoggerService {
       formats.push(
         winston.format.printf(({ timestamp, level, message, ...meta }) => {
           const contextStr = this.formatContext(meta);
-          return `${timestamp} [${level.toUpperCase()}] [${this.config.service}] ${message}${contextStr}`;
+          const output = `${timestamp} [${level.toUpperCase()}] [${this.config.service}] ${message}${contextStr}`;
+
+          // Remove all ANSI color codes if NO_COLOR is set
+          if (process.env.NO_COLOR === 'true') {
+            return output.replace(/\x1b\[[0-9;]*m/g, '');
+          }
+
+          return output;
         })
       );
     }
@@ -45,9 +66,13 @@ export class LoggerService {
 
     // Console transport
     if (this.config.enableConsole) {
+      // Check if running in Docker or if NO_COLOR env var is set
+      const isDocker = process.env.DOCKER === 'true' || fs.existsSync('/.dockerenv');
+      const noColor = process.env.NO_COLOR === 'true' || process.env.NODE_ENV === 'production';
+
       transports.push(
         new winston.transports.Console({
-          format: this.config.format === 'simple'
+          format: this.config.format === 'simple' && !isDocker && !noColor
             ? winston.format.combine(
               winston.format.colorize(),
               ...formats
@@ -91,6 +116,7 @@ export class LoggerService {
 
     return winston.createLogger({
       level: this.config.level,
+      levels: winston.config.npm.levels,
       transports,
     });
   }
@@ -123,7 +149,7 @@ export class LoggerService {
             return obj.map(filterObject);
           } else if (obj && typeof obj === 'object') {
             const filtered: any = {};
-            for (const key in obj) {
+            for (const key of Object.keys(obj)) {
               filtered[key] = filterObject(obj[key]);
             }
             return filtered;
@@ -181,9 +207,7 @@ export class LoggerService {
   // Logging methods
   error(message: string, error?: Error | any, context?: Partial<LogContext>): void {
     const meta = { ...this.context, ...context };
-    if (error instanceof Error) {
-      this.winston.error(message, { ...meta, error: error.message, stack: error.stack });
-    } else if (error) {
+    if (error) {
       this.winston.error(message, { ...meta, error });
     } else {
       this.winston.error(message, meta);
@@ -218,14 +242,10 @@ export class LoggerService {
   child(context: Partial<LogContext>): LoggerService {
     // Create a wrapper around winston's child logger
     const childWinston = this.winston.child({ ...this.context, ...context });
+    const childContext = { ...this.context, ...context };
 
-    // Create a new LoggerService instance that wraps the child winston logger
-    const childLogger = Object.create(LoggerService.prototype);
-    childLogger.winston = childWinston;
-    childLogger.config = this.config;
-    childLogger.context = { ...this.context, ...context };
-
-    return childLogger;
+    // Use the private constructor to create a properly initialized child logger
+    return new LoggerService(childWinston, this.config, childContext);
   }
 
   // Get the underlying winston logger (for advanced use cases)

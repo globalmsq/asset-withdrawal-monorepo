@@ -1,10 +1,46 @@
 import { LoggerService } from '../logger.service';
 import { LogLevel } from '../../types/logger.types';
 
+// Mock winston
+jest.mock('winston', () => {
+  const mockLogger: any = {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    http: jest.fn(),
+    silly: jest.fn(),
+    child: jest.fn(),
+  };
+
+  mockLogger.child.mockReturnValue(mockLogger);
+
+  return {
+    createLogger: jest.fn(() => mockLogger),
+    format: {
+      timestamp: jest.fn(() => ({})),
+      errors: jest.fn(() => ({})),
+      json: jest.fn(() => ({})),
+      printf: jest.fn(() => ({})),
+      colorize: jest.fn(() => ({})),
+      combine: jest.fn(() => ({})),
+    },
+    transports: {
+      Console: jest.fn(),
+    },
+  };
+});
+
 describe('LoggerService', () => {
   let logger: LoggerService;
+  let mockWinstonLogger: any;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+    const winston = require('winston');
+    mockWinstonLogger = winston.createLogger();
+
     logger = new LoggerService({
       service: 'test-service',
       level: LogLevel.DEBUG,
@@ -35,24 +71,47 @@ describe('LoggerService', () => {
 
   describe('Logging levels', () => {
     it('should log info messages', () => {
-      expect(() => logger.info('Test info message')).not.toThrow();
+      logger.info('Test info message');
+      expect(mockWinstonLogger.info).toHaveBeenCalledWith(
+        'Test info message',
+        expect.objectContaining({ service: 'test-service' })
+      );
     });
 
     it('should log error messages', () => {
-      expect(() => logger.error('Test error message')).not.toThrow();
+      logger.error('Test error message');
+      expect(mockWinstonLogger.error).toHaveBeenCalledWith(
+        'Test error message',
+        expect.objectContaining({ service: 'test-service' })
+      );
     });
 
     it('should log error messages with Error object', () => {
       const error = new Error('Test error');
-      expect(() => logger.error('Test error with object', error)).not.toThrow();
+      logger.error('Test error with object', error);
+      expect(mockWinstonLogger.error).toHaveBeenCalledWith(
+        'Test error with object',
+        expect.objectContaining({
+          service: 'test-service',
+          error: error,
+        })
+      );
     });
 
     it('should log warn messages', () => {
-      expect(() => logger.warn('Test warning message')).not.toThrow();
+      logger.warn('Test warning message');
+      expect(mockWinstonLogger.warn).toHaveBeenCalledWith(
+        'Test warning message',
+        expect.objectContaining({ service: 'test-service' })
+      );
     });
 
     it('should log debug messages', () => {
-      expect(() => logger.debug('Test debug message')).not.toThrow();
+      logger.debug('Test debug message');
+      expect(mockWinstonLogger.debug).toHaveBeenCalledWith(
+        'Test debug message',
+        expect.objectContaining({ service: 'test-service' })
+      );
     });
   });
 

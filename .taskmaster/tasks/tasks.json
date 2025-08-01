@@ -368,7 +368,7 @@
         "id": 22,
         "title": "[BFS-32] Implement Hardhat node-based localhost chain support",
         "description": "Implement localhost blockchain network support based on Hardhat node for local development and testing environment. This enables fast and reliable development environment without external testnet dependencies. Ready to proceed sequentially starting from the first subtask.",
-        "status": "in-progress",
+        "status": "review",
         "dependencies": [],
         "priority": "medium",
         "details": "Hardhat development environment setup (npm install --save-dev hardhat @nomicfoundation/hardhat-ethers ethers, npx hardhat init for basic project structure, hardhat.config.ts configuration file setup), Local network configuration (defaultNetwork: 'hardhat', networks.hardhat settings - chainId: 31337, mining.auto: true, mining.interval: 3000ms, accounts configuration - including LocalStack private key 0x0000000000000000000000000000000000000000000000000000000000000001), Localhost chain configuration in chains.config.json (chainId: 31337, name: 'localhost', rpcUrl: 'http://127.0.0.1:8545' configuration, explicit chain parameter specification in API requests), NetworkConfig type extension (localhost network configuration addition, chainId: 31337, name: 'localhost', rpcUrl setting through ChainProvider mechanism), Smart contract deployment scripts (scripts/deploy-localhost.ts implementation, ERC20 token contract deployment, Multicall3 contract deployment, transfer all test tokens to signing address, export deployed addresses as environment variables), Local development workflow improvement (integrate hardhat service into existing docker-compose, run npx hardhat node --hostname 0.0.0.0, automatic account creation and funding, block mining interval configuration), Test helper utility implementation (test account creation functions, test token transfer functions, block timestamp manipulation functions, snapshot/revert functionality), Developer tools integration (utilize Hardhat Network Helper, console.log debugging support, gas reporting configuration, solidity coverage measurement), Fork mode support (polygon mainnet/testnet fork functionality, fork from specific block height, simulate real network state), Automation scripts (add npm run dev:localhost command, sequential execution: start Hardhat node → deploy contracts → setup test data → start API server). Now ready to start from the first subtask (22.1).",
@@ -567,7 +567,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-07-31T06:17:41.051Z",
+      "updated": "2025-08-01T04:07:30.310Z",
       "description": "Tasks for master context"
     }
   }

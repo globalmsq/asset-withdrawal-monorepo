@@ -327,15 +327,12 @@ export class TransactionSigner {
         });
       }
 
-      // Prepare batch transfers (skip gas estimation initially since we might need to approve tokens first)
-      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers, this.wallet.address, true);
+      // Prepare batch transfers with gas estimation
+      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers, this.wallet.address, false);
 
-      // After approvals, estimate gas for the actual calls
-      const { totalEstimatedGas } = await this.multicallService.estimateGasForCalls(preparedBatch.calls);
-
-      this.logger.info('Gas estimated after approvals', {
+      this.logger.info('Batch prepared with gas estimation', {
         batchId,
-        estimatedGas: totalEstimatedGas.toString(),
+        estimatedGas: preparedBatch.totalEstimatedGas.toString(),
         transferCount: transfers.length,
       });
 
@@ -361,8 +358,8 @@ export class TransactionSigner {
         type: 2, // EIP-1559
       };
 
-      // Use the newly estimated gas
-      const gasLimit = totalEstimatedGas;
+      // Use the gas estimate from preparedBatch
+      const gasLimit = preparedBatch.totalEstimatedGas;
 
       // Get gas price from cache or fetch new one
       let cachedGasPrice = this.gasPriceCache.get();
@@ -531,8 +528,8 @@ export class TransactionSigner {
         });
       }
 
-      // Prepare batch transfers with potential splitting (skip gas estimation initially)
-      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers, this.wallet.address, true);
+      // Prepare batch transfers with potential splitting and gas estimation
+      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers, this.wallet.address, false);
 
       // Check if batch was split into groups
       if (preparedBatch.batchGroups && preparedBatch.batchGroups.length > 1) {

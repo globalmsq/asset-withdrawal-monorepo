@@ -399,7 +399,7 @@ describe('SigningWorker Multi-Instance Support', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith(
         'Request no longer owned by this instance',
         expect.objectContaining({
-          transactionId: 'test-1',
+          requestId: 'test-1',
           currentInstanceId: instanceId1,
           ownerInstanceId: 'different-instance',
         })

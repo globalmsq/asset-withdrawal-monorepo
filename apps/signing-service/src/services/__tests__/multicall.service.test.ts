@@ -107,7 +107,7 @@ describe('MulticallService', () => {
         },
       ];
 
-      const result = await multicallService.prepareBatchTransfer(transfers);
+      const result = await multicallService.prepareBatchTransfer(transfers, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       expect(result.calls).toHaveLength(2);
       expect(result.calls[0]).toEqual({
@@ -135,7 +135,7 @@ describe('MulticallService', () => {
         },
       ];
 
-      await multicallService.prepareBatchTransfer(transfers);
+      await multicallService.prepareBatchTransfer(transfers, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       // Find the correct log call (not the initialization log)
       const infoCalls = mockLogger.info.mock.calls;
@@ -160,7 +160,7 @@ describe('MulticallService', () => {
         },
       ];
 
-      const result = await multicallService.prepareBatchTransfer(transfers);
+      const result = await multicallService.prepareBatchTransfer(transfers, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'Failed to estimate batch gas',
@@ -194,10 +194,11 @@ describe('MulticallService', () => {
         },
       ];
 
-      const result = await service.prepareBatchTransfer(transfers);
+      const result = await service.prepareBatchTransfer(transfers, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       // Verify encoding was called with correct parameters
-      expect(mockEncodeFunctionData).toHaveBeenCalledWith('transfer', [
+      expect(mockEncodeFunctionData).toHaveBeenCalledWith('transferFrom', [
+        '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         TEST_RECIPIENT,
         '1000000000000000000',
       ]);
@@ -544,7 +545,7 @@ describe('MulticallService', () => {
         transactionId: `tx${i}`,
       }));
 
-      const result = await multicallService.prepareBatchTransfer(transfers);
+      const result = await multicallService.prepareBatchTransfer(transfers, '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf', false);
 
       // With 10 calls, should get some discount
       const basePerCall = 300000n / 10n; // 30000

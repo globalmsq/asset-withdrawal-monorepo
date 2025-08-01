@@ -740,7 +740,7 @@ describe('SigningWorker', () => {
             }),
           },
         };
-        
+
         // Execute the transaction to trigger the calls
         await transactionFn(mockTx);
 

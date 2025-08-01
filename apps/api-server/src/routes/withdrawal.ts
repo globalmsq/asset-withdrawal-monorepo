@@ -243,21 +243,11 @@ router.post('/request', async (req: Request, res: Response) => {
     const { amount, toAddress, tokenAddress, symbol, network, chain } = req.body;
 
     // Basic validation
-    if (!amount || !toAddress || !tokenAddress) {
+    if (!amount || !toAddress || !tokenAddress || !chain || !network) {
       const response: ApiResponse = {
         success: false,
         error:
-          'Missing required fields: amount, toAddress, tokenAddress',
-        timestamp: new Date(),
-      };
-      return res.status(400).json(response);
-    }
-
-    // Both chain and network parameters are required
-    if (!chain || !network) {
-      const response: ApiResponse = {
-        success: false,
-        error: 'Both chain and network parameters are required (e.g., chain="localhost", network="testnet")',
+          'Missing required fields: amount, toAddress, tokenAddress, chain, network',
         timestamp: new Date(),
       };
       return res.status(400).json(response);

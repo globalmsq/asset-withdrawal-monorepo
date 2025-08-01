@@ -20,7 +20,6 @@ export class SigningWorker extends BaseWorker<
 > {
   private withdrawalRequestService: WithdrawalRequestService;
   private signedTransactionService: SignedTransactionService;
-  private transactionSigner!: TransactionSigner; // Will be set dynamically based on chain
   private nonceCache: NonceCacheService;
   private gasPriceCache: GasPriceCache;
   private multicallServices: Map<string, MulticallService>;

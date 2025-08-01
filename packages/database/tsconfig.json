@@ -3,7 +3,12 @@
   "compilerOptions": {
     "outDir": "lib",
     "noEmit": false,
-    "types": ["node", "jest"]
+    "types": ["node", "jest"],
+    "baseUrl": ".",
+    "paths": {
+      "shared": ["../shared/src"],
+      "shared/*": ["../shared/src/*"]
+    }
   },
   "include": ["src/**/*", "jest.config.ts"],
   "exclude": ["node_modules", "lib"]

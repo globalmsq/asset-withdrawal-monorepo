@@ -255,6 +255,13 @@ npm test           # Run all tests
    - Only implement full test coverage when explicitly requested
    - Do NOT run tests automatically unless asked
 
+3. **Git Commit Rules - IMPORTANT**:
+   - **NEVER commit changes automatically**
+   - **NEVER run `git commit` unless the user explicitly asks**
+   - Only stage files (`git add`) when user requests
+   - Always wait for explicit commit instructions from the user
+   - Examples of explicit requests: "커밋해줘", "commit the changes", "git commit 해줘"
+
 ### 7. Documentation
 
 - Update API documentation if you modify endpoints

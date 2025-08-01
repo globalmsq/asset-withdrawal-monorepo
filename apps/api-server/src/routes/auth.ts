@@ -173,7 +173,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
       timestamp: new Date(),
     } as ApiResponse);
   } catch (error) {
-    console.error('Get user error:', error);
+    logger.error('Get user error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get user info',

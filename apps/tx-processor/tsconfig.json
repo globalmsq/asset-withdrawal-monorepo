@@ -9,7 +9,11 @@
       "@asset-withdrawal/shared": ["../../packages/shared/src"],
       "@asset-withdrawal/shared/*": ["../../packages/shared/src/*"],
       "@asset-withdrawal/database": ["../../packages/database/src"],
-      "@asset-withdrawal/database/*": ["../../packages/database/src/*"]
+      "@asset-withdrawal/database/*": ["../../packages/database/src/*"],
+      "shared": ["../../packages/shared/src"],
+      "shared/*": ["../../packages/shared/src/*"],
+      "database": ["../../packages/database/src"],
+      "database/*": ["../../packages/database/src/*"]
     }
   },
   "include": ["src/**/*"],

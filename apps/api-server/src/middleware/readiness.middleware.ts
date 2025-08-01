@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../services/database';
 import { QueueFactory, WithdrawalRequest } from 'shared';
+import { Logger } from '../utils/logger';
+
+const logger = new Logger('ReadinessMiddleware');
 
 let isReady = false;
 let lastHealthCheck = { db: false, sqs: false, timestamp: new Date() };
@@ -23,7 +26,7 @@ async function checkDependencies(): Promise<{ healthy: boolean; details: any }> 
     const dbService = getDatabase();
     checks.db = await dbService.healthCheck();
   } catch (error) {
-    console.error('Database health check failed:', error);
+    logger.error('Database health check failed:', error);
     checks.db = false;
   }
 
@@ -33,7 +36,7 @@ async function checkDependencies(): Promise<{ healthy: boolean; details: any }> 
     await txRequestQueue.getQueueUrl();
     checks.sqs = true;
   } catch (error) {
-    console.error('SQS health check failed:', error);
+    logger.error('SQS health check failed:', error);
     checks.sqs = false;
   }
 

@@ -1,21 +1,43 @@
+import { LoggerService } from 'shared';
+
 export class Logger {
-  constructor(private context: string) {}
+  private logger: LoggerService;
 
-  info(message: string, data?: any) {
-    console.log(`[${new Date().toISOString()}] [${this.context}] [INFO] ${message}`, data || '');
+  constructor(private context: string) {
+    this.logger = new LoggerService({
+      service: `tx-monitor:${context}`,
+    });
   }
 
-  error(message: string, error?: any) {
-    console.error(`[${new Date().toISOString()}] [${this.context}] [ERROR] ${message}`, error || '');
+  info(message: string, ...args: any[]) {
+    // If args are provided, concatenate them to the message like console.log
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.info(finalMessage);
   }
 
-  warn(message: string, data?: any) {
-    console.warn(`[${new Date().toISOString()}] [${this.context}] [WARN] ${message}`, data || '');
+  error(message: string, error?: any, ...args: any[]) {
+    // If additional args are provided, concatenate them to the message
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.error(finalMessage, error);
   }
 
-  debug(message: string, data?: any) {
-    if (process.env.NODE_ENV === 'development') {
-      console.debug(`[${new Date().toISOString()}] [${this.context}] [DEBUG] ${message}`, data || '');
-    }
+  warn(message: string, ...args: any[]) {
+    // If args are provided, concatenate them to the message like console.log
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.warn(finalMessage);
+  }
+
+  debug(message: string, ...args: any[]) {
+    // If args are provided, concatenate them to the message like console.log
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.debug(finalMessage);
   }
 }

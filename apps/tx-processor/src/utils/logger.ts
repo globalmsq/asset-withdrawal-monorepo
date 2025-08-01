@@ -1,21 +1,43 @@
+import { LoggerService } from '@asset-withdrawal/shared';
+
 export class Logger {
-  constructor(private context: string) {}
+  private logger: LoggerService;
+
+  constructor(private context: string) {
+    this.logger = new LoggerService({
+      service: `tx-processor:${context}`,
+    });
+  }
 
   info(message: string, ...args: any[]) {
-    console.log(`[${new Date().toISOString()}] [INFO] [${this.context}] ${message}`, ...args);
+    // If args are provided, concatenate them to the message like console.log
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.info(finalMessage);
   }
 
   error(message: string, error?: any, ...args: any[]) {
-    console.error(`[${new Date().toISOString()}] [ERROR] [${this.context}] ${message}`, error, ...args);
+    // If additional args are provided, concatenate them to the message
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.error(finalMessage, error);
   }
 
   warn(message: string, ...args: any[]) {
-    console.warn(`[${new Date().toISOString()}] [WARN] [${this.context}] ${message}`, ...args);
+    // If args are provided, concatenate them to the message like console.log
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.warn(finalMessage);
   }
 
   debug(message: string, ...args: any[]) {
-    if (process.env.LOG_LEVEL === 'debug') {
-      console.debug(`[${new Date().toISOString()}] [DEBUG] [${this.context}] ${message}`, ...args);
-    }
+    // If args are provided, concatenate them to the message like console.log
+    const finalMessage = args.length > 0
+      ? [message, ...args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg))].join(' ')
+      : message;
+    this.logger.debug(finalMessage);
   }
 }

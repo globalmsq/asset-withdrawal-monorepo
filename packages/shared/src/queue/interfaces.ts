@@ -37,10 +37,13 @@ export interface IQueue<T> {
   getQueueAttributes?(): Promise<QueueAttributes>;
 }
 
+import { LoggerService } from '../services/logger.service';
+
 export interface QueueConfig {
   queueName: string;
   region?: string;
   endpoint?: string;
   accessKeyId?: string;
   secretAccessKey?: string;
+  logger?: LoggerService;
 }

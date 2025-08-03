@@ -7,6 +7,7 @@
 /build
 packages/*/lib
 apps/*/lib
+# Build artifacts from esbuild that may be generated in nested packages directories
 packages/*/packages/
 
 # Runtime data

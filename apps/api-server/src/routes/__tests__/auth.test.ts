@@ -1,5 +1,5 @@
 // Mock dependencies before imports
-jest.mock('../../../../../packages/database/src', () => ({
+jest.mock('@asset-withdrawal/database', () => ({
   UserService: jest.fn(() => ({
     createUser: jest.fn(),
     findByEmail: jest.fn(),

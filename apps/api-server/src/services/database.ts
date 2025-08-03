@@ -1,4 +1,6 @@
-let databaseInstance: any = null;
+import type { DatabaseService } from '@asset-withdrawal/database';
+
+let databaseInstance: DatabaseService | null = null;
 
 export async function initializeDatabase(config: {
   host: string;
@@ -6,7 +8,7 @@ export async function initializeDatabase(config: {
   user: string;
   password: string;
   database: string;
-}): Promise<any> {
+}): Promise<DatabaseService> {
   if (!databaseInstance) {
     const { DatabaseService } = await import('@asset-withdrawal/database');
     databaseInstance = new DatabaseService(config);
@@ -14,7 +16,7 @@ export async function initializeDatabase(config: {
   return databaseInstance;
 }
 
-export function getDatabase(): any {
+export function getDatabase(): DatabaseService {
   if (!databaseInstance) {
     throw new Error('Database not initialized. Call initializeDatabase first.');
   }

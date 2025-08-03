@@ -73,6 +73,10 @@
       "prettier --write"
     ]
   },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.840.0",
     "@prisma/client": "^6.11.0",

@@ -89,7 +89,9 @@ export abstract class BaseWorker<TInput, TOutput = void> {
 
       this.logger.info(`Processing batch of ${messages.length} messages`);
 
-      const promises = messages.map((message: Message<TInput>) => this.processMessage(message));
+      const promises = messages.map((message: Message<TInput>) =>
+        this.processMessage(message)
+      );
       await Promise.allSettled(promises);
     } catch (error) {
       this.logger.error('Error in batch processing', error);
@@ -125,7 +127,10 @@ export abstract class BaseWorker<TInput, TOutput = void> {
     }
   }
 
-  protected abstract process(data: TInput, messageId: string): Promise<TOutput | void>;
+  protected abstract process(
+    data: TInput,
+    messageId: string
+  ): Promise<TOutput | void>;
 
   protected async waitForProcessingToComplete(): Promise<void> {
     // Simple wait - in production, track active processing

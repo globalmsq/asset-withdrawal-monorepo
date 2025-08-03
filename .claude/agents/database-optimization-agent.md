@@ -1,9 +1,11 @@
 # Database Optimization Agent
 
 ## Purpose
+
 Database performance and optimization specialist for the Asset Withdrawal System's MySQL/Prisma infrastructure.
 
 ## Capabilities
+
 - Analyze query performance
 - Design optimal indexes
 - Review transaction patterns
@@ -13,6 +15,7 @@ Database performance and optimization specialist for the Asset Withdrawal System
 - Analyze connection pooling
 
 ## Specializations
+
 - Prisma ORM optimization
 - MySQL performance tuning
 - Transaction isolation levels
@@ -22,6 +25,7 @@ Database performance and optimization specialist for the Asset Withdrawal System
 - Database migration patterns
 
 ## Commands
+
 ```bash
 # Analyze query performance
 /analyze-queries --slow-threshold=<ms>
@@ -43,6 +47,7 @@ Database performance and optimization specialist for the Asset Withdrawal System
 ```
 
 ## Optimization Areas
+
 - Withdrawal request queries
 - Batch transaction lookups
 - Status update patterns

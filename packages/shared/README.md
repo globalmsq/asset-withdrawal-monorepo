@@ -7,33 +7,39 @@ Shared 패키지는 모든 서비스에서 공통으로 사용되는 타입, 유
 ## 주요 구성 요소
 
 ### 1. 타입 정의 (Types)
+
 - 공통 데이터 모델 인터페이스
 - API 요청/응답 타입
 - 이벤트 및 메시지 타입
 - 열거형 및 상수
 
 ### 2. 유틸리티 함수 (Utils)
+
 - 암호화/복호화 헬퍼
 - 날짜/시간 처리
 - 금액 변환 및 포맷팅
 - 로깅 유틸리티
 
 ### 3. 검증자 (Validators)
+
 - 입력 데이터 검증
 - 비즈니스 규칙 검증
 - 스키마 검증 (Joi/Yup)
 
 ### 4. 큐 인터페이스 (Queue)
+
 - SQS 추상화 레이어
 - 메시지 타입 정의
 - 큐 헬퍼 함수
 
 ### 5. 에러 클래스 (Errors)
+
 - 커스텀 에러 클래스
 - 에러 코드 정의
 - 에러 핸들링 유틸리티
 
 ### 6. 체인 설정 (Chain Config)
+
 - 다중 체인 지원: Polygon, Ethereum, BSC, localhost (Hardhat)
 - ChainProvider를 통한 체인별 설정 관리
 - API 요청에서 체인/네트워크 명시적 지정 필요 (기본값 없음)
@@ -75,6 +81,7 @@ packages/shared/
 ## 주요 인터페이스
 
 ### 출금 관련 타입
+
 ```typescript
 export interface IWithdrawalRequest {
   id: string;
@@ -94,11 +101,12 @@ export enum WithdrawalStatus {
   BROADCASTED = 'BROADCASTED',
   CONFIRMING = 'CONFIRMING',
   CONFIRMED = 'CONFIRMED',
-  FAILED = 'FAILED'
+  FAILED = 'FAILED',
 }
 ```
 
 ### 큐 메시지 타입
+
 ```typescript
 export interface IQueueMessage<T> {
   id: string;
@@ -118,6 +126,7 @@ export interface IWithdrawalMessage {
 ```
 
 ### 검증자 예시
+
 ```typescript
 export const withdrawalValidator = {
   create: Joi.object({
@@ -129,14 +138,15 @@ export const withdrawalValidator = {
       .required(),
     destinationAddress: Joi.string()
       .pattern(/^0x[a-fA-F0-9]{40}$/)
-      .required()
-  })
+      .required(),
+  }),
 };
 ```
 
 ## 유틸리티 함수
 
 ### 금액 처리
+
 ```typescript
 // Wei 변환
 export const toWei = (amount: string, decimals: number = 18): bigint => {
@@ -150,6 +160,7 @@ export const formatAmount = (amount: bigint, decimals: number = 18): string => {
 ```
 
 ### 암호화
+
 ```typescript
 // 해시 생성
 export const generateHash = (data: string): string => {
@@ -163,21 +174,21 @@ export const generateHmac = (data: string, secret: string): string => {
 ```
 
 ### 로깅
+
 ```typescript
 export const logger = winston.createLogger({
   format: winston.format.combine(
     winston.format.timestamp(),
     winston.format.json()
   ),
-  transports: [
-    new winston.transports.Console()
-  ]
+  transports: [new winston.transports.Console()],
 });
 ```
 
 ## 에러 클래스
 
 ### 기본 에러
+
 ```typescript
 export class BaseError extends Error {
   constructor(
@@ -192,6 +203,7 @@ export class BaseError extends Error {
 ```
 
 ### 비즈니스 에러
+
 ```typescript
 export class InsufficientBalanceError extends BaseError {
   constructor(required: string, available: string) {
@@ -217,15 +229,17 @@ export class WithdrawalLimitExceededError extends BaseError {
 ## 사용 예시
 
 ### 타입 임포트
+
 ```typescript
-import { 
-  IWithdrawalRequest, 
+import {
+  IWithdrawalRequest,
   WithdrawalStatus,
-  IQueueMessage 
+  IQueueMessage,
 } from '@mustb/shared/types';
 ```
 
 ### 유틸리티 사용
+
 ```typescript
 import { toWei, formatAmount, logger } from '@mustb/shared/utils';
 
@@ -234,6 +248,7 @@ logger.info('Amount converted', { wei: amountInWei.toString() });
 ```
 
 ### 검증자 사용
+
 ```typescript
 import { withdrawalValidator } from '@mustb/shared/validators';
 
@@ -244,6 +259,7 @@ if (validation.error) {
 ```
 
 ### 에러 처리
+
 ```typescript
 import { InsufficientBalanceError } from '@mustb/shared/errors';
 
@@ -268,6 +284,7 @@ npm run test:shared:coverage
 ## 버전 관리
 
 이 패키지는 시맨틱 버저닝을 따릅니다:
+
 - **Major**: 하위 호환성이 깨지는 변경
 - **Minor**: 하위 호환성이 유지되는 기능 추가
 - **Patch**: 버그 수정

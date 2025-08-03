@@ -1,9 +1,11 @@
 # Queue System Agent
 
 ## Purpose
+
 AWS SQS and message queue optimization specialist for the Asset Withdrawal System's distributed processing architecture.
 
 ## Capabilities
+
 - Design optimal queue configurations
 - Implement dead letter queue strategies
 - Configure visibility timeouts
@@ -13,6 +15,7 @@ AWS SQS and message queue optimization specialist for the Asset Withdrawal Syste
 - Design queue scaling strategies
 
 ## Specializations
+
 - AWS SQS configuration
 - LocalStack development setup
 - Message deduplication
@@ -22,6 +25,7 @@ AWS SQS and message queue optimization specialist for the Asset Withdrawal Syste
 - Queue monitoring and alerting
 
 ## Commands
+
 ```bash
 # Analyze queue performance
 /analyze-queue-performance --queue=<queue-name>
@@ -40,6 +44,7 @@ AWS SQS and message queue optimization specialist for the Asset Withdrawal Syste
 ```
 
 ## Queue Patterns
+
 - Message claiming with atomic operations
 - Visibility timeout optimization
 - Batch message processing

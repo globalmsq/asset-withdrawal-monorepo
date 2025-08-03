@@ -6,7 +6,8 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 import app from './app';
 import { config } from './config';
 import { initializeDatabase } from './services/database';
-import { QueueFactory, IQueue, WithdrawalRequest } from 'shared';
+import { initializeUserService } from './services/user.service';
+import { QueueFactory, IQueue, WithdrawalRequest } from '@asset-withdrawal/shared';
 import { setReadiness } from './middleware/readiness.middleware';
 import { Logger } from './utils/logger';
 
@@ -54,10 +55,20 @@ async function startServer() {
     process.exit(1);
   }
 
+  // Initialize UserService
+  try {
+    await initializeUserService();
+    logger.info('UserService initialized successfully');
+  } catch (error) {
+    logger.error('UserService initialization failed:', error);
+    process.exit(1);
+  }
+
   // Initialize and test SQS queues
   logger.info('Initializing SQS queues...');
   try {
-    const txRequestQueue = QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
+    const txRequestQueue =
+      QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
     const signedTxQueue = QueueFactory.createFromEnv('signed-tx-queue');
 
     // Test queue connectivity
@@ -85,7 +96,9 @@ async function startServer() {
     logger.info(
       `API Documentation available at http://${displayUrl}:${config.port}/api-docs`
     );
-    logger.info(`Readiness check available at http://${displayUrl}:${config.port}/ready`);
+    logger.info(
+      `Readiness check available at http://${displayUrl}:${config.port}/ready`
+    );
   });
 
   // Graceful shutdown

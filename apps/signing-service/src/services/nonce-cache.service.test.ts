@@ -80,24 +80,35 @@ describe('NonceCacheService', () => {
   describe('getAndIncrement', () => {
     it('should increment and return previous value', async () => {
       mockRedisClient.incr.mockResolvedValue(6);
-      const nonce = await service.getAndIncrement('0x123', 'polygon', 'mainnet');
+      const nonce = await service.getAndIncrement(
+        '0x123',
+        'polygon',
+        'mainnet'
+      );
 
       expect(nonce).toBe(5);
-      expect(mockRedisClient.incr).toHaveBeenCalledWith('nonce:polygon:mainnet:0x123');
+      expect(mockRedisClient.incr).toHaveBeenCalledWith(
+        'nonce:polygon:mainnet:0x123'
+      );
     });
 
     it('should set TTL on first increment', async () => {
       mockRedisClient.incr.mockResolvedValue(1);
       await service.getAndIncrement('0x123', 'polygon', 'mainnet');
 
-      expect(mockRedisClient.expire).toHaveBeenCalledWith('nonce:polygon:mainnet:0x123', 86400);
+      expect(mockRedisClient.expire).toHaveBeenCalledWith(
+        'nonce:polygon:mainnet:0x123',
+        86400
+      );
     });
 
     it('should lowercase address for key', async () => {
       mockRedisClient.incr.mockResolvedValue(2);
       await service.getAndIncrement('0xABC', 'polygon', 'mainnet');
 
-      expect(mockRedisClient.incr).toHaveBeenCalledWith('nonce:polygon:mainnet:0xabc');
+      expect(mockRedisClient.incr).toHaveBeenCalledWith(
+        'nonce:polygon:mainnet:0xabc'
+      );
     });
   });
 
@@ -119,7 +130,9 @@ describe('NonceCacheService', () => {
       const nonce = await service.get('0x123', 'polygon', 'mainnet');
 
       expect(nonce).toBe(42);
-      expect(mockRedisClient.get).toHaveBeenCalledWith('nonce:polygon:mainnet:0x123');
+      expect(mockRedisClient.get).toHaveBeenCalledWith(
+        'nonce:polygon:mainnet:0x123'
+      );
     });
 
     it('should return null if no value', async () => {
@@ -134,7 +147,9 @@ describe('NonceCacheService', () => {
     it('should delete the key', async () => {
       await service.clear('0x123', 'polygon', 'mainnet');
 
-      expect(mockRedisClient.del).toHaveBeenCalledWith('nonce:polygon:mainnet:0x123');
+      expect(mockRedisClient.del).toHaveBeenCalledWith(
+        'nonce:polygon:mainnet:0x123'
+      );
     });
   });
 });

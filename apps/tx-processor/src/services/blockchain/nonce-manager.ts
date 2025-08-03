@@ -83,7 +83,10 @@ export class NonceManager {
 
   private async refreshNonce(): Promise<void> {
     try {
-      const onChainNonce = await this.provider.getTransactionCount(this.address, 'pending');
+      const onChainNonce = await this.provider.getTransactionCount(
+        this.address,
+        'pending'
+      );
 
       // If we have pending nonces, use the highest one + 1
       const maxPendingNonce = Math.max(...Array.from(this.pendingNonces), -1);
@@ -92,7 +95,9 @@ export class NonceManager {
       this.currentNonce = nextNonce;
       this.lastFetchTime = Date.now();
 
-      this.logger.info(`Refreshed nonce: ${this.currentNonce} for address ${this.address}`);
+      this.logger.info(
+        `Refreshed nonce: ${this.currentNonce} for address ${this.address}`
+      );
     } catch (error) {
       this.logger.error('Failed to refresh nonce', error);
       throw error;
@@ -103,7 +108,7 @@ export class NonceManager {
     const currentLock = this.lock;
     let releaseLock: () => void;
 
-    this.lock = new Promise((resolve) => {
+    this.lock = new Promise(resolve => {
       releaseLock = resolve;
     });
 
@@ -120,7 +125,7 @@ export class NonceManager {
     currentNonce: number | null;
     pendingCount: number;
     lastFetchTime: number;
-    } {
+  } {
     return {
       address: this.address,
       currentNonce: this.currentNonce,

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../services/database';
-import { QueueFactory, WithdrawalRequest } from 'shared';
+import { QueueFactory, WithdrawalRequest } from '@asset-withdrawal/shared';
 import { Logger } from '../utils/logger';
 
 const logger = new Logger('ReadinessMiddleware');
@@ -14,7 +14,10 @@ export function setReadiness(ready: boolean) {
 }
 
 // Check if all dependencies are healthy
-async function checkDependencies(): Promise<{ healthy: boolean; details: any }> {
+async function checkDependencies(): Promise<{
+  healthy: boolean;
+  details: any;
+}> {
   const checks = {
     db: false,
     sqs: false,
@@ -32,7 +35,8 @@ async function checkDependencies(): Promise<{ healthy: boolean; details: any }> 
 
   // Check SQS queues
   try {
-    const txRequestQueue = QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
+    const txRequestQueue =
+      QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
     await txRequestQueue.getQueueUrl();
     checks.sqs = true;
   } catch (error) {
@@ -50,7 +54,11 @@ async function checkDependencies(): Promise<{ healthy: boolean; details: any }> 
 }
 
 // Readiness check middleware
-export function readinessCheck(req: Request, res: Response, next: NextFunction) {
+export function readinessCheck(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   // Allow health and readiness endpoints
   if (req.path === '/health' || req.path === '/ready') {
     return next();

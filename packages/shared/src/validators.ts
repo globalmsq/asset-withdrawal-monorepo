@@ -151,7 +151,9 @@ export function validateWithdrawalRequest(data: any): FieldValidationError[] {
   return errors;
 }
 
-export function validateBatchWithdrawalRequest(data: any): FieldValidationError[] {
+export function validateBatchWithdrawalRequest(
+  data: any
+): FieldValidationError[] {
   const errors: FieldValidationError[] = [];
 
   // Required fields
@@ -178,7 +180,7 @@ export function validateBatchWithdrawalRequest(data: any): FieldValidationError[
     // Validate each withdrawal request
     data.withdrawalRequests.forEach((request: any, index: number) => {
       const requestErrors = validateWithdrawalRequest(request);
-      requestErrors.forEach((error) => {
+      requestErrors.forEach(error => {
         errors.push({
           field: `withdrawalRequests[${index}].${error.field}`,
           message: error.message,

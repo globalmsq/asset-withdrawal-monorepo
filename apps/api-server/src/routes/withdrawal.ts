@@ -9,7 +9,7 @@ import {
   QueueFactory,
   IQueue,
   tokenService,
-} from 'shared';
+} from '@asset-withdrawal/shared';
 import { getDatabase } from '../services/database';
 import { config } from '../config';
 import { Logger } from '../utils/logger';
@@ -73,7 +73,11 @@ function getSymbolFromTokenAddress(
   chain: string = 'polygon'
 ): string {
   // Look up token in our configuration
-  const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network, chain);
+  const tokenInfo = tokenService.getTokenByAddress(
+    tokenAddress,
+    network,
+    chain
+  );
 
   if (tokenInfo) {
     return tokenInfo.symbol;
@@ -242,7 +246,8 @@ function getSymbolFromTokenAddress(
  */
 router.post('/request', async (req: Request, res: Response) => {
   try {
-    const { amount, toAddress, tokenAddress, symbol, network, chain } = req.body;
+    const { amount, toAddress, tokenAddress, symbol, network, chain } =
+      req.body;
 
     // Basic validation
     if (!amount || !toAddress || !tokenAddress || !chain || !network) {
@@ -291,7 +296,11 @@ router.post('/request', async (req: Request, res: Response) => {
     }
 
     // Validate token is in our supported list
-    const tokenInfo = tokenService.getTokenByAddress(tokenAddress, networkType, blockchainName);
+    const tokenInfo = tokenService.getTokenByAddress(
+      tokenAddress,
+      networkType,
+      blockchainName
+    );
 
     if (!tokenInfo) {
       const response: ApiResponse = {
@@ -316,7 +325,10 @@ router.post('/request', async (req: Request, res: Response) => {
     if (tokenInfo.maxTransferAmount) {
       // Use parseUnits to handle decimal amounts correctly
       const requestedAmount = ethers.parseUnits(amount, tokenInfo.decimals);
-      const maxAmount = ethers.parseUnits(tokenInfo.maxTransferAmount, tokenInfo.decimals);
+      const maxAmount = ethers.parseUnits(
+        tokenInfo.maxTransferAmount,
+        tokenInfo.decimals
+      );
 
       if (requestedAmount > maxAmount) {
         const response: ApiResponse = {
@@ -351,12 +363,19 @@ router.post('/request', async (req: Request, res: Response) => {
 
     let savedRequest;
     try {
-      logger.debug('TransactionStatus.PENDING value:', TransactionStatus.PENDING);
+      logger.debug(
+        'TransactionStatus.PENDING value:',
+        TransactionStatus.PENDING
+      );
       savedRequest = await db.withdrawalRequest.create({
         data: {
           requestId: requestId,
           amount: amount,
-          symbol: getSymbolFromTokenAddress(tokenAddress, networkType, blockchainName),
+          symbol: getSymbolFromTokenAddress(
+            tokenAddress,
+            networkType,
+            blockchainName
+          ),
           toAddress: toAddress,
           tokenAddress: tokenAddress,
           chain: blockchainName,
@@ -405,7 +424,10 @@ router.post('/request', async (req: Request, res: Response) => {
       try {
         logger.debug('Updating withdrawal request status to FAILED...');
         logger.debug('Current savedRequest:', savedRequest);
-        logger.debug('TransactionStatus.FAILED value:', TransactionStatus.FAILED);
+        logger.debug(
+          'TransactionStatus.FAILED value:',
+          TransactionStatus.FAILED
+        );
         const updateResult = await db.withdrawalRequest.update({
           where: { id: savedRequest.id },
           data: {
@@ -416,7 +438,10 @@ router.post('/request', async (req: Request, res: Response) => {
         logger.debug('Update result:', updateResult);
         logger.debug('Status after update:', updateResult.status);
       } catch (updateError) {
-        logger.error('Failed to update withdrawal request status:', updateError);
+        logger.error(
+          'Failed to update withdrawal request status:',
+          updateError
+        );
       }
 
       // Return error response
@@ -424,7 +449,8 @@ router.post('/request', async (req: Request, res: Response) => {
         success: false,
         error: 'Failed to process withdrawal request',
         code: 'QUEUE_ERROR',
-        details: 'The withdrawal request was saved but could not be queued for processing. Please try again later.',
+        details:
+          'The withdrawal request was saved but could not be queued for processing. Please try again later.',
         timestamp: new Date(),
       });
     }

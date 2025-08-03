@@ -1,4 +1,4 @@
-import { LoggerService } from 'shared';
+import { LoggerService } from '@asset-withdrawal/shared';
 
 // Import PrismaClient
 let PrismaClient: any;

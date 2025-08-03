@@ -21,7 +21,11 @@ describe('TransactionSigner - Multi-chain Support', () => {
   let mockWallet: jest.Mocked<ethers.Wallet>;
   let mockConfig: any;
 
-  const createMockChainProvider = (chain: string, network: string, chainId: number) => {
+  const createMockChainProvider = (
+    chain: string,
+    network: string,
+    chainId: number
+  ) => {
     const mockProviderInstance = {
       getTransactionCount: jest.fn().mockResolvedValue(10),
       estimateGas: jest.fn().mockResolvedValue(BigInt(100000)),
@@ -34,7 +38,9 @@ describe('TransactionSigner - Multi-chain Support', () => {
     return {
       getProvider: jest.fn().mockReturnValue(mockProviderInstance),
       getChainId: jest.fn().mockReturnValue(chainId),
-      getMulticall3Address: jest.fn().mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
+      getMulticall3Address: jest
+        .fn()
+        .mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
       chain,
       network,
     } as any;
@@ -44,7 +50,11 @@ describe('TransactionSigner - Multi-chain Support', () => {
     jest.clearAllMocks();
 
     mockSecretsManager = {
-      getPrivateKey: jest.fn().mockReturnValue('0x0000000000000000000000000000000000000000000000000000000000000001'),
+      getPrivateKey: jest
+        .fn()
+        .mockReturnValue(
+          '0x0000000000000000000000000000000000000000000000000000000000000001'
+        ),
     } as any;
 
     mockLogger = {
@@ -97,43 +107,61 @@ describe('TransactionSigner - Multi-chain Support', () => {
       encodeBatchTransaction: jest.fn().mockReturnValue('0xbatchencoded'),
       decodeBatchResult: jest.fn(),
       getOptimalBatchSize: jest.fn().mockReturnValue(50),
-      checkAndPrepareAllowances: jest.fn().mockResolvedValue({ needsApproval: [] }),
+      checkAndPrepareAllowances: jest
+        .fn()
+        .mockResolvedValue({ needsApproval: [] }),
     } as any;
 
     (ethers.Wallet as jest.Mock).mockImplementation(() => mockWallet);
     (NonceCacheService as jest.Mock).mockImplementation(() => mockNonceCache);
     (GasPriceCache as jest.Mock).mockImplementation(() => mockGasPriceCache);
-    (MulticallService as jest.Mock).mockImplementation(() => mockMulticallService);
+    (MulticallService as jest.Mock).mockImplementation(
+      () => mockMulticallService
+    );
 
     // Mock Contract for ERC20
     const mockContract = {
       interface: {
-        encodeFunctionData: jest.fn().mockReturnValue('0xa9059cbb000000000000000000000000742d35cc6634c0532925a3b844bc9e7595f7faed00000000000000000000000000000000000000000000000000000000000f4240'),
+        encodeFunctionData: jest
+          .fn()
+          .mockReturnValue(
+            '0xa9059cbb000000000000000000000000742d35cc6634c0532925a3b844bc9e7595f7faed00000000000000000000000000000000000000000000000000000000000f4240'
+          ),
       },
     };
     (ethers.Contract as jest.Mock).mockImplementation(() => mockContract);
 
     // Mock parseTransaction
-    (ethers.Transaction.from as jest.Mock) = jest.fn().mockImplementation((tx) => ({
-      hash: '0xabc123def456789',
-      ...tx,
-    }));
+    (ethers.Transaction.from as jest.Mock) = jest
+      .fn()
+      .mockImplementation(tx => ({
+        hash: '0xabc123def456789',
+        ...tx,
+      }));
 
     // Mock getAddress for checksum validation
-    (ethers.getAddress as jest.Mock) = jest.fn().mockImplementation((address) => address);
+    (ethers.getAddress as jest.Mock) = jest
+      .fn()
+      .mockImplementation(address => address);
 
     // Mock parseUnits
-    (ethers.parseUnits as jest.Mock) = jest.fn().mockImplementation((value, unit) => {
-      if (unit === 'gwei') {
-        return BigInt(value) * BigInt(1000000000);
-      }
-      return BigInt(value);
-    });
+    (ethers.parseUnits as jest.Mock) = jest
+      .fn()
+      .mockImplementation((value, unit) => {
+        if (unit === 'gwei') {
+          return BigInt(value) * BigInt(1000000000);
+        }
+        return BigInt(value);
+      });
   });
 
   describe('Multi-chain transaction signing', () => {
     it('should sign transaction on Polygon mainnet', async () => {
-      const mockChainProvider = createMockChainProvider('polygon', 'mainnet', 137);
+      const mockChainProvider = createMockChainProvider(
+        'polygon',
+        'mainnet',
+        137
+      );
       const transactionSigner = new TransactionSigner(
         mockChainProvider,
         mockSecretsManager,
@@ -176,7 +204,11 @@ describe('TransactionSigner - Multi-chain Support', () => {
     });
 
     it('should sign transaction on Ethereum mainnet', async () => {
-      const mockChainProvider = createMockChainProvider('ethereum', 'mainnet', 1);
+      const mockChainProvider = createMockChainProvider(
+        'ethereum',
+        'mainnet',
+        1
+      );
       const transactionSigner = new TransactionSigner(
         mockChainProvider,
         mockSecretsManager,
@@ -253,7 +285,11 @@ describe('TransactionSigner - Multi-chain Support', () => {
     });
 
     it('should sign transaction on localhost network', async () => {
-      const mockChainProvider = createMockChainProvider('localhost', 'localhost', 31337);
+      const mockChainProvider = createMockChainProvider(
+        'localhost',
+        'localhost',
+        31337
+      );
       const transactionSigner = new TransactionSigner(
         mockChainProvider,
         mockSecretsManager,
@@ -297,14 +333,22 @@ describe('TransactionSigner - Multi-chain Support', () => {
 
     it('should handle different gas prices for different chains', async () => {
       // Ethereum typically has higher gas prices
-      const ethereumProvider = createMockChainProvider('ethereum', 'mainnet', 1);
+      const ethereumProvider = createMockChainProvider(
+        'ethereum',
+        'mainnet',
+        1
+      );
       ethereumProvider.getProvider().getFeeData.mockResolvedValue({
         maxFeePerGas: BigInt(50000000000), // 50 gwei
         maxPriorityFeePerGas: BigInt(2000000000), // 2 gwei
       });
 
       // Polygon typically has lower gas prices
-      const polygonProvider = createMockChainProvider('polygon', 'mainnet', 137);
+      const polygonProvider = createMockChainProvider(
+        'polygon',
+        'mainnet',
+        137
+      );
       polygonProvider.getProvider().getFeeData.mockResolvedValue({
         maxFeePerGas: BigInt(30000000000), // 30 gwei
         maxPriorityFeePerGas: BigInt(1500000000), // 1.5 gwei
@@ -369,13 +413,32 @@ describe('TransactionSigner - Multi-chain Support', () => {
 
     it('should sign ERC20 token transfers on different chains', async () => {
       const chains = [
-        { chain: 'ethereum', network: 'mainnet', chainId: 1, tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' }, // USDC
-        { chain: 'polygon', network: 'mainnet', chainId: 137, tokenAddress: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174' }, // USDC
-        { chain: 'bsc', network: 'mainnet', chainId: 56, tokenAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d' }, // USDC
+        {
+          chain: 'ethereum',
+          network: 'mainnet',
+          chainId: 1,
+          tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        }, // USDC
+        {
+          chain: 'polygon',
+          network: 'mainnet',
+          chainId: 137,
+          tokenAddress: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+        }, // USDC
+        {
+          chain: 'bsc',
+          network: 'mainnet',
+          chainId: 56,
+          tokenAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+        }, // USDC
       ];
 
       for (const chainInfo of chains) {
-        const mockChainProvider = createMockChainProvider(chainInfo.chain, chainInfo.network, chainInfo.chainId);
+        const mockChainProvider = createMockChainProvider(
+          chainInfo.chain,
+          chainInfo.network,
+          chainInfo.chainId
+        );
         const transactionSigner = new TransactionSigner(
           mockChainProvider,
           mockSecretsManager,
@@ -411,7 +474,11 @@ describe('TransactionSigner - Multi-chain Support', () => {
     });
 
     it('should sign batch transactions on different chains', async () => {
-      const mockChainProvider = createMockChainProvider('ethereum', 'mainnet', 1);
+      const mockChainProvider = createMockChainProvider(
+        'ethereum',
+        'mainnet',
+        1
+      );
       const transactionSigner = new TransactionSigner(
         mockChainProvider,
         mockSecretsManager,
@@ -480,12 +547,14 @@ describe('TransactionSigner - Multi-chain Support', () => {
       await bscSigner.initialize();
 
       // Prepare a large batch that would exceed Ethereum's gas limit
-      const transfers = Array(100).fill(null).map((_, i) => ({
-        tokenAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
-        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000',
-        transactionId: `tx${i}`,
-      }));
+      const transfers = Array(100)
+        .fill(null)
+        .map((_, i) => ({
+          tokenAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+          to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+          amount: '1000000',
+          transactionId: `tx${i}`,
+        }));
 
       const batchRequest = {
         transfers,
@@ -494,7 +563,11 @@ describe('TransactionSigner - Multi-chain Support', () => {
 
       // BSC can handle larger batches
       mockMulticallService.prepareBatchTransfer.mockResolvedValueOnce({
-        calls: Array(100).fill({ target: '0xtoken', allowFailure: false, callData: '0x' }),
+        calls: Array(100).fill({
+          target: '0xtoken',
+          allowFailure: false,
+          callData: '0x',
+        }),
         estimatedGasPerCall: BigInt(65000),
         totalEstimatedGas: BigInt(7000000), // Large gas usage
       });
@@ -521,11 +594,17 @@ describe('TransactionSigner - Multi-chain Support', () => {
       ];
 
       for (const chainInfo of chains) {
-        const mockChainProvider = createMockChainProvider(chainInfo.chain, chainInfo.network, chainInfo.chainId);
+        const mockChainProvider = createMockChainProvider(
+          chainInfo.chain,
+          chainInfo.network,
+          chainInfo.chainId
+        );
 
         // Some chains might have custom multicall addresses
         if (chainInfo.chain === 'localhost') {
-          mockChainProvider.getMulticall3Address.mockReturnValue('0x1234567890123456789012345678901234567890');
+          mockChainProvider.getMulticall3Address.mockReturnValue(
+            '0x1234567890123456789012345678901234567890'
+          );
         }
 
         const transactionSigner = new TransactionSigner(
@@ -541,19 +620,22 @@ describe('TransactionSigner - Multi-chain Support', () => {
         await transactionSigner.initialize();
 
         const batchRequest = {
-          transfers: [{
-            tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-            to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            amount: '1000000',
-            transactionId: 'tx1',
-          }],
+          transfers: [
+            {
+              tokenAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+              to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+              amount: '1000000',
+              transactionId: 'tx1',
+            },
+          ],
           batchId: `batch-${chainInfo.chain}`,
         };
 
         const signedTx = '0xbatch...';
         mockWallet.signTransaction.mockResolvedValue(signedTx);
 
-        const result = await transactionSigner.signBatchTransaction(batchRequest);
+        const result =
+          await transactionSigner.signBatchTransaction(batchRequest);
 
         expect(mockChainProvider.getMulticall3Address).toHaveBeenCalled();
         expect(result.to).toBe(mockChainProvider.getMulticall3Address());

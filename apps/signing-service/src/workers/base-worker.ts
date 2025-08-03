@@ -121,11 +121,15 @@ export abstract class BaseWorker<TInput, TOutput = void> {
 
     while (this.isProcessingBatch || this.processingMessages.size > 0) {
       if (Date.now() - startTime > maxWaitTime) {
-        this.logger.warn(`Force stopping after ${maxWaitTime}ms timeout. ${this.processingMessages.size} messages may be reprocessed.`);
+        this.logger.warn(
+          `Force stopping after ${maxWaitTime}ms timeout. ${this.processingMessages.size} messages may be reprocessed.`
+        );
         break;
       }
 
-      this.logger.info(`Waiting for ${this.processingMessages.size} messages to complete processing...`);
+      this.logger.info(
+        `Waiting for ${this.processingMessages.size} messages to complete processing...`
+      );
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
@@ -153,13 +157,15 @@ export abstract class BaseWorker<TInput, TOutput = void> {
       this.logger.info(`Processing batch of ${messages.length} messages`);
 
       // Process messages in parallel with proper tracking
-      const messagePromises = messages.map(async (message) => {
+      const messagePromises = messages.map(async message => {
         const messageId = message.id || message.receiptHandle;
         this.processingMessages.add(messageId);
 
         try {
           if (!this.isRunning) {
-            this.logger.warn(`Skipping message ${messageId} - worker is stopping`);
+            this.logger.warn(
+              `Skipping message ${messageId} - worker is stopping`
+            );
             return;
           }
 
@@ -189,7 +195,6 @@ export abstract class BaseWorker<TInput, TOutput = void> {
 
       // Wait for all messages in the batch to complete
       await Promise.all(messagePromises);
-
     } catch (error) {
       this.logger.error('Error in batch processing', error);
       this.lastError = error instanceof Error ? error.message : 'Unknown error';

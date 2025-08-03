@@ -2,14 +2,42 @@ import { createClient } from 'redis';
 import { Logger } from '../utils/logger';
 
 export interface NonceCache {
-  getAndIncrement(address: string, chain: string, network: string): Promise<number>;
-  set(address: string, nonce: number, chain: string, network: string): Promise<void>;
+  getAndIncrement(
+    address: string,
+    chain: string,
+    network: string
+  ): Promise<number>;
+  set(
+    address: string,
+    nonce: number,
+    chain: string,
+    network: string
+  ): Promise<void>;
   get(address: string, chain: string, network: string): Promise<number | null>;
   clear(address: string, chain: string, network: string): Promise<void>;
-  initialize(address: string, networkNonce: number, chain: string, network: string): Promise<void>;
-  getCurrentNonce(chain: string, network: string, address: string): Promise<number>;
-  setNonce(chain: string, network: string, address: string, nonce: number): Promise<void>;
-  isNonceDuplicate(chain: string, network: string, address: string, nonce: number): Promise<boolean>;
+  initialize(
+    address: string,
+    networkNonce: number,
+    chain: string,
+    network: string
+  ): Promise<void>;
+  getCurrentNonce(
+    chain: string,
+    network: string,
+    address: string
+  ): Promise<number>;
+  setNonce(
+    chain: string,
+    network: string,
+    address: string,
+    nonce: number
+  ): Promise<void>;
+  isNonceDuplicate(
+    chain: string,
+    network: string,
+    address: string,
+    nonce: number
+  ): Promise<boolean>;
 }
 
 export class NonceCacheService implements NonceCache {
@@ -36,7 +64,7 @@ export class NonceCacheService implements NonceCache {
       socket: {
         host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379', 10),
-        reconnectStrategy: (retries) => {
+        reconnectStrategy: retries => {
           if (retries > 10) {
             this.logger.error('Redis: Max reconnection attempts reached');
             return false;
@@ -49,7 +77,7 @@ export class NonceCacheService implements NonceCache {
       ...options,
     });
 
-    this.client.on('error', (err) => {
+    this.client.on('error', err => {
       this.logger.error('Redis Client Error:', err);
     });
 
@@ -80,7 +108,10 @@ export class NonceCacheService implements NonceCache {
       }
     } catch (error) {
       // Ignore if client is already closed
-      if (error instanceof Error && !error.message?.includes('The client is closed')) {
+      if (
+        error instanceof Error &&
+        !error.message?.includes('The client is closed')
+      ) {
         throw error;
       }
       this.logger?.warn('Redis client already closed during disconnect');
@@ -89,7 +120,12 @@ export class NonceCacheService implements NonceCache {
     }
   }
 
-  async initialize(address: string, networkNonce: number, chain: string, network: string): Promise<void> {
+  async initialize(
+    address: string,
+    networkNonce: number,
+    chain: string,
+    network: string
+  ): Promise<void> {
     await this.ensureConnected();
 
     const key = this.getKey(address, chain, network);
@@ -99,10 +135,16 @@ export class NonceCacheService implements NonceCache {
     const startNonce = Math.max(cachedNonce || 0, networkNonce);
 
     await this.set(address, startNonce, chain, network);
-    this.logger.info(`Nonce initialized for ${address} on ${chain}/${network}: ${startNonce}`);
+    this.logger.info(
+      `Nonce initialized for ${address} on ${chain}/${network}: ${startNonce}`
+    );
   }
 
-  async getAndIncrement(address: string, chain: string, network: string): Promise<number> {
+  async getAndIncrement(
+    address: string,
+    chain: string,
+    network: string
+  ): Promise<number> {
     await this.ensureConnected();
 
     const key = this.getKey(address, chain, network);
@@ -117,7 +159,12 @@ export class NonceCacheService implements NonceCache {
     return nonce - 1;
   }
 
-  async set(address: string, nonce: number, chain: string, network: string): Promise<void> {
+  async set(
+    address: string,
+    nonce: number,
+    chain: string,
+    network: string
+  ): Promise<void> {
     await this.ensureConnected();
 
     const key = this.getKey(address, chain, network);
@@ -126,7 +173,11 @@ export class NonceCacheService implements NonceCache {
     });
   }
 
-  async get(address: string, chain: string, network: string): Promise<number | null> {
+  async get(
+    address: string,
+    chain: string,
+    network: string
+  ): Promise<number | null> {
     await this.ensureConnected();
 
     const key = this.getKey(address, chain, network);
@@ -155,7 +206,11 @@ export class NonceCacheService implements NonceCache {
   /**
    * Get current nonce without incrementing
    */
-  async getCurrentNonce(chain: string, network: string, address: string): Promise<number> {
+  async getCurrentNonce(
+    chain: string,
+    network: string,
+    address: string
+  ): Promise<number> {
     const nonce = await this.get(address, chain, network);
     return nonce || 0;
   }
@@ -163,14 +218,24 @@ export class NonceCacheService implements NonceCache {
   /**
    * Set nonce value directly
    */
-  async setNonce(chain: string, network: string, address: string, nonce: number): Promise<void> {
+  async setNonce(
+    chain: string,
+    network: string,
+    address: string,
+    nonce: number
+  ): Promise<void> {
     await this.set(address, nonce, chain, network);
   }
 
   /**
    * Check if a nonce has been used recently (duplicate detection)
    */
-  async isNonceDuplicate(chain: string, network: string, address: string, nonce: number): Promise<boolean> {
+  async isNonceDuplicate(
+    chain: string,
+    network: string,
+    address: string,
+    nonce: number
+  ): Promise<boolean> {
     await this.ensureConnected();
 
     const usedKey = this.getUsedNonceKey(address, chain, network, nonce);
@@ -184,11 +249,18 @@ export class NonceCacheService implements NonceCache {
       return false;
     }
 
-    this.logger?.warn(`Nonce ${nonce} already used for ${address} on ${chain}/${network}`);
+    this.logger?.warn(
+      `Nonce ${nonce} already used for ${address} on ${chain}/${network}`
+    );
     return true;
   }
 
-  private getUsedNonceKey(address: string, chain: string, network: string, nonce: number): string {
+  private getUsedNonceKey(
+    address: string,
+    chain: string,
+    network: string,
+    nonce: number
+  ): string {
     return `${this.usedNoncePrefix}${chain}:${network}:${address.toLowerCase()}:${nonce}`;
   }
 }

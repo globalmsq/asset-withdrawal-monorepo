@@ -3,6 +3,7 @@
 ## 사전 요구사항
 
 ### 필수 소프트웨어
+
 - Node.js 18.x 이상
 - npm 또는 yarn
 - Docker & Docker Compose
@@ -10,6 +11,7 @@
 - MySQL 8.0 (Docker로 실행 가능)
 
 ### 권장 개발 도구
+
 - Visual Studio Code
 - Postman 또는 Insomnia (API 테스트)
 - MySQL Workbench 또는 DBeaver
@@ -17,12 +19,14 @@
 ## 프로젝트 설정
 
 ### 1. 저장소 클론
+
 ```bash
 git clone https://github.com/your-org/asset-withdrawal-monorepo.git
 cd asset-withdrawal-monorepo
 ```
 
 ### 2. 의존성 설치
+
 ```bash
 npm install
 ```
@@ -101,8 +105,9 @@ docker-compose -f docker/docker-compose.yaml up -d mysql redis localstack
 ```
 
 이 스크립트는 다음 큐들을 생성합니다:
+
 - `tx-request-queue`: 출금 요청 큐
-- `signed-tx-queue`: 서명된 트랜잭션 큐  
+- `signed-tx-queue`: 서명된 트랜잭션 큐
 - `tx-monitor-queue`: 모니터링 대상 트랜잭션 큐
 - `balance-check-queue`: 잔액 확인 요청 큐 (Account Manager용)
 - `balance-transfer-queue`: 잔액 전송 요청 큐 (Account Manager용)
@@ -121,11 +126,13 @@ npm run db:seed
 ## 개발 서버 실행
 
 ### 전체 서비스 실행
+
 ```bash
 npm run dev
 ```
 
 ### 개별 서비스 실행
+
 ```bash
 # API 서버만
 nx serve api-server
@@ -149,11 +156,13 @@ nx serve admin-ui
 ## 빌드 및 프로덕션 실행
 
 ### 빌드
+
 ```bash
 npm run build
 ```
 
 ### 프로덕션 실행
+
 ```bash
 npm run serve
 ```
@@ -161,16 +170,19 @@ npm run serve
 ## 테스트
 
 ### 단위 테스트
+
 ```bash
 npm test
 ```
 
 ### E2E 테스트
+
 ```bash
 npm run test:e2e
 ```
 
 ### 테스트 커버리지
+
 ```bash
 npm run test:coverage
 ```
@@ -178,6 +190,7 @@ npm run test:coverage
 ## 유용한 명령어
 
 ### 코드 품질
+
 ```bash
 # 린트 실행
 npm run lint
@@ -190,6 +203,7 @@ npm run typecheck
 ```
 
 ### 데이터베이스
+
 ```bash
 # Prisma Studio 실행 (GUI)
 npm run db:studio
@@ -202,6 +216,7 @@ npm run db:migrate:create
 ```
 
 ### 로그 확인
+
 ```bash
 # Docker 로그
 docker-compose -f docker/docker-compose.yaml logs -f [service-name]
@@ -213,31 +228,37 @@ tail -f logs/app.log
 ## 개발 팁
 
 ### LocalStack 사용
+
 - LocalStack 대시보드: http://localhost:4566
 - SQS 관리 UI: http://localhost:3999
 
 ### Hardhat 로컬 블록체인
+
 - Hardhat 노드 시작: `npx hardhat node --hostname 0.0.0.0`
 - 로컬 체인 ID: 31337
 - RPC URL: http://localhost:8545
 - 테스트 계정은 Hardhat이 자동 생성
 
 ### 지원 블록체인
+
 - **Polygon**: Mainnet, Amoy Testnet
 - **Ethereum**: Mainnet, Sepolia (예정)
 - **BSC**: Mainnet, Testnet (예정)
 - **Localhost**: Hardhat 개발 환경
 
 ### 디버깅
+
 1. VS Code의 디버그 설정 사용
 2. Chrome DevTools를 사용한 Node.js 디버깅
 3. 환경 변수 `DEBUG=*` 설정으로 상세 로그 확인
 
 ### API 테스트
+
 - Swagger UI: http://localhost:3000/api-docs
 - 포스트맨 컬렉션: `/docs/postman/collection.json`
 
 ### 배치 처리 테스트
+
 - 최소 5개 이상의 출금 요청 생성
 - 동일 토큰으로 요청하면 자동으로 배치 처리
 - Multicall3 컨트랙트 주소: `0xcA11bde05977b3631167028862bE2a173976CA11`
@@ -245,6 +266,7 @@ tail -f logs/app.log
 ## 문제 해결
 
 ### 포트 충돌
+
 ```bash
 # 사용 중인 포트 확인
 lsof -i :3000
@@ -254,6 +276,7 @@ kill -9 [PID]
 ```
 
 ### Docker 문제
+
 ```bash
 # 컨테이너 재시작
 docker-compose -f docker/docker-compose.yaml restart
@@ -264,6 +287,7 @@ docker-compose -f docker/docker-compose.yaml up -d
 ```
 
 ### 데이터베이스 연결 문제
+
 1. Docker 컨테이너 실행 확인
 2. 포트 바인딩 확인 (3306)
 3. 환경 변수 확인
@@ -272,6 +296,7 @@ docker-compose -f docker/docker-compose.yaml up -d
 ## 프로덕션 배포 준비
 
 ### 환경 변수 체크리스트
+
 - [ ] 프로덕션 데이터베이스 URL
 - [ ] 강력한 JWT 시크릿
 - [ ] AWS 실제 자격 증명
@@ -279,6 +304,7 @@ docker-compose -f docker/docker-compose.yaml up -d
 - [ ] 실제 개인 키 (안전하게 관리)
 
 ### 보안 체크리스트
+
 - [ ] HTTPS 설정
 - [ ] 방화벽 규칙 설정
 - [ ] 민감한 정보 환경 변수로 관리

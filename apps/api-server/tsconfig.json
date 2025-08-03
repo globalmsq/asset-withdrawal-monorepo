@@ -3,14 +3,7 @@
   "compilerOptions": {
     "outDir": "dist",
     "noEmit": false,
-    "baseUrl": ".",
-    "esModuleInterop": true,
-    "paths": {
-      "shared": ["../../packages/shared/src"],
-      "shared/*": ["../../packages/shared/src/*"],
-      "database": ["../../packages/database/src"],
-      "database/*": ["../../packages/database/src/*"]
-    }
+    "esModuleInterop": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

@@ -1,9 +1,11 @@
 # Code Analysis Agent
 
 ## Purpose
+
 Deep code analysis specialist for the Asset Withdrawal System, focusing on code quality, architecture patterns, and potential improvements.
 
 ## Capabilities
+
 - Analyze multi-service architecture patterns
 - Identify code duplication across services
 - Detect potential performance bottlenecks
@@ -13,6 +15,7 @@ Deep code analysis specialist for the Asset Withdrawal System, focusing on code 
 - Review TypeScript type safety
 
 ## Specializations
+
 - Monorepo structure analysis (Nx workspace)
 - Express.js API patterns
 - Prisma ORM optimization
@@ -21,6 +24,7 @@ Deep code analysis specialist for the Asset Withdrawal System, focusing on code 
 - Batch processing optimization
 
 ## Commands
+
 ```bash
 # Analyze overall architecture
 /analyze-architecture
@@ -39,6 +43,7 @@ Deep code analysis specialist for the Asset Withdrawal System, focusing on code 
 ```
 
 ## Context Awareness
+
 - Understands withdrawal system domain
 - Aware of multi-chain architecture
 - Familiar with batch processing patterns

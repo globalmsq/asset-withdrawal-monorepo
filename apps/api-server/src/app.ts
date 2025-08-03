@@ -2,12 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { ApiResponse, AppError, ErrorCode } from 'shared';
+import { ApiResponse, AppError, ErrorCode } from '@asset-withdrawal/shared';
 import withdrawalRoutes from './routes/withdrawal';
 import authRoutes from './routes/auth';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpec } from './swagger';
-import { readinessCheck, readinessHandler } from './middleware/readiness.middleware';
+import {
+  readinessCheck,
+  readinessHandler,
+} from './middleware/readiness.middleware';
 import { Logger } from './utils/logger';
 
 const app = express();
@@ -18,10 +21,10 @@ app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: ['\'self\''],
-        scriptSrc: ['\'self\'', '\'unsafe-inline\'', '\'unsafe-eval\''],
-        styleSrc: ['\'self\'', '\'unsafe-inline\''],
-        imgSrc: ['\'self\'', 'data:', 'https:'],
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
       },
     },
   })

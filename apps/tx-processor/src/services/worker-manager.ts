@@ -24,8 +24,10 @@ export class WorkerManager {
     this.logger.info('Initializing workers...');
 
     // Create queues
-    const txRequestQueue = QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
-    const signedTxQueue = QueueFactory.createFromEnv<SignedTransaction>('signed-tx-queue');
+    const txRequestQueue =
+      QueueFactory.createFromEnv<WithdrawalRequest>('tx-request-queue');
+    const signedTxQueue =
+      QueueFactory.createFromEnv<SignedTransaction>('signed-tx-queue');
 
     // Initialize Validation & Signing Worker
     if (config.workers.validationSigning.enabled) {
@@ -58,14 +60,18 @@ export class WorkerManager {
 
   async startAll(): Promise<void> {
     this.logger.info('Starting all workers...');
-    const promises = Array.from(this.workers.values()).map(worker => worker.start());
+    const promises = Array.from(this.workers.values()).map(worker =>
+      worker.start()
+    );
     await Promise.all(promises);
     this.logger.info('All workers started');
   }
 
   async stopAll(): Promise<void> {
     this.logger.info('Stopping all workers...');
-    const promises = Array.from(this.workers.values()).map(worker => worker.stop());
+    const promises = Array.from(this.workers.values()).map(worker =>
+      worker.stop()
+    );
     await Promise.all(promises);
     this.logger.info('All workers stopped');
   }
@@ -87,7 +93,9 @@ export class WorkerManager {
   }
 
   getStatus(): { workers: WorkerStatus[] } {
-    const workers = Array.from(this.workers.values()).map(worker => worker.getStatus());
+    const workers = Array.from(this.workers.values()).map(worker =>
+      worker.getStatus()
+    );
     return { workers };
   }
 

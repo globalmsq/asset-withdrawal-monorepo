@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import * as bcrypt from 'bcryptjs';
-import { AuthTokenPayload, UserRole } from 'shared';
+import { AuthTokenPayload, UserRole } from '@asset-withdrawal/shared';
 
 export class AuthService {
   private readonly JWT_SECRET: string;

@@ -207,6 +207,7 @@ graph TB
 **API Server** - HTTP gateway handling withdrawal requests, authentication, and status queries
 
 **Signing Service** - High-throughput transaction processor with:
+
 - Multi-instance support with atomic message claiming
 - Intelligent batch processing via Multicall3 (10-100x faster)
 - Dynamic batch optimization based on gas savings
@@ -219,6 +220,7 @@ graph TB
 **Admin UI** - React dashboard for system management and monitoring
 
 **Account Manager** - Automated balance management system that:
+
 - Monitors sub-account balances periodically
 - Automatically transfers funds from main account when below threshold
 - Optimizes gas costs through batch transfers
@@ -239,11 +241,13 @@ graph TB
 ## 🔧 API Reference
 
 ### Authentication
+
 - `POST /auth/register` - User registration
 - `POST /auth/login` - User login
 - `GET /auth/me` - Get current user info (requires authentication)
 
 ### Withdrawal Operations
+
 - `POST /withdrawal/request` - Submit withdrawal request
 - `GET /withdrawal/status/:id` - Check withdrawal status
 - `GET /withdrawal/request-queue/status` - Request queue metrics
@@ -256,6 +260,7 @@ Full API documentation available at http://localhost:8080/api-docs
 ### Overview
 
 The system includes a fully integrated Hardhat localhost blockchain for development and testing. This provides:
+
 - Fast 1-second block times for rapid testing
 - Pre-deployed mock tokens (mUSDC, mUSDT, mDAI)
 - Automatic contract deployment on startup
@@ -299,11 +304,11 @@ curl -X POST http://localhost:8080/api/v1/withdrawal/request \
 
 ### Pre-deployed Token Addresses
 
-| Token | Address | Decimals |
-|-------|---------|----------|
-| mUSDC | 0x5FbDB2315678afecb367f032d93F642f64180aa3 | 6 |
-| mUSDT | 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 | 6 |
-| mDAI  | 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC | 18 |
+| Token | Address                                    | Decimals |
+| ----- | ------------------------------------------ | -------- |
+| mUSDC | 0x5FbDB2315678afecb367f032d93F642f64180aa3 | 6        |
+| mUSDT | 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 | 6        |
+| mDAI  | 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC | 18       |
 
 ### Development Tips
 

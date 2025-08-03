@@ -26,6 +26,7 @@ A secure transaction signing worker service for the asset withdrawal system. Thi
 ## Architecture
 
 The signing service is a high-performance worker that:
+
 1. Processes withdrawal requests from the `tx-request-queue`
 2. Dynamically optimizes for maximum throughput:
    - Analyzes queue for batch processing opportunities
@@ -43,6 +44,7 @@ The signing service is a high-performance worker that:
 See `.env.sample` for all configuration options. Key settings:
 
 ### Core Settings
+
 - `SIGNING_SERVICE_ENCRYPTION_KEY`: Key for encrypting private keys in memory (32 characters)
 - `SIGNING_SERVICE_PRIVATE_KEY_SECRET`: AWS Secrets Manager key for private key
 - `TX_REQUEST_QUEUE_URL`: Queue URL for incoming withdrawal requests
@@ -50,6 +52,7 @@ See `.env.sample` for all configuration options. Key settings:
 - **Note**: Chain and network must be specified in API requests (no default values)
 
 ### Batch Processing Settings
+
 - `ENABLE_BATCH_PROCESSING`: Enable/disable batch processing (default: true)
 - `MIN_BATCH_SIZE`: Minimum messages required for batch consideration (default: 5)
 - `BATCH_THRESHOLD`: Minimum transactions per token for batching (default: 3)
@@ -63,6 +66,7 @@ See `.env.sample` for all configuration options. Key settings:
 ### Private Key Storage
 
 The private key is:
+
 1. Stored in AWS Secrets Manager
 2. Encrypted in memory using AES-256-GCM
 3. Only decrypted when needed for signing
@@ -70,6 +74,7 @@ The private key is:
 ### Audit Logs
 
 All signing operations are logged to the audit log file with the following information:
+
 - Timestamp
 - Action performed
 - Transaction details
@@ -111,6 +116,7 @@ docker-compose -f docker/docker-compose.yaml up signing-service
 ## Monitoring
 
 The service logs the following metrics:
+
 - Total transactions processed
 - Failed transaction count
 - Queue processing status

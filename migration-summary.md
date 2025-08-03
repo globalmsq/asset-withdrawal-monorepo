@@ -1,28 +1,31 @@
 # PolygonProvider to ChainProvider Migration Summary
 
 ## Overview
+
 Successfully migrated both `signing-service` and `tx-processor` from using the hardcoded `PolygonProvider` to the dynamic `ChainProvider` that supports multiple blockchain networks.
 
 ## Changes Made
 
 ### 1. signing-service
+
 - **TransactionSigner**: Updated to use `ChainProvider` instead of `PolygonProvider`
-- **SigningWorker**: 
+- **SigningWorker**:
   - Now creates signers dynamically based on chain/network from queue messages
   - Uses Map to store multiple signers per chain/network combination
   - Extracts chain/network from `WithdrawalRequest` messages
-- **MulticallService**: 
+- **MulticallService**:
   - Made gas configuration chain-agnostic
   - Added support for chain-specific gas limits
   - Renamed `POLYGON_GAS_CONFIG` to `DEFAULT_GAS_CONFIG`
 
 ### 2. tx-processor
+
 - **TransactionSigner**: Updated to use `ChainProvider` instead of `PolygonProvider`
 - **NonceManager**: Updated imports to use `ChainProvider`
-- **TransactionSenderWorker**: 
+- **TransactionSenderWorker**:
   - Creates providers dynamically based on chain/network from messages
   - Uses Maps to store multiple providers/signers
-- **ValidationSigningWorker**: 
+- **ValidationSigningWorker**:
   - Creates providers dynamically based on chain/network
   - Validates chain/network support using `ChainProviderFactory`
 - **Types**: Added chain/network fields to `SignedTransaction` type

@@ -1,5 +1,8 @@
 import { SecureSecretsManager } from '../../services/secrets-manager';
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from '@aws-sdk/client-secrets-manager';
 import { Config } from '../../config';
 import { Logger } from '../../utils/logger';
 
@@ -68,7 +71,8 @@ describe('SecureSecretsManager', () => {
 
   describe('initialize', () => {
     it('should successfully initialize and load private key', async () => {
-      const mockPrivateKey = '0x0000000000000000000000000000000000000000000000000000000000000001';
+      const mockPrivateKey =
+        '0x0000000000000000000000000000000000000000000000000000000000000001';
 
       mockClient.send.mockResolvedValueOnce({
         SecretString: mockPrivateKey,
@@ -109,7 +113,9 @@ describe('SecureSecretsManager', () => {
     it('should handle missing secret', async () => {
       mockClient.send.mockRejectedValueOnce(new Error('Secret not found'));
 
-      await expect(secretsManager.initialize()).rejects.toThrow('Secret not found');
+      await expect(secretsManager.initialize()).rejects.toThrow(
+        'Secret not found'
+      );
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'Failed to retrieve secret: test-private-key',
@@ -134,7 +140,8 @@ describe('SecureSecretsManager', () => {
 
   describe('getPrivateKey', () => {
     it('should return decrypted private key', async () => {
-      const mockPrivateKey = '0x0000000000000000000000000000000000000000000000000000000000000001';
+      const mockPrivateKey =
+        '0x0000000000000000000000000000000000000000000000000000000000000001';
 
       mockClient.send.mockResolvedValueOnce({
         SecretString: mockPrivateKey,
@@ -147,13 +154,16 @@ describe('SecureSecretsManager', () => {
     });
 
     it('should throw error if private key not loaded', () => {
-      expect(() => secretsManager.getPrivateKey()).toThrow('Private key not loaded');
+      expect(() => secretsManager.getPrivateKey()).toThrow(
+        'Private key not loaded'
+      );
     });
   });
 
   describe('refreshSecrets', () => {
     it('should refresh secrets successfully', async () => {
-      const mockPrivateKey = '0x0000000000000000000000000000000000000000000000000000000000000001';
+      const mockPrivateKey =
+        '0x0000000000000000000000000000000000000000000000000000000000000001';
 
       mockClient.send.mockResolvedValue({
         SecretString: mockPrivateKey,
@@ -169,7 +179,8 @@ describe('SecureSecretsManager', () => {
 
   describe('caching', () => {
     it('should cache secrets for 5 minutes', async () => {
-      const mockPrivateKey = '0x0000000000000000000000000000000000000000000000000000000000000001';
+      const mockPrivateKey =
+        '0x0000000000000000000000000000000000000000000000000000000000000001';
 
       mockClient.send.mockResolvedValueOnce({
         SecretString: mockPrivateKey,

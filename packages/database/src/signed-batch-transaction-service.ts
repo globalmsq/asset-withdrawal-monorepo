@@ -74,7 +74,9 @@ export class SignedBatchTransactionService {
     const prismaBatch = await this.prisma.signedBatchTransaction.findUnique({
       where: { id: BigInt(id) },
     });
-    return prismaBatch ? this.convertToSignedBatchTransaction(prismaBatch) : null;
+    return prismaBatch
+      ? this.convertToSignedBatchTransaction(prismaBatch)
+      : null;
   }
 
   async updateBatchTransaction(
@@ -145,6 +147,8 @@ export class SignedBatchTransactionService {
       where: { status: 'PENDING' },
       orderBy: { createdAt: 'asc' },
     });
-    return prismaBatches.map((batch) => this.convertToSignedBatchTransaction(batch));
+    return prismaBatches.map(batch =>
+      this.convertToSignedBatchTransaction(batch)
+    );
   }
 }

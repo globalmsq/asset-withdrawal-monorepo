@@ -19,7 +19,7 @@ async function submitWithdrawal() {
   } catch (error) {
     console.error(
       'Error submitting withdrawal:',
-      error.response?.data || error.message,
+      error.response?.data || error.message
     );
     throw error;
   }
@@ -29,14 +29,14 @@ async function submitWithdrawal() {
 async function checkStatus(transactionId) {
   try {
     const response = await axios.get(
-      `${API_BASE_URL}/withdrawal/status/${transactionId}`,
+      `${API_BASE_URL}/withdrawal/status/${transactionId}`
     );
     console.log('Withdrawal status:', response.data);
     return response.data;
   } catch (error) {
     console.error(
       'Error checking status:',
-      error.response?.data || error.message,
+      error.response?.data || error.message
     );
     throw error;
   }

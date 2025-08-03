@@ -186,19 +186,25 @@ describe('ChainProvider', () => {
         chain: 'polygon',
         network: 'testnet',
       });
-      expect(polygonProvider.getMulticall3Address()).toBe('0xcA11bde05977b3631167028862bE2a173976CA11');
+      expect(polygonProvider.getMulticall3Address()).toBe(
+        '0xcA11bde05977b3631167028862bE2a173976CA11'
+      );
 
       const ethereumProvider = new ChainProvider({
         chain: 'ethereum',
         network: 'mainnet',
       });
-      expect(ethereumProvider.getMulticall3Address()).toBe('0xcA11bde05977b3631167028862bE2a173976CA11');
+      expect(ethereumProvider.getMulticall3Address()).toBe(
+        '0xcA11bde05977b3631167028862bE2a173976CA11'
+      );
 
       const bscProvider = new ChainProvider({
         chain: 'bsc',
         network: 'mainnet',
       });
-      expect(bscProvider.getMulticall3Address()).toBe('0xcA11bde05977b3631167028862bE2a173976CA11');
+      expect(bscProvider.getMulticall3Address()).toBe(
+        '0xcA11bde05977b3631167028862bE2a173976CA11'
+      );
     });
   });
 });
@@ -236,8 +242,14 @@ describe('ChainProviderFactory', () => {
   });
 
   it('should create different instances for different networks', () => {
-    const mainnetProvider = ChainProviderFactory.getProvider('polygon', 'mainnet');
-    const testnetProvider = ChainProviderFactory.getProvider('polygon', 'testnet');
+    const mainnetProvider = ChainProviderFactory.getProvider(
+      'polygon',
+      'mainnet'
+    );
+    const testnetProvider = ChainProviderFactory.getProvider(
+      'polygon',
+      'testnet'
+    );
 
     expect(mainnetProvider).not.toBe(testnetProvider);
     expect(mainnetProvider.getChainId()).toBe(137);
@@ -245,8 +257,15 @@ describe('ChainProviderFactory', () => {
   });
 
   it('should create different instances for custom RPC URLs', () => {
-    const defaultProvider = ChainProviderFactory.getProvider('polygon', 'mainnet');
-    const customProvider = ChainProviderFactory.getProvider('polygon', 'mainnet', 'https://custom-rpc.com');
+    const defaultProvider = ChainProviderFactory.getProvider(
+      'polygon',
+      'mainnet'
+    );
+    const customProvider = ChainProviderFactory.getProvider(
+      'polygon',
+      'mainnet',
+      'https://custom-rpc.com'
+    );
 
     expect(defaultProvider).not.toBe(customProvider);
   });

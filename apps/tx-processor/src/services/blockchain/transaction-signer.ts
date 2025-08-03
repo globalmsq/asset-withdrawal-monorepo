@@ -53,10 +53,10 @@ export class TransactionSigner {
 
     try {
       // Get nonce
-      const nonce = request.nonce ?? await this.nonceManager.getNextNonce();
+      const nonce = request.nonce ?? (await this.nonceManager.getNextNonce());
 
       // Get gas price if not provided
-      const gasPrice = request.gasPrice ?? await this.provider.getGasPrice();
+      const gasPrice = request.gasPrice ?? (await this.provider.getGasPrice());
 
       // Prepare transaction
       const tx: ethers.TransactionRequest = {
@@ -107,7 +107,10 @@ export class TransactionSigner {
         chainId: this.provider.getChainId(),
       };
     } catch (error) {
-      this.logger.error(`Failed to sign transaction for withdrawal ${withdrawalId}`, error);
+      this.logger.error(
+        `Failed to sign transaction for withdrawal ${withdrawalId}`,
+        error
+      );
       // If nonce was allocated but signing failed, release it
       if (request.nonce === undefined) {
         await this.nonceManager.releaseNonce();

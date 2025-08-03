@@ -1,5 +1,5 @@
 // Mock dependencies before imports
-jest.mock('database', () => ({
+jest.mock('../../../../../packages/database/src', () => ({
   UserService: jest.fn(() => ({
     createUser: jest.fn(),
     findByEmail: jest.fn(),
@@ -25,32 +25,43 @@ jest.mock('../../middleware/auth.middleware', () => ({
 
 jest.mock('../../middleware/readiness.middleware', () => ({
   readinessCheck: jest.fn((req, res, next) => next()),
-  readinessHandler: jest.fn((req, res) => res.status(200).json({ status: 'ready' })),
+  readinessHandler: jest.fn((req, res) =>
+    res.status(200).json({ status: 'ready' })
+  ),
   setReadiness: jest.fn(),
 }));
 
 import request from 'supertest';
 import express from 'express';
 import authRoutes from '../auth';
-import { UserService } from 'database';
+// Create mock user service instance
+const mockUserServiceInstance = {
+  findByEmail: jest.fn(),
+  createUser: jest.fn(),
+  findById: jest.fn(),
+};
+
+// Mock the user service
+jest.mock('../../services/user.service', () => ({
+  getUserService: jest.fn(() => mockUserServiceInstance),
+  initializeUserService: jest.fn(),
+}));
 import { authService } from '../../services/auth.service';
-import { UserRole } from 'shared';
+import { UserRole } from '@asset-withdrawal/shared';
 import { authenticate } from '../../middleware/auth.middleware';
+
+import { getUserService } from '../../services/user.service';
 
 const app = express();
 app.use(express.json());
 app.use('/auth', authRoutes);
-
-// Store the mock instance created during module initialization
-const mockUserServiceInstance = (UserService as jest.Mock).mock.results[0]
-  ?.value;
 
 describe('Auth Routes', () => {
   let mockUserService: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Use the stored mock instance
+    // Use the mock instance directly
     mockUserService = mockUserServiceInstance;
   });
 

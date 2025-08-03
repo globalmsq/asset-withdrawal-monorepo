@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { authService } from '../services/auth.service';
-import { AuthTokenPayload, UserRole } from 'shared';
+import { AuthTokenPayload, UserRole } from '@asset-withdrawal/shared';
 
 export interface AuthRequest extends Request {
   user?: AuthTokenPayload;

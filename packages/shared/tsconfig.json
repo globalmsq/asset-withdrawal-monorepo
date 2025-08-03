@@ -5,6 +5,6 @@
     "noEmit": false,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*", "jest.config.ts"],
+  "include": ["src/**/*", "src/**/*.json"],
   "exclude": ["node_modules", "dist"]
 }

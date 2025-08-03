@@ -8,7 +8,7 @@ export async function initializeDatabase(config: {
   database: string;
 }): Promise<any> {
   if (!databaseInstance) {
-    const { DatabaseService } = await import('database');
+    const { DatabaseService } = await import('@asset-withdrawal/database');
     databaseInstance = new DatabaseService(config);
   }
   return databaseInstance;

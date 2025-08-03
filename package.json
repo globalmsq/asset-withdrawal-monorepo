@@ -33,7 +33,7 @@
     "@babel/core": "^7.27.7",
     "@babel/preset-env": "^7.27.2",
     "@babel/preset-typescript": "^7.27.1",
-    "@nx/esbuild": "21.2.2",
+    "@nx/esbuild": "^21.3.11",
     "@nx/eslint": "21.2.1",
     "@nx/eslint-plugin": "21.2.1",
     "@nx/jest": "21.2.1",

@@ -659,11 +659,79 @@
         "details": "**구현 목표**\n- NonceCacheService의 생성자에서 Logger 의존성을 명시적으로 주입받도록 변경\n- 클래스 내부에서 Logger 인스턴스를 직접 생성하는 로직 제거\n- 의존성 역전 원칙(DIP)을 준수하여 테스트 가능성과 유연성 향상\n\n**1. NonceCacheService 생성자 수정**\n- 현재 생성자에서 Logger 매개변수를 선택적(optional)에서 필수(required)로 변경\n- 기본 Logger 인스턴스 생성 로직 제거\n```typescript\n// Before\nconstructor(private logger: Logger = new Logger()) {}\n\n// After\nconstructor(private logger: Logger) {}\n```\n\n**2. 호출부 코드 수정**\n- NonceCacheService를 사용하는 모든 클래스에서 Logger 인스턴스를 명시적으로 전달\n- signing-service, tx-processor 등에서 LoggerService 인스턴스 주입\n- 테스트 코드에서 Mock Logger 주입 가능하도록 수정\n\n**3. 타입 안전성 개선**\n- Logger 인터페이스 타입 정의 확인 및 필요시 개선\n- 의존성 주입 컨테이너 사용 시 Logger 등록 설정",
         "testStrategy": "**1. 생성자 변경 테스트**\n- Logger 없이 NonceCacheService 인스턴스 생성 시 TypeScript 컴파일 오류 발생 확인\n- 올바른 Logger 인스턴스로 생성 시 정상 작동 확인\n- Mock Logger를 주입하여 로그 메서드 호출 여부 검증\n\n**2. 의존성 주입 테스트**\n- 실제 LoggerService 인스턴스 주입 시 정상 로깅 동작 확인\n- 다양한 Logger 구현체(winston, pino 등) 주입 테스트\n- 로그 레벨별 출력 정확성 검증\n\n**3. 통합 테스트**\n- signing-service에서 NonceCacheService 사용 시 정상 작동 확인\n- tx-processor에서 논스 캐싱 기능과 로깅 기능 동시 검증\n- 에러 상황에서 적절한 로그 출력 여부 확인\n\n**4. 리팩토링 검증**\n- 모든 NonceCacheService 사용처에서 Logger 주입 확인\n- 기존 기능 동작에 영향 없음을 확인하는 회귀 테스트",
         "subtasks": []
+      },
+      {
+        "id": 30,
+        "title": "[BFS-45] GitHub Actions CI/CD 파이프라인에 코드 품질 검사 단계 추가",
+        "description": "PR과 main 브랜치에서 자동으로 실행되는 코드 품질 검사 파이프라인을 구성하여 lint, typecheck, depcheck, test, format 검사를 포함한 포괄적인 품질 관리 시스템을 구현합니다.",
+        "status": "done",
+        "dependencies": [
+          28
+        ],
+        "priority": "medium",
+        "jiraKey": "BFS-45",
+        "details": "**1. GitHub Actions 워크플로우 파일 생성**\n- `.github/workflows/ci.yml` 생성\n- PR 생성/업데이트 및 main 브랜치 push 시 트리거 설정\n- Node.js 18.x 환경 설정 및 의존성 캐싱 구성\n\n**2. 코드 품질 검사 단계 구현**\n- ESLint를 통한 코드 스타일 및 품질 검사 (`npm run lint`)\n- TypeScript 컴파일러를 통한 타입 검사 (`npm run typecheck`)\n- depcheck를 통한 미사용 의존성 검사\n- Jest를 통한 단위/통합 테스트 실행 (`npm test`)\n- Prettier를 통한 코드 포맷팅 검사 (`npm run format:check`)\n\n**3. 실패 처리 및 보고 시스템**\n- 각 단계별 실패 시 워크플로우 중단 설정\n- PR에 검사 결과 상태 표시 및 코멘트 추가\n- 테스트 커버리지 리포트 생성 및 아티팩트 저장\n- Slack 알림 연동 (선택사항)\n\n**4. 성능 최적화**\n- npm 캐시 설정으로 의존성 설치 시간 단축\n- 병렬 실행 가능한 작업들을 matrix 전략으로 구성\n- 조건부 실행으로 불필요한 작업 스킵",
+        "testStrategy": "**1. 워크플로우 트리거 테스트**\n- 새 PR 생성 시 CI 파이프라인 자동 실행 확인\n- main 브랜치 push 시 파이프라인 실행 확인\n- PR 업데이트 시 재실행 동작 검증\n\n**2. 각 품질 검사 단계 검증**\n- 의도적으로 lint 오류를 발생시켜 워크플로우 실패 확인\n- TypeScript 타입 오류 시나리오에서 typecheck 실패 테스트\n- 미사용 의존성 추가 후 depcheck 감지 능력 확인\n- 테스트 실패 시나리오에서 전체 워크플로우 중단 확인\n- 포맷팅 오류 시 format 검사 실패 테스트\n\n**3. 성능 및 안정성 테스트**\n- 캐시 적용으로 두 번째 실행 시 속도 개선 확인\n- 동시 다중 PR에서 워크플로우 안정성 테스트\n- 네트워크 장애 시나리오에서 재시도 메커니즘 검증\n- 아티팩트 생성 및 다운로드 기능 확인",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": ".github/workflows/ci.yml 워크플로우 파일 생성 및 기본 설정",
+            "description": "GitHub Actions CI 파이프라인의 기본 구조를 설정하고 Node.js 환경 및 의존성 캐싱을 구성합니다.",
+            "dependencies": [],
+            "details": ".github/workflows/ 디렉토리 생성, ci.yml 파일 작성, PR 및 main 브랜치 트리거 설정, Node.js 18.x 환경 설정, npm 의존성 캐싱 구성, checkout 및 setup-node 액션 추가\n<info added on 2025-08-03T01:52:16.944Z>\nGitHub Actions CI 워크플로우 파일 생성 완료. .github/workflows/ci.yml 파일에 PR 및 main 브랜치 트리거 설정, Node.js 18.x 환경 구성, npm 캐싱 추가. code-quality, test, build 세 개의 작업으로 구성된 기본 워크플로우 구조 구현.\n</info added on 2025-08-03T01:52:16.944Z>",
+            "status": "done",
+            "testStrategy": "새 PR 생성 및 main 브랜치 push로 워크플로우 트리거 확인, Node.js 환경 및 의존성 설치 성공 여부 검증"
+          },
+          {
+            "id": 2,
+            "title": "ESLint 및 TypeScript 코드 품질 검사 단계 구현",
+            "description": "코드 스타일 검사를 위한 ESLint와 타입 안전성 검사를 위한 TypeScript 컴파일러 단계를 추가합니다.",
+            "dependencies": [
+              "30.1"
+            ],
+            "details": "npm run lint 명령어를 통한 ESLint 검사 단계 추가, npm run typecheck 명령어를 통한 TypeScript 컴파일 검사 추가, 각 단계별 실패 시 워크플로우 중단 설정, 에러 출력 형식 최적화\n<info added on 2025-08-03T01:52:40.267Z>\nNx 모노레포 환경에서 모든 프로젝트에 걸쳐 검사를 실행하는 Nx 기반 명령어로 구현 완료. code-quality 작업에서 'npm run lint'와 'npm run typecheck' 명령어가 추가되어 전체 워크스페이스의 코드 품질을 일괄 검사합니다.\n</info added on 2025-08-03T01:52:40.267Z>",
+            "status": "done",
+            "testStrategy": "의도적인 lint 오류 및 TypeScript 타입 오류 시나리오로 검사 실패 및 워크플로우 중단 확인"
+          },
+          {
+            "id": 3,
+            "title": "의존성 검사 및 코드 포맷팅 검증 단계 추가",
+            "description": "미사용 의존성 검사를 위한 depcheck와 코드 포맷팅 검사를 위한 Prettier 단계를 구현합니다.",
+            "dependencies": [
+              "30.2"
+            ],
+            "details": "depcheck 패키지 설치 및 npm script 추가, 미사용 의존성 검사 단계 구현, npm run format:check 명령어를 통한 Prettier 포맷팅 검사 추가, 각 검사별 상세 에러 리포트 설정\n<info added on 2025-08-03T01:53:04.258Z>\n의존성 검사는 `continue-on-error: true` 옵션을 사용하여 검사 실패 시에도 워크플로우가 계속 진행되도록 설정됨. 코드 포맷팅 검증은 Prettier를 실행한 후 `git diff --exit-code` 명령어로 커밋되지 않은 포맷팅 변경사항이 있는지 확인하여 포맷팅 일관성을 보장함.\n</info added on 2025-08-03T01:53:04.258Z>",
+            "status": "done",
+            "testStrategy": "미사용 의존성 추가 후 depcheck 감지 능력 확인, 의도적인 포맷팅 오류로 format 검사 실패 테스트"
+          },
+          {
+            "id": 4,
+            "title": "테스트 실행 및 커버리지 리포트 생성 단계 구현",
+            "description": "Jest 테스트 실행과 테스트 커버리지 리포트 생성 및 아티팩트 저장 기능을 추가합니다.",
+            "dependencies": [
+              "30.3"
+            ],
+            "details": "npm test 명령어를 통한 Jest 테스트 실행 단계 추가, 테스트 커버리지 리포트 생성 설정, 커버리지 결과를 GitHub Actions 아티팩트로 저장, 테스트 결과 요약을 PR 코멘트로 추가하는 액션 설정\n<info added on 2025-08-03T01:53:29.518Z>\n구현 완료: npm run coverage 명령어로 테스트 실행 단계 변경, Codecov 통합을 위해 codecov/codecov-action@v3 액션 추가, 커버리지 업로드 실패 시에도 워크플로우가 계속 진행되도록 continue-on-error: true 설정 적용\n</info added on 2025-08-03T01:53:29.518Z>",
+            "status": "done",
+            "testStrategy": "테스트 실패 시나리오에서 전체 워크플로우 중단 확인, 커버리지 리포트 생성 및 아티팩트 업로드 성공 여부 검증"
+          },
+          {
+            "id": 5,
+            "title": "성능 최적화 및 병렬 실행 구성",
+            "description": "워크플로우 실행 시간을 단축하기 위한 성능 최적화 및 병렬 처리 설정을 구현합니다.",
+            "dependencies": [
+              "30.4"
+            ],
+            "details": "독립적인 검사 단계들을 matrix 전략으로 병렬 실행 구성, npm 캐시 최적화 설정으로 의존성 설치 시간 단축, 조건부 실행으로 불필요한 작업 스킵 로직 추가, 워크플로우 실행 시간 모니터링 설정, 실패 시 빠른 중단(fail-fast) 전략 적용\n<info added on 2025-08-03T01:53:53.440Z>\nNode.js 18.x 매트릭스 전략으로 코드 품질 검사와 테스트 작업 병렬 실행 최적화 완료. 'needs: [code-quality, test]' 종속성을 통한 빌드 검증 작업 추가로 품질 게이트 강화. npm 캐싱 설정으로 의존성 설치 시간 단축 및 전체 워크플로우 효율성 개선.\n</info added on 2025-08-03T01:53:53.440Z>",
+            "status": "done",
+            "testStrategy": "병렬 실행으로 인한 성능 향상 측정, 캐시 적중률 및 의존성 설치 시간 단축 확인, 조건부 실행 시나리오별 동작 검증"
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-08-03T01:24:49.340Z",
+      "updated": "2025-08-03T01:54:12.752Z",
       "description": "Tasks for master context"
     }
   }

@@ -1,6 +1,8 @@
-let userServiceInstance: any = null;
+import type { UserService } from '@asset-withdrawal/database';
 
-export async function initializeUserService(): Promise<any> {
+let userServiceInstance: UserService | null = null;
+
+export async function initializeUserService(): Promise<UserService> {
   if (!userServiceInstance) {
     const { UserService } = await import('@asset-withdrawal/database');
     userServiceInstance = new UserService();
@@ -8,7 +10,7 @@ export async function initializeUserService(): Promise<any> {
   return userServiceInstance;
 }
 
-export function getUserService(): any {
+export function getUserService(): UserService {
   if (!userServiceInstance) {
     throw new Error('UserService not initialized. Call initializeUserService first.');
   }

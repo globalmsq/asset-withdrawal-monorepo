@@ -1,4 +1,8 @@
-import { IQueue, ChainProviderFactory, ChainProvider } from '@asset-withdrawal/shared';
+import {
+  IQueue,
+  ChainProviderFactory,
+  ChainProvider,
+} from '@asset-withdrawal/shared';
 import { TransactionService } from '@asset-withdrawal/database';
 import { BaseWorker, WorkerConfig } from './base-worker';
 import { SignedTransaction } from '../types';
@@ -42,10 +46,7 @@ export class TransactionSenderWorker extends BaseWorker<
       );
 
       // Step 3: Update status to PENDING (waiting for confirmation)
-      await this.transactionService.updateStatus(
-        signedTx.requestId,
-        'PENDING'
-      );
+      await this.transactionService.updateStatus(signedTx.requestId, 'PENDING');
 
       this.logger.info(
         `Transaction broadcasted successfully for request ${signedTx.requestId}. Hash: ${txHash}`
@@ -71,14 +72,23 @@ export class TransactionSenderWorker extends BaseWorker<
     }
   }
 
-  private async getOrCreateSigner(chain: string, network: string): Promise<{ provider: ChainProvider; signer: TransactionSigner }> {
+  private async getOrCreateSigner(
+    chain: string,
+    network: string
+  ): Promise<{ provider: ChainProvider; signer: TransactionSigner }> {
     const key = `${chain}_${network}`;
 
     if (!this.chainProviders.has(key)) {
-      this.logger.info('Creating new ChainProvider and TransactionSigner', { chain, network });
+      this.logger.info('Creating new ChainProvider and TransactionSigner', {
+        chain,
+        network,
+      });
 
       // Create chain provider
-      const chainProvider = ChainProviderFactory.getProvider(chain as any, network as any);
+      const chainProvider = ChainProviderFactory.getProvider(
+        chain as any,
+        network as any
+      );
       this.chainProviders.set(key, chainProvider);
 
       // Create transaction signer
@@ -107,9 +117,7 @@ export class TransactionSenderWorker extends BaseWorker<
 
     try {
       // Broadcast the signed transaction
-      const txHash = await signer.broadcastTransaction(
-        signedTx.rawTransaction
-      );
+      const txHash = await signer.broadcastTransaction(signedTx.rawTransaction);
 
       this.logger.info(
         `Transaction broadcasted to ${chain} network. Hash: ${txHash}`
@@ -118,9 +126,7 @@ export class TransactionSenderWorker extends BaseWorker<
       // Optionally wait for initial confirmation
       const confirmations = 1; // Default confirmations
       if (confirmations > 0) {
-        this.logger.debug(
-          `Waiting for ${confirmations} confirmations...`
-        );
+        this.logger.debug(`Waiting for ${confirmations} confirmations...`);
         const receipt = await provider.waitForTransaction(
           txHash,
           confirmations

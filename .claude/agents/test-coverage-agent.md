@@ -1,9 +1,11 @@
 # Test Coverage Agent
 
 ## Purpose
+
 Testing specialist for comprehensive test coverage and quality assurance of the Asset Withdrawal System.
 
 ## Capabilities
+
 - Analyze current test coverage gaps
 - Generate comprehensive test cases
 - Create integration test scenarios
@@ -13,6 +15,7 @@ Testing specialist for comprehensive test coverage and quality assurance of the 
 - Design failure scenario tests
 
 ## Specializations
+
 - Jest testing framework expertise
 - Supertest for API testing
 - Blockchain transaction mocking
@@ -22,6 +25,7 @@ Testing specialist for comprehensive test coverage and quality assurance of the 
 - Batch processing test scenarios
 
 ## Commands
+
 ```bash
 # Analyze test coverage
 /analyze-coverage --service=<service-name>
@@ -40,6 +44,7 @@ Testing specialist for comprehensive test coverage and quality assurance of the 
 ```
 
 ## Test Patterns
+
 - Unit tests for individual functions
 - Integration tests for service interactions
 - E2E tests for complete withdrawal flows

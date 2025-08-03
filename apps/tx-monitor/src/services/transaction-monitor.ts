@@ -35,10 +35,14 @@ export class TransactionMonitor {
     // Verify provider connection
     try {
       const network = await this.provider.getNetwork();
-      this.logger.info(`Connected to network: ${network.name} (chainId: ${network.chainId})`);
+      this.logger.info(
+        `Connected to network: ${network.name} (chainId: ${network.chainId})`
+      );
 
       if (network.chainId !== BigInt(config.blockchain.chainId)) {
-        throw new Error(`Chain ID mismatch. Expected ${config.blockchain.chainId}, got ${network.chainId}`);
+        throw new Error(
+          `Chain ID mismatch. Expected ${config.blockchain.chainId}, got ${network.chainId}`
+        );
       }
     } catch (error) {
       this.logger.error('Failed to connect to blockchain provider', error);
@@ -66,7 +70,9 @@ export class TransactionMonitor {
       await this.pollTransactions();
     }, config.monitoring.pollInterval);
 
-    this.logger.info(`Monitor started with poll interval: ${config.monitoring.pollInterval}ms`);
+    this.logger.info(
+      `Monitor started with poll interval: ${config.monitoring.pollInterval}ms`
+    );
   }
 
   async stop(): Promise<void> {
@@ -95,17 +101,23 @@ export class TransactionMonitor {
 
     try {
       // Get pending transactions
-      const allPendingTransactions = await this.transactionService.getTransactionsByStatus('PENDING');
+      const allPendingTransactions =
+        await this.transactionService.getTransactionsByStatus('PENDING');
 
       // Limit to batch size
-      const pendingTransactions = allPendingTransactions.slice(0, config.monitoring.batchSize);
+      const pendingTransactions = allPendingTransactions.slice(
+        0,
+        config.monitoring.batchSize
+      );
 
       if (pendingTransactions.length === 0) {
         this.logger.debug('No pending transactions found');
         return;
       }
 
-      this.logger.info(`Found ${pendingTransactions.length} pending transactions`);
+      this.logger.info(
+        `Found ${pendingTransactions.length} pending transactions`
+      );
 
       // Process each transaction
       for (const tx of pendingTransactions) {
@@ -122,23 +134,33 @@ export class TransactionMonitor {
     }
   }
 
-  private async checkTransactionStatus(tx: TransactionToMonitor): Promise<void> {
+  private async checkTransactionStatus(
+    tx: TransactionToMonitor
+  ): Promise<void> {
     try {
-      this.logger.info(`Checking status for transaction: ${tx.transactionHash}`);
+      this.logger.info(
+        `Checking status for transaction: ${tx.transactionHash}`
+      );
 
       // Get transaction receipt
-      const receipt = await this.provider.getTransactionReceipt(tx.transactionHash);
+      const receipt = await this.provider.getTransactionReceipt(
+        tx.transactionHash
+      );
 
       if (!receipt) {
         // Transaction not found yet, check if it's been too long
         const waitTime = Date.now() - tx.sentAt.getTime();
 
         if (waitTime > config.monitoring.maxWaitTime) {
-          this.logger.warn(`Transaction ${tx.transactionHash} not found after ${waitTime}ms, marking as failed`);
+          this.logger.warn(
+            `Transaction ${tx.transactionHash} not found after ${waitTime}ms, marking as failed`
+          );
           await this.transactionService.updateStatus(tx.id, 'FAILED');
           this.stats.failed++;
         } else {
-          this.logger.debug(`Transaction ${tx.transactionHash} not found yet, will retry`);
+          this.logger.debug(
+            `Transaction ${tx.transactionHash} not found yet, will retry`
+          );
         }
 
         return;
@@ -158,7 +180,9 @@ export class TransactionMonitor {
         this.stats.failed++;
       } else if (confirmations >= config.monitoring.confirmationsRequired) {
         // Transaction confirmed
-        this.logger.info(`Transaction ${tx.transactionHash} confirmed with ${confirmations} confirmations`);
+        this.logger.info(
+          `Transaction ${tx.transactionHash} confirmed with ${confirmations} confirmations`
+        );
         await this.transactionService.updateTransaction(tx.id, {
           status: 'CONFIRMED',
           blockNumber: receipt.blockNumber,
@@ -167,24 +191,38 @@ export class TransactionMonitor {
         this.stats.processed++;
       } else {
         // Still waiting for confirmations
-        this.logger.debug(`Transaction ${tx.transactionHash} has ${confirmations}/${config.monitoring.confirmationsRequired} confirmations`);
+        this.logger.debug(
+          `Transaction ${tx.transactionHash} has ${confirmations}/${config.monitoring.confirmationsRequired} confirmations`
+        );
       }
 
       // Check for chain reorganization
       if (tx.status === 'CONFIRMING' && receipt.blockNumber) {
-        const txDetails = await this.transactionService.getTransactionById(tx.id);
-        if (txDetails && txDetails.blockNumber && txDetails.blockNumber !== receipt.blockNumber) {
-          this.logger.warn(`Chain reorganization detected for transaction ${tx.transactionHash}`);
+        const txDetails = await this.transactionService.getTransactionById(
+          tx.id
+        );
+        if (
+          txDetails &&
+          txDetails.blockNumber &&
+          txDetails.blockNumber !== receipt.blockNumber
+        ) {
+          this.logger.warn(
+            `Chain reorganization detected for transaction ${tx.transactionHash}`
+          );
           await this.transactionService.updateStatus(tx.id, 'PENDING');
         }
       }
     } catch (error) {
-      this.logger.error(`Error checking transaction ${tx.transactionHash}`, error);
+      this.logger.error(
+        `Error checking transaction ${tx.transactionHash}`,
+        error
+      );
     }
   }
 
   async getStatus(): Promise<MonitorStatus> {
-    const pendingTransactions = await this.transactionService.getTransactionsByStatus('PENDING');
+    const pendingTransactions =
+      await this.transactionService.getTransactionsByStatus('PENDING');
 
     return {
       isRunning: this.isRunning,

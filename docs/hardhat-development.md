@@ -25,7 +25,10 @@ import { HardhatHelpers, ChainProvider } from '@asset-withdrawal/shared';
 const helpers = new HardhatHelpers();
 
 // With custom chain provider
-const chainProvider = new ChainProvider({ chain: 'localhost', network: 'testnet' });
+const chainProvider = new ChainProvider({
+  chain: 'localhost',
+  network: 'testnet',
+});
 const helpers = new HardhatHelpers(chainProvider);
 ```
 
@@ -83,6 +86,7 @@ npm run hardhat:gas-report
 ```
 
 Configuration in `hardhat.config.js`:
+
 ```javascript
 gasReporter: {
   enabled: process.env.REPORT_GAS !== undefined,
@@ -155,19 +159,19 @@ docker logs withdrawal-hardhat-deploy
 
 ```javascript
 // In your application code (not in Hardhat tests)
-const { hardhatHelpers } = require("@asset-withdrawal/shared");
+const { hardhatHelpers } = require('@asset-withdrawal/shared');
 
 async function testLocalBlockchain() {
   const mockToken = hardhatHelpers.getMockTokenAddress();
   const account = await hardhatHelpers.getSigningAccount();
-  
+
   // Get initial balance
   const balance = await hardhatHelpers.getTokenBalance(
     mockToken,
     account.address
   );
-  
-  console.log("Balance:", ethers.formatEther(balance), "MOCK");
+
+  console.log('Balance:', ethers.formatEther(balance), 'MOCK');
 }
 ```
 

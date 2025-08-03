@@ -8,7 +8,7 @@ export const LogLevel = {
   SILLY: 'silly',
 } as const;
 
-export type LogLevel = typeof LogLevel[keyof typeof LogLevel];
+export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
 
 export interface LogContext {
   service: string;

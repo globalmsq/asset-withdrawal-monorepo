@@ -130,7 +130,9 @@ describe('LoggerService', () => {
 
   describe('Context management', () => {
     it('should set context', () => {
-      expect(() => logger.setContext({ userId: '123', requestId: 'abc' })).not.toThrow();
+      expect(() =>
+        logger.setContext({ userId: '123', requestId: 'abc' })
+      ).not.toThrow();
     });
 
     it('should clear specific context fields', () => {
@@ -147,7 +149,8 @@ describe('LoggerService', () => {
 
   describe('Sensitive data filtering', () => {
     it('should filter private keys from logs', () => {
-      const message = 'private_key: 1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
+      const message =
+        'private_key: 1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
       // This test verifies the logger doesn't throw when filtering sensitive data
       expect(() => logger.info(message)).not.toThrow();
     });

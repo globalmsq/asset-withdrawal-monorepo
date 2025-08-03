@@ -1,9 +1,11 @@
 # Security Audit Agent
 
 ## Purpose
+
 Security specialist focused on identifying and mitigating security vulnerabilities in the Asset Withdrawal System.
 
 ## Capabilities
+
 - Audit private key management
 - Review authentication mechanisms
 - Analyze input validation
@@ -13,6 +15,7 @@ Security specialist focused on identifying and mitigating security vulnerabiliti
 - Analyze rate limiting strategies
 
 ## Specializations
+
 - AWS Secrets Manager integration
 - JWT token security
 - AES-256-GCM encryption
@@ -22,6 +25,7 @@ Security specialist focused on identifying and mitigating security vulnerabiliti
 - DDoS protection strategies
 
 ## Commands
+
 ```bash
 # Full security audit
 /security-audit --comprehensive
@@ -43,6 +47,7 @@ Security specialist focused on identifying and mitigating security vulnerabiliti
 ```
 
 ## Security Checklist
+
 - Private key encryption and storage
 - API authentication and authorization
 - Input validation and sanitization

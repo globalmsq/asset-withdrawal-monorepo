@@ -4,25 +4,27 @@
 
 This is a Polygon-focused blockchain withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests on the Polygon network, processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status.
 
-
 ## Task-Jira Integration Guidelines
 
 ### General Synchronization Rules
 
 #### Definition of Jira Synchronization
+
 Jira synchronization means creating, updating, and maintaining consistency between Task Master tasks/subtasks and their corresponding Jira issues. This includes:
+
 - Creating new Jira issues for Task Master tasks that don't have them
 - Recording Jira keys in Task Master tasks
 - Updating Task Master titles to include `[PROJECT-KEY]` prefix
 - Keeping status synchronized between both systems
 
 #### Important Rules
+
 1. **Task Master Titles**: Include Jira key as prefix `[PROJECT-KEY]` in Task Master task titles
 2. **Jira Issue Titles**: Keep original titles in Jira without prefix (to avoid duplication)
 3. **JSON Storage**: Store Jira key in `jiraKey` field in tasks.json
 4. **Title Updates**: When updating Task Master titles, DO NOT update Jira issue titles
 5. **Bidirectional Sync**: Both Task Master and Jira should always reflect the same status
-6. **Language - MANDATORY**: 
+6. **Language - MANDATORY**:
    - **Task Master Tasks**: Write in Korean for better local understanding
    - **Jira Issues**: ALL content MUST be in English (titles, descriptions, comments)
    - **Translation Required**: Before creating Jira issues, translate Korean Task Master content to English
@@ -33,7 +35,7 @@ Jira synchronization means creating, updating, and maintaining consistency betwe
    - **Subtasks**: Should include `[BFS-XX]` prefix when they have their own Jira issues
    - **Update Process**: After creating Jira issue, immediately update Task Master title with the key
    - **Example**: "네이티브 토큰 출금 지원" → "[BFS-38] 네이티브 토큰 출금 지원"
-8. **EPIC Association - MANDATORY**:
+9. **EPIC Association - MANDATORY**:
    - **All Story/Task type issues MUST be linked to an EPIC**
    - **Sub-tasks CANNOT be directly linked to EPICs** (Jira limitation)
    - **Jira Hierarchy**: EPIC → Story/Task → Sub-task
@@ -48,7 +50,9 @@ Jira synchronization means creating, updating, and maintaining consistency betwe
 #### Complete Synchronization Workflow
 
 ##### 1. Creating New Tasks
+
 When a new task is created in Task Master:
+
 1. Create task in Task Master
 2. Create corresponding Jira issue (Story for main tasks, Sub-task for subtasks)
 3. **Set EPIC link (CRITICAL)**:
@@ -60,7 +64,9 @@ When a new task is created in Task Master:
 6. Ensure both systems show the same initial status
 
 ##### 1.5. Synchronizing Existing Tasks
+
 For tasks that already have Jira keys stored in Task Master:
+
 1. Use `task-master show <id>` to view task details and find the Jira key
 2. Use the Jira key directly with MCP Atlassian tools (e.g., search with `key = BFS-30`)
 3. **Verify EPIC link**:
@@ -71,12 +77,15 @@ For tasks that already have Jira keys stored in Task Master:
 5. Add implementation notes or completion summaries to Jira
 
 ##### 2. Starting Work on a Task
+
 **MANDATORY**: When beginning any task:
+
 1. Update Task Master status: `task-master set-status --id=<id> --status=in-progress`
 2. Immediately sync to Jira: Transition the Jira issue to "IN PROGRESS" status
 3. Add a comment in Jira indicating work has started (optional but recommended)
 
 ##### 3. During Development
+
 - Add implementation notes to subtasks using `task-master update-subtask`
 - Optionally update Jira with progress comments
 - Keep both systems as source of truth for different audiences:
@@ -84,12 +93,15 @@ For tasks that already have Jira keys stored in Task Master:
   - Jira: Team collaboration and stakeholder visibility
 
 ##### 4. Completing a Task
+
 **MANDATORY**: When finishing any task:
+
 1. Update Task Master status: `task-master set-status --id=<id> --status=done`
 2. Immediately sync to Jira: Transition the Jira issue to "DONE" status
 3. Add completion notes to Jira with summary of what was implemented
 
 ##### 5. Status Mapping
+
 - Task Master `pending` → Jira "BACKLOG" or "Selected for Development"
 - Task Master `in-progress` → Jira "IN PROGRESS"
 - Task Master `done` → Jira "DONE"
@@ -98,14 +110,15 @@ For tasks that already have Jira keys stored in Task Master:
 - Task Master `cancelled` → Jira "CANCELLED" or close with resolution
 
 #### MCP Atlassian Integration
-Claude Code can directly update Jira statuses using the MCP Atlassian server configured in `.mcp.json`. This enables seamless synchronization between Task Master and Jira without manual intervention.
 
+Claude Code can directly update Jira statuses using the MCP Atlassian server configured in `.mcp.json`. This enables seamless synchronization between Task Master and Jira without manual intervention.
 
 ## Development Workflow
 
 ### 1. Git Workflow Guidelines
 
 #### Branch Management
+
 1. **Never work directly on main branch** - Always create and work on feature branches
 2. **Branch naming convention**: `[JIRA-KEY]_descriptive-name`
    - Example: `BFS-32_hardhat-localhost-support`
@@ -113,6 +126,7 @@ Claude Code can directly update Jira statuses using the MCP Atlassian server con
    - Use lowercase and hyphens
 
 #### Commit Message Convention
+
 1. **Jira key prefix required**: All commit messages must start with `[JIRA-KEY]` prefix
 2. **Format**: `[BFS-00] type: description`
    - Example: `[BFS-32] feat: add Hardhat localhost network support`
@@ -127,22 +141,27 @@ Claude Code can directly update Jira statuses using the MCP Atlassian server con
    - `chore:` Build/configuration changes
 
 #### Pull Request Workflow
+
 1. **Create feature branch**:
+
    ```bash
    git checkout -b BFS-32_hardhat-localhost-support
    ```
 
 2. **Commit with Jira key**:
+
    ```bash
    git commit -m "[BFS-32] feat: implement Hardhat node configuration"
    ```
 
 3. **Push to remote**:
+
    ```bash
    git push -u origin BFS-32_hardhat-localhost-support
    ```
 
 4. **Create Pull Request**:
+
    ```bash
    gh pr create --title "[BFS-32] Hardhat localhost network support" \
                 --body "Implementation of Hardhat node for local development..."
@@ -152,6 +171,7 @@ Claude Code can directly update Jira statuses using the MCP Atlassian server con
 6. **PR Description**: Include implementation details and testing notes
 
 #### Example Workflow
+
 ```bash
 # 1. Start new task
 task-master show 22  # Get Jira key (e.g., BFS-32)
@@ -240,6 +260,7 @@ npm run typecheck   # Check TypeScript types
 ```
 
 **OPTIONAL**: Run tests only when explicitly requested:
+
 ```bash
 npm test           # Run all tests
 ```
@@ -249,7 +270,6 @@ npm test           # Run all tests
 1. **After any code changes**, automatically run:
    - `npm run lint`
    - `npm run typecheck`
-   
 2. **For tests**:
    - Create minimal test file structure when adding new features
    - Only implement full test coverage when explicitly requested
@@ -329,16 +349,19 @@ This tool is useful for visually monitoring queue states and debugging during de
 ### Queue System Architecture
 
 #### Development Environment (LocalStack)
+
 - Uses LocalStack to emulate AWS SQS
 - Queues created automatically via initialization script
 - Access via `http://localhost:4566`
 
 #### Production Environment (AWS SQS)
+
 - Direct AWS SQS integration
 - IAM roles for queue access
 - Dead Letter Queues for error handling
 
 #### Queue Interface
+
 ```typescript
 interface IQueue<T> {
   sendMessage(data: T): Promise<void>;
@@ -351,10 +374,12 @@ interface IQueue<T> {
 ### Polygon Network Integration
 
 #### Supported Networks
+
 - **Amoy Testnet** (Chain ID: 80002) - Development
 - **Polygon Mainnet** (Chain ID: 137) - Production
 
 #### Transaction Types
+
 - ERC-20 token transfers only
 - EIP-1559 transaction format
 - Gas optimization for Polygon network
@@ -362,6 +387,7 @@ interface IQueue<T> {
 ### App Naming Convention
 
 Apps should be named based on their primary function:
+
 - `{action}-{target}`: e.g., `withdrawal-api`, `tx-processor`
 - Avoid generic names like `api-server` or `worker`
 - Each app should have a single, well-defined responsibility
@@ -435,5 +461,6 @@ After completing tasks:
 Remember: Simplicity is key. Make minimal changes that achieve the goal effectively.
 
 ## Task Master AI Instructions
+
 **Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
 @./.taskmaster/CLAUDE.md

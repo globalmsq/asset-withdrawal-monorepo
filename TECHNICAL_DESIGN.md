@@ -7,27 +7,33 @@
 ## 기술 스택
 
 ### 런타임 및 언어
+
 - **Node.js**: 18+ LTS
 - **TypeScript**: 5.4.5 (strict mode 활성화)
 
 ### 프레임워크
+
 - **Express.js**: 4.21.2 - REST API 서버
 - **Nx**: 21.2.1 - 모노레포 관리
 
 ### 데이터베이스
+
 - **MySQL**: 8.0
 - **Prisma ORM**: 6.11.0
 - **Redis**: 최신 stable (nonce 관리, 가스 가격 캐싱)
 
 ### 블록체인
+
 - **Ethers.js**: v6.13.4
 - **지원 네트워크**: Polygon (Amoy 테스트넷, 메인넷), Localhost (Hardhat)
 
 ### 큐 시스템
+
 - **AWS SQS**: 프로덕션 환경
 - **LocalStack**: 개발 환경 (AWS SQS 에뮬레이션)
 
 ### 보안
+
 - **AWS Secrets Manager**: 개인키 관리
 - **AES-256-GCM**: 추가 암호화 레이어
 - **JWT**: 인증 토큰
@@ -50,12 +56,14 @@ apps/
 ### 큐 구성
 
 #### 기존 큐
+
 - `tx-request-queue`: 출금 요청 메시지
 - `signed-tx-queue`: 서명된 트랜잭션
 - `tx-monitor-queue`: 모니터링 대상 트랜잭션
 - `dlq-*`: 각 큐의 Dead Letter Queue
 
 #### Account Manager 큐 (계획)
+
 - `balance-check-queue`: 잔액 확인 요청
 - `balance-transfer-queue`: 잔액 전송 요청
 
@@ -170,6 +178,7 @@ model BalanceTransfer {
 ### 기존 API 엔드포인트
 
 #### 출금 API
+
 ```typescript
 POST /api/v1/withdrawals
 {
@@ -217,6 +226,7 @@ POST /api/v1/accounts/transfer
 ## 환경 변수
 
 ### 공통 환경 변수
+
 ```env
 # Database
 DATABASE_URL=mysql://root:password@localhost:3306/withdrawal_db
@@ -240,6 +250,7 @@ ENCRYPTION_KEY=32-character-encryption-key
 ```
 
 ### signing-service 환경 변수
+
 ```env
 # Signing Service 전용
 SIGNING_SERVICE_PRIVATE_KEY_SECRET=signing-service/private-key
@@ -253,6 +264,7 @@ MIN_GAS_SAVINGS_PERCENT=20
 ```
 
 ### account-manager 환경 변수 (계획)
+
 ```env
 # Account Manager 전용
 BALANCE_CHECK_INTERVAL=300000  # 5분 (밀리초)
@@ -264,16 +276,18 @@ MAX_BATCH_SIZE=10
 ## 개발 환경 설정
 
 ### Docker Compose 구성
+
 ```yaml
 services:
-  mysql:          # 데이터베이스
-  redis:          # 캐시 및 nonce 관리
-  localstack:     # AWS 서비스 에뮬레이션
-  hardhat-node:   # 로컬 블록체인
-  sqs-admin:      # SQS 모니터링 UI
+  mysql: # 데이터베이스
+  redis: # 캐시 및 nonce 관리
+  localstack: # AWS 서비스 에뮬레이션
+  hardhat-node: # 로컬 블록체인
+  sqs-admin: # SQS 모니터링 UI
 ```
 
 ### 로컬 개발 시작
+
 ```bash
 # Docker 서비스 시작
 docker-compose -f docker/docker-compose.yaml up -d
@@ -294,6 +308,7 @@ signing-service는 다음 조건을 평가하여 배치 처리 여부를 결정�
 3. **시간 제약**: 최대 대기 시간 초과 여부
 
 ### 배치 처리 흐름
+
 ```
 1. 요청 수집 (최대 N초 또는 M개)
 2. 배치 가능성 평가
@@ -305,17 +320,20 @@ signing-service는 다음 조건을 평가하여 배치 처리 여부를 결정�
 ## 보안 고려사항
 
 ### 개인키 관리
+
 1. AWS Secrets Manager에 암호화된 개인키 저장
 2. 애플리케이션 레벨에서 AES-256-GCM으로 추가 암호화
 3. 메모리에서만 복호화, 로그에 절대 노출 금지
 
 ### API 보안
+
 1. JWT 토큰 기반 인증
 2. Rate Limiting (express-rate-limit)
 3. CORS 정책 설정
 4. Helmet.js로 보안 헤더 설정
 
 ### 트랜잭션 보안
+
 1. Nonce 관리: Redis를 통한 원자적 연산
 2. 가스 가격 검증: 최대 가스 가격 제한
 3. 주소 검증: 체크섬 주소 확인
@@ -323,6 +341,7 @@ signing-service는 다음 조건을 평가하여 배치 처리 여부를 결정�
 ## 모니터링 및 로깅
 
 ### 로깅 전략
+
 ```typescript
 // Winston 로거 설정
 const logger = winston.createLogger({
@@ -331,12 +350,13 @@ const logger = winston.createLogger({
   transports: [
     new winston.transports.File({ filename: 'error.log', level: 'error' }),
     new winston.transports.File({ filename: 'combined.log' }),
-    new winston.transports.Console({ format: winston.format.simple() })
-  ]
+    new winston.transports.Console({ format: winston.format.simple() }),
+  ],
 });
 ```
 
 ### 메트릭 수집 (계획)
+
 - Prometheus 형식 메트릭 엔드포인트
 - 커스텀 메트릭: 트랜잭션 수, 성공률, 평균 처리 시간
 - 시스템 메트릭: CPU, 메모리, 디스크 사용률
@@ -344,16 +364,19 @@ const logger = winston.createLogger({
 ## 테스트 전략
 
 ### 단위 테스트
+
 - Jest 사용
 - 목표 커버리지: 80% 이상
 - 모든 핵심 비즈니스 로직 테스트
 
 ### 통합 테스트
+
 - 서비스 간 통신 테스트
 - 큐 메시지 처리 테스트
 - 데이터베이스 트랜잭션 테스트
 
 ### E2E 테스트
+
 - 전체 출금 플로우 테스트
 - 실패 시나리오 테스트
 - 부하 테스트
@@ -361,6 +384,7 @@ const logger = winston.createLogger({
 ## 배포 전략
 
 ### CI/CD 파이프라인
+
 ```yaml
 stages:
   - lint: ESLint, Prettier 검사
@@ -368,12 +392,13 @@ stages:
   - build: Docker 이미지 빌드
   - security: Snyk 취약점 스캔
   - deploy:
-    - dev: 자동 배포
-    - staging: 수동 승인 후 배포
-    - production: 다중 승인 후 배포
+      - dev: 자동 배포
+      - staging: 수동 승인 후 배포
+      - production: 다중 승인 후 배포
 ```
 
 ### 배포 방식
+
 - Blue/Green 배포
 - 카나리 배포 (10% → 50% → 100%)
 - 자동 롤백 (오류율 > 5%)
@@ -381,16 +406,19 @@ stages:
 ## 성능 최적화
 
 ### 데이터베이스 최적화
+
 - 인덱스 전략: status, requestId, createdAt
 - 커넥션 풀링 설정
 - 읽기 전용 복제본 활용 (향후)
 
 ### 캐싱 전략
+
 - Redis 캐싱: 가스 가격 (TTL: 30초)
 - 메모리 캐싱: 토큰 정보
 - CDN: 정적 자산 (Admin UI)
 
 ### 비동기 처리
+
 - 큐 기반 비동기 처리
 - 병렬 처리 가능한 작업 식별
 - 배치 처리로 효율성 향상

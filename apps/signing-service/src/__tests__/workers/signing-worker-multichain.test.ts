@@ -2,8 +2,17 @@ import { SigningWorker } from '../../workers/signing-worker';
 import { Config } from '../../config';
 import { Logger } from '../../utils/logger';
 import { SecureSecretsManager } from '../../services/secrets-manager';
-import { WithdrawalRequestService, DatabaseService, SignedTransactionService } from '@asset-withdrawal/database';
-import { WithdrawalRequest, ChainProviderFactory, TransactionStatus, IQueue } from '@asset-withdrawal/shared';
+import {
+  WithdrawalRequestService,
+  DatabaseService,
+  SignedTransactionService,
+} from '@asset-withdrawal/database';
+import {
+  WithdrawalRequest,
+  ChainProviderFactory,
+  TransactionStatus,
+  IQueue,
+} from '@asset-withdrawal/shared';
 import { TransactionSigner } from '../../services/transaction-signer';
 
 jest.mock('@asset-withdrawal/database');
@@ -12,7 +21,9 @@ jest.mock('@asset-withdrawal/shared', () => ({
   ChainProviderFactory: {
     getProvider: jest.fn().mockReturnValue({
       getProvider: jest.fn(),
-      getMulticall3Address: jest.fn().mockReturnValue('0x1234567890123456789012345678901234567890'),
+      getMulticall3Address: jest
+        .fn()
+        .mockReturnValue('0x1234567890123456789012345678901234567890'),
       getChainId: jest.fn().mockReturnValue(137),
       chain: 'polygon',
       network: 'mainnet',
@@ -53,7 +64,11 @@ describe('SigningWorker - Multi-chain Support', () => {
   let mockOutputQueue: jest.Mocked<IQueue<any>>;
   let mockTransactionSigner: jest.Mocked<TransactionSigner>;
 
-  const createMockChainProvider = (chain: string, network: string, chainId: number) => {
+  const createMockChainProvider = (
+    chain: string,
+    network: string,
+    chainId: number
+  ) => {
     const mockProviderInstance = {
       getTransactionCount: jest.fn().mockResolvedValue(10),
       estimateGas: jest.fn().mockResolvedValue(BigInt(100000)),
@@ -66,7 +81,9 @@ describe('SigningWorker - Multi-chain Support', () => {
     return {
       getProvider: jest.fn().mockReturnValue(mockProviderInstance),
       getChainId: jest.fn().mockReturnValue(chainId),
-      getMulticall3Address: jest.fn().mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
+      getMulticall3Address: jest
+        .fn()
+        .mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
       chain,
       network,
     };
@@ -114,7 +131,11 @@ describe('SigningWorker - Multi-chain Support', () => {
     } as any;
 
     mockSecretsManager = {
-      getPrivateKey: jest.fn().mockReturnValue('0x0000000000000000000000000000000000000000000000000000000000000001'),
+      getPrivateKey: jest
+        .fn()
+        .mockReturnValue(
+          '0x0000000000000000000000000000000000000000000000000000000000000001'
+        ),
       initialize: jest.fn(),
       refreshSecrets: jest.fn(),
     } as any;
@@ -142,8 +163,12 @@ describe('SigningWorker - Multi-chain Support', () => {
     } as any;
 
     mockDatabaseService = {
-      getWithdrawalRequestService: jest.fn().mockReturnValue(mockWithdrawalRequestService),
-      getSignedTransactionService: jest.fn().mockReturnValue(mockSignedTransactionService),
+      getWithdrawalRequestService: jest
+        .fn()
+        .mockReturnValue(mockWithdrawalRequestService),
+      getSignedTransactionService: jest
+        .fn()
+        .mockReturnValue(mockSignedTransactionService),
     } as any;
 
     mockInputQueue = {
@@ -176,10 +201,14 @@ describe('SigningWorker - Multi-chain Support', () => {
       signBatchTransaction: jest.fn(),
       signBatchTransactionWithSplitting: jest.fn(),
       cleanup: jest.fn(),
-      getAddress: jest.fn().mockReturnValue('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'),
+      getAddress: jest
+        .fn()
+        .mockReturnValue('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'),
     } as any;
 
-    (TransactionSigner as jest.Mock).mockImplementation(() => mockTransactionSigner);
+    (TransactionSigner as jest.Mock).mockImplementation(
+      () => mockTransactionSigner
+    );
 
     const mockDbClient = {
       withdrawalRequest: {
@@ -199,8 +228,12 @@ describe('SigningWorker - Multi-chain Support', () => {
       getClient: jest.fn().mockReturnValue(mockDbClient),
       healthCheck: jest.fn().mockResolvedValue(true),
     });
-    (WithdrawalRequestService as jest.Mock).mockImplementation(() => mockWithdrawalRequestService);
-    (SignedTransactionService as jest.Mock).mockImplementation(() => mockSignedTransactionService);
+    (WithdrawalRequestService as jest.Mock).mockImplementation(
+      () => mockWithdrawalRequestService
+    );
+    (SignedTransactionService as jest.Mock).mockImplementation(
+      () => mockSignedTransactionService
+    );
   });
 
   describe('Multi-chain withdrawal processing', () => {
@@ -221,10 +254,12 @@ describe('SigningWorker - Multi-chain Support', () => {
       dbClient = (DatabaseService.getInstance as jest.Mock)().getClient();
 
       // Mock getOrCreateSigner to also log
-      (signingWorker as any).getOrCreateSigner = jest.fn().mockImplementation(async (chain: string, network: string) => {
-        mockLogger.info('Creating new TransactionSigner', { chain, network });
-        return mockTransactionSigner;
-      });
+      (signingWorker as any).getOrCreateSigner = jest
+        .fn()
+        .mockImplementation(async (chain: string, network: string) => {
+          mockLogger.info('Creating new TransactionSigner', { chain, network });
+          return mockTransactionSigner;
+        });
     });
 
     const setupClaimAndProcessMocks = (requestId: string) => {
@@ -266,8 +301,14 @@ describe('SigningWorker - Multi-chain Support', () => {
     };
 
     it('should process withdrawal on Polygon network', async () => {
-      const polygonProvider = createMockChainProvider('polygon', 'mainnet', 137);
-      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(polygonProvider);
+      const polygonProvider = createMockChainProvider(
+        'polygon',
+        'mainnet',
+        137
+      );
+      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(
+        polygonProvider
+      );
 
       const withdrawalRequest: WithdrawalRequest = {
         id: 'wr-polygon-1',
@@ -282,11 +323,13 @@ describe('SigningWorker - Multi-chain Support', () => {
         network: 'mainnet',
       };
 
-      const messages = [{
-        id: 'msg-1',
-        receiptHandle: 'receipt-1',
-        body: withdrawalRequest,
-      }];
+      const messages = [
+        {
+          id: 'msg-1',
+          receiptHandle: 'receipt-1',
+          body: withdrawalRequest,
+        },
+      ];
 
       mockInputQueue.receiveMessages.mockResolvedValueOnce(messages);
 
@@ -295,7 +338,10 @@ describe('SigningWorker - Multi-chain Support', () => {
       await signingWorker.initialize();
       await (signingWorker as any).processBatch();
 
-      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith('polygon', 'mainnet');
+      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith(
+        'polygon',
+        'mainnet'
+      );
       expect(mockTransactionSigner.signTransaction).toHaveBeenCalledWith({
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         amount: '1000000000000000000',
@@ -318,8 +364,14 @@ describe('SigningWorker - Multi-chain Support', () => {
     });
 
     it('should process withdrawal on Ethereum network', async () => {
-      const ethereumProvider = createMockChainProvider('ethereum', 'mainnet', 1);
-      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(ethereumProvider);
+      const ethereumProvider = createMockChainProvider(
+        'ethereum',
+        'mainnet',
+        1
+      );
+      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(
+        ethereumProvider
+      );
 
       const withdrawalRequest: WithdrawalRequest = {
         id: 'wr-ethereum-1',
@@ -334,11 +386,13 @@ describe('SigningWorker - Multi-chain Support', () => {
         network: 'mainnet',
       };
 
-      const messages = [{
-        id: 'msg-1',
-        receiptHandle: 'receipt-1',
-        body: withdrawalRequest,
-      }];
+      const messages = [
+        {
+          id: 'msg-1',
+          receiptHandle: 'receipt-1',
+          body: withdrawalRequest,
+        },
+      ];
 
       mockInputQueue.receiveMessages.mockResolvedValueOnce(messages);
 
@@ -361,7 +415,10 @@ describe('SigningWorker - Multi-chain Support', () => {
       await signingWorker.initialize();
       await (signingWorker as any).processBatch();
 
-      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith('ethereum', 'mainnet');
+      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith(
+        'ethereum',
+        'mainnet'
+      );
       expect(mockTransactionSigner.signTransaction).toHaveBeenCalledWith({
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         amount: '1000000000000000000',
@@ -380,7 +437,9 @@ describe('SigningWorker - Multi-chain Support', () => {
 
     it('should process withdrawal on BSC network', async () => {
       const bscProvider = createMockChainProvider('bsc', 'mainnet', 56);
-      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(bscProvider);
+      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(
+        bscProvider
+      );
 
       const withdrawalRequest: WithdrawalRequest = {
         id: 'wr-bsc-1',
@@ -395,11 +454,13 @@ describe('SigningWorker - Multi-chain Support', () => {
         network: 'mainnet',
       };
 
-      const messages = [{
-        id: 'msg-1',
-        receiptHandle: 'receipt-1',
-        body: withdrawalRequest,
-      }];
+      const messages = [
+        {
+          id: 'msg-1',
+          receiptHandle: 'receipt-1',
+          body: withdrawalRequest,
+        },
+      ];
 
       mockInputQueue.receiveMessages.mockResolvedValueOnce(messages);
 
@@ -422,7 +483,10 @@ describe('SigningWorker - Multi-chain Support', () => {
       await signingWorker.initialize();
       await (signingWorker as any).processBatch();
 
-      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith('bsc', 'mainnet');
+      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith(
+        'bsc',
+        'mainnet'
+      );
       expect(mockOutputQueue.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           transactionId: 'wr-bsc-1',
@@ -433,8 +497,14 @@ describe('SigningWorker - Multi-chain Support', () => {
     });
 
     it('should process withdrawal on localhost network', async () => {
-      const localhostProvider = createMockChainProvider('localhost', 'localhost', 31337);
-      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(localhostProvider);
+      const localhostProvider = createMockChainProvider(
+        'localhost',
+        'localhost',
+        31337
+      );
+      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(
+        localhostProvider
+      );
 
       const withdrawalRequest: WithdrawalRequest = {
         id: 'wr-localhost-1',
@@ -449,11 +519,13 @@ describe('SigningWorker - Multi-chain Support', () => {
         network: 'localhost',
       };
 
-      const messages = [{
-        id: 'msg-1',
-        receiptHandle: 'receipt-1',
-        body: withdrawalRequest,
-      }];
+      const messages = [
+        {
+          id: 'msg-1',
+          receiptHandle: 'receipt-1',
+          body: withdrawalRequest,
+        },
+      ];
 
       mockInputQueue.receiveMessages.mockResolvedValueOnce(messages);
 
@@ -476,7 +548,10 @@ describe('SigningWorker - Multi-chain Support', () => {
       await signingWorker.initialize();
       await (signingWorker as any).processBatch();
 
-      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith('localhost', 'localhost');
+      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith(
+        'localhost',
+        'localhost'
+      );
       expect(mockOutputQueue.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           transactionId: 'wr-localhost-1',
@@ -534,8 +609,14 @@ describe('SigningWorker - Multi-chain Support', () => {
     };
 
     it('should reuse signers for the same chain/network combination', async () => {
-      const polygonProvider = createMockChainProvider('polygon', 'mainnet', 137);
-      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(polygonProvider);
+      const polygonProvider = createMockChainProvider(
+        'polygon',
+        'mainnet',
+        137
+      );
+      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(
+        polygonProvider
+      );
 
       const withdrawalRequests: WithdrawalRequest[] = [
         {
@@ -578,7 +659,10 @@ describe('SigningWorker - Multi-chain Support', () => {
       await (signingWorker as any).processBatch();
 
       // Should create provider for polygon
-      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith('polygon', 'mainnet');
+      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith(
+        'polygon',
+        'mainnet'
+      );
 
       // Should sign both transactions
       expect(mockTransactionSigner.signTransaction).toHaveBeenCalledTimes(2);
@@ -593,19 +677,31 @@ describe('SigningWorker - Multi-chain Support', () => {
       expect((signingWorker as any).getOrCreateSigner).toHaveBeenCalledTimes(2);
 
       // Both calls should be for the same chain/network
-      expect((signingWorker as any).getOrCreateSigner).toHaveBeenCalledWith('polygon', 'mainnet');
+      expect((signingWorker as any).getOrCreateSigner).toHaveBeenCalledWith(
+        'polygon',
+        'mainnet'
+      );
     });
 
     it('should handle multiple chains in the same batch', async () => {
-      const polygonProvider = createMockChainProvider('polygon', 'mainnet', 137);
-      const ethereumProvider = createMockChainProvider('ethereum', 'mainnet', 1);
+      const polygonProvider = createMockChainProvider(
+        'polygon',
+        'mainnet',
+        137
+      );
+      const ethereumProvider = createMockChainProvider(
+        'ethereum',
+        'mainnet',
+        1
+      );
 
-      (ChainProviderFactory.getProvider as jest.Mock)
-        .mockImplementation((chain: string, network: string) => {
+      (ChainProviderFactory.getProvider as jest.Mock).mockImplementation(
+        (chain: string, network: string) => {
           if (chain === 'polygon') return polygonProvider;
           if (chain === 'ethereum') return ethereumProvider;
           throw new Error(`Unknown chain: ${chain}`);
-        });
+        }
+      );
 
       const withdrawalRequests: WithdrawalRequest[] = [
         {
@@ -646,30 +742,38 @@ describe('SigningWorker - Multi-chain Support', () => {
 
       // Mock different chainIds for different transactions
       let callCount = 0;
-      mockTransactionSigner.signTransaction.mockImplementation(async (params: any) => {
-        callCount++;
-        const chainId = callCount === 1 ? 137 : 1; // First is polygon, second is ethereum
-        return {
-          transactionId: params.transactionId,
-          hash: '0xabc123',
-          rawTransaction: '0xf86c0a85...',
-          nonce: 10,
-          gasLimit: '100000',
-          maxFeePerGas: '30000000000',
-          maxPriorityFeePerGas: '1500000000',
-          from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
-          to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-          value: '1000000000000000000',
-          chainId: chainId,
-        };
-      });
+      mockTransactionSigner.signTransaction.mockImplementation(
+        async (params: any) => {
+          callCount++;
+          const chainId = callCount === 1 ? 137 : 1; // First is polygon, second is ethereum
+          return {
+            transactionId: params.transactionId,
+            hash: '0xabc123',
+            rawTransaction: '0xf86c0a85...',
+            nonce: 10,
+            gasLimit: '100000',
+            maxFeePerGas: '30000000000',
+            maxPriorityFeePerGas: '1500000000',
+            from: '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
+            to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+            value: '1000000000000000000',
+            chainId: chainId,
+          };
+        }
+      );
 
       await signingWorker.initialize();
       await (signingWorker as any).processBatch();
 
       // Should create providers for both chains
-      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith('polygon', 'mainnet');
-      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith('ethereum', 'mainnet');
+      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith(
+        'polygon',
+        'mainnet'
+      );
+      expect(ChainProviderFactory.getProvider).toHaveBeenCalledWith(
+        'ethereum',
+        'mainnet'
+      );
 
       // Should sign both transactions
       expect(mockTransactionSigner.signTransaction).toHaveBeenCalledTimes(2);
@@ -706,11 +810,13 @@ describe('SigningWorker - Multi-chain Support', () => {
         network: 'mainnet',
       };
 
-      const messages = [{
-        id: 'msg-1',
-        receiptHandle: 'receipt-1',
-        body: withdrawalRequest,
-      }];
+      const messages = [
+        {
+          id: 'msg-1',
+          receiptHandle: 'receipt-1',
+          body: withdrawalRequest,
+        },
+      ];
 
       mockInputQueue.receiveMessages.mockResolvedValueOnce(messages);
 
@@ -734,7 +840,9 @@ describe('SigningWorker - Multi-chain Support', () => {
       await signingWorker.initialize();
       await (signingWorker as any).processBatch();
 
-      expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
+      expect(
+        mockWithdrawalRequestService.updateStatusWithError
+      ).toHaveBeenCalledWith(
         'wr-unsupported-1',
         TransactionStatus.FAILED,
         expect.stringContaining('Unsupported chain')
@@ -766,11 +874,13 @@ describe('SigningWorker - Multi-chain Support', () => {
         // Missing chain and network
       } as any;
 
-      const messages = [{
-        id: 'msg-1',
-        receiptHandle: 'receipt-1',
-        body: withdrawalRequest,
-      }];
+      const messages = [
+        {
+          id: 'msg-1',
+          receiptHandle: 'receipt-1',
+          body: withdrawalRequest,
+        },
+      ];
 
       mockInputQueue.receiveMessages.mockResolvedValueOnce(messages);
 
@@ -792,14 +902,22 @@ describe('SigningWorker - Multi-chain Support', () => {
       });
 
       // Create a default polygon provider for fallback
-      const polygonProvider = createMockChainProvider('polygon', 'testnet', 80002);
-      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(polygonProvider);
+      const polygonProvider = createMockChainProvider(
+        'polygon',
+        'testnet',
+        80002
+      );
+      (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(
+        polygonProvider
+      );
 
       await signingWorker.initialize();
       await (signingWorker as any).processBatch();
 
       // Should fail validation and mark as FAILED
-      expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
+      expect(
+        mockWithdrawalRequestService.updateStatusWithError
+      ).toHaveBeenCalledWith(
         'wr-no-chain',
         TransactionStatus.FAILED,
         expect.stringContaining('Missing chain or network information')

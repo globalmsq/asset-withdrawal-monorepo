@@ -57,9 +57,9 @@ const ERC20_ABI = [
 
 // Interface for Multicall3.Call3 struct
 export interface Call3 {
-  target: string;      // Contract address to call
+  target: string; // Contract address to call
   allowFailure: boolean; // Whether to allow this call to fail
-  callData: string;    // Encoded function call data
+  callData: string; // Encoded function call data
 }
 
 // Result from Multicall3
@@ -156,11 +156,17 @@ export class MulticallService {
   /**
    * Prepare batch transfers for Multicall3 with dynamic batch splitting
    */
-  async prepareBatchTransfer(transfers: BatchTransferRequest[], fromAddress: string, skipGasEstimation: boolean = false): Promise<PreparedBatch> {
+  async prepareBatchTransfer(
+    transfers: BatchTransferRequest[],
+    fromAddress: string,
+    skipGasEstimation: boolean = false
+  ): Promise<PreparedBatch> {
     // First, validate the batch
     const validation = await this.validateBatch(transfers, fromAddress);
     if (!validation.valid) {
-      throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
+      throw new Error(
+        `Batch validation failed: ${validation.errors.join(', ')}`
+      );
     }
 
     // Create calls for all transfers
@@ -177,9 +183,9 @@ export class MulticallService {
       // Encode transferFrom function call
       // Multicall3 will call transferFrom on behalf of the signing wallet
       const callData = erc20Interface.encodeFunctionData('transferFrom', [
-        fromAddress,  // from: signing service wallet
-        to,           // to: recipient
-        amount,       // amount to transfer
+        fromAddress, // from: signing service wallet
+        to, // to: recipient
+        amount, // amount to transfer
       ]);
 
       // Add to calls array
@@ -201,9 +207,11 @@ export class MulticallService {
 
       // Use fallback gas estimates based on historical data or defaults
       const estimatedGasPerCall = this.getFallbackGasEstimate(allCalls);
-      const totalEstimatedGas = this.gasConfig.multicallOverhead +
-        (estimatedGasPerCall * BigInt(allCalls.length)) +
-        (MulticallService.DEFAULT_GAS_CONFIG.additionalGasPerCall * BigInt(allCalls.length - 1));
+      const totalEstimatedGas =
+        this.gasConfig.multicallOverhead +
+        estimatedGasPerCall * BigInt(allCalls.length) +
+        MulticallService.DEFAULT_GAS_CONFIG.additionalGasPerCall *
+          BigInt(allCalls.length - 1);
 
       return {
         calls: allCalls,
@@ -213,7 +221,8 @@ export class MulticallService {
     }
 
     // Estimate gas for all calls
-    const { estimatedGasPerCall, totalEstimatedGas } = await this.estimateBatchGas(allCalls);
+    const { estimatedGasPerCall, totalEstimatedGas } =
+      await this.estimateBatchGas(allCalls);
 
     // Check if we need to split the batch
     const maxBatchGas = this.getMaxBatchGas();
@@ -239,7 +248,11 @@ export class MulticallService {
       maxBatchGas: maxBatchGas.toString(),
     });
 
-    const batchGroups = await this.splitIntoBatches(transfers, allCalls, estimatedGasPerCall);
+    const batchGroups = await this.splitIntoBatches(
+      transfers,
+      allCalls,
+      estimatedGasPerCall
+    );
 
     return {
       calls: allCalls,
@@ -268,13 +281,17 @@ export class MulticallService {
   }> {
     try {
       // Try to get actual gas estimate from the network
-      const gasEstimate = await this.multicall3Contract.aggregate3.estimateGas(calls);
+      const gasEstimate =
+        await this.multicall3Contract.aggregate3.estimateGas(calls);
 
       // Calculate per-call gas with chain-specific adjustments
       const basePerCall = gasEstimate / BigInt(calls.length);
 
       // On most chains, batch operations have diminishing gas costs per additional call
-      const adjustedPerCall = this.adjustGasForBatchOperations(basePerCall, calls.length);
+      const adjustedPerCall = this.adjustGasForBatchOperations(
+        basePerCall,
+        calls.length
+      );
 
       // Add 15% buffer for gas estimation
       const totalEstimatedGas = (gasEstimate * 115n) / 100n;
@@ -301,9 +318,11 @@ export class MulticallService {
 
       // Improved fallback with token-specific estimation
       const estimatedGasPerCall = this.getFallbackGasEstimate(calls);
-      const totalEstimatedGas = this.gasConfig.multicallOverhead +
-        (estimatedGasPerCall * BigInt(calls.length)) +
-        (MulticallService.DEFAULT_GAS_CONFIG.additionalGasPerCall * BigInt(calls.length - 1));
+      const totalEstimatedGas =
+        this.gasConfig.multicallOverhead +
+        estimatedGasPerCall * BigInt(calls.length) +
+        MulticallService.DEFAULT_GAS_CONFIG.additionalGasPerCall *
+          BigInt(calls.length - 1);
 
       this.logger.warn('Using fallback gas estimation', {
         estimatedGasPerCall: estimatedGasPerCall.toString(),
@@ -321,7 +340,9 @@ export class MulticallService {
    * Encode batch transaction for signing
    */
   encodeBatchTransaction(calls: Call3[]): string {
-    return this.multicall3Contract.interface.encodeFunctionData('aggregate3', [calls]);
+    return this.multicall3Contract.interface.encodeFunctionData('aggregate3', [
+      calls,
+    ]);
   }
 
   /**
@@ -338,7 +359,10 @@ export class MulticallService {
   /**
    * Validate batch before execution
    */
-  async validateBatch(transfers: BatchTransferRequest[], signerAddress: string): Promise<{
+  async validateBatch(
+    transfers: BatchTransferRequest[],
+    signerAddress: string
+  ): Promise<{
     valid: boolean;
     errors: string[];
   }> {
@@ -374,7 +398,9 @@ export class MulticallService {
             throw new Error('Invalid format');
           }
         } catch (secondError) {
-          errors.push(`Invalid token address in transfer ${transfer.transactionId}: "${transfer.tokenAddress}" - ${error instanceof Error ? error.message : 'Invalid format'}`);
+          errors.push(
+            `Invalid token address in transfer ${transfer.transactionId}: "${transfer.tokenAddress}" - ${error instanceof Error ? error.message : 'Invalid format'}`
+          );
         }
       }
 
@@ -390,7 +416,9 @@ export class MulticallService {
             throw new Error('Invalid format');
           }
         } catch (secondError) {
-          errors.push(`Invalid recipient address in transfer ${transfer.transactionId}: "${transfer.to}" - ${error instanceof Error ? error.message : 'Invalid format'}`);
+          errors.push(
+            `Invalid recipient address in transfer ${transfer.transactionId}: "${transfer.to}" - ${error instanceof Error ? error.message : 'Invalid format'}`
+          );
         }
       }
 
@@ -398,11 +426,17 @@ export class MulticallService {
       try {
         const amount = BigInt(transfer.amount);
         if (amount <= 0n) {
-          errors.push(`Invalid amount in transfer ${transfer.transactionId}: must be positive`);
+          errors.push(
+            `Invalid amount in transfer ${transfer.transactionId}: must be positive`
+          );
         }
 
         // Accumulate token totals for max amount checking
-        const tokenInfo = tokenService.getTokenByAddress(transfer.tokenAddress, network, chain);
+        const tokenInfo = tokenService.getTokenByAddress(
+          transfer.tokenAddress,
+          network,
+          chain
+        );
         if (tokenInfo) {
           const key = transfer.tokenAddress.toLowerCase();
           const current = tokenTotals.get(key);
@@ -419,11 +453,17 @@ export class MulticallService {
 
     // Check max transfer amounts
     for (const [tokenAddress, { amount, symbol }] of tokenTotals) {
-      const tokenInfo = tokenService.getTokenByAddress(tokenAddress, network, chain);
+      const tokenInfo = tokenService.getTokenByAddress(
+        tokenAddress,
+        network,
+        chain
+      );
       if (tokenInfo && tokenInfo.maxTransferAmount) {
         const maxAmount = BigInt(tokenInfo.maxTransferAmount);
         if (amount > maxAmount) {
-          errors.push(`Total amount for ${symbol} (${amount.toString()}) exceeds maximum transfer amount (${tokenInfo.maxTransferAmount})`);
+          errors.push(
+            `Total amount for ${symbol} (${amount.toString()}) exceeds maximum transfer amount (${tokenInfo.maxTransferAmount})`
+          );
         }
       }
     }
@@ -441,7 +481,11 @@ export class MulticallService {
    * Get optimal batch size based on gas limits with Polygon-specific optimizations
    */
   getOptimalBatchSize(estimatedGasPerCall: bigint): number {
-    const availableGas = BigInt(Math.floor(Number(this.gasConfig.blockGasLimit) * this.gasConfig.safetyMargin));
+    const availableGas = BigInt(
+      Math.floor(
+        Number(this.gasConfig.blockGasLimit) * this.gasConfig.safetyMargin
+      )
+    );
     const gasForCalls = availableGas - this.gasConfig.multicallOverhead;
 
     // Calculate with diminishing gas cost per call
@@ -449,7 +493,10 @@ export class MulticallService {
     let optimalSize = 0;
 
     while (totalGas < gasForCalls && optimalSize < 100) {
-      const nextCallGas = this.getGasForNthCall(estimatedGasPerCall, optimalSize);
+      const nextCallGas = this.getGasForNthCall(
+        estimatedGasPerCall,
+        optimalSize
+      );
       if (totalGas + nextCallGas > gasForCalls) {
         break;
       }
@@ -473,27 +520,36 @@ export class MulticallService {
   private getChainBlockGasLimit(): bigint {
     // Chain-specific gas limits (can be extended as needed)
     const chainGasLimits: Record<string, bigint> = {
-      'ethereum': 30_000_000n,
-      'polygon': 30_000_000n,
-      'bsc': 140_000_000n,
-      'localhost': 30_000_000n,
+      ethereum: 30_000_000n,
+      polygon: 30_000_000n,
+      bsc: 140_000_000n,
+      localhost: 30_000_000n,
     };
 
     const chain = this.chainProvider.chain;
-    return chainGasLimits[chain] || MulticallService.DEFAULT_GAS_CONFIG.blockGasLimit;
+    return (
+      chainGasLimits[chain] || MulticallService.DEFAULT_GAS_CONFIG.blockGasLimit
+    );
   }
 
   /**
    * Get maximum gas for a single batch
    */
   private getMaxBatchGas(): bigint {
-    return BigInt(Math.floor(Number(this.gasConfig.blockGasLimit) * this.gasConfig.safetyMargin));
+    return BigInt(
+      Math.floor(
+        Number(this.gasConfig.blockGasLimit) * this.gasConfig.safetyMargin
+      )
+    );
   }
 
   /**
    * Adjust gas estimate for batch operations
    */
-  private adjustGasForBatchOperations(baseGasPerCall: bigint, callCount: number): bigint {
+  private adjustGasForBatchOperations(
+    baseGasPerCall: bigint,
+    callCount: number
+  ): bigint {
     // Most EVM chains have more efficient batch processing
     // Each additional call costs slightly less due to warm storage slots
     const discount = Math.min(0.15, callCount * 0.005); // Max 15% discount
@@ -505,12 +561,16 @@ export class MulticallService {
    */
   private updateTokenGasCosts(calls: Call3[], gasPerCall: bigint): void {
     // Extract unique token addresses
-    const tokenAddresses = new Set(calls.map(call => call.target.toLowerCase()));
+    const tokenAddresses = new Set(
+      calls.map(call => call.target.toLowerCase())
+    );
 
     for (const tokenAddress of tokenAddresses) {
-      const currentCost = this.gasConfig.tokenTransferGas.get(tokenAddress) || 0n;
+      const currentCost =
+        this.gasConfig.tokenTransferGas.get(tokenAddress) || 0n;
       // Use weighted average to smooth out variations
-      const newCost = currentCost === 0n ? gasPerCall : (currentCost * 4n + gasPerCall) / 5n;
+      const newCost =
+        currentCost === 0n ? gasPerCall : (currentCost * 4n + gasPerCall) / 5n;
       this.gasConfig.tokenTransferGas.set(tokenAddress, newCost);
     }
   }
@@ -522,11 +582,17 @@ export class MulticallService {
     // Check if we have historical data for these tokens
     const tokenGasEstimates = calls.map(call => {
       const tokenAddress = call.target.toLowerCase();
-      return this.gasConfig.tokenTransferGas.get(tokenAddress) || this.gasConfig.baseTransferGas;
+      return (
+        this.gasConfig.tokenTransferGas.get(tokenAddress) ||
+        this.gasConfig.baseTransferGas
+      );
     });
 
     // Return the maximum to be safe
-    return tokenGasEstimates.reduce((max, current) => current > max ? current : max, 0n);
+    return tokenGasEstimates.reduce(
+      (max, current) => (current > max ? current : max),
+      0n
+    );
   }
 
   /**
@@ -575,22 +641,34 @@ export class MulticallService {
       const call = calls[i];
 
       // Calculate gas for adding this call
-      const callGas = this.getGasForNthCall(estimatedGasPerCall, currentBatch.calls.length);
+      const callGas = this.getGasForNthCall(
+        estimatedGasPerCall,
+        currentBatch.calls.length
+      );
       const newTotalGas = currentBatch.estimatedGas + callGas;
 
       // Check max transfer amount for token
       const tokenAddress = transfer.tokenAddress.toLowerCase();
       const transferAmount = BigInt(transfer.amount);
-      const currentTokenAmount = currentBatch.tokenAmounts.get(tokenAddress) || 0n;
+      const currentTokenAmount =
+        currentBatch.tokenAmounts.get(tokenAddress) || 0n;
       const newTokenTotal = currentTokenAmount + transferAmount;
 
       // Get max transfer amount for this token
-      const tokenInfo = tokenService.getTokenByAddress(transfer.tokenAddress, network, chain);
-      const maxTransferAmount = tokenInfo?.maxTransferAmount ? BigInt(tokenInfo.maxTransferAmount) : null;
+      const tokenInfo = tokenService.getTokenByAddress(
+        transfer.tokenAddress,
+        network,
+        chain
+      );
+      const maxTransferAmount = tokenInfo?.maxTransferAmount
+        ? BigInt(tokenInfo.maxTransferAmount)
+        : null;
 
       // Check if adding this transfer would exceed max amount or gas limit
-      const exceedsMaxAmount = maxTransferAmount && newTokenTotal > maxTransferAmount;
-      const exceedsGasLimit = newTotalGas > maxBatchGas && currentBatch.calls.length > 0;
+      const exceedsMaxAmount =
+        maxTransferAmount && newTokenTotal > maxTransferAmount;
+      const exceedsGasLimit =
+        newTotalGas > maxBatchGas && currentBatch.calls.length > 0;
 
       if (exceedsMaxAmount || exceedsGasLimit) {
         // Save current batch
@@ -667,7 +745,10 @@ export class MulticallService {
     // Aggregate amounts by token
     for (const transfer of transfers) {
       const current = tokenAmounts.get(transfer.tokenAddress) || 0n;
-      tokenAmounts.set(transfer.tokenAddress, current + BigInt(transfer.amount));
+      tokenAmounts.set(
+        transfer.tokenAddress,
+        current + BigInt(transfer.amount)
+      );
     }
 
     const needsApproval: Array<{
@@ -682,11 +763,14 @@ export class MulticallService {
         const tokenContract = new ethers.Contract(
           tokenAddress,
           ERC20_ABI,
-          this.provider  // Use provider directly for read operations
+          this.provider // Use provider directly for read operations
         );
 
         // Use staticCall to ensure this is treated as a read-only operation
-        const currentAllowance = await tokenContract.allowance.staticCall(ownerAddress, spenderAddress);
+        const currentAllowance = await tokenContract.allowance.staticCall(
+          ownerAddress,
+          spenderAddress
+        );
 
         if (currentAllowance < requiredAmount) {
           needsApproval.push({
@@ -720,5 +804,4 @@ export class MulticallService {
 
     return { needsApproval };
   }
-
 }

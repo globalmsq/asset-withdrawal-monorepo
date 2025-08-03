@@ -46,31 +46,31 @@ graph TB
     Client --> ALB
     Admin --> ALB
     ALB --> API
-    
+
     API --> SQS1
     API --> MySQL
     API --> Redis
-    
+
     SQS1 --> Signer
     Signer --> SQS2
     Signer --> MySQL
     Signer --> Redis
-    
+
     SQS2 --> Broadcaster
     Broadcaster --> Polygon
     Broadcaster --> SQS3
     Broadcaster --> MySQL
-    
+
     SQS3 --> Monitor
     Monitor --> Polygon
     Monitor --> MySQL
-    
+
     AcctMgr --> SQS4
     AcctMgr --> SQS5
     AcctMgr --> MySQL
     AcctMgr --> Polygon
     SQS5 --> Signer
-    
+
     SQS1 -.->|실패 시| DLQ
     SQS2 -.->|실패 시| DLQ
     SQS3 -.->|실패 시| DLQ
@@ -81,6 +81,7 @@ graph TB
 ## 서비스별 상세 설명
 
 ### 1. API Server (api-server)
+
 - **역할**: HTTP API 게이트웨이
 - **주요 기능**:
   - 사용자 인증 및 권한 관리
@@ -90,6 +91,7 @@ graph TB
 - **기술 스택**: Express.js, TypeScript, JWT
 
 ### 2. Signing Service (signing-service)
+
 - **역할**: 트랜잭션 서명 전문 서비스
 - **주요 기능**:
   - 출금 요청 큐(tx-request-queue) 소비
@@ -103,6 +105,7 @@ graph TB
 - **기술 스택**: Ethers.js, AWS Secrets Manager, Multicall3, Redis
 
 ### 3. Transaction Broadcaster (tx-broadcaster) - 개발 예정
+
 - **역할**: 블록체인 트랜잭션 전송
 - **주요 기능**:
   - 서명된 트랜잭션 큐(signed-tx-queue) 소비
@@ -114,6 +117,7 @@ graph TB
 - **기술 스택**: Ethers.js, 재시도 라이브러리
 
 ### 4. Transaction Monitor (tx-monitor) - 개발 예정
+
 - **역할**: 트랜잭션 상태 모니터링
 - **주요 기능**:
   - 모니터링 큐(tx-monitor-queue) 소비
@@ -124,6 +128,7 @@ graph TB
 - **기술 스택**: Ethers.js, WebSocket
 
 ### 5. Account Manager (account-manager) - 개발 예정
+
 - **역할**: 계정 잔액 자동 관리
 - **주요 기능**:
   - 서브 계정 잔액 모니터링
@@ -137,6 +142,7 @@ graph TB
 ## 데이터 플로우
 
 ### 출금 요청 플로우
+
 ```
 1. 클라이언트 → API Server: 출금 요청 제출
 2. API Server → MySQL: 요청 저장 (상태: PENDING)
@@ -155,6 +161,7 @@ graph TB
 ```
 
 ### 배치 전송 플로우 (Multicall3) - 고속 처리
+
 ```
 1. 다중 출금 요청 수집
 2. Signing Service: 동적 배치 처리 결정
@@ -172,6 +179,7 @@ graph TB
 ```
 
 ### 계정 관리 플로우 (Account Manager) - 개발 예정
+
 ```
 1. Account Manager → 서브 계정 잔액 조회 (주기적)
 2. 임계값 이하 감지 시:
@@ -189,17 +197,20 @@ graph TB
 ## 보안 아키텍처
 
 ### 네트워크 보안
+
 - VPC 내 프라이빗 서브넷에 서비스 배치
 - 보안 그룹을 통한 포트 제한
 - API Gateway에만 퍼블릭 액세스 허용
 
 ### 애플리케이션 보안
+
 - JWT 기반 인증
 - API 키 관리
 - 속도 제한 및 DDoS 보호
 - 입력 검증 및 살균
 
 ### 데이터 보안
+
 - 전송 중 암호화 (TLS)
 - 저장 시 암호화 (AES-256-GCM)
 - 키 관리 (AWS Secrets Manager)
@@ -207,6 +218,7 @@ graph TB
 - 감사 로깅
 
 ### 트랜잭션 보안
+
 - nonce 관리: Redis 원자적 연산
 - 가스 가격 검증 및 상한선 설정
 - 주소 체크섬 검증
@@ -215,11 +227,13 @@ graph TB
 ## 확장성 전략
 
 ### 수평 확장
+
 - 각 서비스는 독립적으로 확장 가능
 - Kubernetes HPA를 통한 자동 확장
 - 큐 깊이 기반 워커 스케일링
 
 ### 성능 최적화
+
 - Redis 캐싱 레이어 (nonce, 가스 가격, 잔액)
 - 데이터베이스 읽기 복제본
 - CDN을 통한 정적 자산 제공
@@ -231,6 +245,7 @@ graph TB
   - 부가 이점: 가스비 20-70% 절감
 
 ### 지원 블록체인
+
 - **Polygon**: Mainnet, Amoy Testnet (구현 완료)
 - **Localhost**: Hardhat 개발 환경 (구현 완료)
 - **Ethereum**: Mainnet, Sepolia (예정)
@@ -240,16 +255,19 @@ graph TB
 ## 모니터링 및 관찰성
 
 ### 메트릭 수집
+
 - Prometheus를 통한 메트릭 수집
 - 커스텀 비즈니스 메트릭
 - 시스템 리소스 모니터링
 
 ### 로깅
+
 - 중앙집중식 로깅 (ELK Stack)
 - 구조화된 JSON 로그
 - 상관 ID를 통한 추적
 
 ### 추적
+
 - 분산 추적 (Jaeger)
 - 서비스 간 요청 추적
 - 성능 병목 현상 식별
@@ -257,16 +275,19 @@ graph TB
 ## 장애 복구
 
 ### 고가용성
+
 - 다중 AZ 배포
 - 로드 밸런서를 통한 트래픽 분산
 - 상태 검사 및 자동 복구
 
 ### 백업 및 복구
+
 - 자동화된 데이터베이스 백업
 - 특정 시점 복구 지원
 - 재해 복구 계획
 
 ### 서킷 브레이커
+
 - 서비스 간 장애 전파 방지
 - 자동 폴백 메커니즘
 - 점진적 복구 전략

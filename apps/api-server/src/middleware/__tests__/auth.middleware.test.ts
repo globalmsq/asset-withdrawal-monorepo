@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { authenticate, authorize, AuthRequest } from '../auth.middleware';
 import { authService } from '../../services/auth.service';
-import { AuthTokenPayload, UserRole } from 'shared';
+import { AuthTokenPayload, UserRole } from '@asset-withdrawal/shared';
 
 jest.mock('../../services/auth.service');
 

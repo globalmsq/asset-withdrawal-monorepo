@@ -58,7 +58,12 @@ export class TransactionSigner {
       const networkNonce = await this.provider.getTransactionCount(
         this.wallet.address
       );
-      await this.nonceCache.initialize(this.wallet.address, networkNonce, this.chainProvider.chain, this.chainProvider.network);
+      await this.nonceCache.initialize(
+        this.wallet.address,
+        networkNonce,
+        this.chainProvider.chain,
+        this.chainProvider.network
+      );
 
       this.logger.info('Transaction signer initialized', {
         address: this.wallet.address,
@@ -69,7 +74,9 @@ export class TransactionSigner {
       });
 
       // Note: Approve transactions have been removed - assuming sufficient allowances exist
-      this.logger.info('Initialization complete - approve TX logic removed, assuming sufficient allowances');
+      this.logger.info(
+        'Initialization complete - approve TX logic removed, assuming sufficient allowances'
+      );
     } catch (error) {
       this.logger.error('Failed to initialize transaction signer', error);
       throw error;
@@ -92,7 +99,11 @@ export class TransactionSigner {
 
     try {
       // Get nonce from Redis (atomic increment)
-      const nonce = await this.nonceCache.getAndIncrement(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
+      const nonce = await this.nonceCache.getAndIncrement(
+        this.wallet.address,
+        this.chainProvider.chain,
+        this.chainProvider.network
+      );
 
       this.logger.debug('Using nonce for transaction', {
         address: this.wallet.address,
@@ -257,7 +268,9 @@ export class TransactionSigner {
     }
   }
 
-  async signBatchTransaction(request: BatchSigningRequest): Promise<SignedTransaction> {
+  async signBatchTransaction(
+    request: BatchSigningRequest
+  ): Promise<SignedTransaction> {
     if (!this.wallet) {
       throw new Error('Wallet not initialized');
     }
@@ -270,12 +283,24 @@ export class TransactionSigner {
         if (!this.provider) {
           throw new Error('Provider not initialized');
         }
-        const networkNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
-        const cachedNonce = await this.nonceCache.get(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
+        const networkNonce = await this.provider.getTransactionCount(
+          this.wallet.address,
+          'pending'
+        );
+        const cachedNonce = await this.nonceCache.get(
+          this.wallet.address,
+          this.chainProvider.chain,
+          this.chainProvider.network
+        );
 
         // If cached nonce is behind network nonce, update it
         if (cachedNonce === null || cachedNonce < networkNonce) {
-          await this.nonceCache.set(this.wallet.address, networkNonce, this.chainProvider.chain, this.chainProvider.network);
+          await this.nonceCache.set(
+            this.wallet.address,
+            networkNonce,
+            this.chainProvider.chain,
+            this.chainProvider.network
+          );
           this.logger.info('Nonce synchronized at batch start', {
             batchId,
             networkNonce,
@@ -283,52 +308,72 @@ export class TransactionSigner {
           });
         }
       } catch (syncError) {
-        this.logger.warn('Failed to sync nonce at batch start, continuing anyway', {
-          batchId,
-          error: syncError instanceof Error ? syncError.message : 'Unknown error',
-        });
+        this.logger.warn(
+          'Failed to sync nonce at batch start, continuing anyway',
+          {
+            batchId,
+            error:
+              syncError instanceof Error ? syncError.message : 'Unknown error',
+          }
+        );
       }
 
       // Validate batch before processing
-      const validation = await this.multicallService.validateBatch(transfers, this.wallet.address);
+      const validation = await this.multicallService.validateBatch(
+        transfers,
+        this.wallet.address
+      );
       if (!validation.valid) {
-        throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
+        throw new Error(
+          `Batch validation failed: ${validation.errors.join(', ')}`
+        );
       }
 
       // Get Multicall3 address
       const multicall3Address = this.chainProvider.getMulticall3Address();
 
       // Check allowances for all tokens
-      const { needsApproval } = await this.multicallService.checkAndPrepareAllowances(
-        transfers,
-        this.wallet.address,
-        multicall3Address
-      );
+      const { needsApproval } =
+        await this.multicallService.checkAndPrepareAllowances(
+          transfers,
+          this.wallet.address,
+          multicall3Address
+        );
 
       if (needsApproval.length > 0) {
-        this.logger.info('Insufficient allowances detected, approving tokens automatically', {
-          batchId,
-          needsApproval: needsApproval.map(a => ({
-            token: a.tokenAddress,
-            current: a.currentAllowance.toString(),
-            required: a.requiredAmount.toString(),
-          })),
-        });
+        this.logger.info(
+          'Insufficient allowances detected, approving tokens automatically',
+          {
+            batchId,
+            needsApproval: needsApproval.map(a => ({
+              token: a.tokenAddress,
+              current: a.currentAllowance.toString(),
+              required: a.requiredAmount.toString(),
+            })),
+          }
+        );
 
         // Approve logic removed - assuming sufficient allowances exist
         // If allowance is insufficient, transaction will fail and be handled by error recovery
-        this.logger.warn('Insufficient allowances detected but approve logic removed', {
-          batchId,
-          tokensNeedingApproval: needsApproval.map(a => ({
-            token: a.tokenAddress,
-            currentAllowance: a.currentAllowance.toString(),
-            required: a.requiredAmount.toString(),
-          })),
-        });
+        this.logger.warn(
+          'Insufficient allowances detected but approve logic removed',
+          {
+            batchId,
+            tokensNeedingApproval: needsApproval.map(a => ({
+              token: a.tokenAddress,
+              currentAllowance: a.currentAllowance.toString(),
+              required: a.requiredAmount.toString(),
+            })),
+          }
+        );
       }
 
       // Prepare batch transfers with gas estimation
-      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers, this.wallet.address, false);
+      const preparedBatch = await this.multicallService.prepareBatchTransfer(
+        transfers,
+        this.wallet.address,
+        false
+      );
 
       this.logger.info('Batch prepared with gas estimation', {
         batchId,
@@ -337,7 +382,11 @@ export class TransactionSigner {
       });
 
       // Get nonce from Redis (atomic increment)
-      const nonce = await this.nonceCache.getAndIncrement(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
+      const nonce = await this.nonceCache.getAndIncrement(
+        this.wallet.address,
+        this.chainProvider.chain,
+        this.chainProvider.network
+      );
 
       this.logger.debug('Using nonce for batch transaction', {
         address: this.wallet.address,
@@ -347,7 +396,9 @@ export class TransactionSigner {
       });
 
       // Encode the batch transaction data
-      const data = this.multicallService.encodeBatchTransaction(preparedBatch.calls);
+      const data = this.multicallService.encodeBatchTransaction(
+        preparedBatch.calls
+      );
 
       // Build transaction
       const transaction: ethers.TransactionRequest = {
@@ -377,7 +428,9 @@ export class TransactionSigner {
         });
       } else {
         // Cache expired, fetch fresh gas price
-        this.logger.debug('Gas price cache expired, fetching fresh values for batch');
+        this.logger.debug(
+          'Gas price cache expired, fetching fresh values for batch'
+        );
 
         if (!this.provider) {
           throw new Error('Provider not initialized');
@@ -458,7 +511,9 @@ export class TransactionSigner {
     }
   }
 
-  async signBatchTransactionWithSplitting(request: BatchSigningRequest): Promise<SignedTransaction[]> {
+  async signBatchTransactionWithSplitting(
+    request: BatchSigningRequest
+  ): Promise<SignedTransaction[]> {
     if (!this.wallet) {
       throw new Error('Wallet not initialized');
     }
@@ -471,12 +526,24 @@ export class TransactionSigner {
         if (!this.provider) {
           throw new Error('Provider not initialized');
         }
-        const networkNonce = await this.provider.getTransactionCount(this.wallet.address, 'pending');
-        const cachedNonce = await this.nonceCache.get(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
+        const networkNonce = await this.provider.getTransactionCount(
+          this.wallet.address,
+          'pending'
+        );
+        const cachedNonce = await this.nonceCache.get(
+          this.wallet.address,
+          this.chainProvider.chain,
+          this.chainProvider.network
+        );
 
         // If cached nonce is behind network nonce, update it
         if (cachedNonce === null || cachedNonce < networkNonce) {
-          await this.nonceCache.set(this.wallet.address, networkNonce, this.chainProvider.chain, this.chainProvider.network);
+          await this.nonceCache.set(
+            this.wallet.address,
+            networkNonce,
+            this.chainProvider.chain,
+            this.chainProvider.network
+          );
           this.logger.info('Nonce synchronized at batch start', {
             batchId,
             networkNonce,
@@ -484,60 +551,83 @@ export class TransactionSigner {
           });
         }
       } catch (syncError) {
-        this.logger.warn('Failed to sync nonce at batch start, continuing anyway', {
-          batchId,
-          error: syncError instanceof Error ? syncError.message : 'Unknown error',
-        });
+        this.logger.warn(
+          'Failed to sync nonce at batch start, continuing anyway',
+          {
+            batchId,
+            error:
+              syncError instanceof Error ? syncError.message : 'Unknown error',
+          }
+        );
       }
 
       // Validate batch before processing
-      const validation = await this.multicallService.validateBatch(transfers, this.wallet.address);
+      const validation = await this.multicallService.validateBatch(
+        transfers,
+        this.wallet.address
+      );
       if (!validation.valid) {
-        throw new Error(`Batch validation failed: ${validation.errors.join(', ')}`);
+        throw new Error(
+          `Batch validation failed: ${validation.errors.join(', ')}`
+        );
       }
 
       // Get Multicall3 address
       const multicall3Address = this.chainProvider.getMulticall3Address();
 
       // Check allowances for all tokens
-      const { needsApproval } = await this.multicallService.checkAndPrepareAllowances(
-        transfers,
-        this.wallet.address,
-        multicall3Address
-      );
+      const { needsApproval } =
+        await this.multicallService.checkAndPrepareAllowances(
+          transfers,
+          this.wallet.address,
+          multicall3Address
+        );
 
       if (needsApproval.length > 0) {
-        this.logger.info('Insufficient allowances detected, approving tokens automatically', {
-          batchId,
-          needsApproval: needsApproval.map(a => ({
-            token: a.tokenAddress,
-            current: a.currentAllowance.toString(),
-            required: a.requiredAmount.toString(),
-          })),
-        });
+        this.logger.info(
+          'Insufficient allowances detected, approving tokens automatically',
+          {
+            batchId,
+            needsApproval: needsApproval.map(a => ({
+              token: a.tokenAddress,
+              current: a.currentAllowance.toString(),
+              required: a.requiredAmount.toString(),
+            })),
+          }
+        );
 
         // Approve logic removed - assuming sufficient allowances exist
         // If allowance is insufficient, transaction will fail and be handled by error recovery
-        this.logger.warn('Insufficient allowances detected but approve logic removed', {
-          batchId,
-          tokensNeedingApproval: needsApproval.map(a => ({
-            token: a.tokenAddress,
-            currentAllowance: a.currentAllowance.toString(),
-            required: a.requiredAmount.toString(),
-          })),
-        });
+        this.logger.warn(
+          'Insufficient allowances detected but approve logic removed',
+          {
+            batchId,
+            tokensNeedingApproval: needsApproval.map(a => ({
+              token: a.tokenAddress,
+              currentAllowance: a.currentAllowance.toString(),
+              required: a.requiredAmount.toString(),
+            })),
+          }
+        );
       }
 
       // Prepare batch transfers with potential splitting and gas estimation
-      const preparedBatch = await this.multicallService.prepareBatchTransfer(transfers, this.wallet.address, false);
+      const preparedBatch = await this.multicallService.prepareBatchTransfer(
+        transfers,
+        this.wallet.address,
+        false
+      );
 
       // Check if batch was split into groups
       if (preparedBatch.batchGroups && preparedBatch.batchGroups.length > 1) {
-        this.logger.info('Batch requires splitting into multiple transactions', {
-          batchId,
-          groupCount: preparedBatch.batchGroups.length,
-          transferCount: transfers.length,
-        });
+        this.logger.info(
+          'Batch requires splitting into multiple transactions',
+          {
+            batchId,
+            groupCount: preparedBatch.batchGroups.length,
+            transferCount: transfers.length,
+          }
+        );
 
         // Sign each batch group separately
         const signedTransactions: SignedTransaction[] = [];
@@ -555,13 +645,19 @@ export class TransactionSigner {
           });
 
           // Get nonce for this transaction
-          const nonce = await this.nonceCache.getAndIncrement(this.wallet.address, this.chainProvider.chain, this.chainProvider.network);
+          const nonce = await this.nonceCache.getAndIncrement(
+            this.wallet.address,
+            this.chainProvider.chain,
+            this.chainProvider.network
+          );
 
           // Get Multicall3 address
           const multicall3Address = this.chainProvider.getMulticall3Address();
 
           // Encode the batch transaction data
-          const data = this.multicallService.encodeBatchTransaction(group.calls);
+          const data = this.multicallService.encodeBatchTransaction(
+            group.calls
+          );
 
           // Build transaction
           const transaction: ethers.TransactionRequest = {
@@ -574,7 +670,8 @@ export class TransactionSigner {
           };
 
           // Get gas price
-          const { maxFeePerGas, maxPriorityFeePerGas } = await this.getGasPrice();
+          const { maxFeePerGas, maxPriorityFeePerGas } =
+            await this.getGasPrice();
 
           // Complete transaction object
           transaction.maxFeePerGas = maxFeePerGas;
@@ -619,12 +716,19 @@ export class TransactionSigner {
         return [signedTx];
       }
     } catch (error) {
-      this.logger.error('Failed to sign batch transaction with splitting', error, { batchId });
+      this.logger.error(
+        'Failed to sign batch transaction with splitting',
+        error,
+        { batchId }
+      );
       throw error;
     }
   }
 
-  private async getGasPrice(): Promise<{ maxFeePerGas: bigint; maxPriorityFeePerGas: bigint }> {
+  private async getGasPrice(): Promise<{
+    maxFeePerGas: bigint;
+    maxPriorityFeePerGas: bigint;
+  }> {
     // Get gas price from cache or fetch new one
     let cachedGasPrice = this.gasPriceCache.get();
     let maxFeePerGas: bigint;
@@ -683,5 +787,4 @@ export class TransactionSigner {
     // Disconnect from Redis
     await this.nonceCache.disconnect();
   }
-
 }

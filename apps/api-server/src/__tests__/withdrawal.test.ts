@@ -9,7 +9,9 @@ jest.mock('../services/auth.service');
 
 jest.mock('../middleware/readiness.middleware', () => ({
   readinessCheck: jest.fn((req, res, next) => next()),
-  readinessHandler: jest.fn((req, res) => res.status(200).json({ status: 'ready' })),
+  readinessHandler: jest.fn((req, res) =>
+    res.status(200).json({ status: 'ready' })
+  ),
   setReadiness: jest.fn(),
 }));
 
@@ -37,18 +39,35 @@ jest.mock('shared', () => ({
     }),
   },
   tokenService: {
-    getTokenByAddress: jest.fn().mockImplementation((address, network, chain) => {
-      if (address === '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' && chain === 'polygon') {
-        return { address, symbol: 'USDT', decimals: 6, name: 'Tether USD', network, chainId: 137 };
-      }
-      return null;
-    }),
-    isTokenSupported: jest.fn().mockImplementation((address, network, chain) => {
-      if (address === '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' && chain === 'polygon') {
-        return true;
-      }
-      return false;
-    }),
+    getTokenByAddress: jest
+      .fn()
+      .mockImplementation((address, network, chain) => {
+        if (
+          address === '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' &&
+          chain === 'polygon'
+        ) {
+          return {
+            address,
+            symbol: 'USDT',
+            decimals: 6,
+            name: 'Tether USD',
+            network,
+            chainId: 137,
+          };
+        }
+        return null;
+      }),
+    isTokenSupported: jest
+      .fn()
+      .mockImplementation((address, network, chain) => {
+        if (
+          address === '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' &&
+          chain === 'polygon'
+        ) {
+          return true;
+        }
+        return false;
+      }),
     getSupportedBlockchains: jest.fn().mockReturnValue(['polygon', 'bsc']),
     getSupportedNetworks: jest.fn().mockReturnValue(['mainnet', 'amoy']),
   },

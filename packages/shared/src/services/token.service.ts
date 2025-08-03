@@ -17,7 +17,11 @@ export class TokenService {
     return TokenService.instance;
   }
 
-  public getTokenByAddress(address: string, network: string, chain: string = 'polygon'): TokenInfo | null {
+  public getTokenByAddress(
+    address: string,
+    network: string,
+    chain: string = 'polygon'
+  ): TokenInfo | null {
     const normalizedAddress = address.toLowerCase();
     const blockchainConfig = this.tokenConfig[chain];
 
@@ -44,7 +48,11 @@ export class TokenService {
     return null;
   }
 
-  public getTokenBySymbol(symbol: string, network: string, chain: string = 'polygon'): TokenInfo | null {
+  public getTokenBySymbol(
+    symbol: string,
+    network: string,
+    chain: string = 'polygon'
+  ): TokenInfo | null {
     const token = this.tokenConfig[chain]?.[network]?.[symbol];
 
     if (!token) {
@@ -58,11 +66,18 @@ export class TokenService {
     };
   }
 
-  public isTokenSupported(address: string, network: string, chain: string = 'polygon'): boolean {
+  public isTokenSupported(
+    address: string,
+    network: string,
+    chain: string = 'polygon'
+  ): boolean {
     return this.getTokenByAddress(address, network, chain) !== null;
   }
 
-  public getSupportedTokens(network: string, chain: string = 'polygon'): Token[] {
+  public getSupportedTokens(
+    network: string,
+    chain: string = 'polygon'
+  ): Token[] {
     const networkConfig = this.tokenConfig[chain]?.[network];
 
     if (!networkConfig) {

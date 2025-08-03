@@ -33,7 +33,9 @@ app.post('/monitor/start', async (req, res) => {
     await monitor.start();
     res.json({ message: 'Monitor started' });
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(400).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 });
 
@@ -43,7 +45,9 @@ app.post('/monitor/stop', async (req, res) => {
     await monitor.stop();
     res.json({ message: 'Monitor stopped' });
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(400).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 });
 
@@ -74,7 +78,7 @@ async function startServer() {
   });
 }
 
-startServer().catch((error) => {
+startServer().catch(error => {
   logger.error('Failed to start TX Monitor', error);
   process.exit(1);
 });

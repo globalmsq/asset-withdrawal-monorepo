@@ -2,8 +2,16 @@ import { SigningWorker } from '../../workers/signing-worker';
 import { Config } from '../../config';
 import { Logger } from '../../utils/logger';
 import { SecureSecretsManager } from '../../services/secrets-manager';
-import { WithdrawalRequestService, DatabaseService, SignedTransactionService } from '@asset-withdrawal/database';
-import { WithdrawalRequest, ChainProviderFactory, TransactionStatus } from '@asset-withdrawal/shared';
+import {
+  WithdrawalRequestService,
+  DatabaseService,
+  SignedTransactionService,
+} from '@asset-withdrawal/database';
+import {
+  WithdrawalRequest,
+  ChainProviderFactory,
+  TransactionStatus,
+} from '@asset-withdrawal/shared';
 
 jest.mock('@asset-withdrawal/database');
 jest.mock('@asset-withdrawal/shared', () => ({
@@ -12,7 +20,9 @@ jest.mock('@asset-withdrawal/shared', () => ({
     createPolygonProvider: jest.fn(),
     getProvider: jest.fn().mockReturnValue({
       getProvider: jest.fn(),
-      getMulticall3Address: jest.fn().mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
+      getMulticall3Address: jest
+        .fn()
+        .mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
       getChainId: jest.fn().mockReturnValue(137),
     }),
   },
@@ -124,7 +134,11 @@ describe('SigningWorker', () => {
     };
 
     mockSecretsManager = {
-      getPrivateKey: jest.fn().mockReturnValue('0x0000000000000000000000000000000000000000000000000000000000000001'),
+      getPrivateKey: jest
+        .fn()
+        .mockReturnValue(
+          '0x0000000000000000000000000000000000000000000000000000000000000001'
+        ),
       initialize: jest.fn(),
       refreshSecrets: jest.fn(),
     } as any;
@@ -162,7 +176,7 @@ describe('SigningWorker', () => {
         create: jest.fn().mockResolvedValue({ id: 123n }),
         update: jest.fn().mockResolvedValue({}),
       },
-      $transaction: jest.fn().mockImplementation(async (fn) => {
+      $transaction: jest.fn().mockImplementation(async fn => {
         // Execute the transaction function with the mock client
         return await fn(mockDbClient);
       }),
@@ -174,21 +188,35 @@ describe('SigningWorker', () => {
       healthCheck: jest.fn().mockResolvedValue(true),
     } as any;
 
-    (DatabaseService.getInstance as jest.Mock).mockReturnValue(mockDatabaseService);
-    (WithdrawalRequestService as jest.Mock).mockImplementation(() => mockWithdrawalRequestService);
-    (SignedTransactionService as jest.Mock).mockImplementation(() => mockSignedTransactionService);
+    (DatabaseService.getInstance as jest.Mock).mockReturnValue(
+      mockDatabaseService
+    );
+    (WithdrawalRequestService as jest.Mock).mockImplementation(
+      () => mockWithdrawalRequestService
+    );
+    (SignedTransactionService as jest.Mock).mockImplementation(
+      () => mockSignedTransactionService
+    );
 
     // Mock ChainProviderFactory
     const mockChainProvider = {
       getProvider: jest.fn().mockReturnValue({}),
       getChainId: jest.fn().mockReturnValue(80002),
-      getMulticall3Address: jest.fn().mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
+      getMulticall3Address: jest
+        .fn()
+        .mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
       chain: 'polygon',
       network: 'testnet',
     };
-    (ChainProviderFactory.createPolygonProvider as jest.Mock).mockReturnValue(mockChainProvider);
+    (ChainProviderFactory.createPolygonProvider as jest.Mock).mockReturnValue(
+      mockChainProvider
+    );
 
-    signingWorker = new SigningWorker(mockConfig, mockSecretsManager, mockLogger);
+    signingWorker = new SigningWorker(
+      mockConfig,
+      mockSecretsManager,
+      mockLogger
+    );
   });
 
   describe('processMessage', () => {
@@ -224,8 +252,12 @@ describe('SigningWorker', () => {
       const signingWorkerAny = signingWorker as any;
       signingWorkerAny.transactionSigner = mockTransactionSigner;
       signingWorkerAny.instanceId = 'test-instance-id';
-      signingWorkerAny.getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
-      signingWorkerAny.getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
+      signingWorkerAny.getOrCreateSigner = jest
+        .fn()
+        .mockResolvedValue(mockTransactionSigner);
+      signingWorkerAny.getOrCreateSigner = jest
+        .fn()
+        .mockResolvedValue(mockTransactionSigner);
 
       await signingWorker.initialize();
 
@@ -284,7 +316,9 @@ describe('SigningWorker', () => {
       };
 
       const mockTransactionSigner = {
-        signTransaction: jest.fn().mockRejectedValue(new Error('nonce too low')),
+        signTransaction: jest
+          .fn()
+          .mockRejectedValue(new Error('nonce too low')),
         initialize: jest.fn(),
         cleanup: jest.fn(),
       };
@@ -292,7 +326,9 @@ describe('SigningWorker', () => {
       const signingWorkerAny = signingWorker as any;
       signingWorkerAny.transactionSigner = mockTransactionSigner;
       signingWorkerAny.instanceId = 'test-instance-id';
-      signingWorkerAny.getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
+      signingWorkerAny.getOrCreateSigner = jest
+        .fn()
+        .mockResolvedValue(mockTransactionSigner);
 
       await signingWorker.initialize();
 
@@ -309,11 +345,15 @@ describe('SigningWorker', () => {
         status: TransactionStatus.SIGNING,
       });
 
-      await expect(signingWorker.processMessage(withdrawalRequest)).rejects.toThrow('nonce too low');
+      await expect(
+        signingWorker.processMessage(withdrawalRequest)
+      ).rejects.toThrow('nonce too low');
 
       // The actual implementation throws the error instead of calling updateStatusWithError
       // This is handled by the calling processSingleTransactions method
-      expect(mockWithdrawalRequestService.updateStatusWithError).not.toHaveBeenCalled();
+      expect(
+        mockWithdrawalRequestService.updateStatusWithError
+      ).not.toHaveBeenCalled();
     });
 
     it('should handle non-recoverable errors and return null', async () => {
@@ -326,7 +366,9 @@ describe('SigningWorker', () => {
       };
 
       const mockTransactionSigner = {
-        signTransaction: jest.fn().mockRejectedValue(new Error('Invalid token address')),
+        signTransaction: jest
+          .fn()
+          .mockRejectedValue(new Error('Invalid token address')),
         initialize: jest.fn(),
         cleanup: jest.fn(),
       };
@@ -334,7 +376,9 @@ describe('SigningWorker', () => {
       const signingWorkerAny = signingWorker as any;
       signingWorkerAny.transactionSigner = mockTransactionSigner;
       signingWorkerAny.instanceId = 'test-instance-id';
-      signingWorkerAny.getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
+      signingWorkerAny.getOrCreateSigner = jest
+        .fn()
+        .mockResolvedValue(mockTransactionSigner);
 
       await signingWorker.initialize();
 
@@ -353,7 +397,9 @@ describe('SigningWorker', () => {
 
       const result = await signingWorker.processMessage(withdrawalRequest);
 
-      expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
+      expect(
+        mockWithdrawalRequestService.updateStatusWithError
+      ).toHaveBeenCalledWith(
         'test-tx-123',
         TransactionStatus.FAILED,
         'Invalid token address'
@@ -455,7 +501,7 @@ describe('SigningWorker', () => {
             processingInstanceId: 'test-instance-id',
           }),
         },
-        $transaction: jest.fn().mockImplementation(async (fn) => {
+        $transaction: jest.fn().mockImplementation(async fn => {
           // Execute the transaction function with the mock client
           return await fn(mockDbClient);
         }),
@@ -485,7 +531,9 @@ describe('SigningWorker', () => {
           data: '0x',
           chainId: 80002,
         }),
-        getAddress: jest.fn().mockResolvedValue('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'),
+        getAddress: jest
+          .fn()
+          .mockResolvedValue('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'),
       };
 
       // Setup signing worker with mocks
@@ -509,7 +557,8 @@ describe('SigningWorker', () => {
       it('should return false when batch processing is disabled', async () => {
         mockConfig.batchProcessing.enabled = false;
         const signingWorkerAny = signingWorker as any;
-        const result = await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
+        const result =
+          await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
         expect(result).toBe(false);
       });
 
@@ -517,7 +566,9 @@ describe('SigningWorker', () => {
         mockConfig.batchProcessing.enabled = true;
         mockConfig.batchProcessing.minBatchSize = 5;
         const signingWorkerAny = signingWorker as any;
-        const result = await signingWorkerAny.shouldUseBatchProcessing(mockMessages.slice(0, 2));
+        const result = await signingWorkerAny.shouldUseBatchProcessing(
+          mockMessages.slice(0, 2)
+        );
         expect(result).toBe(false);
       });
 
@@ -526,7 +577,8 @@ describe('SigningWorker', () => {
         mockConfig.batchProcessing.minBatchSize = 2;
         mockConfig.batchProcessing.batchThreshold = 5;
         const signingWorkerAny = signingWorker as any;
-        const result = await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
+        const result =
+          await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
         expect(result).toBe(false);
       });
 
@@ -536,7 +588,8 @@ describe('SigningWorker', () => {
         mockConfig.batchProcessing.batchThreshold = 2;
         mockConfig.batchProcessing.minGasSavingsPercent = 90; // Very high threshold
         const signingWorkerAny = signingWorker as any;
-        const result = await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
+        const result =
+          await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
         expect(result).toBe(false);
       });
 
@@ -546,10 +599,10 @@ describe('SigningWorker', () => {
         mockConfig.batchProcessing.batchThreshold = 2;
         mockConfig.batchProcessing.minGasSavingsPercent = 10;
         const signingWorkerAny = signingWorker as any;
-        const result = await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
+        const result =
+          await signingWorkerAny.shouldUseBatchProcessing(mockMessages);
         expect(result).toBe(true);
       });
-
     });
 
     describe('separateMessagesByTryCount', () => {
@@ -561,10 +614,14 @@ describe('SigningWorker', () => {
         ]);
 
         const signingWorkerAny = signingWorker as any;
-        const { messagesForBatch, messagesForSingle } = await signingWorkerAny.separateMessagesByTryCount(mockMessages);
+        const { messagesForBatch, messagesForSingle } =
+          await signingWorkerAny.separateMessagesByTryCount(mockMessages);
 
         expect(messagesForSingle).toHaveLength(2);
-        expect(messagesForSingle.map(m => m.body.id).sort()).toEqual(['req-1', 'req-3']);
+        expect(messagesForSingle.map(m => m.body.id).sort()).toEqual([
+          'req-1',
+          'req-3',
+        ]);
         expect(messagesForBatch).toHaveLength(1);
         expect(messagesForBatch[0].body.id).toBe('req-2');
       });
@@ -577,7 +634,8 @@ describe('SigningWorker', () => {
         ]);
 
         const signingWorkerAny = signingWorker as any;
-        const { messagesForBatch, messagesForSingle } = await signingWorkerAny.separateMessagesByTryCount(mockMessages);
+        const { messagesForBatch, messagesForSingle } =
+          await signingWorkerAny.separateMessagesByTryCount(mockMessages);
 
         expect(messagesForSingle).toHaveLength(0);
         expect(messagesForBatch).toHaveLength(3);
@@ -605,19 +663,27 @@ describe('SigningWorker', () => {
         const groups = signingWorkerAny.groupByToken(mixedMessages);
 
         expect(groups.size).toBe(2);
-        expect(groups.get('0xaaa1234567890123456789012345678901234567')).toHaveLength(3);
-        expect(groups.get('0xbbb1234567890123456789012345678901234567')).toHaveLength(1);
+        expect(
+          groups.get('0xaaa1234567890123456789012345678901234567')
+        ).toHaveLength(3);
+        expect(
+          groups.get('0xbbb1234567890123456789012345678901234567')
+        ).toHaveLength(1);
       });
 
       it('should normalize token addresses to lowercase', () => {
         const mixedCaseMessages = [
           {
             id: 'msg-1',
-            body: { tokenAddress: '0xAAA1234567890123456789012345678901234567' },
+            body: {
+              tokenAddress: '0xAAA1234567890123456789012345678901234567',
+            },
           },
           {
             id: 'msg-2',
-            body: { tokenAddress: '0xaaa1234567890123456789012345678901234567' },
+            body: {
+              tokenAddress: '0xaaa1234567890123456789012345678901234567',
+            },
           },
         ];
 
@@ -625,7 +691,9 @@ describe('SigningWorker', () => {
         const groups = signingWorkerAny.groupByToken(mixedCaseMessages);
 
         expect(groups.size).toBe(1);
-        expect(groups.get('0xaaa1234567890123456789012345678901234567')).toHaveLength(2);
+        expect(
+          groups.get('0xaaa1234567890123456789012345678901234567')
+        ).toHaveLength(2);
       });
 
       it('should handle addresses with invalid checksum', () => {
@@ -647,7 +715,10 @@ describe('SigningWorker', () => {
         const signingWorkerAny = signingWorker as any;
         // This should not throw an error - addresses should be normalized
         expect(() => {
-          const transfers = signingWorkerAny.processBatchGroup('0xaaa1234567890123456789012345678901234567', checksumMessages);
+          const transfers = signingWorkerAny.processBatchGroup(
+            '0xaaa1234567890123456789012345678901234567',
+            checksumMessages
+          );
         }).not.toThrow();
       });
     });
@@ -669,7 +740,9 @@ describe('SigningWorker', () => {
         mockConfig.batchProcessing.batchPerTxGas = 25000;
 
         const signingWorkerAny = signingWorker as any;
-        const savings = signingWorkerAny.calculateGasSavings(mockMessages.slice(0, 1));
+        const savings = signingWorkerAny.calculateGasSavings(
+          mockMessages.slice(0, 1)
+        );
 
         expect(savings).toBe(0);
       });
@@ -681,19 +754,36 @@ describe('SigningWorker', () => {
         signingWorkerAny.instanceId = 'test-instance-id';
         signingWorkerAny.dbClient = mockDbClient;
         signingWorkerAny.multicallServices = new Map();
-        signingWorkerAny.multicallServices.set('polygon_mainnet', mockMulticallService);
+        signingWorkerAny.multicallServices.set(
+          'polygon_mainnet',
+          mockMulticallService
+        );
         signingWorkerAny.signers = new Map();
         signingWorkerAny.signers.set('polygon_mainnet', mockTransactionSigner);
-        signingWorkerAny.getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
+        signingWorkerAny.getOrCreateSigner = jest
+          .fn()
+          .mockResolvedValue(mockTransactionSigner);
 
         // Mock the transaction for createBatchWithLocking
         mockDbClient.$transaction.mockImplementation(async (fn: any) => {
           const mockTx = {
             withdrawalRequest: {
               findMany: jest.fn().mockResolvedValue([
-                { requestId: 'req-1', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
-                { requestId: 'req-2', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
-                { requestId: 'req-3', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
+                {
+                  requestId: 'req-1',
+                  status: TransactionStatus.VALIDATING,
+                  processingInstanceId: 'test-instance-id',
+                },
+                {
+                  requestId: 'req-2',
+                  status: TransactionStatus.VALIDATING,
+                  processingInstanceId: 'test-instance-id',
+                },
+                {
+                  requestId: 'req-3',
+                  status: TransactionStatus.VALIDATING,
+                  processingInstanceId: 'test-instance-id',
+                },
               ]),
               updateMany: jest.fn().mockResolvedValue({ count: 3 }),
             },
@@ -717,7 +807,10 @@ describe('SigningWorker', () => {
           },
         }));
 
-        await signingWorkerAny.processBatchGroup('0xaaa1234567890123456789012345678901234567', messagesWithChain);
+        await signingWorkerAny.processBatchGroup(
+          '0xaaa1234567890123456789012345678901234567',
+          messagesWithChain
+        );
 
         // Verify that transaction was called (for createBatchWithLocking)
         expect(mockDbClient.$transaction).toHaveBeenCalled();
@@ -727,9 +820,21 @@ describe('SigningWorker', () => {
         const mockTx = {
           withdrawalRequest: {
             findMany: jest.fn().mockResolvedValue([
-              { requestId: 'req-1', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
-              { requestId: 'req-2', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
-              { requestId: 'req-3', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
+              {
+                requestId: 'req-1',
+                status: TransactionStatus.VALIDATING,
+                processingInstanceId: 'test-instance-id',
+              },
+              {
+                requestId: 'req-2',
+                status: TransactionStatus.VALIDATING,
+                processingInstanceId: 'test-instance-id',
+              },
+              {
+                requestId: 'req-3',
+                status: TransactionStatus.VALIDATING,
+                processingInstanceId: 'test-instance-id',
+              },
             ]),
             updateMany: jest.fn().mockResolvedValue({ count: 3 }),
           },
@@ -771,45 +876,68 @@ describe('SigningWorker', () => {
         expect(mockTransactionSigner.signBatchTransaction).toHaveBeenCalled();
 
         // Verify batch transaction update
-        expect(mockDbClient.signedBatchTransaction.update).toHaveBeenCalledWith({
-          where: { id: 123n },
-          data: {
-            txHash: '0xbatchhash',
-            nonce: 1,
-            gasLimit: '150000',
-            maxFeePerGas: '1000000000',
-            maxPriorityFeePerGas: '1000000000',
-            status: 'SIGNED',
-          },
-        });
+        expect(mockDbClient.signedBatchTransaction.update).toHaveBeenCalledWith(
+          {
+            where: { id: 123n },
+            data: {
+              txHash: '0xbatchhash',
+              nonce: 1,
+              gasLimit: '150000',
+              maxFeePerGas: '1000000000',
+              maxPriorityFeePerGas: '1000000000',
+              status: 'SIGNED',
+            },
+          }
+        );
 
         // Verify messages deleted from queue
-        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledTimes(3);
+        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledTimes(
+          3
+        );
 
         // Verify output queue
         expect(signingWorkerAny.outputQueue.sendMessage).toHaveBeenCalled();
       });
 
       it('should handle batch processing failure gracefully', async () => {
-        mockTransactionSigner.signBatchTransaction.mockRejectedValue(new Error('Signing failed'));
+        mockTransactionSigner.signBatchTransaction.mockRejectedValue(
+          new Error('Signing failed')
+        );
 
         const signingWorkerAny = signingWorker as any;
         signingWorkerAny.instanceId = 'test-instance-id';
         signingWorkerAny.dbClient = mockDbClient;
         signingWorkerAny.multicallServices = new Map();
-        signingWorkerAny.multicallServices.set('polygon_mainnet', mockMulticallService);
+        signingWorkerAny.multicallServices.set(
+          'polygon_mainnet',
+          mockMulticallService
+        );
         signingWorkerAny.signers = new Map();
         signingWorkerAny.signers.set('polygon_mainnet', mockTransactionSigner);
-        signingWorkerAny.getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
+        signingWorkerAny.getOrCreateSigner = jest
+          .fn()
+          .mockResolvedValue(mockTransactionSigner);
 
         // Mock the transaction for createBatchWithLocking
         mockDbClient.$transaction.mockImplementation(async (fn: any) => {
           const mockTx = {
             withdrawalRequest: {
               findMany: jest.fn().mockResolvedValue([
-                { requestId: 'req-1', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
-                { requestId: 'req-2', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
-                { requestId: 'req-3', status: TransactionStatus.VALIDATING, processingInstanceId: 'test-instance-id' },
+                {
+                  requestId: 'req-1',
+                  status: TransactionStatus.VALIDATING,
+                  processingInstanceId: 'test-instance-id',
+                },
+                {
+                  requestId: 'req-2',
+                  status: TransactionStatus.VALIDATING,
+                  processingInstanceId: 'test-instance-id',
+                },
+                {
+                  requestId: 'req-3',
+                  status: TransactionStatus.VALIDATING,
+                  processingInstanceId: 'test-instance-id',
+                },
               ]),
               updateMany: jest.fn().mockResolvedValue({ count: 3 }),
             },
@@ -834,16 +962,21 @@ describe('SigningWorker', () => {
         }));
 
         // Should not throw error, just handle it internally
-        await signingWorkerAny.processBatchGroup('0xaaa1234567890123456789012345678901234567', messagesWithChain);
+        await signingWorkerAny.processBatchGroup(
+          '0xaaa1234567890123456789012345678901234567',
+          messagesWithChain
+        );
 
         // Verify failure handling
-        expect(mockDbClient.signedBatchTransaction.update).toHaveBeenCalledWith({
-          where: { id: 123n },
-          data: {
-            status: 'FAILED',
-            errorMessage: 'Signing failed',
-          },
-        });
+        expect(mockDbClient.signedBatchTransaction.update).toHaveBeenCalledWith(
+          {
+            where: { id: 123n },
+            data: {
+              status: 'FAILED',
+              errorMessage: 'Signing failed',
+            },
+          }
+        );
 
         // Verify withdrawal requests are reset to FAILED (non-recoverable error)
         expect(mockDbClient.withdrawalRequest.updateMany).toHaveBeenCalledWith({
@@ -857,24 +990,36 @@ describe('SigningWorker', () => {
         });
 
         // Messages should be deleted on non-recoverable failure
-        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledTimes(3);
-        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledWith('receipt-1');
-        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledWith('receipt-2');
-        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledWith('receipt-3');
+        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledTimes(
+          3
+        );
+        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledWith(
+          'receipt-1'
+        );
+        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledWith(
+          'receipt-2'
+        );
+        expect(signingWorkerAny.inputQueue.deleteMessage).toHaveBeenCalledWith(
+          'receipt-3'
+        );
       });
 
       it('should not process messages individually after batch failure', async () => {
-        mockTransactionSigner.signBatchTransaction.mockRejectedValue(new Error('Batch failed'));
+        mockTransactionSigner.signBatchTransaction.mockRejectedValue(
+          new Error('Batch failed')
+        );
 
         const signingWorkerAny = signingWorker as any;
-        const processSingleTransactionsSpy = jest.spyOn(signingWorkerAny, 'processSingleTransactions');
+        const processSingleTransactionsSpy = jest.spyOn(
+          signingWorkerAny,
+          'processSingleTransactions'
+        );
 
         await signingWorkerAny.processBatchTransactions(mockMessages);
 
         // Should NOT call processSingleTransactions after batch failure
         expect(processSingleTransactionsSpy).not.toHaveBeenCalled();
       });
-
     });
 
     describe('processBatch with mixed messages', () => {
@@ -950,10 +1095,15 @@ describe('SigningWorker', () => {
 
         // Setup proper mocks for the signing worker instance
         signingWorkerAny.multicallServices = new Map();
-        signingWorkerAny.multicallServices.set('polygon_mainnet', mockMulticallService);
+        signingWorkerAny.multicallServices.set(
+          'polygon_mainnet',
+          mockMulticallService
+        );
         signingWorkerAny.signers = new Map();
         signingWorkerAny.signers.set('polygon_mainnet', mockTransactionSigner);
-        signingWorkerAny.getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
+        signingWorkerAny.getOrCreateSigner = jest
+          .fn()
+          .mockResolvedValue(mockTransactionSigner);
         signingWorkerAny.transactionSigner = mockTransactionSigner;
         signingWorkerAny.dbClient = mockDbClient;
         signingWorkerAny.processingMessages = new Set();
@@ -971,8 +1121,14 @@ describe('SigningWorker', () => {
         });
 
         // Spy on processing methods
-        const processSingleSpy = jest.spyOn(signingWorkerAny, 'processSingleTransactions');
-        const processBatchSpy = jest.spyOn(signingWorkerAny, 'processBatchTransactions');
+        const processSingleSpy = jest.spyOn(
+          signingWorkerAny,
+          'processSingleTransactions'
+        );
+        const processBatchSpy = jest.spyOn(
+          signingWorkerAny,
+          'processBatchTransactions'
+        );
 
         // Enable batch processing
         mockConfig.batchProcessing.enabled = true;
@@ -990,7 +1146,9 @@ describe('SigningWorker', () => {
         // Should process remaining messages as batch (now we have 3 messages which is profitable for batching)
         expect(processBatchSpy).toHaveBeenCalled();
         expect(processBatchSpy.mock.calls[0][0]).toHaveLength(3);
-        expect(processBatchSpy.mock.calls[0][0].map((m: any) => m.body.id).sort()).toEqual(['req-2', 'req-3', 'req-4']);
+        expect(
+          processBatchSpy.mock.calls[0][0].map((m: any) => m.body.id).sort()
+        ).toEqual(['req-2', 'req-3', 'req-4']);
       });
     });
   });

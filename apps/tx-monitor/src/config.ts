@@ -8,7 +8,10 @@ export const config = {
     // Max time to wait for transaction confirmation (30 minutes)
     maxWaitTime: parseInt(process.env.MONITOR_MAX_WAIT_TIME || '1800000', 10),
     // Confirmations required
-    confirmationsRequired: parseInt(process.env.CONFIRMATIONS_REQUIRED || '3', 10),
+    confirmationsRequired: parseInt(
+      process.env.CONFIRMATIONS_REQUIRED || '3',
+      10
+    ),
     // Batch size for processing
     batchSize: parseInt(process.env.MONITOR_BATCH_SIZE || '20', 10),
   },
@@ -17,6 +20,8 @@ export const config = {
   // No default values - chain/network must be explicitly provided
 
   database: {
-    url: process.env.DATABASE_URL || 'mysql://root:password@localhost:3306/withdrawal_db',
+    url:
+      process.env.DATABASE_URL ||
+      'mysql://root:password@localhost:3306/withdrawal_db',
   },
 };

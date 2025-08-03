@@ -13,7 +13,9 @@ app.get('/health', (req, res) => {
   const workerManager = WorkerManager.getInstance();
   const status = workerManager.getStatus();
 
-  const isHealthy = status.workers.every(w => w.status === 'running' || w.status === 'stopped');
+  const isHealthy = status.workers.every(
+    w => w.status === 'running' || w.status === 'stopped'
+  );
 
   res.status(isHealthy ? 200 : 503).json({
     status: isHealthy ? 'healthy' : 'unhealthy',
@@ -34,7 +36,9 @@ app.post('/workers/:name/start', async (req, res) => {
     await workerManager.startWorker(req.params.name);
     res.json({ message: `Worker ${req.params.name} started` });
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(400).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 });
 
@@ -44,7 +48,9 @@ app.post('/workers/:name/stop', async (req, res) => {
     await workerManager.stopWorker(req.params.name);
     res.json({ message: `Worker ${req.params.name} stopped` });
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(400).json({
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 });
 
@@ -75,7 +81,7 @@ async function startServer() {
   });
 }
 
-startServer().catch((error) => {
+startServer().catch(error => {
   logger.error('Failed to start TX Processor', error);
   process.exit(1);
 });

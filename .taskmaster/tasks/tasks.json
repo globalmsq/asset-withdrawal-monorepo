@@ -230,7 +230,7 @@
         "id": 12,
         "title": "[BFS-5] tx-broadcaster 서비스 구현",
         "description": "서명된 트랜잭션을 Polygon 네트워크에 브로드캐스트하는 서비스 개발",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           11
         ],
@@ -242,20 +242,20 @@
             "id": 1,
             "title": "Nx를 사용하여 tx-broadcaster 앱 생성 및 기본 구조 설정",
             "description": "Nx CLI를 사용하여 새로운 Node.js 애플리케이션을 생성하고 기본 프로젝트 구조를 설정합니다 [Updated: 2025. 8. 4.]",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
-            "details": "nx g @nx/node:app tx-broadcaster 명령으로 앱 생성, TypeScript 설정, Express 서버 기본 구조 생성, 환경 변수 설정 (.env 파일), Docker 설정 추가, 포트 3003 할당\n<info added on 2025-08-04T09:03:24.574Z>\nTask 12 subtitle을 '[BFS-48] Nx를 사용하여 tx-broadcaster 앱 생성 및 기본 구조 설정'로 변경\n</info added on 2025-08-04T09:03:24.574Z>",
+            "details": "nx g @nx/node:app tx-broadcaster 명령으로 앱 생성, TypeScript 설정, Express 서버 기본 구조 생성, 환경 변수 설정 (.env 파일), Docker 설정 추가, 포트 3003 할당\n<info added on 2025-08-04T09:03:24.574Z>\nTask 12 subtitle을 '[BFS-48] Nx를 사용하여 tx-broadcaster 앱 생성 및 기본 구조 설정'로 변경\n</info added on 2025-08-04T09:03:24.574Z>\n<info added on 2025-08-04T09:15:32.672Z>\n완료: 앱 생성 및 기본 구조 설정 완료. Express 웹 서버 구조, TypeScript 빌드 구성, 헬스체크 엔드포인트, 보안 미들웨어(helmet, cors), 환경 변수 설정 파일, README.md 문서, Docker 설정 포함. 포트 3003으로 서버 설정. 린트 및 타입 체크 통과 확인. 다음 단계인 SQS 폴링 로직 구현을 위한 기반 구조 완료.\n</info added on 2025-08-04T09:15:32.672Z>",
             "testStrategy": ""
           },
           {
             "id": 2,
             "title": "SQS 폴링 로직 구현 및 signed-tx-queue 연결",
             "description": "signed-tx-queue에서 서명된 트랜잭션 메시지를 지속적으로 폴링하는 로직을 구현합니다 [Updated: 2025. 8. 4.]",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1
             ],
-            "details": "QueueConsumer 클래스 구현, signed-tx-queue URL 설정, 메시지 수신 및 파싱 로직, visibility timeout 설정 (300초), 메시지 삭제 처리, 에러 발생 시 DLQ 전송 로직\n<info added on 2025-08-04T09:04:29.412Z>\n제목이 '[BFS-49] SQS 폴링 로직 구현 및 signed-tx-queue 연결'로 변경되었습니다. 이는 BFS-49 작업 키를 참조하여 작업의 식별성을 개선하고 Jira 연동을 위한 표준 명명 규칙을 준수합니다.\n</info added on 2025-08-04T09:04:29.412Z>",
+            "details": "QueueConsumer 클래스 구현, signed-tx-queue URL 설정, 메시지 수신 및 파싱 로직, visibility timeout 설정 (300초), 메시지 삭제 처리, 에러 발생 시 DLQ 전송 로직\n<info added on 2025-08-04T09:04:29.412Z>\n제목이 '[BFS-49] SQS 폴링 로직 구현 및 signed-tx-queue 연결'로 변경되었습니다. 이는 BFS-49 작업 키를 참조하여 작업의 식별성을 개선하고 Jira 연동을 위한 표준 명명 규칙을 준수합니다.\n</info added on 2025-08-04T09:04:29.412Z>\n<info added on 2025-08-04T09:34:01.455Z>\ntx-broadcaster 서비스의 전체 SQS 폴링 및 메시지 처리 시스템이 완료되었습니다. SQS Worker를 통한 메시지 폴링 및 처리, Redis 기반 중복 방지 시스템, Express 서버와 워커의 병렬 실행 구조, ethers.js 기반 블록체인 브로드캐스팅, 포괄적인 에러 처리 및 재시도 메커니즘이 모두 구현되었습니다. 이로써 signed-tx-queue에서 메시지를 수신하여 broadcast-tx-queue로 전달하는 완전한 파이프라인이 구축되었습니다.\n</info added on 2025-08-04T09:34:01.455Z>",
             "testStrategy": ""
           },
           {
@@ -854,7 +854,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-08-04T08:49:51.283Z",
+      "updated": "2025-08-04T09:34:07.000Z",
       "description": "Tasks for master context"
     }
   }

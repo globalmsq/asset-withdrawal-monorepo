@@ -346,6 +346,7 @@ npm run test:coverage           # Coverage report
 ## 📚 Documentation
 
 - [Architecture Overview](./ARCHITECTURE.md)
+- [Transaction Lifecycle](./docs/TRANSACTION_LIFECYCLE.md)
 - [API Documentation](http://localhost:8080/api-docs)
 
 ## 📄 License

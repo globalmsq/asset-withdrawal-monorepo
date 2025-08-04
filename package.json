@@ -12,8 +12,8 @@
     "dev": "nx run-many --target=dev --parallel",
     "lint": "nx run-many --target=lint",
     "lint:fix": "nx run-many --target=lint --fix",
-    "format": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
-    "format:fix": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "format": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
+    "format:fix": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
     "test": "nx run-many --target=test",
     "typecheck": "nx run-many --target=typecheck",
     "coverage": "nx run-many --target=test --coverage",
@@ -75,7 +75,7 @@
     ]
   },
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=18.0.0",
     "npm": ">=10.0.0"
   },
   "dependencies": {

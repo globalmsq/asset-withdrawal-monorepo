@@ -1,3 +1,19 @@
+# Asset Withdrawal System - Docker Compose Configuration
+#
+# This is a development configuration. For production, ensure:
+# 1. Set MYSQL_ROOT_PASSWORD environment variable with a secure password
+# 2. Set LOCALSTACK_CORS_ORIGINS to specific allowed origins
+# 3. Use .env file or export environment variables before running docker-compose
+#
+# Example:
+#   export MYSQL_ROOT_PASSWORD="your-secure-password"
+#   export LOCALSTACK_CORS_ORIGINS="https://your-domain.com"
+#   docker-compose up
+#
+# For development with default values:
+#   docker-compose up
+#   (will use development defaults specified in the file)
+
 x-localstack-account: &localstack-account
   AWS_ENDPOINT: http://localstack:4566
   AWS_DEFAULT_REGION: ap-northeast-2
@@ -10,7 +26,8 @@ services:
     image: mysql:8.0
     container_name: withdrawal-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: pass
+      # WARNING: Use secure passwords in production. Default is for development only.
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
       MYSQL_DATABASE: withdrawal_system
     ports:
       - 3306:3306
@@ -21,7 +38,11 @@ services:
     networks:
       - withdrawal-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppass"]
+      test:
+        [
+          'CMD-SHELL',
+          'export MYSQL_PWD=$${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}; mysqladmin ping -h localhost -u root',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,7 +58,8 @@ services:
       <<: *localstack-account
       # DEBUG: 1
       SERVICES: sqs,secretsmanager
-      EXTRA_CORS_ALLOWED_ORIGINS: "*"
+      # WARNING: Restrict CORS origins in production. Default allows localhost only.
+      EXTRA_CORS_ALLOWED_ORIGINS: ${LOCALSTACK_CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
     volumes:
       - localstack-data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
@@ -45,7 +67,7 @@ services:
     networks:
       - withdrawal-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:4566/_localstack/health']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -71,16 +93,16 @@ services:
     container_name: withdrawal-redis
     ports:
       - 6379:6379
-      - 8001:8001  # RedisInsight web UI
+      - 8001:8001 # RedisInsight web UI
     environment:
-      REDIS_ARGS: "--save 60 1 --save 300 10 --save 900 100"
+      REDIS_ARGS: '--save 60 1 --save 300 10 --save 900 100'
     volumes:
       - redis-data:/data
     networks:
       - withdrawal-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -98,7 +120,7 @@ services:
       - withdrawal-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8545"]
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8545']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -117,10 +139,10 @@ services:
     volumes:
       - ./scripts/init-hardhat.sh:/app/init-hardhat.sh:ro
       - deployment-data:/deployment
-    command: ["/bin/sh", "/app/init-hardhat.sh"]
+    command: ['/bin/sh', '/app/init-hardhat.sh']
     networks:
       - withdrawal-network
-    restart: "no"
+    restart: 'no'
 
   # API Server
   api-server:
@@ -137,7 +159,7 @@ services:
       context: ..
       dockerfile: docker/dockerfile.packages
       target: api-server
-    command: ["yarn", "dev"]
+    command: ['yarn', 'dev']
     ports:
       - 8080:8080
     environment:
@@ -151,7 +173,7 @@ services:
       MYSQL_PORT: 3306
       MYSQL_DATABASE: withdrawal_system
       MYSQL_USER: root
-      MYSQL_PASSWORD: pass
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
 
       # RPC URL Override for Docker environment
       # RPC_URL: http://hardhat-node:8545
@@ -160,7 +182,7 @@ services:
     volumes:
       - deployment-data:/deployment:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -211,7 +233,7 @@ services:
       MYSQL_PORT: 3306
       MYSQL_DATABASE: withdrawal_system
       MYSQL_USER: root
-      MYSQL_PASSWORD: pass
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
 
       # Redis Configuration
       REDIS_HOST: redis
@@ -222,7 +244,7 @@ services:
       - signing-service-logs:/app/logs
       - deployment-data:/deployment:ro
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3005/api/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3005/api/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -256,12 +278,12 @@ services:
   #     TX_PROCESSOR_PORT: 3001
 
   #     # Database
-  #     DATABASE_URL: mysql://root:pass@mysql:3306/withdrawal_system
+  #     DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}@mysql:3306/withdrawal_system
   #     MYSQL_HOST: mysql
   #     MYSQL_PORT: 3306
   #     MYSQL_DATABASE: withdrawal_system
   #     MYSQL_USER: root
-  #     MYSQL_PASSWORD: pass
+  #     MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
 
   #     # Queue Configuration
   #     VALIDATION_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/validation-queue
@@ -318,12 +340,12 @@ services:
   #     TX_MONITOR_PORT: 3002
 
   #     # Database
-  #     DATABASE_URL: mysql://root:pass@mysql:3306/withdrawal_system
+  #     DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}@mysql:3306/withdrawal_system
   #     MYSQL_HOST: mysql
   #     MYSQL_PORT: 3306
   #     MYSQL_DATABASE: withdrawal_system
   #     MYSQL_USER: root
-  #     MYSQL_PASSWORD: pass
+  #     MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
 
   #     # Queue Configuration
   #     MONITOR_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/monitor-queue

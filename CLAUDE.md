@@ -169,6 +169,10 @@ Claude Code can directly update Jira statuses using the MCP Atlassian server con
 
 5. **PR Title Format**: `[JIRA-KEY] Description`
 6. **PR Description**: Include implementation details and testing notes
+7. **Update Task Status**: After creating PR, update Task Master status to review
+   ```bash
+   task-master set-status --id=<task-id> --status=review
+   ```
 
 #### Example Workflow
 
@@ -186,6 +190,9 @@ git commit -m "[BFS-32] feat: add Hardhat configuration"
 # 4. Push and create PR
 git push -u origin BFS-32_hardhat-localhost-support
 gh pr create --title "[BFS-32] Hardhat localhost network support"
+
+# 5. Update task status to review
+task-master set-status --id=<task-id> --status=review
 ```
 
 ### 2. Planning Phase

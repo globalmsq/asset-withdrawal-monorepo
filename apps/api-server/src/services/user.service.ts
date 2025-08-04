@@ -12,7 +12,9 @@ export async function initializeUserService(): Promise<UserService> {
 
 export function getUserService(): UserService {
   if (!userServiceInstance) {
-    throw new Error('UserService not initialized. Call initializeUserService first.');
+    throw new Error(
+      'UserService not initialized. Call initializeUserService first.'
+    );
   }
   return userServiceInstance;
 }

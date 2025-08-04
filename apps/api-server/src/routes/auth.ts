@@ -1,6 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { authService } from '../services/auth.service';
-import { LoginRequest, UserRole, ApiResponse, LoginResponse } from '@asset-withdrawal/shared';
+import {
+  LoginRequest,
+  UserRole,
+  ApiResponse,
+  LoginResponse,
+} from '@asset-withdrawal/shared';
 import { AuthRequest, authenticate } from '../middleware/auth.middleware';
 import { Logger } from '../utils/logger';
 import { getUserService } from '../services/user.service';

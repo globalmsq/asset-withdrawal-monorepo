@@ -192,7 +192,7 @@ git push -u origin BFS-32_hardhat-localhost-support
 gh pr create --title "[BFS-32] Hardhat localhost network support"
 
 # 5. Update task status to review
-task-master set-status --id=22 --status=review
+task-master set-status --id=<task-id> --status=review
 ```
 
 ### 2. Planning Phase

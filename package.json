@@ -20,6 +20,7 @@
     "coverage": "nx run-many --target=test --coverage",
     "depcheck": "nx run-many --target=depcheck",
     "prepare": "husky install",
+    "check": "pnpm run lint && pnpm run format && pnpm run typecheck && pnpm run depcheck",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",

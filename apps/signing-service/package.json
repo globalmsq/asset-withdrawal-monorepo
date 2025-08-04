@@ -9,7 +9,7 @@
     "start": "tsx src/main.ts",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "lint": "cd ../.. && yarn nx run signing-service:lint"
+    "lint": "cd ../.. && pnpm nx run signing-service:lint"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.840.0",

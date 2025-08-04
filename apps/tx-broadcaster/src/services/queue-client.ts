@@ -116,6 +116,11 @@ export class QueueService {
   async sendToBroadcastQueue(messageBody: any): Promise<string> {
     return this.sendMessage(config.BROADCAST_QUEUE_URL, messageBody);
   }
+
+  // Send message to tx-monitor queue (for transaction monitoring)
+  async sendToTxMonitorQueue(messageBody: TxMonitorMessage): Promise<string> {
+    return this.sendMessage(config.TX_MONITOR_QUEUE_URL, messageBody);
+  }
 }
 
 // Message types for type safety
@@ -186,5 +191,23 @@ export interface UnifiedBroadcastResultMessage {
   metadata?: {
     // Additional result info
     affectedRequests?: string[]; // For batch transactions
+  };
+}
+
+// Message for tx-monitor-queue
+export interface TxMonitorMessage {
+  id: string;
+  transactionType: 'SINGLE' | 'BATCH';
+  withdrawalId?: string; // For single transactions
+  batchId?: string; // For batch transactions
+  userId: string;
+  txHash: string; // The actual blockchain transaction hash
+  chainId: number;
+  broadcastedAt: string; // ISO timestamp
+  blockNumber?: number; // If available from broadcast result
+  metadata?: {
+    // Additional monitoring info
+    affectedRequests?: string[]; // For batch transactions
+    retryCount?: number;
   };
 }

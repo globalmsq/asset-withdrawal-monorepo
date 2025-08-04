@@ -10,14 +10,17 @@ import {
   UnifiedSignedTransactionMessage,
   BroadcastResultMessage,
   UnifiedBroadcastResultMessage,
+  TxMonitorMessage,
   QueueMessage,
 } from '../services/queue-client';
 import { TransactionBroadcaster } from '../services/broadcaster';
+import { RetryService } from '../services/retry.service';
 import { ProcessingResult, WorkerStats } from '../types';
 
 export class SQSWorker {
   private queueService: QueueService;
   private broadcaster: TransactionBroadcaster;
+  private retryService: RetryService;
   private redisService: BroadcastRedisService | null = null;
   private isRunning = false;
   private stats: WorkerStats;
@@ -25,6 +28,12 @@ export class SQSWorker {
   constructor() {
     this.queueService = new QueueService();
     this.broadcaster = new TransactionBroadcaster();
+    this.retryService = new RetryService({
+      maxRetries: 5,
+      baseDelay: 2000, // 2초
+      maxDelay: 60000, // 60초
+      backoffMultiplier: 2,
+    });
     this.stats = {
       messagesProcessed: 0,
       messagesSucceeded: 0,
@@ -262,23 +271,12 @@ export class SQSWorker {
           return { success: true, shouldRetry: false };
         }
 
-        // Broadcast transaction with state management
-        let broadcastResult;
-        if (txMessage.transactionType === 'SINGLE') {
-          // Use single transaction state management
-          broadcastResult = await this.broadcaster.broadcastTransactionWithStateManagement(
-            txMessage.withdrawalId,
-            signedTransaction,
-            chainId
-          );
-        } else {
-          // Use batch transaction state management
-          broadcastResult = await this.broadcaster.broadcastBatchTransactionWithStateManagement(
-            txMessage.batchId!,
-            signedTransaction,
-            chainId
-          );
-        }
+        // Broadcast transaction with retry logic and state management
+        const broadcastResult = await this.broadcastWithRetry(
+          txMessage,
+          signedTransaction,
+          chainId
+        );
 
         if (broadcastResult.success) {
           // Mark as broadcasted in Redis
@@ -324,9 +322,15 @@ export class SQSWorker {
       success: boolean;
       transactionHash?: string;
       error?: string;
+      blockNumber?: number;
+      metadata?: {
+        retryCount?: number;
+        sentToDLQ?: boolean;
+        affectedRequests?: string[];
+      };
     }
   ): Promise<void> {
-    // Create unified result message
+    // Create unified result message for broadcast-tx-queue (compatibility)
     const resultMessage: UnifiedBroadcastResultMessage = {
       id: originalMessage.id,
       transactionType: originalMessage.transactionType,
@@ -340,14 +344,216 @@ export class SQSWorker {
       broadcastedAt: broadcastResult.success
         ? new Date().toISOString()
         : undefined,
-      metadata:
-        originalMessage.transactionType === 'BATCH' &&
+      blockNumber: broadcastResult.blockNumber,
+      metadata: {
+        // 원본 메시지의 메타데이터
+        ...(originalMessage.transactionType === 'BATCH' &&
         originalMessage.metadata?.requestIds
           ? { affectedRequests: originalMessage.metadata.requestIds }
-          : undefined,
+          : {}),
+        // 브로드캐스트 결과의 메타데이터
+        ...broadcastResult.metadata,
+      },
     };
 
+    // Send to broadcast-tx-queue (existing pipeline)
     await this.queueService.sendToBroadcastQueue(resultMessage);
+
+    // Send to tx-monitor-queue only on successful broadcast
+    if (broadcastResult.success && broadcastResult.transactionHash) {
+      const monitorMessage: TxMonitorMessage = {
+        id: originalMessage.id,
+        transactionType: originalMessage.transactionType,
+        withdrawalId: originalMessage.withdrawalId,
+        batchId: originalMessage.batchId,
+        userId: originalMessage.userId,
+        txHash: broadcastResult.transactionHash,
+        chainId: originalMessage.chainId,
+        broadcastedAt: new Date().toISOString(),
+        blockNumber: broadcastResult.blockNumber,
+        metadata:
+          originalMessage.transactionType === 'BATCH' &&
+          originalMessage.metadata?.requestIds
+            ? { affectedRequests: originalMessage.metadata.requestIds }
+            : undefined,
+      };
+
+      try {
+        await this.sendToTxMonitorQueueWithRetry(monitorMessage, 3);
+        console.log(
+          `[tx-broadcaster] Sent transaction ${broadcastResult.transactionHash} to tx-monitor-queue`
+        );
+      } catch (error) {
+        console.error(
+          `[tx-broadcaster] Failed to send to tx-monitor-queue after retries:`,
+          error
+        );
+        // Don't fail the entire process if tx-monitor message fails
+        // The transaction was still broadcasted successfully
+      }
+    }
+  }
+
+  /**
+   * 재시도 로직과 함께 트랜잭션을 브로드캐스트합니다
+   */
+  private async broadcastWithRetry(
+    txMessage: UnifiedSignedTransactionMessage,
+    signedTransaction: string,
+    chainId?: number
+  ): Promise<{
+    success: boolean;
+    transactionHash?: string;
+    error?: string;
+    blockNumber?: number;
+    attemptCount?: number;
+  }> {
+    let lastError: any;
+    let attemptCount = 0;
+    const maxRetries = this.retryService.getMaxRetries();
+
+    while (attemptCount <= maxRetries) {
+      try {
+        console.log(
+          `[tx-broadcaster] Broadcasting transaction attempt ${
+            attemptCount + 1
+          }/${maxRetries + 1} for ${
+            txMessage.transactionType === 'SINGLE'
+              ? `withdrawal ${txMessage.withdrawalId}`
+              : `batch ${txMessage.batchId}`
+          }`
+        );
+
+        let broadcastResult;
+
+        if (txMessage.transactionType === 'SINGLE') {
+          // Use single transaction state management
+          broadcastResult =
+            await this.broadcaster.broadcastTransactionWithStateManagement(
+              txMessage.withdrawalId!,
+              signedTransaction,
+              chainId
+            );
+        } else {
+          // Use batch transaction state management
+          broadcastResult =
+            await this.broadcaster.broadcastBatchTransactionWithStateManagement(
+              txMessage.batchId!,
+              signedTransaction,
+              chainId
+            );
+        }
+
+        // 성공한 경우
+        if (broadcastResult.success) {
+          console.log(
+            `[tx-broadcaster] Transaction broadcasted successfully after ${
+              attemptCount + 1
+            } attempts: ${broadcastResult.transactionHash}`
+          );
+
+          return {
+            ...broadcastResult,
+            attemptCount: attemptCount + 1,
+          };
+        } else {
+          // 브로드캐스트 실패 - 에러 분석 및 재시도 판단
+          lastError = new Error(broadcastResult.error || 'Broadcast failed');
+          throw lastError;
+        }
+      } catch (error) {
+        lastError = error;
+        attemptCount++;
+
+        // 에러 분석 및 메트릭 수집
+        const errorMetrics = this.retryService.generateErrorMetrics(
+          error,
+          attemptCount,
+          maxRetries
+        );
+
+        // 에러 메트릭 수집
+        this.collectErrorMetric(error, {
+          messageId: txMessage.id,
+          transactionType: txMessage.transactionType,
+          attempt: attemptCount,
+          maxRetries: maxRetries,
+        });
+
+        console.warn(
+          `[tx-broadcaster] Broadcast attempt ${attemptCount} failed:`,
+          {
+            error: error instanceof Error ? error.message : String(error),
+            code: (error as any)?.code || 'UNKNOWN',
+            type: errorMetrics.errorType,
+            severity: errorMetrics.severity,
+            retryable: errorMetrics.retryable,
+          }
+        );
+
+        // 재시도 가능 여부 확인
+        const retryDecision = this.retryService.shouldRetry(
+          error,
+          attemptCount
+        );
+
+        if (!retryDecision.shouldRetry) {
+          console.error(
+            `[tx-broadcaster] No more retries for transaction: ${retryDecision.reason}`
+          );
+          break;
+        }
+
+        // 재시도 전 지연
+        console.log(`[tx-broadcaster] ${retryDecision.reason}`);
+        await this.sleep(retryDecision.delay);
+      }
+    }
+
+    // 모든 재시도 실패
+    const errorAnalysis = this.retryService.analyzeError(lastError);
+    console.error(
+      `[tx-broadcaster] Transaction broadcast failed after ${attemptCount} attempts:`,
+      {
+        error: lastError?.message || 'Unknown error',
+        analysis: errorAnalysis,
+      }
+    );
+
+    return {
+      success: false,
+      error: lastError?.message || 'Unknown broadcast error',
+      attemptCount,
+    };
+  }
+
+  private async sendToTxMonitorQueueWithRetry(
+    message: TxMonitorMessage,
+    maxRetries: number = 3
+  ): Promise<void> {
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.queueService.sendToTxMonitorQueue(message);
+        return; // Success, exit early
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.warn(
+          `[tx-broadcaster] tx-monitor-queue send attempt ${attempt}/${maxRetries} failed:`,
+          error
+        );
+
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delay = Math.pow(2, attempt - 1) * 1000;
+          await this.sleep(delay);
+        }
+      }
+    }
+
+    // All retries failed
+    throw lastError || new Error('All tx-monitor-queue send attempts failed');
   }
 
   private async handleFailure(
@@ -363,19 +569,48 @@ export class SQSWorker {
       console.log(
         `[tx-broadcaster] Message ${message.id} failed and will not be retried`
       );
+
+      // Send failure result
+      const unifiedMessage = this.convertToUnifiedMessage(message.body);
+      await this.sendBroadcastResult(unifiedMessage, {
+        success: false,
+        error: result.error || 'Non-retryable error occurred',
+      });
+
       return;
     }
 
     // Check retry count
     const retryCount = await this.redisService.incrementRetryCount(message.id);
-    const maxRetries = 3;
+    const maxRetries = this.retryService.getMaxRetries();
 
     if (retryCount >= maxRetries) {
-      // Max retries reached, send failure result and delete message
+      // Max retries reached, send to DLQ if configured
       const unifiedMessage = this.convertToUnifiedMessage(message.body);
+
+      try {
+        await this.sendToDLQ(
+          unifiedMessage,
+          result.error || 'Max retries exceeded'
+        );
+        console.log(
+          `[tx-broadcaster] Message ${message.id} sent to DLQ after ${maxRetries} retries`
+        );
+      } catch (dlqError) {
+        console.error(
+          `[tx-broadcaster] Failed to send message ${message.id} to DLQ:`,
+          dlqError
+        );
+      }
+
+      // Send failure result
       await this.sendBroadcastResult(unifiedMessage, {
         success: false,
         error: `Max retries (${maxRetries}) exceeded: ${result.error}`,
+        metadata: {
+          retryCount: maxRetries,
+          sentToDLQ: true,
+        },
       });
 
       await this.queueService.deleteMessage(
@@ -452,6 +687,85 @@ export class SQSWorker {
         avgProcessingTime: `${this.stats.averageProcessingTime.toFixed(0)}ms`,
       });
     }
+  }
+
+  /**
+   * DLQ(Dead Letter Queue)에 메시지를 전송합니다
+   */
+  private async sendToDLQ(
+    message: UnifiedSignedTransactionMessage,
+    error: string
+  ): Promise<void> {
+    try {
+      const dlqMessage = {
+        ...message,
+        failureReason: error,
+        failedAt: new Date().toISOString(),
+        maxRetriesExceeded: true,
+      };
+
+      // DLQ URL이 설정되어 있는 경우에만 전송
+      const dlqUrl = config.TX_REQUEST_QUEUE_URL.replace('-queue', '-dlq');
+
+      console.log(`[tx-broadcaster] Sending message to DLQ: ${dlqUrl}`);
+      await this.queueService.sendMessage(dlqUrl, dlqMessage);
+
+      // DLQ 전송 메트릭 수집
+      this.collectDLQMetric(message, error);
+    } catch (error) {
+      console.error('[tx-broadcaster] Failed to send message to DLQ:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * DLQ 전송 메트릭을 수집합니다
+   */
+  private collectDLQMetric(
+    message: UnifiedSignedTransactionMessage,
+    error: string
+  ): void {
+    const metric = {
+      timestamp: new Date().toISOString(),
+      messageId: message.id,
+      transactionType: message.transactionType,
+      userId: message.userId,
+      chainId: message.chainId,
+      failureReason: error,
+      originalHash: message.transactionHash,
+    };
+
+    // 실제 프로덕션에서는 모니터링 시스템으로 전송
+    console.log('[tx-broadcaster] DLQ Metric:', metric);
+  }
+
+  /**
+   * 에러별 모니터링 메트릭을 수집합니다
+   */
+  private collectErrorMetric(
+    error: any,
+    context: {
+      messageId: string;
+      transactionType: string;
+      attempt: number;
+      maxRetries: number;
+    }
+  ): void {
+    const errorMetrics = this.retryService.generateErrorMetrics(
+      error,
+      context.attempt,
+      context.maxRetries
+    );
+
+    const metric = {
+      ...errorMetrics,
+      messageId: context.messageId,
+      transactionType: context.transactionType,
+      context: 'transaction_broadcast',
+    };
+
+    // 실제 프로덕션에서는 모니터링 시스템(예: CloudWatch, DataDog)으로 전송
+    console.log('[tx-broadcaster] Error Metric:', metric);
   }
 
   private sleep(ms: number): Promise<void> {

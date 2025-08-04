@@ -31,6 +31,11 @@ awslocal sqs create-queue \
   --region $REGION \
   --attributes MessageRetentionPeriod=1209600,VisibilityTimeout=30
 
+awslocal sqs create-queue \
+  --queue-name tx-monitor-queue \
+  --region $REGION \
+  --attributes MessageRetentionPeriod=1209600,VisibilityTimeout=30
+
 # Create DLQ queues
 awslocal sqs create-queue \
   --queue-name invalid-dlq \
@@ -44,6 +49,11 @@ awslocal sqs create-queue \
 
 awslocal sqs create-queue \
   --queue-name broadcast-dlq \
+  --region $REGION \
+  --attributes MessageRetentionPeriod=1209600
+
+awslocal sqs create-queue \
+  --queue-name tx-monitor-dlq \
   --region $REGION \
   --attributes MessageRetentionPeriod=1209600
 
@@ -69,6 +79,13 @@ BROADCAST_DLQ_ARN=$(awslocal sqs get-queue-attributes \
   --query 'Attributes.QueueArn' \
   --output text)
 
+TX_MONITOR_DLQ_ARN=$(awslocal sqs get-queue-attributes \
+  --queue-url http://localhost:4566/000000000000/tx-monitor-dlq \
+  --region $REGION \
+  --attribute-names QueueArn \
+  --query 'Attributes.QueueArn' \
+  --output text)
+
 # Update main queues with redrive policies
 awslocal sqs set-queue-attributes \
   --queue-url http://localhost:4566/000000000000/tx-request-queue \
@@ -85,13 +102,20 @@ awslocal sqs set-queue-attributes \
   --region $REGION \
   --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${BROADCAST_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
 
+awslocal sqs set-queue-attributes \
+  --queue-url http://localhost:4566/000000000000/tx-monitor-queue \
+  --region $REGION \
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${TX_MONITOR_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
+
 echo "SQS queues created successfully:"
 echo "- tx-request-queue (DLQ: invalid-dlq)"
 echo "- signed-tx-queue (DLQ: tx-dlq)"
 echo "- broadcast-tx-queue (DLQ: broadcast-dlq)"
+echo "- tx-monitor-queue (DLQ: tx-monitor-dlq)"
 echo "- invalid-dlq"
 echo "- tx-dlq"
 echo "- broadcast-dlq"
+echo "- tx-monitor-dlq"
 
 # Create development secrets in Secrets Manager (using Hardhat's first account)
 # Create signing-service private key (matches SIGNING_SERVICE_PRIVATE_KEY_SECRET default value)

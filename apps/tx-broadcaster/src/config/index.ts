@@ -21,6 +21,7 @@ export interface AppConfig {
   // Queue URLs
   TX_REQUEST_QUEUE_URL: string;
   BROADCAST_QUEUE_URL: string;
+  TX_MONITOR_QUEUE_URL: string;
 
   // Blockchain Configuration
   RPC_URL: string;
@@ -80,6 +81,7 @@ export const config: AppConfig = {
   // Queue URLs
   TX_REQUEST_QUEUE_URL: getRequiredEnv('TX_REQUEST_QUEUE_URL'),
   BROADCAST_QUEUE_URL: getRequiredEnv('BROADCAST_QUEUE_URL'),
+  TX_MONITOR_QUEUE_URL: getRequiredEnv('TX_MONITOR_QUEUE_URL'),
 
   // Blockchain Configuration
   RPC_URL: getOptionalEnv('RPC_URL', 'https://rpc-amoy.polygon.technology')!,
@@ -101,6 +103,9 @@ export function validateConfig(): void {
   }
   if (!config.BROADCAST_QUEUE_URL) {
     throw new Error('BROADCAST_QUEUE_URL is required');
+  }
+  if (!config.TX_MONITOR_QUEUE_URL) {
+    throw new Error('TX_MONITOR_QUEUE_URL is required');
   }
 
   // Validate blockchain configuration

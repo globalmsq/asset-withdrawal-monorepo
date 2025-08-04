@@ -106,4 +106,24 @@ export function validateConfig(): void {
   }
 
   console.log('[tx-broadcaster] Configuration validated successfully');
+  logEnvironmentOverrides();
+}
+
+function logEnvironmentOverrides(): void {
+  console.log('[tx-broadcaster] Environment configuration:');
+  
+  if (process.env.RPC_URL) {
+    console.log(`  - RPC_URL override: ${process.env.RPC_URL}`);
+  } else {
+    console.log(`  - RPC_URL default: ${config.RPC_URL}`);
+  }
+  
+  if (process.env.CHAIN_ID) {
+    console.log(`  - CHAIN_ID override: ${process.env.CHAIN_ID}`);
+  } else {
+    console.log(`  - CHAIN_ID default: ${config.CHAIN_ID}`);
+  }
+  
+  console.log('  - Dynamic chain support enabled via chains.config.json');
+  console.log('  - Environment variables take precedence over config file');
 }

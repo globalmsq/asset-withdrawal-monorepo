@@ -62,9 +62,9 @@ export class SQSWorker {
 
   private async testConnections(): Promise<void> {
     try {
-      // Test blockchain connection
+      // Test blockchain connection (default environment provider)
       const networkStatus = await this.broadcaster.getNetworkStatus();
-      console.log(`[tx-broadcaster] Connected to blockchain - Chain ID: ${networkStatus.chainId}, Block: ${networkStatus.blockNumber}`);
+      console.log(`[tx-broadcaster] Connected to default blockchain - Chain ID: ${networkStatus.chainId}, Block: ${networkStatus.blockNumber}`);
 
       // Test Redis connection
       if (this.redisService) {
@@ -140,7 +140,7 @@ export class SQSWorker {
 
   private async handleSignedTransaction(txMessage: SignedTransactionMessage): Promise<ProcessingResult> {
     try {
-      const { transactionHash, signedTransaction } = txMessage;
+      const { transactionHash, signedTransaction, chainId } = txMessage;
 
       // Check if already processed using Redis
       if (this.redisService) {
@@ -159,8 +159,10 @@ export class SQSWorker {
       }
 
       try {
-        // Validate transaction
-        const validation = await this.broadcaster.validateTransaction(signedTransaction);
+        console.log(`[tx-broadcaster] Processing transaction for chain ID: ${chainId}`);
+
+        // Validate transaction with expected chain ID
+        const validation = await this.broadcaster.validateTransaction(signedTransaction, chainId);
         if (!validation.valid) {
           return {
             success: false,
@@ -170,9 +172,9 @@ export class SQSWorker {
         }
 
         // Check if transaction already exists on blockchain
-        const exists = await this.broadcaster.transactionExists(transactionHash);
+        const exists = await this.broadcaster.transactionExists(transactionHash, chainId);
         if (exists) {
-          console.log(`[tx-broadcaster] Transaction ${transactionHash} already exists on blockchain`);
+          console.log(`[tx-broadcaster] Transaction ${transactionHash} already exists on chain ${chainId}`);
           
           // Mark as broadcasted in Redis
           if (this.redisService) {
@@ -188,8 +190,8 @@ export class SQSWorker {
           return { success: true, shouldRetry: false };
         }
 
-        // Broadcast transaction
-        const broadcastResult = await this.broadcaster.broadcastTransaction(signedTransaction);
+        // Broadcast transaction with chain ID
+        const broadcastResult = await this.broadcaster.broadcastTransaction(signedTransaction, chainId);
         
         if (broadcastResult.success) {
           // Mark as broadcasted in Redis
@@ -282,10 +284,24 @@ export class SQSWorker {
     
     const retryableErrors = [
       'NETWORK_ERROR',
-      'SERVER_ERROR',
+      'SERVER_ERROR', 
       'NONCE_OR_GAS_ERROR',
       'CONFIRMATION_TIMEOUT',
+      'PROVIDER_ERROR',
     ];
+
+    const nonRetryableErrors = [
+      'Unsupported chain ID',
+      'Transaction validation failed',
+      'Transaction chain ID',
+      'does not match expected',
+      'INSUFFICIENT_FUNDS',
+    ];
+
+    // Check for non-retryable errors first
+    if (nonRetryableErrors.some(nonRetryableError => error.includes(nonRetryableError))) {
+      return false;
+    }
 
     return retryableErrors.some(retryableError => error.includes(retryableError));
   }

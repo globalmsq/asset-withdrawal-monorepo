@@ -1,26 +1,44 @@
 import { ethers } from 'ethers';
 import { config } from '../config';
 import { BroadcastResult, BroadcastError, BlockchainTransaction } from '../types';
+import { getChainConfigService, ChainConfigService } from './chain-config.service';
 
 export class TransactionBroadcaster {
-  private provider: ethers.JsonRpcProvider;
+  private chainConfigService: ChainConfigService;
+  private defaultProvider: ethers.JsonRpcProvider;
 
   constructor() {
-    this.provider = new ethers.JsonRpcProvider(config.RPC_URL);
+    this.chainConfigService = getChainConfigService();
+    // 기본 프로바이더 (환경변수 기반)
+    this.defaultProvider = new ethers.JsonRpcProvider(config.RPC_URL);
+    
+    // 지원되는 체인 정보 로깅
+    this.chainConfigService.logSupportedChains();
   }
 
   // Broadcast a signed transaction to the blockchain
-  async broadcastTransaction(signedTransaction: string): Promise<BroadcastResult> {
+  async broadcastTransaction(signedTransaction: string, chainId?: number): Promise<BroadcastResult> {
     try {
       console.log('[tx-broadcaster] Broadcasting transaction...');
       
       // Parse the signed transaction to validate it
       const parsedTx = ethers.Transaction.from(signedTransaction);
-      console.log(`[tx-broadcaster] Parsed transaction hash: ${parsedTx.hash}`);
+      const txChainId = chainId || Number(parsedTx.chainId);
+      
+      console.log(`[tx-broadcaster] Parsed transaction hash: ${parsedTx.hash}, Chain ID: ${txChainId}`);
+
+      // 체인 ID에 맞는 프로바이더 선택
+      const provider = this.getProviderForChain(txChainId);
+      if (!provider) {
+        return {
+          success: false,
+          error: `Unsupported chain ID: ${txChainId}. Supported chains: ${this.chainConfigService.getSupportedChainIds().join(', ')}`,
+        };
+      }
 
       // Send the transaction
-      const response = await this.provider.broadcastTransaction(signedTransaction);
-      console.log(`[tx-broadcaster] Transaction broadcasted: ${response.hash}`);
+      const response = await provider.broadcastTransaction(signedTransaction);
+      console.log(`[tx-broadcaster] Transaction broadcasted: ${response.hash} on chain ${txChainId}`);
 
       return {
         success: true,
@@ -35,13 +53,22 @@ export class TransactionBroadcaster {
   // Wait for transaction confirmation (optional - might be handled by tx-monitor service)
   async waitForConfirmation(
     transactionHash: string,
+    chainId: number,
     confirmations: number = 1,
     timeoutMs: number = 300000 // 5 minutes
   ): Promise<BroadcastResult> {
     try {
-      console.log(`[tx-broadcaster] Waiting for ${confirmations} confirmations for ${transactionHash}...`);
+      console.log(`[tx-broadcaster] Waiting for ${confirmations} confirmations for ${transactionHash} on chain ${chainId}...`);
       
-      const receipt = await this.provider.waitForTransaction(
+      const provider = this.getProviderForChain(chainId);
+      if (!provider) {
+        return {
+          success: false,
+          error: `Unsupported chain ID for confirmation: ${chainId}`,
+        };
+      }
+
+      const receipt = await provider.waitForTransaction(
         transactionHash,
         confirmations,
         timeoutMs
@@ -69,13 +96,14 @@ export class TransactionBroadcaster {
   }
 
   // Validate transaction before broadcasting
-  async validateTransaction(signedTransaction: string): Promise<{
+  async validateTransaction(signedTransaction: string, expectedChainId?: number): Promise<{
     valid: boolean;
     error?: string;
     transaction?: BlockchainTransaction;
   }> {
     try {
       const parsedTx = ethers.Transaction.from(signedTransaction);
+      const txChainId = Number(parsedTx.chainId);
       
       // Basic validation
       if (!parsedTx.to) {
@@ -86,10 +114,19 @@ export class TransactionBroadcaster {
         return { valid: false, error: 'Transaction value must be non-negative' };
       }
 
-      if (Number(parsedTx.chainId) !== config.CHAIN_ID) {
+      // 체인 ID 검증 (동적)
+      if (expectedChainId && txChainId !== expectedChainId) {
         return { 
           valid: false, 
-          error: `Transaction chain ID ${parsedTx.chainId} does not match expected ${config.CHAIN_ID}` 
+          error: `Transaction chain ID ${txChainId} does not match expected ${expectedChainId}` 
+        };
+      }
+
+      // 지원되는 체인인지 확인
+      if (!this.chainConfigService.isChainSupported(txChainId)) {
+        return {
+          valid: false,
+          error: `Unsupported chain ID: ${txChainId}. Supported chains: ${this.chainConfigService.getSupportedChainIds().join(', ')}`
         };
       }
 
@@ -107,7 +144,7 @@ export class TransactionBroadcaster {
         gasPrice: parsedTx.gasPrice!.toString(),
         nonce: parsedTx.nonce,
         data: parsedTx.data,
-        chainId: Number(parsedTx.chainId!),
+        chainId: txChainId,
       };
 
       return { valid: true, transaction };
@@ -119,17 +156,27 @@ export class TransactionBroadcaster {
     }
   }
 
-  // Get current network status
-  async getNetworkStatus(): Promise<{
+  // Get current network status for a specific chain
+  async getNetworkStatus(chainId?: number): Promise<{
     blockNumber: number;
     gasPrice: string;
     chainId: number;
   }> {
     try {
+      const provider = chainId ? this.getProviderForChain(chainId) : this.defaultProvider;
+      
+      if (!provider) {
+        throw new BroadcastError(
+          `No provider available for chain ID: ${chainId}`,
+          'PROVIDER_ERROR',
+          false
+        );
+      }
+
       const [blockNumber, gasPrice, network] = await Promise.all([
-        this.provider.getBlockNumber(),
-        this.provider.getFeeData(),
-        this.provider.getNetwork(),
+        provider.getBlockNumber(),
+        provider.getFeeData(),
+        provider.getNetwork(),
       ]);
 
       return {
@@ -138,7 +185,7 @@ export class TransactionBroadcaster {
         chainId: Number(network.chainId),
       };
     } catch (error) {
-      console.error('[tx-broadcaster] Failed to get network status:', error);
+      console.error(`[tx-broadcaster] Failed to get network status for chain ${chainId}:`, error);
       throw new BroadcastError(
         'Failed to get network status',
         'NETWORK_ERROR',
@@ -149,15 +196,37 @@ export class TransactionBroadcaster {
   }
 
   // Check if transaction already exists on blockchain
-  async transactionExists(transactionHash: string): Promise<boolean> {
+  async transactionExists(transactionHash: string, chainId?: number): Promise<boolean> {
     try {
-      const receipt = await this.provider.getTransactionReceipt(transactionHash);
+      const provider = chainId ? this.getProviderForChain(chainId) : this.defaultProvider;
+      
+      if (!provider) {
+        console.warn(`[tx-broadcaster] No provider available for chain ${chainId}, assuming transaction doesn't exist`);
+        return false;
+      }
+
+      const receipt = await provider.getTransactionReceipt(transactionHash);
       return receipt !== null;
     } catch (error) {
       // If we can't check, assume it doesn't exist and let broadcast handle duplicates
-      console.warn(`[tx-broadcaster] Could not check transaction existence for ${transactionHash}:`, error);
+      console.warn(`[tx-broadcaster] Could not check transaction existence for ${transactionHash} on chain ${chainId}:`, error);
       return false;
     }
+  }
+
+  /**
+   * 체인 ID에 해당하는 프로바이더를 가져옵니다
+   * 환경변수가 설정된 경우 우선 사용합니다
+   */
+  private getProviderForChain(chainId: number): ethers.JsonRpcProvider | null {
+    // 환경변수로 설정된 체인 ID와 일치하면 기본 프로바이더 사용
+    if (chainId === config.CHAIN_ID) {
+      console.log(`[tx-broadcaster] Using environment-configured provider for chain ${chainId}`);
+      return this.defaultProvider;
+    }
+
+    // chains.config.json에서 프로바이더 가져오기
+    return this.chainConfigService.getProvider(chainId);
   }
 
   private handleBroadcastError(error: any): BroadcastResult {

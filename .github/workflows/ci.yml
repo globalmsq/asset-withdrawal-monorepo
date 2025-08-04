@@ -32,23 +32,20 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
       - name: Run ESLint
-        run: npm run lint
+        run: yarn lint
 
       - name: Run TypeScript check
-        run: npm run typecheck
+        run: yarn typecheck
 
       - name: Run dependency check
-        run: npm run depcheck
+        run: yarn depcheck
         continue-on-error: true
 
       - name: Check code formatting
         run: |
-          npm run format
-          git diff --exit-code || (echo "Code is not properly formatted. Please run 'npm run format' locally." && exit 1)
+          yarn format
+          git diff --exit-code || (echo "Code is not properly formatted. Please run 'yarn format' locally." && exit 1)
 
   test:
     name: Test Suite
@@ -71,11 +68,8 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
       - name: Run tests with coverage
-        run: npm run coverage
+        run: yarn coverage
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
@@ -107,11 +101,8 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Generate Prisma Client
-        run: npx prisma generate
-
       - name: Build all packages
-        run: npm run build
+        run: yarn build
 
       - name: Verify build artifacts
         run: |

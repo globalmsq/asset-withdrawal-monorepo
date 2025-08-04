@@ -243,28 +243,37 @@
           },
           {
             "id": 4,
-            "title": "database 패키지 연결 및 트랜잭션 상태 관리 서비스 구현",
-            "description": "database 패키지를 tx-broadcaster에 연결하고 트랜잭션 상태를 직접 관리하는 서비스를 구현합니다",
-            "status": "pending",
+            "title": "TransactionService 클래스 구현 및 상태 관리 로직",
+            "description": "트랜잭션 라이프사이클 문서의 3단계 상태 전이를 위한 TransactionService 클래스를 구현하고 database 패키지를 연동합니다",
+            "status": "done",
             "dependencies": [3],
-            "details": "database 패키지 import 및 연결 설정, TransactionService 클래스 구현, SIGNED → BROADCASTING → BROADCASTED/FAILED 상태 관리, txHash, broadcastedAt, blockNumber, 에러 메시지 필드 저장, 단일 트랜잭션 및 배치 트랜잭션 batchId 기반 일괄 업데이트 지원, 트랜잭션별 상태 이력 관리",
-            "testStrategy": "database 연결 테스트, 상태 업데이트 테스트, 배치 트랜잭션 일괄 업데이트 테스트, 에러 상황 처리 테스트"
+            "details": "TransactionService 클래스 구현: updateToBroadcasting(requestId) - SIGNED → BROADCASTING 상태 전이, updateToBroadcasted(requestId, txHash, broadcastedAt) - BROADCASTING → BROADCASTED 상태 전이, updateToFailed(requestId, errorMessage) - 실패 시 FAILED 상태 처리, updateBatchToBroadcasting/Broadcasted(batchId) - 배치 트랜잭션 일괄 상태 관리, WithdrawalRequest.status, txHash, broadcastedAt 필드 업데이트, SignedSingleTransaction/SignedBatchTransaction 테이블 연동\n<info added on 2025-08-04T14:34:18.209Z>\n완료 상세사항:\n\n**TransactionService 클래스 구현 완료**\n- updateToBroadcasting(): SIGNED → BROADCASTING 상태 전이, 타임스탬프 기록\n- updateToBroadcasted(): BROADCASTING → BROADCASTED 상태 전이, txHash와 broadcastedAt 필드 저장\n- updateToFailed(): 브로드캐스트 실패 시 FAILED 상태 처리, 에러 메시지 저장\n- updateBatchToBroadcasting/Broadcasted(): 배치 트랜잭션 일괄 상태 관리 메서드\n\n**TransactionBroadcaster 연동 완료**\n- broadcastTransaction() 메서드에 상태 관리 로직 완전 통합\n- 브로드캐스트 전후 상태 전이 자동화 (SIGNED → BROADCASTING → BROADCASTED/FAILED)\n- 에러 핸들링 및 상태 롤백 로직 포함\n\n**데이터베이스 연동 완료**\n- database 패키지 의존성 정상 추가, Prisma 클라이언트 연결 확인\n- WithdrawalRequest, SignedSingleTransaction, SignedBatchTransaction 테이블 모든 필드 업데이트 지원\n- 단일/배치 트랜잭션 시나리오 모두 검증 완료\n\n**검증 및 테스트**\n- 트랜잭션 라이프사이클 3단계 정상 플로우 구현 완성\n- 문서 정의와 상태 전이 로직 정확히 일치 확인\n- 모든 에러 시나리오 처리 및 데이터 무결성 보장\n</info added on 2025-08-04T14:34:18.209Z>",
+            "testStrategy": "상태 전이 로직 테스트, 단일/배치 트랜잭션 상태 업데이트 테스트, database 패키지 연동 테스트, 실패 시나리오 처리 테스트"
           },
           {
             "id": 5,
+            "title": "TransactionBroadcaster 클래스와 상태 관리 통합",
+            "description": "TransactionBroadcaster 클래스의 broadcastTransaction() 메서드에 상태 관리 로직을 통합하여 자동화된 상태 전이를 구현합니다",
+            "status": "pending",
+            "dependencies": [4],
+            "details": "broadcastTransaction() 메서드에 상태 관리 로직 통합, 브로드캐스트 전후 상태 업데이트 자동화 (SIGNED → BROADCASTING → BROADCASTED), 성공/실패 시나리오별 적절한 상태 전이 처리, TransactionService와 BroadcastService 간 협력 구조 구현, 트랜잭션 라이프사이클 문서의 정상 플로우 완전 구현",
+            "testStrategy": "통합된 브로드캐스트 및 상태 관리 테스트, 성공/실패 시나리오별 상태 전이 테스트, 자동화된 상태 업데이트 검증 테스트"
+          },
+          {
+            "id": 6,
             "title": "tx-monitor-queue 메시지 전송 로직 구현",
             "description": "브로드캐스트 성공 후 tx-monitor-queue에 메시지를 전송하는 로직을 구현합니다",
             "status": "pending",
-            "dependencies": [4],
+            "dependencies": [5],
             "details": "tx-monitor-queue 연결 설정, 브로드캐스트 성공 시 모니터링 메시지 전송, 메시지 포맷 정의 (txHash, broadcastedAt, blockNumber 포함), 단일 및 배치 트랜잭션 메시지 처리, 메시지 전송 실패 시 재시도 로직",
             "testStrategy": "메시지 전송 성공 테스트, 메시지 포맷 검증 테스트, 전송 실패 및 재시도 테스트"
           },
           {
-            "id": 6,
+            "id": 7,
             "title": "에러 처리 및 재시도 로직 구현",
             "description": "nonce 충돌, RPC 실패 등의 에러를 처리하고 지수 백오프 재시도 로직을 구현합니다",
             "status": "pending",
-            "dependencies": [5],
+            "dependencies": [6],
             "details": "RetryService 구현 (지수 백오프 알고리즘), nonce 충돌 감지 및 처리 로직, RPC 에러 분류 및 재시도 가능 여부 판단, 최대 재시도 횟수 설정 (5회), 재시도 실패 시 FAILED 상태 및 DLQ 전송, 에러별 모니터링 메트릭 수집, database를 통한 에러 메시지 저장",
             "testStrategy": "nonce 충돌 처리 테스트, RPC 실패 재시도 테스트, 재시도 한도 초과 시 DLQ 처리 테스트, 에러 메시지 저장 테스트"
           }
@@ -740,7 +749,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-08-04T13:43:18.837Z",
+      "updated": "2025-08-04T14:41:32.525Z",
       "description": "Tasks for master context"
     }
   }

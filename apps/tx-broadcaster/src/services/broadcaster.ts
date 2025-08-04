@@ -9,15 +9,19 @@ import {
   getChainConfigService,
   ChainConfigService,
 } from './chain-config.service';
+import { TransactionService } from './transaction.service';
 
 export class TransactionBroadcaster {
   private chainConfigService: ChainConfigService;
   private defaultProvider: ethers.JsonRpcProvider;
+  private transactionService: TransactionService;
 
   constructor() {
     this.chainConfigService = getChainConfigService();
     // 기본 프로바이더 (환경변수 기반)
     this.defaultProvider = new ethers.JsonRpcProvider(config.RPC_URL);
+    // 트랜잭션 상태 관리 서비스
+    this.transactionService = new TransactionService();
 
     // 지원되는 체인 정보 로깅
     this.chainConfigService.logSupportedChains();
@@ -326,5 +330,159 @@ export class TransactionBroadcaster {
       success: false,
       error: broadcastError.message,
     };
+  }
+
+  /**
+   * Broadcast signed transaction with automatic state management
+   * Implements transaction lifecycle: SIGNED → BROADCASTING → BROADCASTED/FAILED
+   */
+  async broadcastTransactionWithStateManagement(
+    requestId: string,
+    signedTransaction: string,
+    chainId?: number
+  ): Promise<BroadcastResult> {
+    try {
+      // 1. Update status to BROADCASTING before broadcast
+      console.log(`[tx-broadcaster] Updating ${requestId} to BROADCASTING`);
+      await this.transactionService.updateToBroadcasting(requestId);
+
+      // 2. Perform the broadcast
+      const result = await this.broadcastTransaction(
+        signedTransaction,
+        chainId
+      );
+
+      if (result.success && result.transactionHash) {
+        // 3. Update status to BROADCASTED on success
+        console.log(`[tx-broadcaster] Updating ${requestId} to BROADCASTED`);
+        await this.transactionService.updateToBroadcasted(
+          requestId,
+          result.transactionHash,
+          new Date()
+        );
+
+        return result;
+      } else {
+        // 4. Update status to FAILED on broadcast failure
+        const errorMessage = result.error || 'Unknown broadcast error';
+        console.log(
+          `[tx-broadcaster] Updating ${requestId} to FAILED: ${errorMessage}`
+        );
+        await this.transactionService.updateToFailed(requestId, errorMessage);
+
+        return result;
+      }
+    } catch (error) {
+      // 5. Handle unexpected errors
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[tx-broadcaster] Unexpected error for ${requestId}:`,
+        error
+      );
+
+      try {
+        await this.transactionService.updateToFailed(requestId, errorMessage);
+      } catch (dbError) {
+        console.error(
+          `[tx-broadcaster] Failed to update ${requestId} to FAILED:`,
+          dbError
+        );
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Broadcast batch transaction with automatic state management
+   * Implements batch transaction lifecycle: SIGNED → BROADCASTING → BROADCASTED/FAILED
+   */
+  async broadcastBatchTransactionWithStateManagement(
+    batchId: string,
+    signedTransaction: string,
+    chainId?: number
+  ): Promise<BroadcastResult> {
+    try {
+      // 1. Update batch status to BROADCASTING before broadcast
+      console.log(`[tx-broadcaster] Updating batch ${batchId} to BROADCASTING`);
+      await this.transactionService.updateBatchToBroadcasting(batchId);
+
+      // 2. Perform the broadcast
+      const result = await this.broadcastTransaction(
+        signedTransaction,
+        chainId
+      );
+
+      if (result.success && result.transactionHash) {
+        // 3. Update batch status to BROADCASTED on success
+        console.log(
+          `[tx-broadcaster] Updating batch ${batchId} to BROADCASTED`
+        );
+        await this.transactionService.updateBatchToBroadcasted(
+          batchId,
+          result.transactionHash,
+          new Date()
+        );
+
+        return result;
+      } else {
+        // 4. Update batch status to FAILED on broadcast failure
+        const errorMessage = result.error || 'Unknown broadcast error';
+        console.log(
+          `[tx-broadcaster] Updating batch ${batchId} to FAILED: ${errorMessage}`
+        );
+        await this.transactionService.updateBatchToFailed(
+          batchId,
+          errorMessage
+        );
+
+        return result;
+      }
+    } catch (error) {
+      // 5. Handle unexpected errors
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      console.error(
+        `[tx-broadcaster] Unexpected error for batch ${batchId}:`,
+        error
+      );
+
+      try {
+        await this.transactionService.updateBatchToFailed(
+          batchId,
+          errorMessage
+        );
+      } catch (dbError) {
+        console.error(
+          `[tx-broadcaster] Failed to update batch ${batchId} to FAILED:`,
+          dbError
+        );
+      }
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Get withdrawal request status
+   * Utility method for checking transaction state
+   */
+  async getTransactionStatus(requestId: string) {
+    return await this.transactionService.getWithdrawalRequest(requestId);
+  }
+
+  /**
+   * Get batch transaction status
+   * Utility method for checking batch transaction state
+   */
+  async getBatchTransactionStatus(batchId: string) {
+    return await this.transactionService.getBatchWithdrawalRequests(batchId);
   }
 }

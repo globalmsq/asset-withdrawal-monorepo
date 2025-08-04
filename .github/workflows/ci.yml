@@ -52,9 +52,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma Client
-        run: pnpm run db:generate
-
       - name: Run ESLint
         run: pnpm lint
 
@@ -109,9 +106,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma Client
-        run: pnpm run db:generate
-
       - name: Run tests with coverage
         run: pnpm coverage
 
@@ -164,9 +158,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma Client
-        run: pnpm run db:generate
 
       - name: Build all packages
         run: pnpm build

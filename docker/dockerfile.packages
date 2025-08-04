@@ -34,7 +34,7 @@ COPY packages/ ./packages/
 RUN npx prisma generate
 
 # Production stage for api-server
-FROM node:22-alpine AS api-server
+FROM base AS api-server
 
 WORKDIR /app
 
@@ -63,7 +63,7 @@ WORKDIR /app/apps/api-server
 CMD ["npm", "start"]
 
 # Production stage for signing-service
-FROM node:22-alpine AS signing-service
+FROM base AS signing-service
 
 WORKDIR /app
 
@@ -91,60 +91,3 @@ EXPOSE 3005
 WORKDIR /app/apps/signing-service
 CMD ["npm", "start"]
 
-# Production stage for tx-processor
-FROM node:22-alpine AS tx-processor
-
-WORKDIR /app
-
-# Copy source files and dependencies from base stage
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=base /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=base /app/nx.json ./nx.json
-COPY --from=base /app/tsconfig.json ./tsconfig.json
-COPY --from=base /app/apps ./apps
-COPY --from=base /app/packages ./packages
-COPY --from=base /app/prisma ./prisma
-COPY --from=base /app/node_modules ./node_modules
-
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3001
-ENV DOCKER=true
-
-# Expose port
-EXPOSE 3001
-
-# Change to tx-processor directory and start the application
-WORKDIR /app/apps/tx-processor
-CMD ["npm", "start"]
-
-# Production stage for tx-monitor
-FROM node:22-alpine AS tx-monitor
-
-WORKDIR /app
-
-# Copy source files and dependencies from base stage
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=base /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=base /app/nx.json ./nx.json
-COPY --from=base /app/tsconfig.json ./tsconfig.json
-COPY --from=base /app/apps ./apps
-COPY --from=base /app/packages ./packages
-COPY --from=base /app/prisma ./prisma
-COPY --from=base /app/node_modules ./node_modules
-
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3002
-ENV DOCKER=true
-
-# Expose port
-EXPOSE 3002
-
-# Change to tx-monitor directory and start the application
-WORKDIR /app/apps/tx-monitor
-CMD ["npm", "start"]

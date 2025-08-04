@@ -39,10 +39,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.18'
-          cache: 'yarn'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Get affected projects
         id: affected
@@ -85,16 +103,34 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22.18'
-          cache: 'yarn'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Restore Nx cache
         uses: actions/cache@v4
         with:
           path: .nx/cache
-          key: nx-cache-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+          key: nx-cache-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             nx-cache-${{ runner.os }}-
 
@@ -106,7 +142,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .nx/cache
-          key: nx-cache-${{ runner.os }}-${{ hashFiles('**/yarn.lock') }}
+          key: nx-cache-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
 
   # Docker build and ECR push (parallel processing) - Production
   build-and-push-production:

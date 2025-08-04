@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "bootstrap": "yarn install",
+    "bootstrap": "pnpm install",
     "build": "nx run-many --target=build --exclude=tx-monitor",
     "clean": "nx run-many --target=clean && rm -rf node_modules .nx/cache",
     "dev": "nx run-many --target=dev --parallel",
@@ -51,6 +51,7 @@
     "@typescript-eslint/parser": "^7.7.1",
     "@vercel/ncc": "^0.38.3",
     "depcheck": "^1.4.7",
+    "dotenv": "^16.6.1",
     "esbuild": "^0.19.2",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^10.1.8",

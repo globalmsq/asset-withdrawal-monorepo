@@ -156,7 +156,7 @@ git push origin main
 ### 1. Nx Cache
 
 - **Location**: `.nx/cache` directory
-- **Key**: `nx-cache-{os}-{yarn.lock-hash}`
+- **Key**: `nx-cache-{os}-{pnpm-lock.yaml-hash}`
 - **Benefit**: Reduces build time by reusing previous build artifacts
 
 ### 2. Docker Layer Cache
@@ -165,11 +165,11 @@ git push origin main
 - **ECR Registry**: `type=registry` for cross-runner sharing
 - **Benefit**: Faster Docker builds through layer reuse
 
-### 3. Yarn Cache
+### 3. pnpm Cache
 
-- **Location**: `node_modules`
-- **Key**: Automatic through `actions/setup-node@v4`
-- **Benefit**: Faster dependency installation
+- **Location**: pnpm store directory
+- **Key**: `{os}-pnpm-store-{pnpm-lock.yaml-hash}`
+- **Benefit**: Faster dependency installation with hard links
 
 ## Optimization Tips
 
@@ -177,8 +177,8 @@ git push origin main
 
 ```dockerfile
 # Separate dependency layers
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
@@ -221,7 +221,7 @@ docker builder prune
 ### 2. Build Failures
 
 - Check workflow logs for specific error messages
-- Verify dependency issues in `yarn.lock`
+- Verify dependency issues in `pnpm-lock.yaml`
 - Ensure Docker layer cache is not corrupted
 
 ### 3. Permission Issues

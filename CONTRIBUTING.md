@@ -21,6 +21,7 @@
 3. 명확하고 상세한 설명을 제공하세요
 
 #### 버그 보고 시 포함 사항
+
 - 버그에 대한 명확한 설명
 - 재현 단계
 - 예상 동작과 실제 동작
@@ -28,6 +29,7 @@
 - 가능하다면 스크린샷이나 로그
 
 #### 기능 제안 시 포함 사항
+
 - 기능의 목적과 이점
 - 사용 사례
 - 가능한 구현 방법
@@ -36,6 +38,7 @@
 ### 2. Pull Request 제출
 
 #### 준비 작업
+
 1. 저장소를 포크합니다
 2. 새 브랜치를 생성합니다: `git checkout -b feature/your-feature-name`
 3. 변경사항을 작성합니다
@@ -43,6 +46,7 @@
 5. 커밋 메시지 규칙을 따릅니다
 
 #### 커밋 메시지 규칙
+
 ```
 <type>(<scope>): <subject>
 
@@ -52,6 +56,7 @@
 ```
 
 **Type:**
+
 - `feat`: 새로운 기능
 - `fix`: 버그 수정
 - `docs`: 문서 변경
@@ -61,6 +66,7 @@
 - `chore`: 빌드 프로세스 또는 도구 변경
 
 **예시:**
+
 ```
 feat(api): 일괄 출금 엔드포인트 추가
 
@@ -72,6 +78,7 @@ Closes #123
 ```
 
 #### PR 체크리스트
+
 - [ ] 코드가 프로젝트 스타일 가이드를 따릅니다
 - [ ] 모든 테스트가 통과합니다
 - [ ] 새로운 기능에 대한 테스트를 추가했습니다
@@ -81,6 +88,7 @@ Closes #123
 ### 3. 코드 스타일
 
 #### TypeScript
+
 - 엄격한 타입 사용 (`strict: true`)
 - 인터페이스는 `I` 접두사 사용 (예: `IUser`)
 - 열거형은 PascalCase 사용
@@ -110,6 +118,7 @@ async function processWithdrawal(request) {
 ```
 
 #### 디렉토리 구조
+
 ```
 src/
 ├── controllers/    # 요청 핸들러
@@ -124,16 +133,17 @@ src/
 ### 4. 테스트 작성
 
 #### 단위 테스트
+
 ```typescript
 describe('WithdrawalService', () => {
   describe('createWithdrawal', () => {
     it('유효한 요청으로 출금을 생성해야 함', async () => {
       // Given
       const request = { amount: 100n, userId: '123' };
-      
+
       // When
       const result = await service.createWithdrawal(request);
-      
+
       // Then
       expect(result).toBeDefined();
       expect(result.status).toBe('PENDING');
@@ -147,6 +157,7 @@ describe('WithdrawalService', () => {
 ```
 
 #### 통합 테스트
+
 ```typescript
 describe('POST /api/v1/withdrawals', () => {
   it('인증된 사용자가 출금을 요청할 수 있어야 함', async () => {
@@ -154,7 +165,7 @@ describe('POST /api/v1/withdrawals', () => {
       .post('/api/v1/withdrawals')
       .set('Authorization', `Bearer ${token}`)
       .send({ amount: '100', tokenAddress: '0x...' });
-    
+
     expect(response.status).toBe(201);
     expect(response.body).toHaveProperty('id');
   });
@@ -164,6 +175,7 @@ describe('POST /api/v1/withdrawals', () => {
 ### 5. 문서화
 
 #### 코드 주석
+
 - 복잡한 로직에는 설명 추가
 - JSDoc을 사용한 함수 문서화
 - TODO와 FIXME 사용 시 이슈 번호 포함
@@ -175,9 +187,11 @@ describe('POST /api/v1/withdrawals', () => {
  * @returns 처리된 출금 정보
  * @throws {InsufficientBalanceError} 잔액이 부족한 경우
  */
-async function processWithdrawal(request: IWithdrawalRequest): Promise<IWithdrawal> {
+async function processWithdrawal(
+  request: IWithdrawalRequest
+): Promise<IWithdrawal> {
   // TODO(#456): 배치 처리 최적화 필요
-  
+
   // 복잡한 가스 계산 로직
   // 1. 현재 네트워크 가스 가격 조회
   // 2. 트랜잭션 복잡도에 따른 가스 한도 계산
@@ -187,6 +201,7 @@ async function processWithdrawal(request: IWithdrawalRequest): Promise<IWithdraw
 ```
 
 #### API 문서
+
 - OpenAPI 3.0 스펙 유지
 - 모든 엔드포인트에 대한 예시 포함
 - 오류 응답 문서화

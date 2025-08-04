@@ -94,6 +94,7 @@ DAILY_WITHDRAWAL_LIMIT=5000000
 ### 검증 규칙
 
 1. **잔액 검증**
+
    ```typescript
    // 사용자 잔액이 출금 금액보다 많은지 확인
    if (userBalance < withdrawalAmount) {
@@ -102,6 +103,7 @@ DAILY_WITHDRAWAL_LIMIT=5000000
    ```
 
 2. **한도 검증**
+
    ```typescript
    // 일일 출금 한도 확인
    const dailyTotal = await getDailyWithdrawalTotal(userId);
@@ -122,57 +124,60 @@ DAILY_WITHDRAWAL_LIMIT=5000000
 
 ```typescript
 enum ProcessingStatus {
-  RECEIVED = 'RECEIVED',        // 큐에서 수신
-  VALIDATING = 'VALIDATING',    // 검증 중
-  VALIDATED = 'VALIDATED',      // 검증 완료
-  QUEUED = 'QUEUED',           // 서명 큐 전송
-  FAILED = 'FAILED',           // 처리 실패
-  RETRYING = 'RETRYING'        // 재시도 중
+  RECEIVED = 'RECEIVED', // 큐에서 수신
+  VALIDATING = 'VALIDATING', // 검증 중
+  VALIDATED = 'VALIDATED', // 검증 완료
+  QUEUED = 'QUEUED', // 서명 큐 전송
+  FAILED = 'FAILED', // 처리 실패
+  RETRYING = 'RETRYING', // 재시도 중
 }
 ```
 
 ## 워크플로우 관리
 
 ### 상태 머신
+
 ```typescript
 const workflow = new StateMachine({
   initial: 'received',
   states: {
     received: {
-      on: { VALIDATE: 'validating' }
+      on: { VALIDATE: 'validating' },
     },
     validating: {
       on: {
         VALID: 'validated',
-        INVALID: 'failed'
-      }
+        INVALID: 'failed',
+      },
     },
     validated: {
-      on: { QUEUE: 'queued' }
+      on: { QUEUE: 'queued' },
     },
     queued: {
-      on: { COMPLETE: 'completed' }
+      on: { COMPLETE: 'completed' },
     },
     failed: {
-      on: { RETRY: 'retrying' }
-    }
-  }
+      on: { RETRY: 'retrying' },
+    },
+  },
 });
 ```
 
 ### 배치 처리
+
 ```typescript
 // 동일 사용자의 여러 출금을 배치로 처리
 const batchProcessor = new BatchProcessor({
   batchSize: 50,
   flushInterval: 5000,
-  groupBy: 'userId'
+  groupBy: 'userId',
 });
 ```
 
 ## 실행 방법
 
 ### 개발 환경
+
 ```bash
 # 개발 서버 실행
 npm run dev:processor
@@ -182,6 +187,7 @@ npm run test:processor
 ```
 
 ### 프로덕션
+
 ```bash
 # 빌드
 npm run build:processor
@@ -193,6 +199,7 @@ npm run serve:processor
 ## 모니터링
 
 ### 메트릭
+
 - `processor_messages_processed`: 처리된 메시지 수
 - `processor_validation_failures`: 검증 실패 수
 - `processor_processing_duration`: 처리 시간
@@ -200,6 +207,7 @@ npm run serve:processor
 - `processor_batch_size`: 배치 크기
 
 ### 헬스 체크
+
 ```typescript
 // 헬스 체크 엔드포인트
 app.get('/health', (req, res) => {
@@ -207,7 +215,7 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     uptime: process.uptime(),
     queueConnection: queueClient.isConnected(),
-    dbConnection: await checkDatabaseConnection()
+    dbConnection: await checkDatabaseConnection(),
   };
   res.json(health);
 });
@@ -216,16 +224,18 @@ app.get('/health', (req, res) => {
 ## 에러 처리
 
 ### 에러 유형
+
 1. **검증 에러**: 비즈니스 규칙 위반
 2. **시스템 에러**: 인프라 또는 연결 문제
 3. **타임아웃 에러**: 처리 시간 초과
 
 ### 재시도 전략
+
 ```typescript
 const retryStrategy = {
   validation_error: { retry: false },
   system_error: { retry: true, maxAttempts: 3 },
-  timeout_error: { retry: true, maxAttempts: 2 }
+  timeout_error: { retry: true, maxAttempts: 2 },
 };
 ```
 

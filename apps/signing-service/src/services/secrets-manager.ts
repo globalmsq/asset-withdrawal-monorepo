@@ -140,7 +140,10 @@ export class SecureSecretsManager {
   // Encryption helpers for additional security
   private encrypt(text: string): string {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.createHash('sha256').update(this.config.encryptionKey).digest();
+    const key = crypto
+      .createHash('sha256')
+      .update(this.config.encryptionKey)
+      .digest();
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv(algorithm, key, iv);
 
@@ -154,7 +157,10 @@ export class SecureSecretsManager {
 
   private decrypt(encryptedData: string): string {
     const algorithm = 'aes-256-gcm';
-    const key = crypto.createHash('sha256').update(this.config.encryptionKey).digest();
+    const key = crypto
+      .createHash('sha256')
+      .update(this.config.encryptionKey)
+      .digest();
     const parts = encryptedData.split(':');
 
     const iv = Buffer.from(parts[0], 'hex');

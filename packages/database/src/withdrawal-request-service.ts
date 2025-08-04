@@ -110,7 +110,7 @@ export class WithdrawalRequestService {
       where: { batchId },
       orderBy: { createdAt: 'asc' },
     });
-    return prismaRequests.map((req) => this.convertToWithdrawalRequest(req));
+    return prismaRequests.map(req => this.convertToWithdrawalRequest(req));
   }
 
   async createBatchWithdrawalRequests(
@@ -126,7 +126,7 @@ export class WithdrawalRequestService {
     }>
   ): Promise<WithdrawalRequest[]> {
     const prismaRequests = await this.prisma.$transaction(
-      requests.map((req) =>
+      requests.map(req =>
         this.prisma.withdrawalRequest.create({
           data: {
             ...req,
@@ -136,7 +136,7 @@ export class WithdrawalRequestService {
         })
       )
     );
-    return prismaRequests.map((req) => this.convertToWithdrawalRequest(req));
+    return prismaRequests.map(req => this.convertToWithdrawalRequest(req));
   }
 
   async updateBatchStatus(

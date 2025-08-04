@@ -1,7 +1,7 @@
 import { authService } from '../auth.service';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { AuthTokenPayload, UserRole } from 'shared';
+import { AuthTokenPayload, UserRole } from '@asset-withdrawal/shared';
 
 jest.mock('jsonwebtoken');
 jest.mock('bcryptjs');

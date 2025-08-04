@@ -55,10 +55,12 @@ const configSchema = z.object({
   }),
 
   // Redis configuration
-  redis: z.object({
-    host: z.string().default('localhost'),
-    port: z.number().default(6379),
-  }).optional(),
+  redis: z
+    .object({
+      host: z.string().default('localhost'),
+      port: z.number().default(6379),
+    })
+    .optional(),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -117,8 +119,13 @@ export function loadConfig(): Config {
       enabled: process.env.ENABLE_BATCH_PROCESSING === 'false' ? false : true,
       minBatchSize: parseInt(process.env.MIN_BATCH_SIZE || '5', 10),
       batchThreshold: parseInt(process.env.BATCH_THRESHOLD || '3', 10),
-      minGasSavingsPercent: parseFloat(process.env.MIN_GAS_SAVINGS_PERCENT || '20'),
-      singleTxGasEstimate: parseInt(process.env.SINGLE_TX_GAS_ESTIMATE || '65000', 10),
+      minGasSavingsPercent: parseFloat(
+        process.env.MIN_GAS_SAVINGS_PERCENT || '20'
+      ),
+      singleTxGasEstimate: parseInt(
+        process.env.SINGLE_TX_GAS_ESTIMATE || '65000',
+        10
+      ),
       batchBaseGas: parseInt(process.env.BATCH_BASE_GAS || '100000', 10),
       batchPerTxGas: parseInt(process.env.BATCH_PER_TX_GAS || '25000', 10),
     },

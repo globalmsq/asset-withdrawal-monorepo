@@ -1,6 +1,11 @@
 import { ethers } from 'ethers';
 import * as chainsConfig from '../config/chains.config.json';
-import { ChainName, ChainNetwork, ChainConfig, ChainProviderOptions } from '../types/chain.types';
+import {
+  ChainName,
+  ChainNetwork,
+  ChainConfig,
+  ChainProviderOptions,
+} from '../types/chain.types';
 
 export class ChainProvider {
   private provider: ethers.JsonRpcProvider;
@@ -20,7 +25,9 @@ export class ChainProvider {
     this.config = (chainConfigs as any)[options.network];
 
     if (!this.config) {
-      throw new Error(`Unsupported network: ${options.network} for chain: ${options.chain}`);
+      throw new Error(
+        `Unsupported network: ${options.network} for chain: ${options.chain}`
+      );
     }
 
     // Allow RPC URL override from environment variable
@@ -65,7 +72,8 @@ export class ChainProvider {
 
   getMulticall3Address(): string {
     // Universal Multicall3 address for most EVM chains
-    const UNIVERSAL_MULTICALL3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11';
+    const UNIVERSAL_MULTICALL3_ADDRESS =
+      '0xcA11bde05977b3631167028862bE2a173976CA11';
     return this.config.multicall3Address || UNIVERSAL_MULTICALL3_ADDRESS;
   }
 
@@ -91,7 +99,9 @@ export class ChainProvider {
     try {
       return await this.provider.getTransactionReceipt(txHash);
     } catch (error) {
-      throw new Error(`Failed to get transaction receipt for ${txHash}: ${error}`);
+      throw new Error(
+        `Failed to get transaction receipt for ${txHash}: ${error}`
+      );
     }
   }
 
@@ -112,7 +122,9 @@ export class ChainProvider {
     try {
       return await this.provider.getTransactionCount(address, blockTag);
     } catch (error) {
-      throw new Error(`Failed to get transaction count for ${address}: ${error}`);
+      throw new Error(
+        `Failed to get transaction count for ${address}: ${error}`
+      );
     }
   }
 
@@ -122,7 +134,11 @@ export class ChainProvider {
     timeout?: number
   ): Promise<ethers.TransactionReceipt | null> {
     try {
-      return await this.provider.waitForTransaction(txHash, confirmations, timeout);
+      return await this.provider.waitForTransaction(
+        txHash,
+        confirmations,
+        timeout
+      );
     } catch (error) {
       throw new Error(`Failed to wait for transaction ${txHash}: ${error}`);
     }
@@ -155,10 +171,7 @@ export class ChainProvider {
     }
   }
 
-  async getContract(
-    address: string,
-    abi: any[]
-  ): Promise<ethers.Contract> {
+  async getContract(address: string, abi: any[]): Promise<ethers.Contract> {
     return new ethers.Contract(address, abi, this.provider);
   }
 

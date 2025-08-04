@@ -1,15 +1,10 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "lib",
+    "outDir": "../../dist/packages/database",
     "noEmit": false,
-    "types": ["node", "jest"],
-    "baseUrl": ".",
-    "paths": {
-      "shared": ["../shared/src"],
-      "shared/*": ["../shared/src/*"]
-    }
+    "types": ["node", "jest"]
   },
-  "include": ["src/**/*", "jest.config.ts"],
-  "exclude": ["node_modules", "lib"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "lib", "dist"]
 }

@@ -6,37 +6,33 @@
   "tags": [],
   "targets": {
     "build": {
-      "executor": "@nx/js:tsc",
-      "outputs": [
-        "{workspaceRoot}/dist/libs/shared"
-      ],
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
       "options": {
         "outputPath": "dist/packages/shared",
         "main": "packages/shared/src/index.ts",
         "tsConfig": "packages/shared/tsconfig.json",
-        "assets": [
-          "packages/shared/*.md"
-        ]
+        "assets": ["packages/shared/*.md"],
+        "format": ["cjs"],
+        "bundle": false,
+        "esbuildOptions": {
+          "tsconfig": "packages/shared/tsconfig.json",
+          "external": ["*"]
+        }
       }
     },
     "test": {
       "executor": "@nx/jest:jest",
-      "outputs": [
-        "{workspaceRoot}/coverage/{projectRoot}"
-      ],
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
       "options": {
         "jestConfig": "packages/shared/jest.config.ts"
       }
     },
     "lint": {
       "executor": "@nx/eslint:lint",
-      "outputs": [
-        "{options.outputFile}"
-      ],
+      "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": [
-          "packages/shared/src/**/*.ts"
-        ]
+        "lintFilePatterns": ["packages/shared/src/**/*.ts"]
       }
     },
     "typecheck": {

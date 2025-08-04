@@ -24,6 +24,7 @@ API Server는 자산 출금 시스템의 주요 진입점으로, RESTful API를 
 ## API 엔드포인트
 
 ### 인증
+
 ```
 POST   /api/v1/auth/login          # 로그인
 POST   /api/v1/auth/refresh        # 토큰 갱신
@@ -31,6 +32,7 @@ POST   /api/v1/auth/logout         # 로그아웃
 ```
 
 ### 출금 관리
+
 ```
 POST   /api/v1/withdrawals         # 출금 요청 생성
 GET    /api/v1/withdrawals/:id     # 특정 출금 조회
@@ -39,6 +41,7 @@ POST   /api/v1/withdrawals/batch   # 일괄 출금 요청
 ```
 
 ### 상태 및 모니터링
+
 ```
 GET    /health                     # 헬스 체크
 GET    /metrics                    # Prometheus 메트릭
@@ -93,6 +96,7 @@ WITHDRAWAL_QUEUE_URL=https://sqs.region.amazonaws.com/account/queue
 ## 개발 가이드
 
 ### 로컬 실행
+
 ```bash
 # 개발 서버 실행
 npm run dev:api
@@ -107,6 +111,7 @@ npm run test:api
 ### API 문서
 
 개발 서버 실행 후 다음 URL에서 Swagger UI를 확인할 수 있습니다:
+
 ```
 http://localhost:3000/api-docs
 ```
@@ -151,6 +156,7 @@ curl -X POST http://localhost:3000/api/v1/withdrawals \
 ```
 
 ### 에러 코드
+
 - `UNAUTHORIZED`: 인증 실패
 - `FORBIDDEN`: 권한 없음
 - `VALIDATION_ERROR`: 입력 검증 실패
@@ -169,11 +175,13 @@ curl -X POST http://localhost:3000/api/v1/withdrawals \
 ## 모니터링
 
 ### 헬스 체크
+
 ```bash
 curl http://localhost:3000/health
 ```
 
 ### Prometheus 메트릭
+
 - `http_request_duration_seconds`: HTTP 요청 처리 시간
 - `http_requests_total`: 총 HTTP 요청 수
 - `withdrawal_requests_total`: 출금 요청 수

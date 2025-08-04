@@ -1,6 +1,7 @@
 # 블록체인 출금 시스템 - 개발 계획
 
 ## 개발 조건
+
 1. **큐 시스템**: AWS SQS (로컬 개발용 LocalStack)
 2. **블록체인 지원**: Polygon, Ethereum, BSC, Localhost (Hardhat)
 3. **앱 명명**: 목적별 명명 필요
@@ -10,6 +11,7 @@
 ## Task 22.5 완료 요약
 
 ### 구현된 사항
+
 1. **Docker Compose 최적화**
    - 모든 서비스가 `docker-compose up`만으로 자동 시작
    - 서비스 의존성을 올바르게 설정 (hardhat-deploy 완료 후 API 서비스 시작)
@@ -35,12 +37,14 @@
    - `npm run docker:up`, `docker:down`, `docker:logs` 등
 
 ### 데이터베이스 스키마 참고
+
 - WithdrawalRequest 모델에 `chain` 필드 추가가 필요하지만, 마이그레이션 파일 생성 정책에 따라 현재는 `network` 필드에 `chain_network` 형식으로 저장
 - 향후 마이그레이션 시 별도 `chain` 필드 추가 고려
 
 ## Chain Configuration 개선 작업 완료
 
 ### 구현된 사항
+
 1. **chains.config.json 기반 체인 허용 목록**
    - withdrawal.ts에서 `tokenService.getSupportedBlockchains()` 사용
    - 환경변수 SUPPORTED_CHAINS 제거
@@ -62,6 +66,7 @@
    - 큐 메시지에서 chain/network 정보 받도록 수정
 
 ### 미완성 작업
+
 1. **tx-processor PolygonProvider 대체**
    - 현재 PolygonProvider가 Polygon에 하드코딩됨
    - ChainProvider로 대체 필요
@@ -80,20 +85,24 @@
 ### ✅ 완료된 기능
 
 #### 핵심 서비스
+
 - **API 서버** (api-server): 출금 요청/상태 조회 API, Swagger 문서 (인증은 Admin 개발시 구현 예정)
 - **서명 서비스** (signing-service): 트랜잭션 서명, Redis 기반 nonce 관리, 가스 가격 캐싱
 - **큐 시스템**: LocalStack/AWS SQS, 다중 큐 지원, 오류 처리
 
 #### 데이터베이스 & 보안
+
 - **데이터베이스**: WithdrawalRequest, Transaction, SignedTransaction 모델
 - **보안**: AWS Secrets Manager + AES-256-GCM 개인키 암호화
 
 #### 인프라
+
 - **개발 환경**: Docker Compose, LocalStack, Redis
 - **모노레포**: Nx workspace, TypeScript strict mode
 - **테스팅**: Jest, 포괄적인 단위/통합 테스트
 
 ### ❌ 미구현 (우선순위순)
+
 1. **tx-broadcaster** ⚠️ 긴급: 서명된 트랜잭션을 블록체인에 브로드캐스트
 2. **DLQ 핸들러**: 실패한 메시지 처리 및 복구
 3. **실제 잔액 검증**: signing-service에서 토큰 잔액 확인
@@ -103,6 +112,7 @@
 ## 아키텍처 개요
 
 ### 마이크로서비스 구조
+
 ```
 [사용자] → [api-server] → [tx-request-queue] → [signing-service] → [signed-tx-queue] → [tx-broadcaster] → [블록체인]
 ```
@@ -113,12 +123,14 @@
 4. **tx-monitor**: 트랜잭션 확인 추적
 
 ### 큐 아키텍처
+
 - **tx-request-queue**: 새로운 출금 요청
 - **signed-tx-queue**: 서명된 트랜잭션
 - **invalid-dlq**: 검증 실패 요청
 - **tx-dlq**: 브로드캐스트 실패 트랜잭션
 
 ### 핵심 기술
+
 - **블록체인**: Polygon (Amoy 테스트넷)
 - **큐**: AWS SQS / LocalStack
 - **데이터베이스**: MySQL + Prisma ORM
@@ -130,7 +142,9 @@
 ### Phase 1: 핵심 시스템 완성
 
 #### 1.0 signing-service 기능 확장 ✅ 완료
+
 **목표**: ERC20 토큰 Batch 전송 지원 (Multicall 활용)
+
 ```typescript
 // 완료된 기능
 - Multicall3을 활용한 배치 토큰 전송
@@ -142,7 +156,9 @@
 ```
 
 #### 1.1 account-manager 서비스 구현 🆕
+
 **목표**: 메인 계정에서 서브 계정으로 자동 잔액 밸런싱
+
 ```typescript
 // 주요 기능
 - 서브 계정 잔액 주기적 모니터링
@@ -154,7 +170,9 @@
 ```
 
 #### 1.2 tx-broadcaster 구현 ⚠️
+
 **목표**: 출금 흐름 완료
+
 ```typescript
 // 주요 기능
 - signed-tx-queue에서 메시지 폴링
@@ -166,6 +184,7 @@
 ```
 
 #### 1.3 DLQ 핸들러 구현
+
 ```typescript
 // 기능
 - 실패 메시지 분류 (영구적 vs 일시적)
@@ -176,6 +195,7 @@
 ```
 
 #### 1.4 실제 잔액 검증
+
 ```typescript
 // signing-service 강화
 - ERC-20 토큰 잔액 확인
@@ -185,6 +205,7 @@
 ```
 
 #### 1.5 tx-monitor 구현
+
 ```typescript
 // 트랜잭션 모니터링 서비스
 - 블록체인 트랜잭션 상태 추적
@@ -198,6 +219,7 @@
 ### Phase 2: 관리 시스템
 
 #### 2.0 Account Manager API 엔드포인트 🆕
+
 ```typescript
 // 관리 계정 등록
 POST /api/v1/accounts
@@ -233,6 +255,7 @@ PATCH /api/v1/accounts/:address
 ```
 
 ##### 2.1.1 Admin UI 애플리케이션 (React + Tailwind CSS)
+
 ```bash
 # React 앱 생성
 nx add @nx/react
@@ -240,6 +263,7 @@ nx g @nx/react:app admin-ui
 ```
 
 **UI 기능**:
+
 - **대시보드**: 실시간 트랜잭션 통계, 시스템 상태
 - **트랜잭션 관리**: 검색/필터, 상태 추적, 수동 재시도
 - **큐 모니터링**: 실시간 큐 상태, DLQ 관리
@@ -247,6 +271,7 @@ nx g @nx/react:app admin-ui
 - **시스템 설정**: 가스 가격 임계값, 재시도 정책
 
 **기술 스택**:
+
 - **프레임워크**: React 18 + TypeScript
 - **UI 라이브러리**: Ant Design (주요 컴포넌트) + Tailwind CSS (커스텀 스타일링)
   - Ant Design: 폼, 테이블, 모달 등 복잡한 컴포넌트
@@ -260,6 +285,7 @@ nx g @nx/react:app admin-ui
   - 룸 기반 구독
 
 **주요 페이지**:
+
 ```
 /dashboard - 전체 시스템 개요
 /transactions - 트랜잭션 목록/검색
@@ -270,6 +296,7 @@ nx g @nx/react:app admin-ui
 ```
 
 ##### 2.1.2 Admin API 확장
+
 ```typescript
 // 인증 엔드포인트
 POST /auth/register - 사용자 등록
@@ -300,6 +327,7 @@ WS /admin/ws - 실시간 업데이트 (큐 상태, 트랜잭션 변경)
 ```
 
 ##### 2.1.4 WebSocket 메시지 포맷
+
 ```typescript
 // 서버 → 클라이언트 이벤트
 interface ServerToClientEvents {
@@ -332,6 +360,7 @@ interface ClientToServerEvents {
 ```
 
 ##### 2.1.5 인증 시스템
+
 ```typescript
 // 주요 기능
 - JWT 기반 인증 미들웨어
@@ -348,6 +377,7 @@ interface ClientToServerEvents {
 #### 2.2 모니터링 시스템
 
 ##### 2.2.1 Prometheus 메트릭
+
 ```yaml
 # 애플리케이션 메트릭
 api_request_duration_seconds: API 응답 시간
@@ -365,6 +395,7 @@ node_disk_usage_percent: 디스크 사용률
 ```
 
 ##### 2.2.2 알림 임계값
+
 ```yaml
 # Critical (즉시 대응)
 - API 오류율 > 5% (5분간)
@@ -386,6 +417,7 @@ node_disk_usage_percent: 디스크 사용률
 #### 3.1 보안 강화
 
 ##### 3.1.1 API 보안
+
 ```typescript
 // API 키 인증 시스템
 - API 키 생성/관리
@@ -395,6 +427,7 @@ node_disk_usage_percent: 디스크 사용률
 ```
 
 ##### 3.1.2 보안 기능
+
 ```typescript
 // 추가 보안 레이어
 - 2FA 구현 (TOTP)
@@ -408,11 +441,13 @@ node_disk_usage_percent: 디스크 사용률
 ```
 
 ##### 3.1.3 보안 감사
+
 - OWASP Top 10 체크리스트
 - 침투 테스트 (외부 업체)
 - 취약점 스캔 및 수정
 
 #### 3.2 인프라 마이그레이션
+
 - AWS EKS 클러스터 설정
 - Helm 차트 작성
 - 자동 확장 설정 (HPA, VPA)
@@ -422,6 +457,7 @@ node_disk_usage_percent: 디스크 사용률
 ## 테스트 계획
 
 ### Phase 1 테스트 (핵심 시스템)
+
 - **단위 테스트**: 각 서비스의 개별 기능 테스트
 - **통합 테스트**: 서비스 간 메시지 큐 통신 테스트
 - **시나리오 테스트**:
@@ -430,11 +466,13 @@ node_disk_usage_percent: 디스크 사용률
   - RPC 실패 대응
 
 ### Phase 2 테스트 (관리 시스템)
+
 - **E2E 테스트**: 전체 출금 플로우 (API → 블록체인)
 - **부하 테스트**: 목표 TPS(100) 달성 확인
 - **인증 테스트**: JWT 토큰 검증, 권한 확인
 
 ### Phase 3 테스트 (프로덕션)
+
 - **보안 테스트**: OWASP Top 10, 침투 테스트
 - **장애 복구 테스트**: 서비스 장애 시나리오
 - **성능 테스트**: 대용량 처리, 응답 시간
@@ -442,6 +480,7 @@ node_disk_usage_percent: 디스크 사용률
 ## 추가 고려사항
 
 ### 백업 및 복구 전략
+
 ```yaml
 # 데이터베이스 백업
 - 일일 자동 백업 (30일 보관)
@@ -455,6 +494,7 @@ node_disk_usage_percent: 디스크 사용률
 ```
 
 ### 로깅 전략
+
 ```yaml
 # 중앙 집중식 로깅 (ELK Stack)
 - Elasticsearch: 로그 저장 및 검색
@@ -474,6 +514,7 @@ node_disk_usage_percent: 디스크 사용률
 ```
 
 ### API 버전 관리
+
 ```typescript
 // URL 경로 버전 관리
 GET /api/v1/withdrawals
@@ -486,6 +527,7 @@ GET /api/v2/withdrawals  // 새 버전
 ```
 
 ### CI/CD 파이프라인
+
 ```yaml
 # GitHub Actions 워크플로우
 stages:
@@ -507,6 +549,7 @@ stages:
 ## 기술적 참고사항
 
 ### Redis 기반 Nonce 관리 ✅
+
 ```typescript
 class NonceCacheService {
   async getAndIncrement(address: string): Promise<number>
@@ -521,6 +564,7 @@ class NonceCacheService {
 ```
 
 ### 가스 가격 캐싱 ✅
+
 ```typescript
 class GasPriceCache {
   private ttl = 30_000; // 30초
@@ -535,6 +579,7 @@ class GasPriceCache {
 ```
 
 ### WithdrawalRequest 모델 ✅
+
 ```prisma
 model WithdrawalRequest {
   id            BigInt   @id @default(autoincrement())
@@ -554,6 +599,7 @@ model WithdrawalRequest {
 ```
 
 ### SignedTransaction 모델 ✅
+
 ```prisma
 model SignedTransaction {
   id                    BigInt    @id @default(autoincrement())
@@ -576,6 +622,7 @@ model SignedTransaction {
 ```
 
 ### Account Manager 모델 🆕
+
 ```prisma
 model ManagedAccount {
   id               BigInt    @id @default(autoincrement())
@@ -608,6 +655,7 @@ model BalanceTransfer {
 ```
 
 ### User 모델 ❌ (Admin 개발시 구현 예정)
+
 ```prisma
 model User {
   id        BigInt   @id @default(autoincrement())
@@ -628,6 +676,7 @@ model User {
 ## 개발 가이드라인
 
 ### 로컬 환경 설정
+
 ```bash
 # 모든 서비스 시작
 docker-compose -f docker/docker-compose.yaml up -d
@@ -642,6 +691,7 @@ nx serve signing-service  # 별도 터미널
 ```
 
 ### 환경 변수
+
 ```env
 # 필수 설정
 QUEUE_TYPE=localstack                    # 또는 'aws'
@@ -655,11 +705,13 @@ REDIS_URL=redis://localhost:6379
 ## 위험 관리
 
 ### 기술적 위험
+
 1. **nonce 충돌**: ✅ Redis 원자적 연산으로 해결
 2. **RPC 실패**: ✅ 가스 가격 캐싱 및 폴백으로 해결
 3. **트랜잭션 실패**: tx-broadcaster에서 재시도 로직 필요
 
 ### 운영 위험
+
 1. **대량 출금**: 큐 기반 부하 분산으로 대응
 2. **시스템 장애**: 다중 AZ 배포 및 자동 복구 필요
 3. **보안 위협**: 최소 권한 원칙, 정기 감사
@@ -675,10 +727,13 @@ REDIS_URL=redis://localhost:6379
 ## 즉시 해야 할 작업
 
 ### 1. tx-broadcaster 서비스 생성 ⚠️ 최우선
+
 ```bash
 nx g @nx/node:app tx-broadcaster
 ```
+
 **핵심 구현 요소**:
+
 - [ ] SQS 메시지 폴링 워커
 - [ ] 서명된 트랜잭션 DB 조회
 - [ ] Polygon 네트워크 브로드캐스트
@@ -686,10 +741,13 @@ nx g @nx/node:app tx-broadcaster
 - [ ] 오류 처리 및 재시도 로직
 
 ### 2. account-manager 서비스 생성 🆕
+
 ```bash
 nx g @nx/node:app account-manager
 ```
+
 **핵심 구현 요소**:
+
 - [ ] ManagedAccount, BalanceTransfer 모델 추가
 - [ ] 잔액 모니터링 크론 작업
 - [ ] 임계값 확인 및 자동 충전 로직
@@ -697,6 +755,7 @@ nx g @nx/node:app account-manager
 - [ ] REST API 엔드포인트 구현
 
 ### 3. 테스트 케이스
+
 - [ ] 정상 브로드캐스트 플로우
 - [ ] nonce 충돌 시나리오
 - [ ] RPC 실패 시나리오
@@ -706,4 +765,4 @@ nx g @nx/node:app account-manager
 
 ---
 
-*이 계획은 현재 구현 상태를 반영하며, tx-broadcaster 구현을 최우선으로 하여 완전한 출금 시스템을 완성하는 것을 목표로 합니다.*
+_이 계획은 현재 구현 상태를 반영하며, tx-broadcaster 구현을 최우선으로 하여 완전한 출금 시스템을 완성하는 것을 목표로 합니다._

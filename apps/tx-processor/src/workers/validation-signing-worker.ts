@@ -1,4 +1,9 @@
-import { IQueue, ChainProviderFactory, ChainProvider, tokenService } from '@asset-withdrawal/shared';
+import {
+  IQueue,
+  ChainProviderFactory,
+  ChainProvider,
+  tokenService,
+} from '@asset-withdrawal/shared';
 import { TransactionService } from '@asset-withdrawal/database';
 import { BaseWorker, WorkerConfig } from './base-worker';
 import { WithdrawalRequest, SignedTransaction } from '../types';
@@ -7,7 +12,10 @@ import { config } from '../config';
 import { TransactionSigner, SecretsManager } from '../services/blockchain';
 import { ethers } from 'ethers';
 
-export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, SignedTransaction> {
+export class ValidationSigningWorker extends BaseWorker<
+  WithdrawalRequest,
+  SignedTransaction
+> {
   private transactionService: TransactionService;
   private chainProviders: Map<string, ChainProvider>;
   private signers: Map<string, TransactionSigner>;
@@ -39,21 +47,32 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
     await super.start();
   }
 
-  private async getOrCreateSigner(chain: string, network: string): Promise<{ provider: ChainProvider; signer: TransactionSigner }> {
+  private async getOrCreateSigner(
+    chain: string,
+    network: string
+  ): Promise<{ provider: ChainProvider; signer: TransactionSigner }> {
     const key = `${chain}_${network}`;
 
     if (!this.chainProviders.has(key)) {
-      this.logger.info('Creating new ChainProvider and TransactionSigner', { chain, network });
+      this.logger.info('Creating new ChainProvider and TransactionSigner', {
+        chain,
+        network,
+      });
 
       // Create chain provider
-      const chainProvider = ChainProviderFactory.getProvider(chain as any, network as any);
+      const chainProvider = ChainProviderFactory.getProvider(
+        chain as any,
+        network as any
+      );
       this.chainProviders.set(key, chainProvider);
 
       // Create transaction signer
       const signer = new TransactionSigner(chainProvider, this.privateKey);
       this.signers.set(key, signer);
 
-      this.logger.info(`Signer initialized with address: ${signer.getAddress()}`);
+      this.logger.info(
+        `Signer initialized with address: ${signer.getAddress()}`
+      );
     }
 
     return {
@@ -79,17 +98,28 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
       const signedTx = await this.buildTransaction(withdrawalRequest);
 
       // Step 4: Update transaction status in database
-      await this.transactionService.updateStatus(withdrawalRequest.id, 'SIGNED');
+      await this.transactionService.updateStatus(
+        withdrawalRequest.id,
+        'SIGNED'
+      );
 
-      this.logger.info(`Successfully signed transaction for withdrawal ${withdrawalRequest.id}`);
+      this.logger.info(
+        `Successfully signed transaction for withdrawal ${withdrawalRequest.id}`
+      );
 
       // Return signed transaction
       return signedTx;
     } catch (error) {
-      this.logger.error(`Failed to process withdrawal ${withdrawalRequest.id}`, error);
+      this.logger.error(
+        `Failed to process withdrawal ${withdrawalRequest.id}`,
+        error
+      );
 
       // Update status to FAILED in database
-      await this.transactionService.updateStatus(withdrawalRequest.id, 'FAILED');
+      await this.transactionService.updateStatus(
+        withdrawalRequest.id,
+        'FAILED'
+      );
 
       throw error;
     }
@@ -98,14 +128,21 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
   private async validateRequest(request: WithdrawalRequest): Promise<void> {
     // Validate chain and network are provided
     if (!request.chain || !request.network) {
-      throw new Error(`Missing chain or network information. Chain: ${request.chain}, Network: ${request.network}`);
+      throw new Error(
+        `Missing chain or network information. Chain: ${request.chain}, Network: ${request.network}`
+      );
     }
 
     // Validate chain support
     try {
-      ChainProviderFactory.getProvider(request.chain as any, request.network as any);
+      ChainProviderFactory.getProvider(
+        request.chain as any,
+        request.network as any
+      );
     } catch (error) {
-      throw new Error(`Unsupported chain/network combination: ${request.chain}/${request.network}`);
+      throw new Error(
+        `Unsupported chain/network combination: ${request.chain}/${request.network}`
+      );
     }
 
     // Validate address format
@@ -148,7 +185,10 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
     }
 
     // Check token balance if ERC-20 transfer
-    if (request.tokenAddress && request.tokenAddress !== '0x0000000000000000000000000000000000000000') {
+    if (
+      request.tokenAddress &&
+      request.tokenAddress !== '0x0000000000000000000000000000000000000000'
+    ) {
       const tokenContract = new ethers.Contract(
         request.tokenAddress,
         ['function balanceOf(address) view returns (uint256)'],
@@ -156,7 +196,11 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
       );
 
       // Get token decimals from tokenService
-      const tokenInfo = tokenService.getTokenByAddress(request.tokenAddress, request.network, request.chain || 'polygon');
+      const tokenInfo = tokenService.getTokenByAddress(
+        request.tokenAddress,
+        request.network,
+        request.chain || 'polygon'
+      );
       const decimals = tokenInfo?.decimals || 18;
 
       const tokenBalance = await tokenContract.balanceOf(walletAddress);
@@ -168,26 +212,39 @@ export class ValidationSigningWorker extends BaseWorker<WithdrawalRequest, Signe
         );
       }
 
-      this.logger.debug(`Token balance check passed for withdrawal ${request.id}`);
+      this.logger.debug(
+        `Token balance check passed for withdrawal ${request.id}`
+      );
     }
 
     this.logger.debug(`Balance check passed for withdrawal ${request.id}`);
   }
 
-  private async buildTransaction(request: WithdrawalRequest): Promise<SignedTransaction> {
+  private async buildTransaction(
+    request: WithdrawalRequest
+  ): Promise<SignedTransaction> {
     const chain = request.chain || 'polygon';
     const network = request.network;
     const { signer } = await this.getOrCreateSigner(chain, network);
 
     // Check if it's a token transfer or native currency
-    if (request.tokenAddress && request.tokenAddress !== '0x0000000000000000000000000000000000000000') {
+    if (
+      request.tokenAddress &&
+      request.tokenAddress !== '0x0000000000000000000000000000000000000000'
+    ) {
       // ERC-20 token transfer
       // Get token decimals from tokenService
-      const tokenInfo = tokenService.getTokenByAddress(request.tokenAddress, network, chain);
+      const tokenInfo = tokenService.getTokenByAddress(
+        request.tokenAddress,
+        network,
+        chain
+      );
       const decimals = tokenInfo?.decimals || 18; // Default to 18 if not found
 
       if (!tokenInfo) {
-        this.logger.warn(`Token ${request.tokenAddress} not found in configuration, using default decimals: ${decimals}`);
+        this.logger.warn(
+          `Token ${request.tokenAddress} not found in configuration, using default decimals: ${decimals}`
+        );
       }
 
       return await signer.signERC20Transfer(

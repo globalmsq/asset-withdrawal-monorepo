@@ -1,12 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { UserService } from 'database';
 import { authService } from '../services/auth.service';
-import { LoginRequest, UserRole, ApiResponse, LoginResponse } from 'shared';
+import { LoginRequest, UserRole, ApiResponse, LoginResponse } from '@asset-withdrawal/shared';
 import { AuthRequest, authenticate } from '../middleware/auth.middleware';
 import { Logger } from '../utils/logger';
+import { getUserService } from '../services/user.service';
 
 const router = Router();
-const userService = new UserService();
 const logger = new Logger('AuthRoute');
 
 router.post('/register', async (req: Request, res: Response) => {
@@ -22,7 +21,7 @@ router.post('/register', async (req: Request, res: Response) => {
       } as ApiResponse);
     }
 
-    const existingUser = await userService.findByEmail(email);
+    const existingUser = await getUserService().findByEmail(email);
     if (existingUser) {
       return res.status(409).json({
         success: false,
@@ -33,7 +32,7 @@ router.post('/register', async (req: Request, res: Response) => {
     }
 
     const hashedPassword = await authService.hashPassword(password);
-    const user = await userService.createUser({
+    const user = await getUserService().createUser({
       email,
       password: hashedPassword,
       role: UserRole.USER,
@@ -85,7 +84,7 @@ router.post('/login', async (req: Request, res: Response) => {
       } as ApiResponse);
     }
 
-    const user = await userService.findByEmail(email);
+    const user = await getUserService().findByEmail(email);
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -151,7 +150,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
       } as ApiResponse);
     }
 
-    const user = await userService.findById(req.user.userId);
+    const user = await getUserService().findById(req.user.userId);
     if (!user) {
       return res.status(404).json({
         success: false,

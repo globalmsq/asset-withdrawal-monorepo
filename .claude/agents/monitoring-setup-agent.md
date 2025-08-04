@@ -1,9 +1,11 @@
 # Monitoring Setup Agent
 
 ## Purpose
+
 Observability and monitoring specialist for implementing comprehensive monitoring across the Asset Withdrawal System.
 
 ## Capabilities
+
 - Design monitoring architecture
 - Implement custom metrics
 - Create alerting rules
@@ -13,6 +15,7 @@ Observability and monitoring specialist for implementing comprehensive monitorin
 - Implement health checks
 
 ## Specializations
+
 - Prometheus metrics
 - Grafana dashboards
 - CloudWatch integration
@@ -22,6 +25,7 @@ Observability and monitoring specialist for implementing comprehensive monitorin
 - SLA monitoring
 
 ## Commands
+
 ```bash
 # Setup monitoring stack
 /setup-monitoring --stack=<prometheus|cloudwatch>
@@ -43,6 +47,7 @@ Observability and monitoring specialist for implementing comprehensive monitorin
 ```
 
 ## Monitoring Areas
+
 - Transaction processing times
 - Queue depths and latency
 - Batch processing efficiency

@@ -13,7 +13,9 @@ export class HardhatHelpers {
 
   constructor(chainProvider?: ChainProvider) {
     // Default to localhost testnet if no chain provider given
-    this.chainProvider = chainProvider || new ChainProvider({ chain: 'localhost', network: 'testnet' });
+    this.chainProvider =
+      chainProvider ||
+      new ChainProvider({ chain: 'localhost', network: 'testnet' });
     this.provider = this.chainProvider.getProvider() as ethers.JsonRpcProvider;
   }
 
@@ -30,7 +32,8 @@ export class HardhatHelpers {
     const balance = await this.provider.getBalance(address);
 
     // Default Hardhat private key for first account
-    const privateKey = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+    const privateKey =
+      '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
     return {
       address,
@@ -59,20 +62,25 @@ export class HardhatHelpers {
       '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6',
     ];
 
-    return Promise.all(accounts.map(async (account, index) => {
-      const balance = await this.provider.getBalance(account.address);
-      return {
-        address: account.address,
-        privateKey: privateKeys[index] || '',
-        balance,
-      };
-    }));
+    return Promise.all(
+      accounts.map(async (account, index) => {
+        const balance = await this.provider.getBalance(account.address);
+        return {
+          address: account.address,
+          privateKey: privateKeys[index] || '',
+          balance,
+        };
+      })
+    );
   }
 
   /**
    * Fund an account with ETH
    */
-  async fundAccount(toAddress: string, amountInEth: string): Promise<ethers.TransactionResponse> {
+  async fundAccount(
+    toAddress: string,
+    amountInEth: string
+  ): Promise<ethers.TransactionResponse> {
     const signingAccount = await this.getSigningAccount();
     const signer = new ethers.Wallet(signingAccount.privateKey, this.provider);
 
@@ -177,7 +185,10 @@ export class HardhatHelpers {
   /**
    * Get token balance for an address
    */
-  async getTokenBalance(tokenAddress: string, accountAddress: string): Promise<bigint> {
+  async getTokenBalance(
+    tokenAddress: string,
+    accountAddress: string
+  ): Promise<bigint> {
     const abi = ['function balanceOf(address) view returns (uint256)'];
     const token = new ethers.Contract(tokenAddress, abi, this.provider);
     return await token.balanceOf(accountAddress);
@@ -194,7 +205,9 @@ export class HardhatHelpers {
     const signingAccount = await this.getSigningAccount();
     const signer = new ethers.Wallet(signingAccount.privateKey, this.provider);
 
-    const abi = ['function transfer(address to, uint256 amount) returns (bool)'];
+    const abi = [
+      'function transfer(address to, uint256 amount) returns (bool)',
+    ];
     const token = new ethers.Contract(tokenAddress, abi, signer);
 
     const tx = await token.transfer(toAddress, amount);
@@ -240,7 +253,9 @@ export class HardhatHelpers {
   /**
    * Get transaction receipt
    */
-  async getTransactionReceipt(txHash: string): Promise<ethers.TransactionReceipt | null> {
+  async getTransactionReceipt(
+    txHash: string
+  ): Promise<ethers.TransactionReceipt | null> {
     return await this.provider.getTransactionReceipt(txHash);
   }
 
@@ -251,7 +266,10 @@ export class HardhatHelpers {
     txHash: string,
     confirmations: number = 1
   ): Promise<ethers.TransactionReceipt> {
-    const receipt = await this.provider.waitForTransaction(txHash, confirmations);
+    const receipt = await this.provider.waitForTransaction(
+      txHash,
+      confirmations
+    );
     if (!receipt) {
       throw new Error(`Transaction ${txHash} not found`);
     }

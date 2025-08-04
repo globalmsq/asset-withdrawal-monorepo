@@ -14,12 +14,20 @@ describe('Local Blockchain Tests', function () {
     // Deploy MockToken if not already deployed
     try {
       // Try to get existing deployment
-      mockToken = await ethers.getContractAt('MockToken', '0x5FbDB2315678afecb367f032d93F642f64180aa3');
+      mockToken = await ethers.getContractAt(
+        'MockToken',
+        '0x5FbDB2315678afecb367f032d93F642f64180aa3'
+      );
       console.log('Using existing MockToken deployment');
     } catch (e) {
       // Deploy new instance
       const MockToken = await ethers.getContractFactory('MockToken');
-      mockToken = await MockToken.deploy('Mock Token', 'MOCK', 18, ethers.parseEther('1000000'));
+      mockToken = await MockToken.deploy(
+        'Mock Token',
+        'MOCK',
+        18,
+        ethers.parseEther('1000000')
+      );
       await mockToken.waitForDeployment();
       console.log('Deployed new MockToken at:', await mockToken.getAddress());
     }
@@ -32,7 +40,11 @@ describe('Local Blockchain Tests', function () {
     expect(await ethers.provider.getBalance(signer.address)).to.be.gt(0);
 
     console.log('First signer address:', signer.address);
-    console.log('Balance:', ethers.formatEther(await ethers.provider.getBalance(signer.address)), 'ETH');
+    console.log(
+      'Balance:',
+      ethers.formatEther(await ethers.provider.getBalance(signer.address)),
+      'ETH'
+    );
   });
 
   it('should advance time', async function () {
@@ -45,7 +57,11 @@ describe('Local Blockchain Tests', function () {
     const blockAfter = await ethers.provider.getBlock('latest');
 
     expect(blockAfter.timestamp).to.be.gt(blockBefore.timestamp);
-    console.log('Time advanced by', blockAfter.timestamp - blockBefore.timestamp, 'seconds');
+    console.log(
+      'Time advanced by',
+      blockAfter.timestamp - blockBefore.timestamp,
+      'seconds'
+    );
   });
 
   it('should create and revert snapshot', async function () {
@@ -85,7 +101,12 @@ describe('Local Blockchain Tests', function () {
 
       const recipientBalance = await mockToken.balanceOf(recipient.address);
       expect(recipientBalance).to.equal(transferAmount);
-      console.log('Transferred', ethers.formatEther(transferAmount), 'MOCK to', recipient.address);
+      console.log(
+        'Transferred',
+        ethers.formatEther(transferAmount),
+        'MOCK to',
+        recipient.address
+      );
     }
   });
 });

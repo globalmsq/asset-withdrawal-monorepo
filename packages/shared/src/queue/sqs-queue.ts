@@ -73,7 +73,9 @@ export class SQSQueue<T> implements IQueue<T> {
       MaxNumberOfMessages: options?.maxMessages || 1,
       WaitTimeSeconds: options?.waitTimeSeconds || 0,
       // Don't set VisibilityTimeout here - use queue's default configuration
-      ...(options?.visibilityTimeout !== undefined && { VisibilityTimeout: options.visibilityTimeout }),
+      ...(options?.visibilityTimeout !== undefined && {
+        VisibilityTimeout: options.visibilityTimeout,
+      }),
       MessageAttributeNames: ['All'],
     });
 
@@ -89,12 +91,12 @@ export class SQSQueue<T> implements IQueue<T> {
       receiptHandle: msg.ReceiptHandle!,
       attributes: msg.MessageAttributes
         ? Object.entries(msg.MessageAttributes).reduce(
-          (acc, [key, value]) => {
-            acc[key] = value.StringValue || '';
-            return acc;
-          },
+            (acc, [key, value]) => {
+              acc[key] = value.StringValue || '';
+              return acc;
+            },
             {} as Record<string, string>
-        )
+          )
         : undefined,
     }));
   }

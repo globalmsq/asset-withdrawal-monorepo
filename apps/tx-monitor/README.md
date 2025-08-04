@@ -97,6 +97,7 @@ TIMEOUT_BLOCKS=50
 ## 트랜잭션 상태
 
 ### 상태 전이도
+
 ```
 PENDING → PROCESSING → CONFIRMING → CONFIRMED
                     ↓
@@ -106,6 +107,7 @@ PENDING → PROCESSING → CONFIRMING → CONFIRMED
 ```
 
 ### 상태 설명
+
 - `PENDING`: 초기 상태
 - `PROCESSING`: 블록체인에 제출됨
 - `CONFIRMING`: 확인 대기 중
@@ -116,15 +118,17 @@ PENDING → PROCESSING → CONFIRMING → CONFIRMED
 ## 모니터링 전략
 
 ### 1. 블록 기반 모니터링
+
 ```typescript
 // 새 블록마다 미확인 트랜잭션 확인
-blockchain.on('block', async (blockNumber) => {
+blockchain.on('block', async blockNumber => {
   const pendingTxs = await getPendingTransactions();
   await checkTransactions(pendingTxs, blockNumber);
 });
 ```
 
 ### 2. 주기적 폴링
+
 ```typescript
 // 5초마다 상태 확인
 setInterval(async () => {
@@ -133,6 +137,7 @@ setInterval(async () => {
 ```
 
 ### 3. 타임아웃 처리
+
 ```typescript
 // 50 블록 이상 확인되지 않은 트랜잭션 처리
 if (currentBlock - tx.blockNumber > TIMEOUT_BLOCKS) {
@@ -143,6 +148,7 @@ if (currentBlock - tx.blockNumber > TIMEOUT_BLOCKS) {
 ## 실행 방법
 
 ### 개발 환경
+
 ```bash
 # 개발 서버 실행
 npm run dev:monitor
@@ -152,6 +158,7 @@ npm run test:monitor
 ```
 
 ### 프로덕션
+
 ```bash
 # 빌드
 npm run build:monitor
@@ -163,6 +170,7 @@ npm run serve:monitor
 ## 모니터링 메트릭
 
 ### Prometheus 메트릭
+
 - `tx_monitor_processed_total`: 처리된 트랜잭션 수
 - `tx_monitor_confirmed_total`: 확인된 트랜잭션 수
 - `tx_monitor_failed_total`: 실패한 트랜잭션 수
@@ -170,6 +178,7 @@ npm run serve:monitor
 - `tx_monitor_confirmation_time`: 확인 시간 히스토그램
 
 ### 로그 레벨
+
 ```typescript
 logger.info('Transaction confirmed', { txHash, confirmations });
 logger.warn('Transaction timeout', { txHash, age });
@@ -179,23 +188,26 @@ logger.error('Monitor error', { error, txHash });
 ## 재시도 로직
 
 ### 재시도 조건
+
 1. 트랜잭션 실패 (revert, out of gas)
 2. 네트워크 타임아웃
 3. 가스 가격 급등으로 인한 중단
 
 ### 재시도 전략
+
 ```typescript
 const retryConfig = {
   maxRetries: 3,
   backoffMultiplier: 2,
   initialDelay: 5000,
-  maxDelay: 60000
+  maxDelay: 60000,
 };
 ```
 
 ## 웹훅 알림
 
 ### 웹훅 페이로드
+
 ```json
 {
   "event": "transaction.confirmed",
@@ -211,6 +223,7 @@ const retryConfig = {
 ```
 
 ### 지원 이벤트
+
 - `transaction.confirmed`: 트랜잭션 확인 완료
 - `transaction.failed`: 트랜잭션 실패
 - `transaction.timeout`: 타임아웃 발생

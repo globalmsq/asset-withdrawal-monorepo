@@ -2,8 +2,17 @@ import { SigningWorker } from '../../workers/signing-worker';
 import { Config } from '../../config';
 import { Logger } from '../../utils/logger';
 import { SecureSecretsManager } from '../../services/secrets-manager';
-import { WithdrawalRequestService, DatabaseService, SignedTransactionService } from '@asset-withdrawal/database';
-import { WithdrawalRequest, ChainProviderFactory, TransactionStatus, Message } from '@asset-withdrawal/shared';
+import {
+  WithdrawalRequestService,
+  DatabaseService,
+  SignedTransactionService,
+} from '@asset-withdrawal/database';
+import {
+  WithdrawalRequest,
+  ChainProviderFactory,
+  TransactionStatus,
+  Message,
+} from '@asset-withdrawal/shared';
 
 // Mock dependencies
 jest.mock('@asset-withdrawal/database');
@@ -13,7 +22,9 @@ jest.mock('@asset-withdrawal/shared', () => ({
     createPolygonProvider: jest.fn(),
     getProvider: jest.fn().mockReturnValue({
       getProvider: jest.fn(),
-      getMulticall3Address: jest.fn().mockReturnValue('0x1234567890123456789012345678901234567890'),
+      getMulticall3Address: jest
+        .fn()
+        .mockReturnValue('0x1234567890123456789012345678901234567890'),
       getChainId: jest.fn().mockReturnValue(137),
     }),
   },
@@ -100,7 +111,11 @@ describe('SigningWorker Multi-Instance Support', () => {
     };
 
     mockSecretsManager = {
-      getPrivateKey: jest.fn().mockReturnValue('0x0000000000000000000000000000000000000000000000000000000000000001'),
+      getPrivateKey: jest
+        .fn()
+        .mockReturnValue(
+          '0x0000000000000000000000000000000000000000000000000000000000000001'
+        ),
       initialize: jest.fn(),
       refreshSecrets: jest.fn(),
     } as any;
@@ -145,9 +160,15 @@ describe('SigningWorker Multi-Instance Support', () => {
       }),
     } as any;
 
-    (DatabaseService.getInstance as jest.Mock).mockReturnValue(mockDatabaseService.getInstance());
-    (WithdrawalRequestService as jest.Mock).mockImplementation(() => mockWithdrawalRequestService);
-    (SignedTransactionService as jest.Mock).mockImplementation(() => mockSignedTransactionService);
+    (DatabaseService.getInstance as jest.Mock).mockReturnValue(
+      mockDatabaseService.getInstance()
+    );
+    (WithdrawalRequestService as jest.Mock).mockImplementation(
+      () => mockWithdrawalRequestService
+    );
+    (SignedTransactionService as jest.Mock).mockImplementation(
+      () => mockSignedTransactionService
+    );
 
     // Mock chain provider
     const mockProvider = {
@@ -161,11 +182,21 @@ describe('SigningWorker Multi-Instance Support', () => {
       getChainId: jest.fn().mockReturnValue(80002),
     };
 
-    (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(mockProvider);
+    (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(
+      mockProvider
+    );
 
     // Create two worker instances
-    signingWorker1 = new SigningWorker(mockConfig, mockSecretsManager, mockLogger);
-    signingWorker2 = new SigningWorker(mockConfig, mockSecretsManager, mockLogger);
+    signingWorker1 = new SigningWorker(
+      mockConfig,
+      mockSecretsManager,
+      mockLogger
+    );
+    signingWorker2 = new SigningWorker(
+      mockConfig,
+      mockSecretsManager,
+      mockLogger
+    );
 
     // Mock queue methods
     mockInputQueue = {
@@ -252,7 +283,9 @@ describe('SigningWorker Multi-Instance Support', () => {
         }
       });
 
-      const claimedMessages = await (signingWorker1 as any).claimMessages(messages);
+      const claimedMessages = await (signingWorker1 as any).claimMessages(
+        messages
+      );
 
       expect(claimedMessages).toHaveLength(1);
       expect(claimedMessages[0].body.id).toBe('test-1');
@@ -291,7 +324,9 @@ describe('SigningWorker Multi-Instance Support', () => {
         });
       });
 
-      const claimedMessages = await (signingWorker1 as any).claimMessages(messages);
+      const claimedMessages = await (signingWorker1 as any).claimMessages(
+        messages
+      );
 
       expect(claimedMessages).toHaveLength(0);
       expect(mockLogger.warn).toHaveBeenCalledWith(
@@ -331,7 +366,9 @@ describe('SigningWorker Multi-Instance Support', () => {
         });
       });
 
-      const claimedMessages = await (signingWorker1 as any).claimMessages(messages);
+      const claimedMessages = await (signingWorker1 as any).claimMessages(
+        messages
+      );
 
       expect(claimedMessages).toHaveLength(0);
       expect(mockInputQueue.deleteMessage).toHaveBeenCalledWith('receipt-1');
@@ -378,7 +415,9 @@ describe('SigningWorker Multi-Instance Support', () => {
         cleanup: jest.fn(),
       };
       (signingWorker1 as any).transactionSigner = mockTransactionSigner;
-      (signingWorker1 as any).getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
+      (signingWorker1 as any).getOrCreateSigner = jest
+        .fn()
+        .mockResolvedValue(mockTransactionSigner);
 
       // Mock ownership check - message is owned by different instance
       mockDbClient.$transaction.mockImplementation(async (fn: any) => {
@@ -439,7 +478,9 @@ describe('SigningWorker Multi-Instance Support', () => {
         cleanup: jest.fn(),
       };
       (signingWorker1 as any).transactionSigner = mockTransactionSigner;
-      (signingWorker1 as any).getOrCreateSigner = jest.fn().mockResolvedValue(mockTransactionSigner);
+      (signingWorker1 as any).getOrCreateSigner = jest
+        .fn()
+        .mockResolvedValue(mockTransactionSigner);
 
       // Mock ownership check - message is owned by current instance
       mockDbClient.$transaction.mockImplementation(async (fn: any) => {
@@ -534,7 +575,10 @@ describe('SigningWorker Multi-Instance Support', () => {
       });
 
       const tokenAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66';
-      const batch = await (signingWorker1 as any).createBatchWithLocking(tokenAddress, messages);
+      const batch = await (signingWorker1 as any).createBatchWithLocking(
+        tokenAddress,
+        messages
+      );
 
       expect(batch).toBeDefined();
       expect(batch.id.toString()).toBe('123');
@@ -595,7 +639,10 @@ describe('SigningWorker Multi-Instance Support', () => {
       });
 
       const tokenAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66';
-      const batch = await (signingWorker1 as any).createBatchWithLocking(tokenAddress, messages);
+      const batch = await (signingWorker1 as any).createBatchWithLocking(
+        tokenAddress,
+        messages
+      );
 
       expect(batch).toBeNull();
       expect(mockLogger.warn).toHaveBeenCalledWith(

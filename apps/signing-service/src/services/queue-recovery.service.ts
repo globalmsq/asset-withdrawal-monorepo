@@ -1,5 +1,13 @@
-import { IQueue, QueueFactory, ChainProviderFactory } from '@asset-withdrawal/shared';
-import { DatabaseService, WithdrawalRequestService, SignedSingleTransactionService } from '@asset-withdrawal/database';
+import {
+  IQueue,
+  QueueFactory,
+  ChainProviderFactory,
+} from '@asset-withdrawal/shared';
+import {
+  DatabaseService,
+  WithdrawalRequestService,
+  SignedSingleTransactionService,
+} from '@asset-withdrawal/database';
 import { NonceCacheService } from './nonce-cache.service';
 import { Logger } from '../utils/logger';
 import { ethers } from 'ethers';
@@ -17,11 +25,15 @@ export class QueueRecoveryService {
     const dbService = DatabaseService.getInstance();
     this.dbClient = dbService.getClient();
     this.withdrawalRequestService = new WithdrawalRequestService(this.dbClient);
-    this.signedTransactionService = new SignedSingleTransactionService(this.dbClient);
+    this.signedTransactionService = new SignedSingleTransactionService(
+      this.dbClient
+    );
     this.nonceCacheService = nonceCacheService;
     this.signedTxQueue = QueueFactory.createFromEnv('signed-tx-queue');
     this.requestQueue = QueueFactory.createFromEnv('tx-request-queue');
-    this.logger = new Logger({ logging: { level: 'info', auditLogPath: './logs/audit.log' } } as any);
+    this.logger = new Logger({
+      logging: { level: 'info', auditLogPath: './logs/audit.log' },
+    } as any);
   }
 
   /**
@@ -33,14 +45,18 @@ export class QueueRecoveryService {
 
     try {
       // Get all messages from signed-tx-queue (visibility timeout 0 to see all)
-      const messages = await this.signedTxQueue.receiveMessages({ maxMessages: 10 });
+      const messages = await this.signedTxQueue.receiveMessages({
+        maxMessages: 10,
+      });
 
       if (messages.length === 0) {
         this.logger.info('No messages found in signed-tx-queue for recovery');
         return;
       }
 
-      this.logger.info(`Found ${messages.length} messages in signed-tx-queue for recovery`);
+      this.logger.info(
+        `Found ${messages.length} messages in signed-tx-queue for recovery`
+      );
 
       // Initialize recovery statistics
       const stats = {
@@ -57,26 +73,38 @@ export class QueueRecoveryService {
 
           // Check transaction type using new message format
           if (signedTx.transactionType === 'BATCH' && signedTx.batchId) {
-            const result = await this.recoverBatchTransaction(signedTx.batchId, message.receiptHandle);
+            const result = await this.recoverBatchTransaction(
+              signedTx.batchId,
+              message.receiptHandle
+            );
             if (result) {
               stats.batchRecovered++;
             } else {
               stats.skipped++;
             }
-          } else if (signedTx.transactionType === 'SINGLE' && signedTx.requestId) {
+          } else if (
+            signedTx.transactionType === 'SINGLE' &&
+            signedTx.requestId
+          ) {
             // Individual transaction recovery
-            const result = await this.recoverIndividualTransaction(signedTx.requestId, message.receiptHandle);
+            const result = await this.recoverIndividualTransaction(
+              signedTx.requestId,
+              message.receiptHandle
+            );
             if (result) {
               stats.singleRecovered++;
             } else {
               stats.skipped++;
             }
           } else {
-            this.logger.error('Invalid message format - missing required fields', {
-              transactionType: signedTx.transactionType,
-              requestId: signedTx.requestId,
-              batchId: signedTx.batchId,
-            });
+            this.logger.error(
+              'Invalid message format - missing required fields',
+              {
+                transactionType: signedTx.transactionType,
+                requestId: signedTx.requestId,
+                batchId: signedTx.batchId,
+              }
+            );
             stats.errors++;
           }
         } catch (error) {
@@ -113,30 +141,47 @@ export class QueueRecoveryService {
     receiptHandle: string
   ): Promise<boolean> {
     // Get transaction details from database
-    const withdrawalRequest = await this.withdrawalRequestService.getWithdrawalRequestByRequestId(requestId);
+    const withdrawalRequest =
+      await this.withdrawalRequestService.getWithdrawalRequestByRequestId(
+        requestId
+      );
 
     if (!withdrawalRequest) {
-      this.logger.warn(`Transaction not found in DB for requestId ${requestId}, removing from queue`);
+      this.logger.warn(
+        `Transaction not found in DB for requestId ${requestId}, removing from queue`
+      );
       await this.signedTxQueue.deleteMessage(receiptHandle);
       return false;
     }
 
     // Check if transaction is already completed
-    if (withdrawalRequest.status === 'COMPLETED' || withdrawalRequest.status === 'FAILED') {
-      this.logger.info(`Transaction ${requestId} already ${withdrawalRequest.status}, removing from queue`);
+    if (
+      withdrawalRequest.status === 'COMPLETED' ||
+      withdrawalRequest.status === 'FAILED'
+    ) {
+      this.logger.info(
+        `Transaction ${requestId} already ${withdrawalRequest.status}, removing from queue`
+      );
       await this.signedTxQueue.deleteMessage(receiptHandle);
       return false;
     }
 
     // Only recover transactions that were in SIGNING or SIGNED state
-    if (withdrawalRequest.status !== 'SIGNING' && withdrawalRequest.status !== 'SIGNED') {
-      this.logger.info(`Transaction ${requestId} is ${withdrawalRequest.status}, skipping recovery`);
+    if (
+      withdrawalRequest.status !== 'SIGNING' &&
+      withdrawalRequest.status !== 'SIGNED'
+    ) {
+      this.logger.info(
+        `Transaction ${requestId} is ${withdrawalRequest.status}, skipping recovery`
+      );
       await this.signedTxQueue.deleteMessage(receiptHandle);
       return false;
     }
 
     // Restore to request queue
-    this.logger.info(`Recovering transaction ${requestId} from ${withdrawalRequest.status} to PENDING`);
+    this.logger.info(
+      `Recovering transaction ${requestId} from ${withdrawalRequest.status} to PENDING`
+    );
 
     // Create withdrawal request message from data
     const withdrawalRequestMessage = {
@@ -154,11 +199,16 @@ export class QueueRecoveryService {
     await this.requestQueue.sendMessage(withdrawalRequestMessage);
 
     // Update signed transactions status to CANCELLED
-    const signedTransactions = await this.signedTransactionService.findByRequestId(requestId);
-    this.logger.info(`Found ${signedTransactions.length} signed transactions for requestId: ${requestId}`);
+    const signedTransactions =
+      await this.signedTransactionService.findByRequestId(requestId);
+    this.logger.info(
+      `Found ${signedTransactions.length} signed transactions for requestId: ${requestId}`
+    );
 
     for (const signedTx of signedTransactions) {
-      this.logger.info(`Processing signed tx - id: ${signedTx.id}, status: ${signedTx.status}, txHash: ${signedTx.txHash}`);
+      this.logger.info(
+        `Processing signed tx - id: ${signedTx.id}, status: ${signedTx.status}, txHash: ${signedTx.txHash}`
+      );
 
       if (signedTx.status === 'SIGNED') {
         try {
@@ -166,9 +216,14 @@ export class QueueRecoveryService {
             status: 'CANCELLED',
             errorMessage: 'Cancelled due to service restart during processing',
           });
-          this.logger.info(`Updated signed transaction ${signedTx.txHash} status to CANCELLED`);
+          this.logger.info(
+            `Updated signed transaction ${signedTx.txHash} status to CANCELLED`
+          );
         } catch (error) {
-          this.logger.error(`Failed to update signed transaction ${signedTx.id}:`, error);
+          this.logger.error(
+            `Failed to update signed transaction ${signedTx.id}:`,
+            error
+          );
           // Continue with other transactions even if one fails
         }
       }
@@ -177,7 +232,9 @@ export class QueueRecoveryService {
     // Update status to PENDING in database
     const previousStatus = withdrawalRequest.status;
     await this.withdrawalRequestService.updateStatus(requestId, 'PENDING');
-    this.logger.info(`Updated withdrawal request ${requestId} status from ${previousStatus} to PENDING`);
+    this.logger.info(
+      `Updated withdrawal request ${requestId} status from ${previousStatus} to PENDING`
+    );
 
     // Delete from signed-tx-queue
     await this.signedTxQueue.deleteMessage(receiptHandle);
@@ -197,37 +254,52 @@ export class QueueRecoveryService {
 
     try {
       // First, check batch transaction status
-      const batchTransaction = await this.dbClient.signedBatchTransaction.findUnique({
-        where: { id: BigInt(batchId) },
-      });
+      const batchTransaction =
+        await this.dbClient.signedBatchTransaction.findUnique({
+          where: { id: BigInt(batchId) },
+        });
 
       if (!batchTransaction) {
-        this.logger.warn(`Batch transaction not found for id ${batchId}, removing from queue`);
+        this.logger.warn(
+          `Batch transaction not found for id ${batchId}, removing from queue`
+        );
         await this.signedTxQueue.deleteMessage(receiptHandle);
         return false;
       }
 
-      this.logger.info(`Batch transaction ${batchId} status: ${batchTransaction.status}`);
+      this.logger.info(
+        `Batch transaction ${batchId} status: ${batchTransaction.status}`
+      );
 
       // Check if batch transaction is in recoverable state
-      if (batchTransaction.status !== 'SIGNING' && batchTransaction.status !== 'SIGNED') {
-        this.logger.info(`Batch transaction ${batchId} is ${batchTransaction.status}, skipping recovery`);
+      if (
+        batchTransaction.status !== 'SIGNING' &&
+        batchTransaction.status !== 'SIGNED'
+      ) {
+        this.logger.info(
+          `Batch transaction ${batchId} is ${batchTransaction.status}, skipping recovery`
+        );
         await this.signedTxQueue.deleteMessage(receiptHandle);
         return false;
       }
 
       // Get all withdrawal requests associated with this batch
-      const batchWithdrawalRequests = await this.dbClient.withdrawalRequest.findMany({
-        where: { batchId: batchId },
-      });
+      const batchWithdrawalRequests =
+        await this.dbClient.withdrawalRequest.findMany({
+          where: { batchId: batchId },
+        });
 
       if (batchWithdrawalRequests.length === 0) {
-        this.logger.warn(`No withdrawal requests found for batch ${batchId}, removing from queue`);
+        this.logger.warn(
+          `No withdrawal requests found for batch ${batchId}, removing from queue`
+        );
         await this.signedTxQueue.deleteMessage(receiptHandle);
         return false;
       }
 
-      this.logger.info(`Found ${batchWithdrawalRequests.length} withdrawal requests in batch ${batchId}`);
+      this.logger.info(
+        `Found ${batchWithdrawalRequests.length} withdrawal requests in batch ${batchId}`
+      );
 
       // Check if batch is already completed or failed
       const allCompleted = batchWithdrawalRequests.every(
@@ -235,13 +307,17 @@ export class QueueRecoveryService {
       );
 
       if (allCompleted) {
-        this.logger.info(`All transactions in batch ${batchId} already completed/failed, removing from queue`);
+        this.logger.info(
+          `All transactions in batch ${batchId} already completed/failed, removing from queue`
+        );
         await this.signedTxQueue.deleteMessage(receiptHandle);
         return false;
       }
 
       // Update batch transaction status to CANCELLED
-      this.logger.info(`Updating batch transaction ${batchId} from ${batchTransaction.status} to CANCELLED`);
+      this.logger.info(
+        `Updating batch transaction ${batchId} from ${batchTransaction.status} to CANCELLED`
+      );
       await this.dbClient.signedBatchTransaction.update({
         where: { id: BigInt(batchId) },
         data: {
@@ -253,13 +329,20 @@ export class QueueRecoveryService {
       // Recover each withdrawal request individually
       for (const withdrawalRequest of batchWithdrawalRequests) {
         // Skip if already completed or failed
-        if (withdrawalRequest.status === 'COMPLETED' || withdrawalRequest.status === 'FAILED') {
-          this.logger.info(`Skipping ${withdrawalRequest.requestId} - already ${withdrawalRequest.status}`);
+        if (
+          withdrawalRequest.status === 'COMPLETED' ||
+          withdrawalRequest.status === 'FAILED'
+        ) {
+          this.logger.info(
+            `Skipping ${withdrawalRequest.requestId} - already ${withdrawalRequest.status}`
+          );
           continue;
         }
 
         // Log recovery for SIGNING or SIGNED status
-        this.logger.info(`Recovering ${withdrawalRequest.requestId} from ${withdrawalRequest.status} to PENDING`);
+        this.logger.info(
+          `Recovering ${withdrawalRequest.requestId} from ${withdrawalRequest.status} to PENDING`
+        );
 
         // Create withdrawal request message
         const withdrawalRequestMessage = {
@@ -275,7 +358,9 @@ export class QueueRecoveryService {
 
         // Send to request queue
         await this.requestQueue.sendMessage(withdrawalRequestMessage);
-        this.logger.info(`Sent ${withdrawalRequest.requestId} to request queue`);
+        this.logger.info(
+          `Sent ${withdrawalRequest.requestId} to request queue`
+        );
       }
 
       // Update all withdrawal requests to PENDING and remove batchId
@@ -295,7 +380,9 @@ export class QueueRecoveryService {
       // Delete from signed-tx-queue
       await this.signedTxQueue.deleteMessage(receiptHandle);
 
-      this.logger.info(`Successfully recovered batch ${batchId} with ${batchWithdrawalRequests.length} transactions`);
+      this.logger.info(
+        `Successfully recovered batch ${batchId} with ${batchWithdrawalRequests.length} transactions`
+      );
       return true;
     } catch (error) {
       this.logger.error(`Failed to recover batch ${batchId}:`, error);
@@ -316,11 +403,17 @@ export class QueueRecoveryService {
     for (const { chain, network } of chains) {
       try {
         // Get provider for this chain/network
-        const chainProvider = ChainProviderFactory.getProvider(chain as any, network as any);
+        const chainProvider = ChainProviderFactory.getProvider(
+          chain as any,
+          network as any
+        );
         const provider = chainProvider.getProvider();
 
         // Get current nonce from blockchain
-        const blockchainNonce = await provider.getTransactionCount(signerAddress, 'latest');
+        const blockchainNonce = await provider.getTransactionCount(
+          signerAddress,
+          'latest'
+        );
 
         // Get current nonce from cache
         const cachedNonce = await this.nonceCacheService.getCurrentNonce(
@@ -329,10 +422,13 @@ export class QueueRecoveryService {
           signerAddress
         );
 
-        this.logger.info(`Nonce sync for ${chain}/${network}/${signerAddress}:`, {
-          blockchain: blockchainNonce,
-          cached: cachedNonce,
-        });
+        this.logger.info(
+          `Nonce sync for ${chain}/${network}/${signerAddress}:`,
+          {
+            blockchain: blockchainNonce,
+            cached: cachedNonce,
+          }
+        );
 
         // If blockchain nonce is higher, update cache
         if (blockchainNonce > cachedNonce) {
@@ -342,10 +438,15 @@ export class QueueRecoveryService {
             signerAddress,
             blockchainNonce
           );
-          this.logger.info(`Updated nonce cache to ${blockchainNonce} for ${chain}/${network}`);
+          this.logger.info(
+            `Updated nonce cache to ${blockchainNonce} for ${chain}/${network}`
+          );
         }
       } catch (error) {
-        this.logger.error(`Failed to sync nonce for ${chain}/${network}:`, error);
+        this.logger.error(
+          `Failed to sync nonce for ${chain}/${network}:`,
+          error
+        );
         // Continue with other chains
       }
     }
@@ -364,7 +465,10 @@ export class QueueRecoveryService {
 
     try {
       // Get transaction details from database
-      const withdrawalRequest = await this.withdrawalRequestService.getWithdrawalRequestByRequestId(requestId);
+      const withdrawalRequest =
+        await this.withdrawalRequestService.getWithdrawalRequestByRequestId(
+          requestId
+        );
 
       if (!withdrawalRequest) {
         this.logger.error(`Transaction not found for requestId ${requestId}`);
@@ -394,9 +498,14 @@ export class QueueRecoveryService {
         await this.signedTxQueue.deleteMessage(receiptHandle);
       }
 
-      this.logger.info(`Successfully recovered transaction ${requestId} after nonce collision`);
+      this.logger.info(
+        `Successfully recovered transaction ${requestId} after nonce collision`
+      );
     } catch (error) {
-      this.logger.error(`Failed to handle nonce collision for ${requestId}:`, error);
+      this.logger.error(
+        `Failed to handle nonce collision for ${requestId}:`,
+        error
+      );
       throw error;
     }
   }
@@ -410,7 +519,9 @@ export class QueueRecoveryService {
     receiptHandle?: string
   ): Promise<void> {
     const errorMessage = error.message || error.toString();
-    this.logger.warn(`Recovering transaction ${requestId} due to error: ${errorMessage}`);
+    this.logger.warn(
+      `Recovering transaction ${requestId} due to error: ${errorMessage}`
+    );
 
     // Check if it's a recoverable error
     const recoverableErrors = [
@@ -427,7 +538,9 @@ export class QueueRecoveryService {
     );
 
     if (!isRecoverable) {
-      this.logger.error(`Non-recoverable error for ${requestId}: ${errorMessage}`);
+      this.logger.error(
+        `Non-recoverable error for ${requestId}: ${errorMessage}`
+      );
       // Update status to FAILED for non-recoverable errors
       await this.withdrawalRequestService.updateStatus(requestId, 'FAILED');
       return;

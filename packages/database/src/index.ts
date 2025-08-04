@@ -6,7 +6,10 @@ export { UserService } from './user-service';
 export { WithdrawalRequestService } from './withdrawal-request-service';
 export type { WithdrawalRequest } from './withdrawal-request-service';
 export { SignedSingleTransactionService } from './services/signed-single-transaction.service';
-export type { CreateSignedTransactionDto, UpdateSignedTransactionDto } from './services/signed-single-transaction.service';
+export type {
+  CreateSignedTransactionDto,
+  UpdateSignedTransactionDto,
+} from './services/signed-single-transaction.service';
 export { SignedBatchTransactionService } from './signed-batch-transaction-service';
 export type { SignedBatchTransaction } from './signed-batch-transaction-service';
 

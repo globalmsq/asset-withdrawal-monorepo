@@ -3,7 +3,11 @@ import 'winston-daily-rotate-file';
 import path from 'path';
 import fs from 'fs';
 import { LoggerConfig, LogContext, LogLevel } from '../types/logger.types';
-import { getDefaultLoggerConfig, SENSITIVE_PATTERNS, SENSITIVE_REPLACEMENT } from '../config/logger.config';
+import {
+  getDefaultLoggerConfig,
+  SENSITIVE_PATTERNS,
+  SENSITIVE_REPLACEMENT,
+} from '../config/logger.config';
 
 export class LoggerService {
   private winston: winston.Logger;
@@ -11,13 +15,22 @@ export class LoggerService {
   private context: LogContext;
 
   constructor(config?: Partial<LoggerConfig>);
-  constructor(winstonLogger: winston.Logger, config: LoggerConfig, context: LogContext);
+  constructor(
+    winstonLogger: winston.Logger,
+    config: LoggerConfig,
+    context: LogContext
+  );
   constructor(
     configOrLogger?: Partial<LoggerConfig> | winston.Logger,
     config?: LoggerConfig,
     context?: LogContext
   ) {
-    if (configOrLogger && typeof configOrLogger === 'object' && 'info' in configOrLogger && 'error' in configOrLogger) {
+    if (
+      configOrLogger &&
+      typeof configOrLogger === 'object' &&
+      'info' in configOrLogger &&
+      'error' in configOrLogger
+    ) {
       // Private constructor for child loggers
       this.winston = configOrLogger;
       this.config = config!;
@@ -25,7 +38,10 @@ export class LoggerService {
     } else {
       // Public constructor
       this.config = {
-        ...getDefaultLoggerConfig(configOrLogger?.service || 'default', process.env.NODE_ENV),
+        ...getDefaultLoggerConfig(
+          configOrLogger?.service || 'default',
+          process.env.NODE_ENV
+        ),
         ...configOrLogger,
       };
 
@@ -67,17 +83,18 @@ export class LoggerService {
     // Console transport
     if (this.config.enableConsole) {
       // Check if running in Docker or if NO_COLOR env var is set
-      const isDocker = process.env.DOCKER === 'true' || fs.existsSync('/.dockerenv');
-      const noColor = process.env.NO_COLOR === 'true' || process.env.NODE_ENV === 'production';
+      const isDocker =
+        process.env.DOCKER === 'true' || fs.existsSync('/.dockerenv');
+      const noColor =
+        process.env.NO_COLOR === 'true' ||
+        process.env.NODE_ENV === 'production';
 
       transports.push(
         new winston.transports.Console({
-          format: this.config.format === 'simple' && !isDocker && !noColor
-            ? winston.format.combine(
-              winston.format.colorize(),
-              ...formats
-            )
-            : winston.format.combine(...formats),
+          format:
+            this.config.format === 'simple' && !isDocker && !noColor
+              ? winston.format.combine(winston.format.colorize(), ...formats)
+              : winston.format.combine(...formats),
         })
       );
     }
@@ -104,7 +121,10 @@ export class LoggerService {
       // Error log file
       transports.push(
         new (winston.transports as any).DailyRotateFile({
-          filename: path.join(logDir, `${this.config.service}-error-%DATE%.log`),
+          filename: path.join(
+            logDir,
+            `${this.config.service}-error-%DATE%.log`
+          ),
           datePattern: 'YYYY-MM-DD',
           level: 'error',
           maxSize: this.config.maxFileSize,
@@ -129,8 +149,11 @@ export class LoggerService {
 
         // Filter sensitive data from message
         if (typeof message === 'string') {
-          SENSITIVE_PATTERNS.forEach((pattern) => {
-            message = (message as string).replace(pattern, SENSITIVE_REPLACEMENT);
+          SENSITIVE_PATTERNS.forEach(pattern => {
+            message = (message as string).replace(
+              pattern,
+              SENSITIVE_REPLACEMENT
+            );
           });
         }
 
@@ -138,7 +161,7 @@ export class LoggerService {
         const filterObject = (obj: any): any => {
           if (typeof obj === 'string') {
             let filtered = obj;
-            SENSITIVE_PATTERNS.forEach((pattern) => {
+            SENSITIVE_PATTERNS.forEach(pattern => {
               filtered = filtered.replace(pattern, SENSITIVE_REPLACEMENT);
             });
             return filtered;
@@ -199,13 +222,17 @@ export class LoggerService {
 
   // Clear specific context fields
   clearContext(...fields: (keyof LogContext)[]): void {
-    fields.forEach((field) => {
+    fields.forEach(field => {
       delete this.context[field];
     });
   }
 
   // Logging methods
-  error(message: string, error?: Error | any, context?: Partial<LogContext>): void {
+  error(
+    message: string,
+    error?: Error | any,
+    context?: Partial<LogContext>
+  ): void {
     const meta = { ...this.context, ...context };
     if (error) {
       this.winston.error(message, { ...meta, error });

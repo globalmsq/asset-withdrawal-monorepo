@@ -1,93 +1,93 @@
 {
-	"meta": {
-		"generatedAt": "2025-07-21T12:01:40.371Z",
-		"tasksAnalyzed": 10,
-		"totalTasks": 10,
-		"analysisCount": 10,
-		"thresholdScore": 5,
-		"projectName": "Taskmaster",
-		"usedResearch": false
-	},
-	"complexityAnalysis": [
-		{
-			"taskId": 11,
-			"taskTitle": "signing-service Multicall3 배치 전송 기능 구현",
-			"complexityScore": 8,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "Multicall3 통합을 위한 세부 구현 단계로 나누어 주세요: 컨트랙트 주소 설정, MulticallService 클래스 구현, ABI 인코딩 로직, 배치 크기 최적화, TransactionSigner 확장, 모델 업데이트",
-			"reasoning": "복잡한 블록체인 통합 작업으로 스마트 컨트랙트 상호작용, ABI 인코딩, 가스 최적화 등 여러 전문 영역을 포함"
-		},
-		{
-			"taskId": 12,
-			"taskTitle": "tx-broadcaster 서비스 구현",
-			"complexityScore": 7,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "트랜잭션 브로드캐스트 서비스를 단계별로 구현해 주세요: Nx 앱 생성, SQS 폴링 로직, 네트워크 브로드캐스트, 상태 관리, 에러 처리 및 재시도 로직",
-			"reasoning": "새로운 마이크로서비스 구축으로 큐 처리, 블록체인 통신, 에러 복구 등 여러 시스템 통합이 필요"
-		},
-		{
-			"taskId": 13,
-			"taskTitle": "tx-monitor 서비스 구현",
-			"complexityScore": 6,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "트랜잭션 모니터링 서비스를 구성 요소별로 나누어 구현해 주세요: Nx 앱 생성, 트랜잭션 상태 추적, 확인 로직, Redis 캐싱 및 최적화",
-			"reasoning": "블록체인 상태 추적과 캐싱 시스템이 포함된 중간 복잡도의 서비스 구현"
-		},
-		{
-			"taskId": 14,
-			"taskTitle": "DLQ(Dead Letter Queue) 핸들러 구현",
-			"complexityScore": 5,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "DLQ 처리 시스템을 로직별로 세분화해 주세요: DLQ 설정, 메시지 분류 로직, 재시도 알고리즘, 관리 API 및 모니터링",
-			"reasoning": "큐 시스템의 확장 기능으로 복잡한 분류 로직과 재시도 메커니즘이 필요하지만 핵심 비즈니스 로직은 상대적으로 단순"
-		},
-		{
-			"taskId": 15,
-			"taskTitle": "signing-service 잔액 검증 기능 구현",
-			"complexityScore": 6,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "잔액 검증 시스템을 기능별로 나누어 구현해 주세요: BalanceService 구현, 토큰 및 가스 잔액 조회, 검증 로직, Redis 캐싱 시스템",
-			"reasoning": "블록체인 상호작용, 캐싱, 검증 로직 등이 포함된 중간 복잡도의 기능으로 여러 시스템과의 통합 필요"
-		},
-		{
-			"taskId": 16,
-			"taskTitle": "Admin API 인증 시스템 구현",
-			"complexityScore": 7,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "인증 시스템을 구성 요소별로 구현해 주세요: 데이터베이스 모델 설계, JWT 인증 미들웨어, 역할 기반 접근 제어, 인증 API 엔드포인트, 보안 설정 및 Rate Limiting",
-			"reasoning": "보안이 중요한 시스템으로 JWT, RBAC, Rate Limiting 등 여러 보안 계층과 데이터베이스 설계가 필요"
-		},
-		{
-			"taskId": 17,
-			"taskTitle": "Admin API 관리 기능 구현",
-			"complexityScore": 8,
-			"recommendedSubtasks": 6,
-			"expansionPrompt": "Admin API를 기능 영역별로 나누어 구현해 주세요: 트랜잭션 관리 API, 큐 관리 API, 사용자 관리 API, 시스템 통계 API, 검색/필터링 시스템, 감사 로그 기능",
-			"reasoning": "광범위한 관리 기능을 포함하는 복합적인 API 시스템으로 여러 도메인의 CRUD 작업과 고급 기능들이 필요"
-		},
-		{
-			"taskId": 18,
-			"taskTitle": "Admin UI React 애플리케이션 구현",
-			"complexityScore": 9,
-			"recommendedSubtasks": 7,
-			"expansionPrompt": "React 관리 인터페이스를 페이지/기능별로 나누어 구현해 주세요: 프로젝트 설정 및 기본 구조, 인증 및 상태 관리, 대시보드, 트랜잭션 관리 페이지, 큐 모니터링 페이지, 사용자 관리 페이지, 시각화 및 반응형 디자인",
-			"reasoning": "대규모 React 애플리케이션으로 여러 UI 라이브러리, 상태 관리, 실시간 기능, 시각화 등 복합적인 프론트엔드 기술 스택 필요"
-		},
-		{
-			"taskId": 19,
-			"taskTitle": "WebSocket 실시간 통신 시스템 구현",
-			"complexityScore": 6,
-			"recommendedSubtasks": 4,
-			"expansionPrompt": "WebSocket 시스템을 기능별로 나누어 구현해 주세요: Socket.IO 서버 설정, 실시간 이벤트 시스템, 구독/인증 메커니즘, 클라이언트 연결 관리",
-			"reasoning": "실시간 통신 시스템으로 Socket.IO 통합과 인증이 필요하지만 비교적 표준적인 WebSocket 구현 패턴"
-		},
-		{
-			"taskId": 20,
-			"taskTitle": "Prometheus 메트릭 및 모니터링 시스템 구현",
-			"complexityScore": 7,
-			"recommendedSubtasks": 5,
-			"expansionPrompt": "모니터링 시스템을 구성 요소별로 구현해 주세요: Prometheus 메트릭 수집 설정, 애플리케이션 메트릭 구현, Grafana 대시보드 구성, 알림 시스템 설정, 메트릭 보존 정책 구성",
-			"reasoning": "포괄적인 모니터링 시스템 구축으로 Prometheus, Grafana, AlertManager 등 여러 도구의 통합과 설정이 필요"
-		}
-	]
+  "meta": {
+    "generatedAt": "2025-07-21T12:01:40.371Z",
+    "tasksAnalyzed": 10,
+    "totalTasks": 10,
+    "analysisCount": 10,
+    "thresholdScore": 5,
+    "projectName": "Taskmaster",
+    "usedResearch": false
+  },
+  "complexityAnalysis": [
+    {
+      "taskId": 11,
+      "taskTitle": "signing-service Multicall3 배치 전송 기능 구현",
+      "complexityScore": 8,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Multicall3 통합을 위한 세부 구현 단계로 나누어 주세요: 컨트랙트 주소 설정, MulticallService 클래스 구현, ABI 인코딩 로직, 배치 크기 최적화, TransactionSigner 확장, 모델 업데이트",
+      "reasoning": "복잡한 블록체인 통합 작업으로 스마트 컨트랙트 상호작용, ABI 인코딩, 가스 최적화 등 여러 전문 영역을 포함"
+    },
+    {
+      "taskId": 12,
+      "taskTitle": "tx-broadcaster 서비스 구현",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "트랜잭션 브로드캐스트 서비스를 단계별로 구현해 주세요: Nx 앱 생성, SQS 폴링 로직, 네트워크 브로드캐스트, 상태 관리, 에러 처리 및 재시도 로직",
+      "reasoning": "새로운 마이크로서비스 구축으로 큐 처리, 블록체인 통신, 에러 복구 등 여러 시스템 통합이 필요"
+    },
+    {
+      "taskId": 13,
+      "taskTitle": "tx-monitor 서비스 구현",
+      "complexityScore": 6,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "트랜잭션 모니터링 서비스를 구성 요소별로 나누어 구현해 주세요: Nx 앱 생성, 트랜잭션 상태 추적, 확인 로직, Redis 캐싱 및 최적화",
+      "reasoning": "블록체인 상태 추적과 캐싱 시스템이 포함된 중간 복잡도의 서비스 구현"
+    },
+    {
+      "taskId": 14,
+      "taskTitle": "DLQ(Dead Letter Queue) 핸들러 구현",
+      "complexityScore": 5,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "DLQ 처리 시스템을 로직별로 세분화해 주세요: DLQ 설정, 메시지 분류 로직, 재시도 알고리즘, 관리 API 및 모니터링",
+      "reasoning": "큐 시스템의 확장 기능으로 복잡한 분류 로직과 재시도 메커니즘이 필요하지만 핵심 비즈니스 로직은 상대적으로 단순"
+    },
+    {
+      "taskId": 15,
+      "taskTitle": "signing-service 잔액 검증 기능 구현",
+      "complexityScore": 6,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "잔액 검증 시스템을 기능별로 나누어 구현해 주세요: BalanceService 구현, 토큰 및 가스 잔액 조회, 검증 로직, Redis 캐싱 시스템",
+      "reasoning": "블록체인 상호작용, 캐싱, 검증 로직 등이 포함된 중간 복잡도의 기능으로 여러 시스템과의 통합 필요"
+    },
+    {
+      "taskId": 16,
+      "taskTitle": "Admin API 인증 시스템 구현",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "인증 시스템을 구성 요소별로 구현해 주세요: 데이터베이스 모델 설계, JWT 인증 미들웨어, 역할 기반 접근 제어, 인증 API 엔드포인트, 보안 설정 및 Rate Limiting",
+      "reasoning": "보안이 중요한 시스템으로 JWT, RBAC, Rate Limiting 등 여러 보안 계층과 데이터베이스 설계가 필요"
+    },
+    {
+      "taskId": 17,
+      "taskTitle": "Admin API 관리 기능 구현",
+      "complexityScore": 8,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Admin API를 기능 영역별로 나누어 구현해 주세요: 트랜잭션 관리 API, 큐 관리 API, 사용자 관리 API, 시스템 통계 API, 검색/필터링 시스템, 감사 로그 기능",
+      "reasoning": "광범위한 관리 기능을 포함하는 복합적인 API 시스템으로 여러 도메인의 CRUD 작업과 고급 기능들이 필요"
+    },
+    {
+      "taskId": 18,
+      "taskTitle": "Admin UI React 애플리케이션 구현",
+      "complexityScore": 9,
+      "recommendedSubtasks": 7,
+      "expansionPrompt": "React 관리 인터페이스를 페이지/기능별로 나누어 구현해 주세요: 프로젝트 설정 및 기본 구조, 인증 및 상태 관리, 대시보드, 트랜잭션 관리 페이지, 큐 모니터링 페이지, 사용자 관리 페이지, 시각화 및 반응형 디자인",
+      "reasoning": "대규모 React 애플리케이션으로 여러 UI 라이브러리, 상태 관리, 실시간 기능, 시각화 등 복합적인 프론트엔드 기술 스택 필요"
+    },
+    {
+      "taskId": 19,
+      "taskTitle": "WebSocket 실시간 통신 시스템 구현",
+      "complexityScore": 6,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "WebSocket 시스템을 기능별로 나누어 구현해 주세요: Socket.IO 서버 설정, 실시간 이벤트 시스템, 구독/인증 메커니즘, 클라이언트 연결 관리",
+      "reasoning": "실시간 통신 시스템으로 Socket.IO 통합과 인증이 필요하지만 비교적 표준적인 WebSocket 구현 패턴"
+    },
+    {
+      "taskId": 20,
+      "taskTitle": "Prometheus 메트릭 및 모니터링 시스템 구현",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "모니터링 시스템을 구성 요소별로 구현해 주세요: Prometheus 메트릭 수집 설정, 애플리케이션 메트릭 구현, Grafana 대시보드 구성, 알림 시스템 설정, 메트릭 보존 정책 구성",
+      "reasoning": "포괄적인 모니터링 시스템 구축으로 Prometheus, Grafana, AlertManager 등 여러 도구의 통합과 설정이 필요"
+    }
+  ]
 }

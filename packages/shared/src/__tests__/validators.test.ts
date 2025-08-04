@@ -514,7 +514,9 @@ describe('validateWithdrawalRequest with batch fields', () => {
     const errors = validateWithdrawalRequest(batchDataWithoutId);
     expect(errors).toHaveLength(1);
     expect(errors[0].field).toBe('batchId');
-    expect(errors[0].message).toBe('batchId is required for BATCH type withdrawals');
+    expect(errors[0].message).toBe(
+      'batchId is required for BATCH type withdrawals'
+    );
   });
 
   it('should not require batchId for SINGLE type', () => {
@@ -631,7 +633,9 @@ describe('validateBatchWithdrawalRequest', () => {
     const errors = validateBatchWithdrawalRequest(dataWithDifferentTokens);
     expect(errors).toHaveLength(1);
     expect(errors[0].field).toBe('withdrawalRequests');
-    expect(errors[0].message).toBe('All withdrawal requests must have the same token address');
+    expect(errors[0].message).toBe(
+      'All withdrawal requests must have the same token address'
+    );
   });
 
   it('should require all requests to have the same network', () => {
@@ -649,7 +653,9 @@ describe('validateBatchWithdrawalRequest', () => {
     const errors = validateBatchWithdrawalRequest(dataWithDifferentNetworks);
     expect(errors).toHaveLength(1);
     expect(errors[0].field).toBe('withdrawalRequests');
-    expect(errors[0].message).toBe('All withdrawal requests must have the same network');
+    expect(errors[0].message).toBe(
+      'All withdrawal requests must have the same network'
+    );
   });
 
   it('should handle multiple validation errors', () => {
@@ -675,8 +681,14 @@ describe('validateBatchWithdrawalRequest', () => {
     // Since we're providing invalid values (not missing values),
     // we should get format/validation errors
     const errorMessages = errors.map(e => e.message);
-    expect(errorMessages.some(msg => msg.includes('batchId is required'))).toBe(true);
-    expect(errorMessages.some(msg => msg.includes('Invalid amount format'))).toBe(true);
-    expect(errorMessages.some(msg => msg.includes('Unsupported network'))).toBe(true);
+    expect(errorMessages.some(msg => msg.includes('batchId is required'))).toBe(
+      true
+    );
+    expect(
+      errorMessages.some(msg => msg.includes('Invalid amount format'))
+    ).toBe(true);
+    expect(errorMessages.some(msg => msg.includes('Unsupported network'))).toBe(
+      true
+    );
   });
 });

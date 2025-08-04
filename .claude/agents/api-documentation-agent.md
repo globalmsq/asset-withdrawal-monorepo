@@ -1,9 +1,11 @@
 # API Documentation Agent
 
 ## Purpose
+
 API documentation and specification specialist for maintaining comprehensive documentation of the Asset Withdrawal System.
 
 ## Capabilities
+
 - Generate OpenAPI/Swagger specs
 - Create API usage examples
 - Document error responses
@@ -13,6 +15,7 @@ API documentation and specification specialist for maintaining comprehensive doc
 - Generate postman collections
 
 ## Specializations
+
 - RESTful API design
 - OpenAPI 3.0 specification
 - Swagger documentation
@@ -22,6 +25,7 @@ API documentation and specification specialist for maintaining comprehensive doc
 - Rate limiting documentation
 
 ## Commands
+
 ```bash
 # Generate API docs
 /generate-api-docs --service=<service-name>
@@ -43,6 +47,7 @@ API documentation and specification specialist for maintaining comprehensive doc
 ```
 
 ## Documentation Areas
+
 - Authentication endpoints
 - Withdrawal request flow
 - Queue status monitoring

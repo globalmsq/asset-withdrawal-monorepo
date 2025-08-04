@@ -42,7 +42,9 @@ export class SignedSingleTransactionService {
     }
   }
 
-  async create(data: CreateSignedTransactionDto): Promise<SignedSingleTransaction> {
+  async create(
+    data: CreateSignedTransactionDto
+  ): Promise<SignedSingleTransaction> {
     return this.prisma.signedSingleTransaction.create({
       data: {
         ...data,
@@ -64,7 +66,9 @@ export class SignedSingleTransactionService {
     });
   }
 
-  async getLatestByRequestId(requestId: string): Promise<SignedSingleTransaction | null> {
+  async getLatestByRequestId(
+    requestId: string
+  ): Promise<SignedSingleTransaction | null> {
     return this.prisma.signedSingleTransaction.findFirst({
       where: { requestId },
       orderBy: { createdAt: 'desc' },
@@ -91,7 +95,9 @@ export class SignedSingleTransactionService {
     });
 
     if (!transaction) {
-      throw new Error(`SignedSingleTransaction with txHash ${txHash} not found`);
+      throw new Error(
+        `SignedSingleTransaction with txHash ${txHash} not found`
+      );
     }
 
     return this.prisma.signedSingleTransaction.update({
@@ -106,7 +112,9 @@ export class SignedSingleTransactionService {
     });
   }
 
-  async getRecentSignedTransactions(limit: number = 10): Promise<SignedSingleTransaction[]> {
+  async getRecentSignedTransactions(
+    limit: number = 10
+  ): Promise<SignedSingleTransaction[]> {
     return this.prisma.signedSingleTransaction.findMany({
       take: limit,
       orderBy: { createdAt: 'desc' },

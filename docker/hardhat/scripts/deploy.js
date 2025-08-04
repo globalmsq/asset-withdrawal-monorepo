@@ -23,7 +23,7 @@ async function main() {
     'Mock USDT',
     'mUSDT',
     6,
-    hre.ethers.parseUnits('1000000', 6),
+    hre.ethers.parseUnits('1000000', 6)
   );
   await mockUSDT.waitForDeployment();
   const mockUSDTAddress = await mockUSDT.getAddress();
@@ -35,7 +35,7 @@ async function main() {
     'Mock MSquare Global',
     'mMSQ',
     18,
-    hre.ethers.parseEther('1000000'),
+    hre.ethers.parseEther('1000000')
   );
   await mockMSQ.waitForDeployment();
   const mockMSQAddress = await mockMSQ.getAddress();
@@ -47,7 +47,7 @@ async function main() {
     'Mock Super Trust',
     'mSUT',
     18,
-    hre.ethers.parseEther('1000000'),
+    hre.ethers.parseEther('1000000')
   );
   await mockSUT.waitForDeployment();
   const mockSUTAddress = await mockSUT.getAddress();
@@ -59,7 +59,7 @@ async function main() {
     'Mock Korean Won Token',
     'mKWT',
     6,
-    hre.ethers.parseUnits('1000000', 6),
+    hre.ethers.parseUnits('1000000', 6)
   );
   await mockKWT.waitForDeployment();
   const mockKWTAddress = await mockKWT.getAddress();
@@ -71,7 +71,7 @@ async function main() {
     'Mock Point to You Coin',
     'mP2UC',
     6,
-    hre.ethers.parseUnits('1000000', 6),
+    hre.ethers.parseUnits('1000000', 6)
   );
   await mockP2UC.waitForDeployment();
   const mockP2UCAddress = await mockP2UC.getAddress();
@@ -169,7 +169,7 @@ async function main() {
 
 main()
   .then(() => process.exit(0))
-  .catch((error) => {
+  .catch(error => {
     console.error(error);
     process.exit(1);
   });

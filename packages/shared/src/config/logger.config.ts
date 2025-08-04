@@ -1,10 +1,14 @@
 import { LoggerConfig, LogLevel } from '../types/logger.types';
 
-export const getDefaultLoggerConfig = (service: string, environment = 'development'): LoggerConfig => {
+export const getDefaultLoggerConfig = (
+  service: string,
+  environment = 'development'
+): LoggerConfig => {
   const isProduction = environment === 'production';
 
   return {
-    level: (process.env.LOG_LEVEL as LogLevel) || (isProduction ? 'info' : 'debug'),
+    level:
+      (process.env.LOG_LEVEL as LogLevel) || (isProduction ? 'info' : 'debug'),
     service,
     environment,
     enableConsole: true,
@@ -12,7 +16,9 @@ export const getDefaultLoggerConfig = (service: string, environment = 'developme
     filePath: process.env.LOG_FILE_PATH || './logs',
     maxFileSize: process.env.LOG_MAX_FILE_SIZE || '20m',
     maxFiles: process.env.LOG_MAX_FILES || '14d',
-    format: (process.env.LOG_FORMAT as 'json' | 'simple') || (isProduction ? 'json' : 'simple'),
+    format:
+      (process.env.LOG_FORMAT as 'json' | 'simple') ||
+      (isProduction ? 'json' : 'simple'),
   };
 };
 

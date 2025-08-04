@@ -2,8 +2,17 @@ import { SigningWorker } from '../../workers/signing-worker';
 import { Config } from '../../config';
 import { Logger } from '../../utils/logger';
 import { SecureSecretsManager } from '../../services/secrets-manager';
-import { WithdrawalRequestService, DatabaseService, SignedTransactionService } from '@asset-withdrawal/database';
-import { WithdrawalRequest, ChainProviderFactory, TransactionStatus, Message } from '@asset-withdrawal/shared';
+import {
+  WithdrawalRequestService,
+  DatabaseService,
+  SignedTransactionService,
+} from '@asset-withdrawal/database';
+import {
+  WithdrawalRequest,
+  ChainProviderFactory,
+  TransactionStatus,
+  Message,
+} from '@asset-withdrawal/shared';
 
 // Mock dependencies
 jest.mock('@asset-withdrawal/database');
@@ -13,7 +22,9 @@ jest.mock('@asset-withdrawal/shared', () => ({
     createPolygonProvider: jest.fn(),
     getProvider: jest.fn().mockReturnValue({
       getProvider: jest.fn(),
-      getMulticall3Address: jest.fn().mockReturnValue('0x1234567890123456789012345678901234567890'),
+      getMulticall3Address: jest
+        .fn()
+        .mockReturnValue('0x1234567890123456789012345678901234567890'),
       getChainId: jest.fn().mockReturnValue(137),
     }),
   },
@@ -100,7 +111,11 @@ describe('SigningWorker Validation', () => {
     };
 
     mockSecretsManager = {
-      getPrivateKey: jest.fn().mockReturnValue('0x0000000000000000000000000000000000000000000000000000000000000001'),
+      getPrivateKey: jest
+        .fn()
+        .mockReturnValue(
+          '0x0000000000000000000000000000000000000000000000000000000000000001'
+        ),
       initialize: jest.fn(),
       refreshSecrets: jest.fn(),
     } as any;
@@ -138,7 +153,7 @@ describe('SigningWorker Validation', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
-      $transaction: jest.fn().mockImplementation(async (fn) => {
+      $transaction: jest.fn().mockImplementation(async fn => {
         // Execute the transaction function with the mock client
         return await fn(mockDbClient);
       }),
@@ -151,9 +166,15 @@ describe('SigningWorker Validation', () => {
       }),
     } as any;
 
-    (DatabaseService.getInstance as jest.Mock).mockReturnValue(mockDatabaseService.getInstance());
-    (WithdrawalRequestService as jest.Mock).mockImplementation(() => mockWithdrawalRequestService);
-    (SignedTransactionService as jest.Mock).mockImplementation(() => mockSignedTransactionService);
+    (DatabaseService.getInstance as jest.Mock).mockReturnValue(
+      mockDatabaseService.getInstance()
+    );
+    (WithdrawalRequestService as jest.Mock).mockImplementation(
+      () => mockWithdrawalRequestService
+    );
+    (SignedTransactionService as jest.Mock).mockImplementation(
+      () => mockSignedTransactionService
+    );
 
     // Mock chain provider
     mockProvider = {
@@ -167,11 +188,19 @@ describe('SigningWorker Validation', () => {
       getChainId: jest.fn().mockReturnValue(80002),
     };
 
-    (ChainProviderFactory.createPolygonProvider as jest.Mock).mockReturnValue(mockProvider);
-    (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(mockProvider);
+    (ChainProviderFactory.createPolygonProvider as jest.Mock).mockReturnValue(
+      mockProvider
+    );
+    (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(
+      mockProvider
+    );
 
     // Create worker instance
-    signingWorker = new SigningWorker(mockConfig, mockSecretsManager, mockLogger);
+    signingWorker = new SigningWorker(
+      mockConfig,
+      mockSecretsManager,
+      mockLogger
+    );
 
     // Mock queue methods
     mockInputQueue = {
@@ -200,7 +229,9 @@ describe('SigningWorker Validation', () => {
         symbol: 'USDT',
       };
 
-      const result = (signingWorker as any).validateWithdrawalRequest(validRequest);
+      const result = (signingWorker as any).validateWithdrawalRequest(
+        validRequest
+      );
       expect(result).toBeNull();
     });
 
@@ -216,12 +247,18 @@ describe('SigningWorker Validation', () => {
       };
 
       // Mock ChainProviderFactory to throw error for unsupported chain
-      (ChainProviderFactory.getProvider as jest.Mock).mockImplementationOnce(() => {
-        throw new Error('Unsupported chain: unsupported');
-      });
+      (ChainProviderFactory.getProvider as jest.Mock).mockImplementationOnce(
+        () => {
+          throw new Error('Unsupported chain: unsupported');
+        }
+      );
 
-      const result = (signingWorker as any).validateWithdrawalRequest(invalidRequest);
-      expect(result).toBe('Unsupported chain/network combination: unsupported/mainnet');
+      const result = (signingWorker as any).validateWithdrawalRequest(
+        invalidRequest
+      );
+      expect(result).toBe(
+        'Unsupported chain/network combination: unsupported/mainnet'
+      );
     });
 
     it('should return error for missing chain or network information', () => {
@@ -234,7 +271,9 @@ describe('SigningWorker Validation', () => {
         symbol: 'USDT',
       } as any;
 
-      const result = (signingWorker as any).validateWithdrawalRequest(invalidRequest);
+      const result = (signingWorker as any).validateWithdrawalRequest(
+        invalidRequest
+      );
       expect(result).toContain('Missing chain or network information');
     });
 
@@ -249,7 +288,9 @@ describe('SigningWorker Validation', () => {
         symbol: 'USDT',
       };
 
-      const result = (signingWorker as any).validateWithdrawalRequest(invalidRequest);
+      const result = (signingWorker as any).validateWithdrawalRequest(
+        invalidRequest
+      );
       expect(result).toBe('Invalid recipient address format: invalid-address');
     });
 
@@ -264,7 +305,9 @@ describe('SigningWorker Validation', () => {
         symbol: 'USDT',
       };
 
-      const result = (signingWorker as any).validateWithdrawalRequest(invalidRequest);
+      const result = (signingWorker as any).validateWithdrawalRequest(
+        invalidRequest
+      );
       expect(result).toBe('Invalid token address format: 0xINVALID');
     });
 
@@ -279,7 +322,9 @@ describe('SigningWorker Validation', () => {
         symbol: 'MATIC',
       } as any;
 
-      const result = (signingWorker as any).validateWithdrawalRequest(validRequest);
+      const result = (signingWorker as any).validateWithdrawalRequest(
+        validRequest
+      );
       expect(result).toBeNull();
     });
 
@@ -294,7 +339,9 @@ describe('SigningWorker Validation', () => {
         symbol: 'USDT',
       };
 
-      const result = (signingWorker as any).validateWithdrawalRequest(invalidRequest);
+      const result = (signingWorker as any).validateWithdrawalRequest(
+        invalidRequest
+      );
       expect(result).toBe('Invalid amount: -1000. Must be positive');
     });
 
@@ -309,7 +356,9 @@ describe('SigningWorker Validation', () => {
         symbol: 'USDT',
       };
 
-      const result = (signingWorker as any).validateWithdrawalRequest(invalidRequest);
+      const result = (signingWorker as any).validateWithdrawalRequest(
+        invalidRequest
+      );
       expect(result).toBe('Invalid amount: 0. Must be positive');
     });
 
@@ -324,8 +373,12 @@ describe('SigningWorker Validation', () => {
         symbol: 'USDT',
       };
 
-      const result = (signingWorker as any).validateWithdrawalRequest(invalidRequest);
-      expect(result).toBe('Invalid amount format: not-a-number. Must be a valid number');
+      const result = (signingWorker as any).validateWithdrawalRequest(
+        invalidRequest
+      );
+      expect(result).toBe(
+        'Invalid amount format: not-a-number. Must be a valid number'
+      );
     });
   });
 
@@ -403,22 +456,38 @@ describe('SigningWorker Validation', () => {
           throw new Error('Unsupported chain: unsupported');
         });
 
-      mockInputQueue.receiveMessages.mockResolvedValue([validMessage, invalidMessage]);
+      mockInputQueue.receiveMessages.mockResolvedValue([
+        validMessage,
+        invalidMessage,
+      ]);
 
       // Mock the claiming process - messages are successfully claimed
       mockDbClient.withdrawalRequest.findUnique
-        .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }) // validMessage
-        .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }); // invalidMessage
+        .mockResolvedValueOnce({
+          status: TransactionStatus.PENDING,
+          processingInstanceId: null,
+        }) // validMessage
+        .mockResolvedValueOnce({
+          status: TransactionStatus.PENDING,
+          processingInstanceId: null,
+        }); // invalidMessage
 
       mockDbClient.withdrawalRequest.update
-        .mockResolvedValueOnce({ requestId: 'test-1', status: TransactionStatus.VALIDATING })
-        .mockResolvedValueOnce({ requestId: 'test-2', status: TransactionStatus.VALIDATING });
+        .mockResolvedValueOnce({
+          requestId: 'test-1',
+          status: TransactionStatus.VALIDATING,
+        })
+        .mockResolvedValueOnce({
+          requestId: 'test-2',
+          status: TransactionStatus.VALIDATING,
+        });
 
       // Mock withdrawal request findMany to return empty (no previous attempts)
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
 
       // Mock processMessage to prevent actual processing
-      const processMessageSpy = jest.spyOn(signingWorker as any, 'processMessage')
+      const processMessageSpy = jest
+        .spyOn(signingWorker as any, 'processMessage')
         .mockResolvedValue({
           hash: '0xabcd',
           nonce: 1,
@@ -436,7 +505,9 @@ describe('SigningWorker Validation', () => {
       await (signingWorker as any).processBatch();
 
       // Verify invalid message was marked as FAILED
-      expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
+      expect(
+        mockWithdrawalRequestService.updateStatusWithError
+      ).toHaveBeenCalledWith(
         'test-2',
         TransactionStatus.FAILED,
         'Unsupported chain/network combination: unsupported/mainnet'
@@ -446,7 +517,9 @@ describe('SigningWorker Validation', () => {
       expect(mockInputQueue.deleteMessage).toHaveBeenCalledWith('receipt-2');
 
       // Verify valid message was processed normally
-      expect(mockWithdrawalRequestService.updateStatusWithError).not.toHaveBeenCalledWith(
+      expect(
+        mockWithdrawalRequestService.updateStatusWithError
+      ).not.toHaveBeenCalledWith(
         'test-1',
         expect.anything(),
         expect.anything()
@@ -512,12 +585,24 @@ describe('SigningWorker Validation', () => {
 
       // Mock the claiming process - messages are successfully claimed
       mockDbClient.withdrawalRequest.findUnique
-        .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }) // msg-1
-        .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null }); // msg-2
+        .mockResolvedValueOnce({
+          status: TransactionStatus.PENDING,
+          processingInstanceId: null,
+        }) // msg-1
+        .mockResolvedValueOnce({
+          status: TransactionStatus.PENDING,
+          processingInstanceId: null,
+        }); // msg-2
 
       mockDbClient.withdrawalRequest.update
-        .mockResolvedValueOnce({ requestId: 'test-1', status: TransactionStatus.VALIDATING })
-        .mockResolvedValueOnce({ requestId: 'test-2', status: TransactionStatus.VALIDATING });
+        .mockResolvedValueOnce({
+          requestId: 'test-1',
+          status: TransactionStatus.VALIDATING,
+        })
+        .mockResolvedValueOnce({
+          requestId: 'test-2',
+          status: TransactionStatus.VALIDATING,
+        });
 
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
 
@@ -525,13 +610,19 @@ describe('SigningWorker Validation', () => {
       await (signingWorker as any).processBatch();
 
       // Verify all invalid messages were marked as FAILED
-      expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledTimes(2);
-      expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
+      expect(
+        mockWithdrawalRequestService.updateStatusWithError
+      ).toHaveBeenCalledTimes(2);
+      expect(
+        mockWithdrawalRequestService.updateStatusWithError
+      ).toHaveBeenCalledWith(
         'test-1',
         TransactionStatus.FAILED,
         'Unsupported chain/network combination: ethereum/mainnet'
       );
-      expect(mockWithdrawalRequestService.updateStatusWithError).toHaveBeenCalledWith(
+      expect(
+        mockWithdrawalRequestService.updateStatusWithError
+      ).toHaveBeenCalledWith(
         'test-2',
         TransactionStatus.FAILED,
         'Invalid recipient address format: invalid-address'
@@ -565,18 +656,24 @@ describe('SigningWorker Validation', () => {
 
       // Mock ChainProviderFactory to throw error for ethereum chain
       (ChainProviderFactory.getProvider as jest.Mock).mockReset();
-      (ChainProviderFactory.getProvider as jest.Mock).mockImplementationOnce(() => {
-        throw new Error('Unsupported chain: ethereum');
-      });
+      (ChainProviderFactory.getProvider as jest.Mock).mockImplementationOnce(
+        () => {
+          throw new Error('Unsupported chain: ethereum');
+        }
+      );
 
       mockInputQueue.receiveMessages.mockResolvedValue([invalidMessage]);
 
       // Mock the claiming process - message is successfully claimed
-      mockDbClient.withdrawalRequest.findUnique
-        .mockResolvedValueOnce({ status: TransactionStatus.PENDING, processingInstanceId: null });
+      mockDbClient.withdrawalRequest.findUnique.mockResolvedValueOnce({
+        status: TransactionStatus.PENDING,
+        processingInstanceId: null,
+      });
 
-      mockDbClient.withdrawalRequest.update
-        .mockResolvedValueOnce({ requestId: 'test-1', status: TransactionStatus.VALIDATING });
+      mockDbClient.withdrawalRequest.update.mockResolvedValueOnce({
+        requestId: 'test-1',
+        status: TransactionStatus.VALIDATING,
+      });
 
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
 
@@ -637,7 +734,7 @@ describe('SigningWorker Validation', () => {
       // First message: successfully claimed by this instance
       // Second message: already claimed by another instance
       let transactionCallCount = 0;
-      mockDbClient.$transaction.mockImplementation(async (fn) => {
+      mockDbClient.$transaction.mockImplementation(async fn => {
         transactionCallCount++;
         if (transactionCallCount === 1) {
           // First message - successful claim
@@ -669,7 +766,8 @@ describe('SigningWorker Validation', () => {
       mockDbClient.withdrawalRequest.findMany.mockResolvedValue([]);
 
       // Mock processMessage to prevent actual processing
-      const processMessageSpy = jest.spyOn(signingWorker as any, 'processMessage')
+      const processMessageSpy = jest
+        .spyOn(signingWorker as any, 'processMessage')
         .mockResolvedValue({
           hash: '0xabcd',
           nonce: 1,
@@ -708,8 +806,12 @@ describe('SigningWorker Validation', () => {
       await (signingWorker as any).processBatch();
 
       // Verify the claiming messages were logged
-      expect(mockLogger.info).toHaveBeenCalledWith('Received 2 messages from queue');
-      expect(mockLogger.info).toHaveBeenCalledWith('Successfully claimed 1 messages');
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Received 2 messages from queue'
+      );
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Successfully claimed 1 messages'
+      );
 
       // Verify the message already claimed by another instance was handled
       expect(mockInputQueue.deleteMessage).toHaveBeenCalledWith('receipt-2');

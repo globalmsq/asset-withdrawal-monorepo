@@ -1,5 +1,5 @@
 // Transaction status types
-export type TransactionStatus = 
+export type TransactionStatus =
   | 'pending'
   | 'signed'
   | 'broadcasted'
@@ -60,7 +60,10 @@ export class BroadcastError extends Error {
 }
 
 export class ValidationError extends Error {
-  constructor(message: string, public field?: string) {
+  constructor(
+    message: string,
+    public field?: string
+  ) {
     super(message);
     this.name = 'ValidationError';
   }

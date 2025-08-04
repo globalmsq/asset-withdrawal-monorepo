@@ -40,7 +40,10 @@ function getRequiredEnv(key: string): string {
   return value;
 }
 
-function getOptionalEnv(key: string, defaultValue?: string): string | undefined {
+function getOptionalEnv(
+  key: string,
+  defaultValue?: string
+): string | undefined {
   return process.env[key] || defaultValue;
 }
 
@@ -91,7 +94,7 @@ export const config: AppConfig = {
 // Validate configuration on startup
 export function validateConfig(): void {
   console.log('[tx-broadcaster] Validating configuration...');
-  
+
   // Check required URLs
   if (!config.TX_REQUEST_QUEUE_URL) {
     throw new Error('TX_REQUEST_QUEUE_URL is required');
@@ -111,19 +114,19 @@ export function validateConfig(): void {
 
 function logEnvironmentOverrides(): void {
   console.log('[tx-broadcaster] Environment configuration:');
-  
+
   if (process.env.RPC_URL) {
     console.log(`  - RPC_URL override: ${process.env.RPC_URL}`);
   } else {
     console.log(`  - RPC_URL default: ${config.RPC_URL}`);
   }
-  
+
   if (process.env.CHAIN_ID) {
     console.log(`  - CHAIN_ID override: ${process.env.CHAIN_ID}`);
   } else {
     console.log(`  - CHAIN_ID default: ${config.CHAIN_ID}`);
   }
-  
+
   console.log('  - Dynamic chain support enabled via chains.config.json');
   console.log('  - Environment variables take precedence over config file');
 }

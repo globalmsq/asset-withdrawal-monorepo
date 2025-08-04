@@ -1,10 +1,16 @@
 import { config, validateConfig } from '../config';
-import { getRedisClient, BroadcastRedisService, closeRedisClient } from '../services/redis-client';
-import { 
-  QueueService, 
-  SignedTransactionMessage, 
+import {
+  getRedisClient,
+  BroadcastRedisService,
+  closeRedisClient,
+} from '../services/redis-client';
+import {
+  QueueService,
+  SignedTransactionMessage,
+  UnifiedSignedTransactionMessage,
   BroadcastResultMessage,
-  QueueMessage 
+  UnifiedBroadcastResultMessage,
+  QueueMessage,
 } from '../services/queue-client';
 import { TransactionBroadcaster } from '../services/broadcaster';
 import { ProcessingResult, WorkerStats } from '../types';
@@ -31,7 +37,7 @@ export class SQSWorker {
   async start(): Promise<void> {
     try {
       console.log('[tx-broadcaster] Starting SQS Worker...');
-      
+
       // Validate configuration
       validateConfig();
 
@@ -64,7 +70,9 @@ export class SQSWorker {
     try {
       // Test blockchain connection (default environment provider)
       const networkStatus = await this.broadcaster.getNetworkStatus();
-      console.log(`[tx-broadcaster] Connected to default blockchain - Chain ID: ${networkStatus.chainId}, Block: ${networkStatus.blockNumber}`);
+      console.log(
+        `[tx-broadcaster] Connected to default blockchain - Chain ID: ${networkStatus.chainId}, Block: ${networkStatus.blockNumber}`
+      );
 
       // Test Redis connection
       if (this.redisService) {
@@ -72,7 +80,9 @@ export class SQSWorker {
         console.log('[tx-broadcaster] Redis connection verified');
       }
     } catch (error) {
-      throw new Error(`Connection test failed: ${error instanceof Error ? error.message : error}`);
+      throw new Error(
+        `Connection test failed: ${error instanceof Error ? error.message : error}`
+      );
     }
   }
 
@@ -80,11 +90,12 @@ export class SQSWorker {
     while (this.isRunning) {
       try {
         // Receive messages from the queue
-        const messages = await this.queueService.receiveMessages<SignedTransactionMessage>(
-          config.TX_REQUEST_QUEUE_URL,
-          5, // Process up to 5 messages at once
-          20 // Long polling for 20 seconds
-        );
+        const messages =
+          await this.queueService.receiveMessages<SignedTransactionMessage>(
+            config.TX_REQUEST_QUEUE_URL,
+            5, // Process up to 5 messages at once
+            20 // Long polling for 20 seconds
+          );
 
         if (messages.length === 0) {
           continue; // No messages, continue polling
@@ -93,12 +104,11 @@ export class SQSWorker {
         console.log(`[tx-broadcaster] Received ${messages.length} messages`);
 
         // Process messages concurrently
-        const processingPromises = messages.map(message => 
+        const processingPromises = messages.map(message =>
           this.processMessage(message)
         );
 
         await Promise.allSettled(processingPromises);
-
       } catch (error) {
         console.error('[tx-broadcaster] Error in processing loop:', error);
         // Wait a bit before retrying to avoid tight error loops
@@ -107,27 +117,44 @@ export class SQSWorker {
     }
   }
 
-  private async processMessage(message: QueueMessage<SignedTransactionMessage>): Promise<void> {
+  private async processMessage(message: QueueMessage<any>): Promise<void> {
     const startTime = Date.now();
     let result: ProcessingResult;
 
     try {
-      console.log(`[tx-broadcaster] Processing message ${message.id} for withdrawal ${message.body.withdrawalId}`);
-      
-      result = await this.handleSignedTransaction(message.body);
-      
+      // Detect message type and convert to unified format
+      const unifiedMessage = this.convertToUnifiedMessage(message.body);
+      const identifierText =
+        unifiedMessage.transactionType === 'SINGLE'
+          ? `withdrawal ${unifiedMessage.withdrawalId}`
+          : `batch ${unifiedMessage.batchId}`;
+
+      console.log(
+        `[tx-broadcaster] Processing ${unifiedMessage.transactionType} message ${message.id} for ${identifierText}`
+      );
+
+      result = await this.handleUnifiedTransaction(unifiedMessage);
+
       if (result.success) {
         // Delete message from queue on success
-        await this.queueService.deleteMessage(config.TX_REQUEST_QUEUE_URL, message.receiptHandle);
+        await this.queueService.deleteMessage(
+          config.TX_REQUEST_QUEUE_URL,
+          message.receiptHandle
+        );
         this.updateStats(true, Date.now() - startTime);
-        console.log(`[tx-broadcaster] Successfully processed message ${message.id}`);
+        console.log(
+          `[tx-broadcaster] Successfully processed message ${message.id}`
+        );
       } else {
         // Handle retry logic
         await this.handleFailure(message, result);
         this.updateStats(false, Date.now() - startTime);
       }
     } catch (error) {
-      console.error(`[tx-broadcaster] Unexpected error processing message ${message.id}:`, error);
+      console.error(
+        `[tx-broadcaster] Unexpected error processing message ${message.id}:`,
+        error
+      );
       result = {
         success: false,
         shouldRetry: true,
@@ -138,7 +165,37 @@ export class SQSWorker {
     }
   }
 
-  private async handleSignedTransaction(txMessage: SignedTransactionMessage): Promise<ProcessingResult> {
+  // Convert old message format to unified format
+  private convertToUnifiedMessage(
+    message: any
+  ): UnifiedSignedTransactionMessage {
+    // Check if it's already in unified format
+    if ('transactionType' in message) {
+      return message as UnifiedSignedTransactionMessage;
+    }
+
+    // Convert old SignedTransactionMessage to unified format
+    const oldMessage = message as SignedTransactionMessage;
+    return {
+      id: oldMessage.id,
+      transactionType: 'SINGLE',
+      withdrawalId: oldMessage.withdrawalId,
+      userId: oldMessage.userId,
+      transactionHash: oldMessage.transactionHash,
+      signedTransaction: oldMessage.signedTransaction,
+      chainId: oldMessage.chainId,
+      metadata: {
+        toAddress: oldMessage.toAddress,
+        amount: oldMessage.amount,
+        tokenAddress: oldMessage.tokenAddress,
+      },
+      createdAt: oldMessage.createdAt,
+    };
+  }
+
+  private async handleUnifiedTransaction(
+    txMessage: UnifiedSignedTransactionMessage
+  ): Promise<ProcessingResult> {
     try {
       const { transactionHash, signedTransaction, chainId } = txMessage;
 
@@ -146,23 +203,33 @@ export class SQSWorker {
       if (this.redisService) {
         // Check if already broadcasted
         if (await this.redisService.isBroadcasted(transactionHash)) {
-          console.log(`[tx-broadcaster] Transaction ${transactionHash} already broadcasted, skipping`);
+          console.log(
+            `[tx-broadcaster] Transaction ${transactionHash} already broadcasted, skipping`
+          );
           return { success: true, shouldRetry: false };
         }
 
         // Set processing lock
-        const lockAcquired = await this.redisService.setProcessing(transactionHash);
+        const lockAcquired =
+          await this.redisService.setProcessing(transactionHash);
         if (!lockAcquired) {
-          console.log(`[tx-broadcaster] Transaction ${transactionHash} is being processed by another worker, skipping`);
+          console.log(
+            `[tx-broadcaster] Transaction ${transactionHash} is being processed by another worker, skipping`
+          );
           return { success: true, shouldRetry: false }; // Another worker is handling it
         }
       }
 
       try {
-        console.log(`[tx-broadcaster] Processing transaction for chain ID: ${chainId}`);
+        console.log(
+          `[tx-broadcaster] Processing transaction for chain ID: ${chainId}`
+        );
 
         // Validate transaction with expected chain ID
-        const validation = await this.broadcaster.validateTransaction(signedTransaction, chainId);
+        const validation = await this.broadcaster.validateTransaction(
+          signedTransaction,
+          chainId
+        );
         if (!validation.valid) {
           return {
             success: false,
@@ -172,10 +239,15 @@ export class SQSWorker {
         }
 
         // Check if transaction already exists on blockchain
-        const exists = await this.broadcaster.transactionExists(transactionHash, chainId);
+        const exists = await this.broadcaster.transactionExists(
+          transactionHash,
+          chainId
+        );
         if (exists) {
-          console.log(`[tx-broadcaster] Transaction ${transactionHash} already exists on chain ${chainId}`);
-          
+          console.log(
+            `[tx-broadcaster] Transaction ${transactionHash} already exists on chain ${chainId}`
+          );
+
           // Mark as broadcasted in Redis
           if (this.redisService) {
             await this.redisService.markBroadcasted(transactionHash);
@@ -191,25 +263,28 @@ export class SQSWorker {
         }
 
         // Broadcast transaction with chain ID
-        const broadcastResult = await this.broadcaster.broadcastTransaction(signedTransaction, chainId);
-        
+        const broadcastResult = await this.broadcaster.broadcastTransaction(
+          signedTransaction,
+          chainId
+        );
+
         if (broadcastResult.success) {
           // Mark as broadcasted in Redis
           if (this.redisService) {
             await this.redisService.markBroadcasted(
-              transactionHash, 
+              transactionHash,
               broadcastResult.transactionHash
             );
           }
 
           // Send success result to next queue
           await this.sendBroadcastResult(txMessage, broadcastResult);
-          
+
           return { success: true, shouldRetry: false, result: broadcastResult };
         } else {
           // Send failure result to next queue
           await this.sendBroadcastResult(txMessage, broadcastResult);
-          
+
           return {
             success: false,
             shouldRetry: this.isRetryableError(broadcastResult.error),
@@ -232,31 +307,50 @@ export class SQSWorker {
   }
 
   private async sendBroadcastResult(
-    originalMessage: SignedTransactionMessage,
-    broadcastResult: { success: boolean; transactionHash?: string; error?: string }
+    originalMessage: UnifiedSignedTransactionMessage,
+    broadcastResult: {
+      success: boolean;
+      transactionHash?: string;
+      error?: string;
+    }
   ): Promise<void> {
-    const resultMessage: BroadcastResultMessage = {
+    // Create unified result message
+    const resultMessage: UnifiedBroadcastResultMessage = {
       id: originalMessage.id,
-      userId: originalMessage.userId,
+      transactionType: originalMessage.transactionType,
       withdrawalId: originalMessage.withdrawalId,
+      batchId: originalMessage.batchId,
+      userId: originalMessage.userId,
       originalTransactionHash: originalMessage.transactionHash,
       broadcastTransactionHash: broadcastResult.transactionHash,
       status: broadcastResult.success ? 'broadcasted' : 'failed',
       error: broadcastResult.error,
-      broadcastedAt: broadcastResult.success ? new Date().toISOString() : undefined,
+      broadcastedAt: broadcastResult.success
+        ? new Date().toISOString()
+        : undefined,
+      metadata:
+        originalMessage.transactionType === 'BATCH' &&
+        originalMessage.metadata?.requestIds
+          ? { affectedRequests: originalMessage.metadata.requestIds }
+          : undefined,
     };
 
     await this.queueService.sendToBroadcastQueue(resultMessage);
   }
 
   private async handleFailure(
-    message: QueueMessage<SignedTransactionMessage>,
+    message: QueueMessage<any>,
     result: ProcessingResult
   ): Promise<void> {
     if (!result.shouldRetry || !this.redisService) {
       // Delete message if not retryable or Redis not available
-      await this.queueService.deleteMessage(config.TX_REQUEST_QUEUE_URL, message.receiptHandle);
-      console.log(`[tx-broadcaster] Message ${message.id} failed and will not be retried`);
+      await this.queueService.deleteMessage(
+        config.TX_REQUEST_QUEUE_URL,
+        message.receiptHandle
+      );
+      console.log(
+        `[tx-broadcaster] Message ${message.id} failed and will not be retried`
+      );
       return;
     }
 
@@ -266,25 +360,33 @@ export class SQSWorker {
 
     if (retryCount >= maxRetries) {
       // Max retries reached, send failure result and delete message
-      await this.sendBroadcastResult(message.body, {
+      const unifiedMessage = this.convertToUnifiedMessage(message.body);
+      await this.sendBroadcastResult(unifiedMessage, {
         success: false,
         error: `Max retries (${maxRetries}) exceeded: ${result.error}`,
       });
-      
-      await this.queueService.deleteMessage(config.TX_REQUEST_QUEUE_URL, message.receiptHandle);
-      console.log(`[tx-broadcaster] Message ${message.id} exceeded max retries and was deleted`);
+
+      await this.queueService.deleteMessage(
+        config.TX_REQUEST_QUEUE_URL,
+        message.receiptHandle
+      );
+      console.log(
+        `[tx-broadcaster] Message ${message.id} exceeded max retries and was deleted`
+      );
     } else {
-      console.log(`[tx-broadcaster] Message ${message.id} will be retried (attempt ${retryCount}/${maxRetries})`);
+      console.log(
+        `[tx-broadcaster] Message ${message.id} will be retried (attempt ${retryCount}/${maxRetries})`
+      );
       // Message will be retried automatically by SQS visibility timeout
     }
   }
 
   private isRetryableError(error?: string): boolean {
     if (!error) return false;
-    
+
     const retryableErrors = [
       'NETWORK_ERROR',
-      'SERVER_ERROR', 
+      'SERVER_ERROR',
       'NONCE_OR_GAS_ERROR',
       'CONFIRMATION_TIMEOUT',
       'PROVIDER_ERROR',
@@ -299,11 +401,17 @@ export class SQSWorker {
     ];
 
     // Check for non-retryable errors first
-    if (nonRetryableErrors.some(nonRetryableError => error.includes(nonRetryableError))) {
+    if (
+      nonRetryableErrors.some(nonRetryableError =>
+        error.includes(nonRetryableError)
+      )
+    ) {
       return false;
     }
 
-    return retryableErrors.some(retryableError => error.includes(retryableError));
+    return retryableErrors.some(retryableError =>
+      error.includes(retryableError)
+    );
   }
 
   private updateStats(success: boolean, processingTime: number): void {
@@ -313,12 +421,13 @@ export class SQSWorker {
     } else {
       this.stats.messagesFailed++;
     }
-    
+
     // Update rolling average processing time
-    this.stats.averageProcessingTime = 
-      (this.stats.averageProcessingTime * (this.stats.messagesProcessed - 1) + processingTime) / 
+    this.stats.averageProcessingTime =
+      (this.stats.averageProcessingTime * (this.stats.messagesProcessed - 1) +
+        processingTime) /
       this.stats.messagesProcessed;
-    
+
     this.stats.lastProcessedAt = new Date();
 
     // Log stats every 10 messages

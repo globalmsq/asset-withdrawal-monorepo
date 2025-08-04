@@ -37,61 +37,90 @@ export class ChainConfigService {
         __dirname,
         '../../../../../packages/shared/src/config/chains.config.json'
       );
-      
+
       if (!fs.existsSync(configPath)) {
-        console.error(`[tx-broadcaster] Chain config file not found at: ${configPath}`);
+        console.error(
+          `[tx-broadcaster] Chain config file not found at: ${configPath}`
+        );
         throw new Error(`Chain config file not found at: ${configPath}`);
       }
 
       const configData = fs.readFileSync(configPath, 'utf-8');
       this.chainsConfig = JSON.parse(configData);
-      
+
       // 설정 유효성 검증
       this.validateChainsConfig();
-      
+
       console.log('[tx-broadcaster] Chain configuration loaded successfully');
-      console.log(`[tx-broadcaster] Loaded ${this.getSupportedChainIds().length} supported chains`);
+      console.log(
+        `[tx-broadcaster] Loaded ${this.getSupportedChainIds().length} supported chains`
+      );
     } catch (error) {
-      console.error('[tx-broadcaster] Failed to load chain configuration:', error);
-      throw new Error(`Chain configuration initialization failed: ${error instanceof Error ? error.message : error}`);
+      console.error(
+        '[tx-broadcaster] Failed to load chain configuration:',
+        error
+      );
+      throw new Error(
+        `Chain configuration initialization failed: ${error instanceof Error ? error.message : error}`
+      );
     }
   }
 
   private validateChainsConfig(): void {
     let totalChains = 0;
-    
-    for (const [networkName, environments] of Object.entries(this.chainsConfig)) {
+
+    for (const [networkName, environments] of Object.entries(
+      this.chainsConfig
+    )) {
       for (const [envName, config] of Object.entries(environments)) {
         if (config) {
           // 필수 필드 검증
           if (!config.chainId || !config.name || !config.rpcUrl) {
-            throw new Error(`Invalid chain config for ${networkName}/${envName}: missing required fields`);
+            throw new Error(
+              `Invalid chain config for ${networkName}/${envName}: missing required fields`
+            );
           }
-          
+
           // Chain ID 중복 검증
-          const existingChain = this.findChainByChainId(config.chainId, networkName, envName);
+          const existingChain = this.findChainByChainId(
+            config.chainId,
+            networkName,
+            envName
+          );
           if (existingChain) {
-            throw new Error(`Duplicate chain ID ${config.chainId} found in ${networkName}/${envName} and ${existingChain}`);
+            throw new Error(
+              `Duplicate chain ID ${config.chainId} found in ${networkName}/${envName} and ${existingChain}`
+            );
           }
-          
+
           totalChains++;
         }
       }
     }
-    
+
     if (totalChains === 0) {
       throw new Error('No valid chain configurations found');
     }
-    
-    console.log(`[tx-broadcaster] Validated ${totalChains} chain configurations`);
+
+    console.log(
+      `[tx-broadcaster] Validated ${totalChains} chain configurations`
+    );
   }
 
-  private findChainByChainId(targetChainId: number, excludeNetwork?: string, excludeEnv?: string): string | null {
-    for (const [networkName, environments] of Object.entries(this.chainsConfig)) {
+  private findChainByChainId(
+    targetChainId: number,
+    excludeNetwork?: string,
+    excludeEnv?: string
+  ): string | null {
+    for (const [networkName, environments] of Object.entries(
+      this.chainsConfig
+    )) {
       for (const [envName, config] of Object.entries(environments)) {
-        if (config && 
-            config.chainId === targetChainId && 
-            !(networkName === excludeNetwork && envName === excludeEnv)) {
+        if (
+          config &&
+          config.chainId === targetChainId &&
+          !(networkName === excludeNetwork && envName === excludeEnv)
+        ) {
           return `${networkName}/${envName}`;
         }
       }
@@ -105,29 +134,35 @@ export class ChainConfigService {
    */
   getChainConfig(chainId: number): ChainConfig | null {
     // 모든 네트워크와 환경에서 해당 chainId 찾기
-    for (const [networkName, environments] of Object.entries(this.chainsConfig)) {
+    for (const [networkName, environments] of Object.entries(
+      this.chainsConfig
+    )) {
       for (const [envName, config] of Object.entries(environments)) {
         if (config && config.chainId === chainId) {
           const chainConfig = { ...config };
-          
+
           // 환경변수로 오버라이드
           const envRpcUrl = process.env.RPC_URL;
           const envChainId = process.env.CHAIN_ID;
-          
+
           if (envRpcUrl) {
-            console.log(`[tx-broadcaster] Overriding RPC URL for chain ${chainId}: ${envRpcUrl}`);
+            console.log(
+              `[tx-broadcaster] Overriding RPC URL for chain ${chainId}: ${envRpcUrl}`
+            );
             chainConfig.rpcUrl = envRpcUrl;
           }
-          
+
           if (envChainId && parseInt(envChainId) === chainId) {
-            console.log(`[tx-broadcaster] Environment chain ID ${envChainId} matches message chain ID ${chainId}`);
+            console.log(
+              `[tx-broadcaster] Environment chain ID ${envChainId} matches message chain ID ${chainId}`
+            );
           }
-          
+
           return chainConfig;
         }
       }
     }
-    
+
     return null;
   }
 
@@ -138,24 +173,33 @@ export class ChainConfigService {
     // 캐시에서 확인
     if (this.providerCache.has(chainId)) {
       const cachedProvider = this.providerCache.get(chainId)!;
-      console.log(`[tx-broadcaster] Using cached provider for chain ${chainId}`);
+      console.log(
+        `[tx-broadcaster] Using cached provider for chain ${chainId}`
+      );
       return cachedProvider;
     }
 
     const chainConfig = this.getChainConfig(chainId);
     if (!chainConfig) {
-      console.error(`[tx-broadcaster] Unsupported chain ID: ${chainId}. Supported chains: ${this.getSupportedChainIds().join(', ')}`);
+      console.error(
+        `[tx-broadcaster] Unsupported chain ID: ${chainId}. Supported chains: ${this.getSupportedChainIds().join(', ')}`
+      );
       return null;
     }
 
     try {
       const provider = new ethers.JsonRpcProvider(chainConfig.rpcUrl);
       this.providerCache.set(chainId, provider);
-      
-      console.log(`[tx-broadcaster] Created provider for chain ${chainId} (${chainConfig.name}): ${chainConfig.rpcUrl}`);
+
+      console.log(
+        `[tx-broadcaster] Created provider for chain ${chainId} (${chainConfig.name}): ${chainConfig.rpcUrl}`
+      );
       return provider;
     } catch (error) {
-      console.error(`[tx-broadcaster] Failed to create provider for chain ${chainId} (${chainConfig.name}):`, error);
+      console.error(
+        `[tx-broadcaster] Failed to create provider for chain ${chainId} (${chainConfig.name}):`,
+        error
+      );
       return null;
     }
   }
@@ -165,7 +209,7 @@ export class ChainConfigService {
    */
   getSupportedChainIds(): number[] {
     const chainIds: number[] = [];
-    
+
     for (const environments of Object.values(this.chainsConfig)) {
       for (const config of Object.values(environments)) {
         if (config) {
@@ -173,7 +217,7 @@ export class ChainConfigService {
         }
       }
     }
-    
+
     return chainIds;
   }
 
@@ -197,13 +241,20 @@ export class ChainConfigService {
    */
   logSupportedChains(): void {
     console.log('[tx-broadcaster] Supported chains:');
-    
-    for (const [networkName, environments] of Object.entries(this.chainsConfig)) {
+
+    for (const [networkName, environments] of Object.entries(
+      this.chainsConfig
+    )) {
       for (const [envName, config] of Object.entries(environments)) {
         if (config) {
-          const envOverride = process.env.CHAIN_ID && parseInt(process.env.CHAIN_ID) === config.chainId 
-            ? ' [ENV OVERRIDE]' : '';
-          console.log(`  - ${config.name} (${networkName}/${envName}): Chain ID ${config.chainId}${envOverride}`);
+          const envOverride =
+            process.env.CHAIN_ID &&
+            parseInt(process.env.CHAIN_ID) === config.chainId
+              ? ' [ENV OVERRIDE]'
+              : '';
+          console.log(
+            `  - ${config.name} (${networkName}/${envName}): Chain ID ${config.chainId}${envOverride}`
+          );
         }
       }
     }

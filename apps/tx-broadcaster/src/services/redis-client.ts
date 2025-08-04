@@ -45,10 +45,10 @@ export const RedisKeys = {
   // Broadcast tracking keys
   broadcastLock: (txHash: string) => `tx:broadcast:lock:${txHash}`,
   broadcastCompleted: (txHash: string) => `tx:broadcast:completed:${txHash}`,
-  
+
   // Retry tracking keys
   retryCount: (messageId: string) => `tx:retry:${messageId}`,
-  
+
   // Processing status keys
   processing: (txHash: string) => `tx:processing:${txHash}`,
 } as const;
@@ -86,7 +86,9 @@ export class BroadcastRedisService {
 
   // Check if transaction was already broadcasted
   async isBroadcasted(txHash: string): Promise<boolean> {
-    const exists = await this.redis.exists(RedisKeys.broadcastCompleted(txHash));
+    const exists = await this.redis.exists(
+      RedisKeys.broadcastCompleted(txHash)
+    );
     return exists === 1;
   }
 
@@ -112,20 +114,17 @@ export class BroadcastRedisService {
     pipeline.incr(RedisKeys.retryCount(messageId));
     pipeline.expire(RedisKeys.retryCount(messageId), 86400); // 24 hours
     const results = await pipeline.exec();
-    
+
     if (!results || !results[0] || results[0][0]) {
       throw new Error('Failed to increment retry count');
     }
-    
+
     return results[0][1] as number;
   }
 
   // Clean up expired keys (maintenance operation)
   async cleanup(): Promise<void> {
-    const patterns = [
-      'tx:broadcast:lock:*',
-      'tx:processing:*',
-    ];
+    const patterns = ['tx:broadcast:lock:*', 'tx:processing:*'];
 
     for (const pattern of patterns) {
       const keys = await this.redis.keys(pattern);
@@ -135,7 +134,9 @@ export class BroadcastRedisService {
           pipeline.del(key);
         }
         await pipeline.exec();
-        console.log(`[tx-broadcaster] Cleaned up ${keys.length} expired keys for pattern: ${pattern}`);
+        console.log(
+          `[tx-broadcaster] Cleaned up ${keys.length} expired keys for pattern: ${pattern}`
+        );
       }
     }
   }

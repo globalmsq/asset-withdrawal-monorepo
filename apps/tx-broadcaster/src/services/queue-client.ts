@@ -53,7 +53,7 @@ export class QueueService {
       });
 
       const response = await this.sqs.send(command);
-      
+
       if (!response.Messages) {
         return [];
       }
@@ -62,10 +62,15 @@ export class QueueService {
         id: message.MessageId!,
         receiptHandle: message.ReceiptHandle!,
         body: JSON.parse(message.Body!),
-        attributes: message.MessageAttributes as Record<string, string> | undefined,
+        attributes: message.MessageAttributes as
+          | Record<string, string>
+          | undefined,
       }));
     } catch (error) {
-      console.error(`[tx-broadcaster] Error receiving messages from ${queueUrl}:`, error);
+      console.error(
+        `[tx-broadcaster] Error receiving messages from ${queueUrl}:`,
+        error
+      );
       throw error;
     }
   }
@@ -81,7 +86,10 @@ export class QueueService {
       const response = await this.sqs.send(command);
       return response.MessageId!;
     } catch (error) {
-      console.error(`[tx-broadcaster] Error sending message to ${queueUrl}:`, error);
+      console.error(
+        `[tx-broadcaster] Error sending message to ${queueUrl}:`,
+        error
+      );
       throw error;
     }
   }
@@ -96,7 +104,10 @@ export class QueueService {
 
       await this.sqs.send(command);
     } catch (error) {
-      console.error(`[tx-broadcaster] Error deleting message from ${queueUrl}:`, error);
+      console.error(
+        `[tx-broadcaster] Error deleting message from ${queueUrl}:`,
+        error
+      );
       throw error;
     }
   }
@@ -124,6 +135,27 @@ export interface SignedTransactionMessage {
   createdAt: string;
 }
 
+// Unified message type for both single and batch transactions
+export interface UnifiedSignedTransactionMessage {
+  id: string;
+  transactionType: 'SINGLE' | 'BATCH';
+  withdrawalId?: string; // For single transactions
+  batchId?: string; // For batch transactions
+  userId: string;
+  transactionHash: string;
+  signedTransaction: string; // Raw signed tx (contains all info)
+  chainId: number;
+  metadata?: {
+    // Additional info only when needed
+    totalRequests?: number; // Batch only
+    requestIds?: string[]; // Batch only
+    toAddress?: string; // Single only
+    amount?: string; // Single only
+    tokenAddress?: string; // Token address
+  };
+  createdAt: string;
+}
+
 export interface BroadcastResultMessage {
   id: string;
   userId: string;
@@ -135,4 +167,24 @@ export interface BroadcastResultMessage {
   broadcastedAt?: string;
   blockNumber?: number;
   gasUsed?: string;
+}
+
+// Unified broadcast result message
+export interface UnifiedBroadcastResultMessage {
+  id: string;
+  transactionType: 'SINGLE' | 'BATCH';
+  withdrawalId?: string; // For single transactions
+  batchId?: string; // For batch transactions
+  userId: string;
+  originalTransactionHash: string;
+  broadcastTransactionHash?: string;
+  status: 'broadcasted' | 'failed';
+  error?: string;
+  broadcastedAt?: string;
+  blockNumber?: number;
+  gasUsed?: string;
+  metadata?: {
+    // Additional result info
+    affectedRequests?: string[]; // For batch transactions
+  };
 }

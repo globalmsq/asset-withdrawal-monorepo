@@ -9,7 +9,9 @@ async function bootstrap() {
     // Start HTTP server for health checks
     const app = await createApp();
     const server = app.listen(port, host, () => {
-      console.log(`[tx-broadcaster] Health server ready at http://${host}:${port}`);
+      console.log(
+        `[tx-broadcaster] Health server ready at http://${host}:${port}`
+      );
     });
 
     // Start SQS worker
@@ -18,7 +20,9 @@ async function bootstrap() {
 
     // Graceful shutdown
     const shutdown = async (signal: string) => {
-      console.log(`[tx-broadcaster] Received ${signal}, shutting down gracefully...`);
+      console.log(
+        `[tx-broadcaster] Received ${signal}, shutting down gracefully...`
+      );
       server.close(() => {
         console.log('[tx-broadcaster] HTTP server closed');
         process.exit(0);
@@ -27,7 +31,6 @@ async function bootstrap() {
 
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     process.on('SIGINT', () => shutdown('SIGINT'));
-
   } catch (error) {
     console.error('[tx-broadcaster] Failed to start service:', error);
     process.exit(1);

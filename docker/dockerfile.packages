@@ -20,7 +20,7 @@ COPY packages/shared/package.json* ./packages/shared/
 COPY packages/database/package.json* ./packages/database/
 
 # Install all dependencies
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile
 
 # Copy source files
 COPY nx.json tsconfig.json ./

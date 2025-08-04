@@ -7,7 +7,11 @@ import app from './app';
 import { config } from './config';
 import { initializeDatabase } from './services/database';
 import { initializeUserService } from './services/user.service';
-import { QueueFactory, IQueue, WithdrawalRequest } from '@asset-withdrawal/shared';
+import {
+  QueueFactory,
+  IQueue,
+  WithdrawalRequest,
+} from '@asset-withdrawal/shared';
 import { setReadiness } from './middleware/readiness.middleware';
 import { Logger } from './utils/logger';
 

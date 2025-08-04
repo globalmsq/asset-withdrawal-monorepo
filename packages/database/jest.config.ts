@@ -9,6 +9,6 @@ export default {
   coverageDirectory: '../../coverage/libs/data-access',
   moduleNameMapper: {
     '^@asset-withdrawal/shared$': '<rootDir>/../shared/src/index.ts',
-    '^@asset-withdrawal/database$': '<rootDir>/src/index.ts'
-  }
+    '^@asset-withdrawal/database$': '<rootDir>/src/index.ts',
+  },
 };

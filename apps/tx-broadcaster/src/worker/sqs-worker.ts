@@ -262,11 +262,23 @@ export class SQSWorker {
           return { success: true, shouldRetry: false };
         }
 
-        // Broadcast transaction with chain ID
-        const broadcastResult = await this.broadcaster.broadcastTransaction(
-          signedTransaction,
-          chainId
-        );
+        // Broadcast transaction with state management
+        let broadcastResult;
+        if (txMessage.transactionType === 'SINGLE') {
+          // Use single transaction state management
+          broadcastResult = await this.broadcaster.broadcastTransactionWithStateManagement(
+            txMessage.withdrawalId,
+            signedTransaction,
+            chainId
+          );
+        } else {
+          // Use batch transaction state management
+          broadcastResult = await this.broadcaster.broadcastBatchTransactionWithStateManagement(
+            txMessage.batchId!,
+            signedTransaction,
+            chainId
+          );
+        }
 
         if (broadcastResult.success) {
           // Mark as broadcasted in Redis

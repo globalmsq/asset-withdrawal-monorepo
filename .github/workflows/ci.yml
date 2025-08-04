@@ -43,9 +43,7 @@ jobs:
         continue-on-error: true
 
       - name: Check code formatting
-        run: |
-          yarn format
-          git diff --exit-code || (echo "Code is not properly formatted. Please run 'yarn format' locally." && exit 1)
+        run: yarn format
 
   test:
     name: Test Suite

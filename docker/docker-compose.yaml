@@ -159,7 +159,7 @@ services:
       context: ..
       dockerfile: docker/dockerfile.packages
       target: api-server
-    command: ['yarn', 'dev']
+    command: ['pnpm', 'dev']
     ports:
       - 8080:8080
     environment:
@@ -269,7 +269,7 @@ services:
   #     context: ..
   #     dockerfile: docker/dockerfile.packages
   #     target: tx-processor
-  #   command: ["yarn", "dev"]
+  #   command: ["pnpm", "dev"]
   #   ports:
   #     - 3001:3001
   #   environment:
@@ -331,7 +331,7 @@ services:
   #     context: ..
   #     dockerfile: docker/dockerfile.packages
   #     target: tx-monitor
-  #   command: ["yarn", "dev"]
+  #   command: ["pnpm", "dev"]
   #   ports:
   #     - 3002:3002
   #   environment:

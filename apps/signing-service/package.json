@@ -12,12 +12,13 @@
     "lint": "cd ../.. && yarn nx run signing-service:lint"
   },
   "dependencies": {
-    "database": "workspace:*",
-    "shared": "workspace:*",
     "@aws-sdk/client-secrets-manager": "^3.840.0",
+    "@aws-sdk/client-sqs": "^3.859.0",
+    "database": "workspace:*",
     "dotenv": "^16.0.0",
     "ethers": "^6.0.0",
     "redis": "^5.6.0",
+    "shared": "workspace:*",
     "winston": "^3.0.0",
     "zod": "^3.0.0"
   },

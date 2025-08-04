@@ -262,8 +262,8 @@ task-master set-status --id=<task-id> --status=review
 **MANDATORY**: Run these commands after any code modification:
 
 ```bash
-npm run lint        # Check code style
-npm run typecheck   # Check TypeScript types
+pnpm run lint        # Check code style
+pnpm run typecheck   # Check TypeScript types
 ```
 
 **OPTIONAL**: Run tests only when explicitly requested:
@@ -275,8 +275,8 @@ npm test           # Run all tests
 ### 6. Development Workflow
 
 1. **After any code changes**, automatically run:
-   - `npm run lint`
-   - `npm run typecheck`
+   - `pnpm run lint`
+   - `pnpm run typecheck`
 2. **For tests**:
    - Create minimal test file structure when adding new features
    - Only implement full test coverage when explicitly requested
@@ -300,17 +300,17 @@ npm test           # Run all tests
 ### Development
 
 ```bash
-npm run dev         # Start development server
-npm run build       # Build all packages
-npm run serve       # Start production server
+pnpm run dev         # Start development server
+pnpm run build       # Build all packages
+pnpm run serve       # Start production server
 ```
 
 ### Database
 
 ```bash
-npm run db:migrate  # Run database migrations
-npm run db:seed     # Seed database with test data
-npm run db:reset    # Reset database (careful!)
+pnpm run db:migrate  # Run database migrations
+pnpm run db:seed     # Seed database with test data
+pnpm run db:reset    # Reset database (careful!)
 ```
 
 ### Docker
@@ -446,7 +446,7 @@ Never commit `.env` files.
 ### Modifying Database Schema
 
 1. Update Prisma schema in `prisma/schema.prisma`
-2. Run `npm run db:migrate` to create migration
+2. Run `pnpm run db:migrate` to create migration
 3. Update relevant TypeScript types
 4. Test thoroughly with existing data
 

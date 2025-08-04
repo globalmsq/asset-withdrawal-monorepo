@@ -5,7 +5,7 @@
 ### 필수 소프트웨어
 
 - Node.js 18.x 이상
-- npm 또는 yarn
+- pnpm 8.x 이상
 - Docker & Docker Compose
 - Git
 - MySQL 8.0 (Docker로 실행 가능)
@@ -28,7 +28,7 @@ cd asset-withdrawal-monorepo
 ### 2. 의존성 설치
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### 3. 환경 변수 설정
@@ -117,10 +117,10 @@ docker-compose -f docker/docker-compose.yaml up -d mysql redis localstack
 
 ```bash
 # 마이그레이션 실행
-npm run db:migrate
+pnpm run db:migrate
 
 # 시드 데이터 추가 (개발용)
-npm run db:seed
+pnpm run db:seed
 ```
 
 ## 개발 서버 실행
@@ -128,7 +128,7 @@ npm run db:seed
 ### 전체 서비스 실행
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 ### 개별 서비스 실행
@@ -158,13 +158,13 @@ nx serve admin-ui
 ### 빌드
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 ### 프로덕션 실행
 
 ```bash
-npm run serve
+pnpm run serve
 ```
 
 ## 테스트
@@ -172,19 +172,19 @@ npm run serve
 ### 단위 테스트
 
 ```bash
-npm test
+pnpm test
 ```
 
 ### E2E 테스트
 
 ```bash
-npm run test:e2e
+pnpm run test:e2e
 ```
 
 ### 테스트 커버리지
 
 ```bash
-npm run test:coverage
+pnpm run test:coverage
 ```
 
 ## 유용한 명령어
@@ -193,26 +193,26 @@ npm run test:coverage
 
 ```bash
 # 린트 실행
-npm run lint
+pnpm run lint
 
 # 린트 자동 수정
-npm run lint:fix
+pnpm run lint:fix
 
 # 타입 체크
-npm run typecheck
+pnpm run typecheck
 ```
 
 ### 데이터베이스
 
 ```bash
 # Prisma Studio 실행 (GUI)
-npm run db:studio
+pnpm run db:studio
 
 # 스키마 동기화
-npm run db:push
+pnpm run db:push
 
 # 마이그레이션 생성
-npm run db:migrate:create
+pnpm run db:migrate:create
 ```
 
 ### 로그 확인

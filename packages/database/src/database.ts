@@ -11,7 +11,7 @@ try {
     PrismaClient = require('@prisma/client').PrismaClient;
   } catch (error2) {
     throw new Error(
-      'Prisma client not found. Please run "yarn install" and "prisma generate" to set up the database client.'
+      'Prisma client not found. Please run "pnpm install" and "pnpm run db:generate" to set up the database client.'
     );
   }
 }

@@ -1,3 +1,19 @@
+# Asset Withdrawal System - Docker Compose Configuration
+#
+# This is a development configuration. For production, ensure:
+# 1. Set MYSQL_ROOT_PASSWORD environment variable with a secure password
+# 2. Set LOCALSTACK_CORS_ORIGINS to specific allowed origins
+# 3. Use .env file or export environment variables before running docker-compose
+#
+# Example:
+#   export MYSQL_ROOT_PASSWORD="your-secure-password"
+#   export LOCALSTACK_CORS_ORIGINS="https://your-domain.com"
+#   docker-compose up
+#
+# For development with default values:
+#   docker-compose up
+#   (will use development defaults specified in the file)
+
 x-localstack-account: &localstack-account
   AWS_ENDPOINT: http://localstack:4566
   AWS_DEFAULT_REGION: ap-northeast-2
@@ -10,7 +26,8 @@ services:
     image: mysql:8.0
     container_name: withdrawal-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: pass
+      # WARNING: Use secure passwords in production. Default is for development only.
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
       MYSQL_DATABASE: withdrawal_system
     ports:
       - 3306:3306
@@ -22,7 +39,16 @@ services:
       - withdrawal-network
     healthcheck:
       test:
-        ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-ppass']
+        [
+          'CMD',
+          'mysqladmin',
+          'ping',
+          '-h',
+          'localhost',
+          '-u',
+          'root',
+          '-p${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,7 +64,8 @@ services:
       <<: *localstack-account
       # DEBUG: 1
       SERVICES: sqs,secretsmanager
-      EXTRA_CORS_ALLOWED_ORIGINS: '*'
+      # WARNING: Restrict CORS origins in production. Default allows localhost only.
+      EXTRA_CORS_ALLOWED_ORIGINS: ${LOCALSTACK_CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
     volumes:
       - localstack-data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
@@ -152,7 +179,7 @@ services:
       MYSQL_PORT: 3306
       MYSQL_DATABASE: withdrawal_system
       MYSQL_USER: root
-      MYSQL_PASSWORD: pass
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
 
       # RPC URL Override for Docker environment
       # RPC_URL: http://hardhat-node:8545
@@ -212,7 +239,7 @@ services:
       MYSQL_PORT: 3306
       MYSQL_DATABASE: withdrawal_system
       MYSQL_USER: root
-      MYSQL_PASSWORD: pass
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
 
       # Redis Configuration
       REDIS_HOST: redis
@@ -257,12 +284,12 @@ services:
   #     TX_PROCESSOR_PORT: 3001
 
   #     # Database
-  #     DATABASE_URL: mysql://root:pass@mysql:3306/withdrawal_system
+  #     DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}@mysql:3306/withdrawal_system
   #     MYSQL_HOST: mysql
   #     MYSQL_PORT: 3306
   #     MYSQL_DATABASE: withdrawal_system
   #     MYSQL_USER: root
-  #     MYSQL_PASSWORD: pass
+  #     MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
 
   #     # Queue Configuration
   #     VALIDATION_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/validation-queue
@@ -319,12 +346,12 @@ services:
   #     TX_MONITOR_PORT: 3002
 
   #     # Database
-  #     DATABASE_URL: mysql://root:pass@mysql:3306/withdrawal_system
+  #     DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}@mysql:3306/withdrawal_system
   #     MYSQL_HOST: mysql
   #     MYSQL_PORT: 3306
   #     MYSQL_DATABASE: withdrawal_system
   #     MYSQL_USER: root
-  #     MYSQL_PASSWORD: pass
+  #     MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
 
   #     # Queue Configuration
   #     MONITOR_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/monitor-queue

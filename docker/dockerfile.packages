@@ -19,6 +19,9 @@ COPY apps/tx-monitor/package.json* ./apps/tx-monitor/
 COPY packages/shared/package.json* ./packages/shared/
 COPY packages/database/package.json* ./packages/database/
 
+# Copy Prisma schema before installing dependencies
+COPY prisma/ ./prisma/
+
 # Install all dependencies
 RUN pnpm install --frozen-lockfile
 
@@ -26,7 +29,6 @@ RUN pnpm install --frozen-lockfile
 COPY nx.json tsconfig.json ./
 COPY apps/ ./apps/
 COPY packages/ ./packages/
-COPY prisma/ ./prisma/
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -47,9 +49,6 @@ COPY --from=base /app/packages ./packages
 COPY --from=base /app/prisma ./prisma
 COPY --from=base /app/node_modules ./node_modules
 
-# Copy Prisma client
-COPY --from=base /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=base /app/node_modules/@prisma ./node_modules/@prisma
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -79,9 +78,6 @@ COPY --from=base /app/packages ./packages
 COPY --from=base /app/prisma ./prisma
 COPY --from=base /app/node_modules ./node_modules
 
-# Copy Prisma client
-COPY --from=base /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=base /app/node_modules/@prisma ./node_modules/@prisma
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -111,9 +107,6 @@ COPY --from=base /app/packages ./packages
 COPY --from=base /app/prisma ./prisma
 COPY --from=base /app/node_modules ./node_modules
 
-# Copy Prisma client
-COPY --from=base /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=base /app/node_modules/@prisma ./node_modules/@prisma
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -143,9 +136,6 @@ COPY --from=base /app/packages ./packages
 COPY --from=base /app/prisma ./prisma
 COPY --from=base /app/node_modules ./node_modules
 
-# Copy Prisma client
-COPY --from=base /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=base /app/node_modules/@prisma ./node_modules/@prisma
 
 # Set environment variables
 ENV NODE_ENV=production

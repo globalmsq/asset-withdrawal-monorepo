@@ -1,10 +1,11 @@
 import Redis from 'ioredis';
-import { config } from '../config';
+import { loadConfig } from '../config';
 
 let redisClient: Redis | null = null;
 
 export async function getRedisClient(): Promise<Redis> {
   if (!redisClient) {
+    const config = loadConfig();
     redisClient = new Redis({
       host: config.REDIS_HOST,
       port: config.REDIS_PORT,
@@ -15,7 +16,7 @@ export async function getRedisClient(): Promise<Redis> {
     });
 
     redisClient.on('connect', () => {
-      console.log('[tx-broadcaster] Redis connected');
+      // Redis connected successfully
     });
 
     redisClient.on('error', (error: Error) => {
@@ -23,7 +24,7 @@ export async function getRedisClient(): Promise<Redis> {
     });
 
     redisClient.on('close', () => {
-      console.log('[tx-broadcaster] Redis connection closed');
+      // Redis connection closed
     });
 
     await redisClient.connect();
@@ -36,7 +37,7 @@ export async function closeRedisClient(): Promise<void> {
   if (redisClient) {
     await redisClient.quit();
     redisClient = null;
-    console.log('[tx-broadcaster] Redis client closed');
+    // Redis client closed
   }
 }
 
@@ -134,9 +135,7 @@ export class BroadcastRedisService {
           pipeline.del(key);
         }
         await pipeline.exec();
-        console.log(
-          `[tx-broadcaster] Cleaned up ${keys.length} expired keys for pattern: ${pattern}`
-        );
+        // Cleaned up expired keys
       }
     }
   }

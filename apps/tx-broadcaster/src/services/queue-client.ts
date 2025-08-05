@@ -5,11 +5,11 @@ import {
   SendMessageCommand,
   Message,
 } from '@aws-sdk/client-sqs';
-import { config } from '../config';
+import { AppConfig } from '../config';
 
 let sqsClient: SQSClient | null = null;
 
-export function getSQSClient(): SQSClient {
+export function getSQSClient(config: AppConfig): SQSClient {
   if (!sqsClient) {
     sqsClient = new SQSClient({
       region: config.AWS_REGION,
@@ -32,9 +32,11 @@ export interface QueueMessage<T = any> {
 
 export class QueueService {
   private sqs: SQSClient;
+  private config: AppConfig;
 
-  constructor() {
-    this.sqs = getSQSClient();
+  constructor(config: AppConfig) {
+    this.config = config;
+    this.sqs = getSQSClient(config);
   }
 
   // Receive messages from a queue
@@ -114,12 +116,7 @@ export class QueueService {
 
   // Send message to broadcast queue (next step in pipeline)
   async sendToBroadcastQueue(messageBody: any): Promise<string> {
-    return this.sendMessage(config.BROADCAST_QUEUE_URL, messageBody);
-  }
-
-  // Send message to tx-monitor queue (for transaction monitoring)
-  async sendToTxMonitorQueue(messageBody: TxMonitorMessage): Promise<string> {
-    return this.sendMessage(config.TX_MONITOR_QUEUE_URL, messageBody);
+    return this.sendMessage(this.config.BROADCAST_QUEUE_URL, messageBody);
   }
 }
 

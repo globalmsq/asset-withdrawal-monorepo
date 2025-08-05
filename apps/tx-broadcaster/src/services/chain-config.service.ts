@@ -1,6 +1,5 @@
-import fs from 'fs';
-import path from 'path';
 import { ethers } from 'ethers';
+import { chainsConfig } from '@asset-withdrawal/shared';
 
 export interface ChainConfig {
   chainId: number;
@@ -32,29 +31,13 @@ export class ChainConfigService {
 
   private loadChainsConfig(): void {
     try {
-      // chains.config.json 파일 경로 (shared package에서 로드)
-      const configPath = path.join(
-        __dirname,
-        '../../../../../packages/shared/src/config/chains.config.json'
-      );
-
-      if (!fs.existsSync(configPath)) {
-        console.error(
-          `[tx-broadcaster] Chain config file not found at: ${configPath}`
-        );
-        throw new Error(`Chain config file not found at: ${configPath}`);
-      }
-
-      const configData = fs.readFileSync(configPath, 'utf-8');
-      this.chainsConfig = JSON.parse(configData);
+      // shared package에서 chains config 로드
+      this.chainsConfig = chainsConfig as ChainsConfig;
 
       // 설정 유효성 검증
       this.validateChainsConfig();
 
-      console.log('[tx-broadcaster] Chain configuration loaded successfully');
-      console.log(
-        `[tx-broadcaster] Loaded ${this.getSupportedChainIds().length} supported chains`
-      );
+      // Chain configuration loaded successfully
     } catch (error) {
       console.error(
         '[tx-broadcaster] Failed to load chain configuration:',
@@ -102,9 +85,7 @@ export class ChainConfigService {
       throw new Error('No valid chain configurations found');
     }
 
-    console.log(
-      `[tx-broadcaster] Validated ${totalChains} chain configurations`
-    );
+    // Validated chain configurations
   }
 
   private findChainByChainId(
@@ -146,16 +127,7 @@ export class ChainConfigService {
           const envChainId = process.env.CHAIN_ID;
 
           if (envRpcUrl) {
-            console.log(
-              `[tx-broadcaster] Overriding RPC URL for chain ${chainId}: ${envRpcUrl}`
-            );
             chainConfig.rpcUrl = envRpcUrl;
-          }
-
-          if (envChainId && parseInt(envChainId) === chainId) {
-            console.log(
-              `[tx-broadcaster] Environment chain ID ${envChainId} matches message chain ID ${chainId}`
-            );
           }
 
           return chainConfig;
@@ -172,11 +144,7 @@ export class ChainConfigService {
   getProvider(chainId: number): ethers.JsonRpcProvider | null {
     // 캐시에서 확인
     if (this.providerCache.has(chainId)) {
-      const cachedProvider = this.providerCache.get(chainId)!;
-      console.log(
-        `[tx-broadcaster] Using cached provider for chain ${chainId}`
-      );
-      return cachedProvider;
+      return this.providerCache.get(chainId)!;
     }
 
     const chainConfig = this.getChainConfig(chainId);
@@ -191,9 +159,7 @@ export class ChainConfigService {
       const provider = new ethers.JsonRpcProvider(chainConfig.rpcUrl);
       this.providerCache.set(chainId, provider);
 
-      console.log(
-        `[tx-broadcaster] Created provider for chain ${chainId} (${chainConfig.name}): ${chainConfig.rpcUrl}`
-      );
+      // Provider created successfully
       return provider;
     } catch (error) {
       console.error(
@@ -233,31 +199,25 @@ export class ChainConfigService {
    */
   clearProviderCache(): void {
     this.providerCache.clear();
-    console.log('[tx-broadcaster] Provider cache cleared');
+    // Provider cache cleared
   }
 
   /**
    * 체인 설정 정보를 로깅합니다
    */
   logSupportedChains(): void {
-    console.log('[tx-broadcaster] Supported chains:');
-
+    // Log supported chains for debugging
+    const chains: string[] = [];
     for (const [networkName, environments] of Object.entries(
       this.chainsConfig
     )) {
       for (const [envName, config] of Object.entries(environments)) {
         if (config) {
-          const envOverride =
-            process.env.CHAIN_ID &&
-            parseInt(process.env.CHAIN_ID) === config.chainId
-              ? ' [ENV OVERRIDE]'
-              : '';
-          console.log(
-            `  - ${config.name} (${networkName}/${envName}): Chain ID ${config.chainId}${envOverride}`
-          );
+          chains.push(`${config.name} (${config.chainId})`);
         }
       }
     }
+    console.log(`[tx-broadcaster] Supported chains: ${chains.join(', ')}`);
   }
 }
 

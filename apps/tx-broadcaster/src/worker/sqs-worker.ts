@@ -1,4 +1,4 @@
-import { config, validateConfig } from '../config';
+import { loadConfig, validateConfig } from '../config';
 import {
   getRedisClient,
   BroadcastRedisService,
@@ -8,26 +8,33 @@ import {
   QueueService,
   SignedTransactionMessage,
   UnifiedSignedTransactionMessage,
-  BroadcastResultMessage,
   UnifiedBroadcastResultMessage,
-  TxMonitorMessage,
   QueueMessage,
 } from '../services/queue-client';
 import { TransactionBroadcaster } from '../services/broadcaster';
+import { TransactionService } from '../services/transaction.service';
 import { RetryService } from '../services/retry.service';
 import { ProcessingResult, WorkerStats } from '../types';
+import { AppConfig } from '../config';
+import { LoggerService } from '@asset-withdrawal/shared';
 
 export class SQSWorker {
+  private config: AppConfig;
   private queueService: QueueService;
   private broadcaster: TransactionBroadcaster;
   private retryService: RetryService;
   private redisService: BroadcastRedisService | null = null;
+  private transactionService: TransactionService;
   private isRunning = false;
   private stats: WorkerStats;
+  private logger: LoggerService;
 
   constructor() {
-    this.queueService = new QueueService();
+    this.config = loadConfig();
+    this.logger = new LoggerService({ service: 'tx-broadcaster:SQSWorker' });
+    this.queueService = new QueueService(this.config);
     this.broadcaster = new TransactionBroadcaster();
+    this.transactionService = new TransactionService();
     this.retryService = new RetryService({
       maxRetries: 5,
       baseDelay: 2000, // 2초
@@ -45,53 +52,64 @@ export class SQSWorker {
 
   async start(): Promise<void> {
     try {
-      console.log('[tx-broadcaster] Starting SQS Worker...');
+      this.logger.info('Starting SQS Worker...', {
+        chainId: this.config.CHAIN_ID,
+        metadata: {
+          signedTxQueueUrl: this.config.SIGNED_TX_QUEUE_URL,
+          broadcastQueueUrl: this.config.BROADCAST_QUEUE_URL,
+        },
+      });
 
       // Validate configuration
-      validateConfig();
+      validateConfig(this.config);
 
       // Initialize Redis
       const redis = await getRedisClient();
       this.redisService = new BroadcastRedisService(redis);
+      this.logger.info('Redis connection established');
 
       // Test blockchain connection
       await this.testConnections();
 
       this.isRunning = true;
-      console.log('[tx-broadcaster] SQS Worker started successfully');
+      this.logger.info('SQS Worker started successfully');
 
       // Start processing loop
       await this.processLoop();
     } catch (error) {
-      console.error('[tx-broadcaster] Failed to start SQS Worker:', error);
+      this.logger.error('Failed to start SQS Worker', error);
       throw error;
     }
   }
 
   async stop(): Promise<void> {
-    console.log('[tx-broadcaster] Stopping SQS Worker...');
+    this.logger.info('Stopping SQS Worker...');
     this.isRunning = false;
     await closeRedisClient();
-    console.log('[tx-broadcaster] SQS Worker stopped');
+    this.logger.info('SQS Worker stopped');
   }
 
   private async testConnections(): Promise<void> {
     try {
       // Test blockchain connection (default environment provider)
       const networkStatus = await this.broadcaster.getNetworkStatus();
-      console.log(
-        `[tx-broadcaster] Connected to default blockchain - Chain ID: ${networkStatus.chainId}, Block: ${networkStatus.blockNumber}`
-      );
+      this.logger.info('Blockchain connection established', {
+        chainId: networkStatus.chainId,
+        metadata: {
+          blockNumber: networkStatus.blockNumber,
+          gasPrice: networkStatus.gasPrice,
+        },
+      });
 
       // Test Redis connection
       if (this.redisService) {
         await this.redisService.cleanup();
-        console.log('[tx-broadcaster] Redis connection verified');
+        this.logger.info('Redis connection verified');
       }
     } catch (error) {
-      throw new Error(
-        `Connection test failed: ${error instanceof Error ? error.message : error}`
-      );
+      const errorMessage = `Connection test failed: ${error instanceof Error ? error.message : error}`;
+      this.logger.error('Connection test failed', error);
+      throw new Error(errorMessage);
     }
   }
 
@@ -101,7 +119,7 @@ export class SQSWorker {
         // Receive messages from the queue
         const messages =
           await this.queueService.receiveMessages<SignedTransactionMessage>(
-            config.TX_REQUEST_QUEUE_URL,
+            this.config.SIGNED_TX_QUEUE_URL,
             5, // Process up to 5 messages at once
             20 // Long polling for 20 seconds
           );
@@ -110,7 +128,7 @@ export class SQSWorker {
           continue; // No messages, continue polling
         }
 
-        console.log(`[tx-broadcaster] Received ${messages.length} messages`);
+        // Process received messages
 
         // Process messages concurrently
         const processingPromises = messages.map(message =>
@@ -119,7 +137,7 @@ export class SQSWorker {
 
         await Promise.allSettled(processingPromises);
       } catch (error) {
-        console.error('[tx-broadcaster] Error in processing loop:', error);
+        this.logger.error('Error in processing loop', error);
         // Wait a bit before retrying to avoid tight error loops
         await this.sleep(5000);
       }
@@ -133,37 +151,36 @@ export class SQSWorker {
     try {
       // Detect message type and convert to unified format
       const unifiedMessage = this.convertToUnifiedMessage(message.body);
+
       const identifierText =
         unifiedMessage.transactionType === 'SINGLE'
           ? `withdrawal ${unifiedMessage.withdrawalId}`
           : `batch ${unifiedMessage.batchId}`;
 
-      console.log(
-        `[tx-broadcaster] Processing ${unifiedMessage.transactionType} message ${message.id} for ${identifierText}`
-      );
+      // Process message based on transaction type
 
       result = await this.handleUnifiedTransaction(unifiedMessage);
 
       if (result.success) {
         // Delete message from queue on success
         await this.queueService.deleteMessage(
-          config.TX_REQUEST_QUEUE_URL,
+          this.config.SIGNED_TX_QUEUE_URL,
           message.receiptHandle
         );
         this.updateStats(true, Date.now() - startTime);
-        console.log(
-          `[tx-broadcaster] Successfully processed message ${message.id}`
-        );
+        // Message processed successfully
       } else {
         // Handle retry logic
         await this.handleFailure(message, result);
         this.updateStats(false, Date.now() - startTime);
       }
     } catch (error) {
-      console.error(
-        `[tx-broadcaster] Unexpected error processing message ${message.id}:`,
-        error
-      );
+      this.logger.error('Unexpected error processing message', error, {
+        metadata: {
+          messageId: message.id,
+          processingTime: Date.now() - startTime,
+        },
+      });
       result = {
         success: false,
         shouldRetry: true,
@@ -174,31 +191,39 @@ export class SQSWorker {
     }
   }
 
-  // Convert old message format to unified format
+  // Convert signing-service message to minimal broadcast format
   private convertToUnifiedMessage(
     message: any
   ): UnifiedSignedTransactionMessage {
-    // Check if it's already in unified format
-    if ('transactionType' in message) {
-      return message as UnifiedSignedTransactionMessage;
+    // Check if it's a SignedTransaction from signing-service (primary format)
+    if ('rawTransaction' in message) {
+      return {
+        id: message.requestId || message.id || 'unknown',
+        transactionType: message.transactionType || 'SINGLE',
+        withdrawalId:
+          message.transactionType === 'SINGLE' ? message.requestId : undefined,
+        batchId:
+          message.transactionType === 'BATCH' ? message.batchId : undefined,
+        userId: 'signing-service',
+        transactionHash: message.hash || '',
+        signedTransaction: message.rawTransaction,
+        chainId: message.chainId,
+        metadata: {}, // Minimal metadata since rawTransaction contains all info
+        createdAt: new Date().toISOString(),
+      };
     }
 
-    // Convert old SignedTransactionMessage to unified format
-    const oldMessage = message as SignedTransactionMessage;
+    // Handle legacy format (fallback)
     return {
-      id: oldMessage.id,
+      id: message.id || 'unknown',
       transactionType: 'SINGLE',
-      withdrawalId: oldMessage.withdrawalId,
-      userId: oldMessage.userId,
-      transactionHash: oldMessage.transactionHash,
-      signedTransaction: oldMessage.signedTransaction,
-      chainId: oldMessage.chainId,
-      metadata: {
-        toAddress: oldMessage.toAddress,
-        amount: oldMessage.amount,
-        tokenAddress: oldMessage.tokenAddress,
-      },
-      createdAt: oldMessage.createdAt,
+      withdrawalId: message.withdrawalId || message.id,
+      userId: message.userId || 'unknown',
+      transactionHash: message.transactionHash || '',
+      signedTransaction: message.signedTransaction || '',
+      chainId: message.chainId || 31337,
+      metadata: {},
+      createdAt: new Date().toISOString(),
     };
   }
 
@@ -206,75 +231,56 @@ export class SQSWorker {
     txMessage: UnifiedSignedTransactionMessage
   ): Promise<ProcessingResult> {
     try {
-      const { transactionHash, signedTransaction, chainId } = txMessage;
+      const { signedTransaction, chainId } = txMessage;
+
+      // Validate required fields for broadcasting
+      if (!signedTransaction) {
+        return {
+          success: false,
+          shouldRetry: false,
+          error: 'No rawTransaction provided - cannot broadcast',
+        };
+      }
+
+      // Use a composite key for Redis if transactionHash is missing
+      const redisKey =
+        txMessage.transactionHash ||
+        `${txMessage.id}_${txMessage.withdrawalId || txMessage.batchId}`;
 
       // Check if already processed using Redis
       if (this.redisService) {
         // Check if already broadcasted
-        if (await this.redisService.isBroadcasted(transactionHash)) {
-          console.log(
-            `[tx-broadcaster] Transaction ${transactionHash} already broadcasted, skipping`
-          );
+        if (await this.redisService.isBroadcasted(redisKey)) {
           return { success: true, shouldRetry: false };
         }
 
         // Set processing lock
-        const lockAcquired =
-          await this.redisService.setProcessing(transactionHash);
+        const lockAcquired = await this.redisService.setProcessing(redisKey);
         if (!lockAcquired) {
-          console.log(
-            `[tx-broadcaster] Transaction ${transactionHash} is being processed by another worker, skipping`
-          );
           return { success: true, shouldRetry: false }; // Another worker is handling it
         }
       }
 
       try {
-        console.log(
-          `[tx-broadcaster] Processing transaction for chain ID: ${chainId}`
-        );
+        // Process transaction for specified chain
+        // Note: rawTransaction contains all necessary info, minimal validation needed
 
-        // Validate transaction with expected chain ID
-        const validation = await this.broadcaster.validateTransaction(
-          signedTransaction,
-          chainId
-        );
-        if (!validation.valid) {
+        // Basic validation - ethers.js will do detailed parsing
+        if (!signedTransaction.startsWith('0x')) {
           return {
             success: false,
             shouldRetry: false,
-            error: `Transaction validation failed: ${validation.error}`,
+            error: 'Invalid rawTransaction format - must start with 0x',
           };
         }
 
-        // Check if transaction already exists on blockchain
-        const exists = await this.broadcaster.transactionExists(
-          transactionHash,
-          chainId
-        );
-        if (exists) {
-          console.log(
-            `[tx-broadcaster] Transaction ${transactionHash} already exists on chain ${chainId}`
-          );
+        // Skip duplicate check for now - rawTransaction-based approach
+        // The transaction hash will be determined after parsing rawTransaction
 
-          // Mark as broadcasted in Redis
-          if (this.redisService) {
-            await this.redisService.markBroadcasted(transactionHash);
-          }
-
-          // Send success message to next queue
-          await this.sendBroadcastResult(txMessage, {
-            success: true,
-            transactionHash,
-          });
-
-          return { success: true, shouldRetry: false };
-        }
-
-        // Broadcast transaction with retry logic and state management
+        // Direct broadcast using rawTransaction
         const broadcastResult = await this.broadcastWithRetry(
           txMessage,
-          signedTransaction,
+          signedTransaction, // This is the rawTransaction from signing-service
           chainId
         );
 
@@ -282,7 +288,7 @@ export class SQSWorker {
           // Mark as broadcasted in Redis
           if (this.redisService) {
             await this.redisService.markBroadcasted(
-              transactionHash,
+              redisKey,
               broadcastResult.transactionHash
             );
           }
@@ -304,7 +310,7 @@ export class SQSWorker {
       } finally {
         // Remove processing lock
         if (this.redisService) {
-          await this.redisService.removeProcessing(transactionHash);
+          await this.redisService.removeProcessing(redisKey);
         }
       }
     } catch (error) {
@@ -356,50 +362,44 @@ export class SQSWorker {
       },
     };
 
-    // Send to broadcast-tx-queue (existing pipeline)
-    await this.queueService.sendToBroadcastQueue(resultMessage);
-
-    // Send to tx-monitor-queue only on successful broadcast
+    // Save to sent_transactions table if broadcast was successful
     if (broadcastResult.success && broadcastResult.transactionHash) {
-      const monitorMessage: TxMonitorMessage = {
-        id: originalMessage.id,
-        transactionType: originalMessage.transactionType,
-        withdrawalId: originalMessage.withdrawalId,
-        batchId: originalMessage.batchId,
-        userId: originalMessage.userId,
-        txHash: broadcastResult.transactionHash,
-        chainId: originalMessage.chainId,
-        broadcastedAt: new Date().toISOString(),
-        blockNumber: broadcastResult.blockNumber,
-        metadata:
-          originalMessage.transactionType === 'BATCH' &&
-          originalMessage.metadata?.requestIds
-            ? { affectedRequests: originalMessage.metadata.requestIds }
-            : undefined,
-      };
-
       try {
-        await this.sendToTxMonitorQueueWithRetry(monitorMessage, 3);
-        console.log(
-          `[tx-broadcaster] Sent transaction ${broadcastResult.transactionHash} to tx-monitor-queue`
-        );
+        await this.transactionService.saveSentTransaction({
+          requestId:
+            originalMessage.transactionType === 'SINGLE'
+              ? originalMessage.withdrawalId
+              : undefined,
+          batchId:
+            originalMessage.transactionType === 'BATCH'
+              ? originalMessage.batchId
+              : undefined,
+          transactionType: originalMessage.transactionType,
+          originalTxHash: originalMessage.transactionHash,
+          sentTxHash: broadcastResult.transactionHash,
+          chainId: originalMessage.chainId || 31337, // Default to localhost chain
+          blockNumber: broadcastResult.blockNumber,
+        });
       } catch (error) {
         console.error(
-          `[tx-broadcaster] Failed to send to tx-monitor-queue after retries:`,
+          '[tx-broadcaster] Failed to save sent transaction to database:',
           error
         );
-        // Don't fail the entire process if tx-monitor message fails
-        // The transaction was still broadcasted successfully
+        // Continue even if DB save fails - queue message is more important
       }
     }
+
+    // Send to broadcast-tx-queue (for tx-monitor to consume)
+    await this.queueService.sendToBroadcastQueue(resultMessage);
   }
 
   /**
    * 재시도 로직과 함께 트랜잭션을 브로드캐스트합니다
+   * rawTransaction을 직접 사용하여 브로드캐스트
    */
   private async broadcastWithRetry(
     txMessage: UnifiedSignedTransactionMessage,
-    signedTransaction: string,
+    rawTransaction: string, // Direct use of rawTransaction from signing-service
     chainId?: number
   ): Promise<{
     success: boolean;
@@ -414,44 +414,30 @@ export class SQSWorker {
 
     while (attemptCount <= maxRetries) {
       try {
-        console.log(
-          `[tx-broadcaster] Broadcasting transaction attempt ${
-            attemptCount + 1
-          }/${maxRetries + 1} for ${
-            txMessage.transactionType === 'SINGLE'
-              ? `withdrawal ${txMessage.withdrawalId}`
-              : `batch ${txMessage.batchId}`
-          }`
-        );
+        // Attempt to broadcast transaction
 
         let broadcastResult;
 
         if (txMessage.transactionType === 'SINGLE') {
-          // Use single transaction state management
+          // Use single transaction state management with rawTransaction
           broadcastResult =
             await this.broadcaster.broadcastTransactionWithStateManagement(
               txMessage.withdrawalId!,
-              signedTransaction,
+              rawTransaction, // Direct use of rawTransaction
               chainId
             );
         } else {
-          // Use batch transaction state management
+          // Use batch transaction state management with rawTransaction
           broadcastResult =
             await this.broadcaster.broadcastBatchTransactionWithStateManagement(
               txMessage.batchId!,
-              signedTransaction,
+              rawTransaction, // Direct use of rawTransaction
               chainId
             );
         }
 
         // 성공한 경우
         if (broadcastResult.success) {
-          console.log(
-            `[tx-broadcaster] Transaction broadcasted successfully after ${
-              attemptCount + 1
-            } attempts: ${broadcastResult.transactionHash}`
-          );
-
           return {
             ...broadcastResult,
             attemptCount: attemptCount + 1,
@@ -480,16 +466,19 @@ export class SQSWorker {
           maxRetries: maxRetries,
         });
 
-        console.warn(
-          `[tx-broadcaster] Broadcast attempt ${attemptCount} failed:`,
-          {
+        this.logger.warn('Broadcast attempt failed', {
+          metadata: {
+            messageId: txMessage.id,
+            transactionType: txMessage.transactionType,
+            attemptCount,
+            maxRetries,
             error: error instanceof Error ? error.message : String(error),
             code: (error as any)?.code || 'UNKNOWN',
             type: errorMetrics.errorType,
             severity: errorMetrics.severity,
             retryable: errorMetrics.retryable,
-          }
-        );
+          },
+        });
 
         // 재시도 가능 여부 확인
         const retryDecision = this.retryService.shouldRetry(
@@ -498,25 +487,33 @@ export class SQSWorker {
         );
 
         if (!retryDecision.shouldRetry) {
-          console.error(
-            `[tx-broadcaster] No more retries for transaction: ${retryDecision.reason}`
-          );
+          this.logger.error('No more retries for transaction', null, {
+            metadata: {
+              messageId: txMessage.id,
+              reason: retryDecision.reason,
+              attemptCount,
+            },
+          });
           break;
         }
 
         // 재시도 전 지연
-        console.log(`[tx-broadcaster] ${retryDecision.reason}`);
         await this.sleep(retryDecision.delay);
       }
     }
 
     // 모든 재시도 실패
     const errorAnalysis = this.retryService.analyzeError(lastError);
-    console.error(
-      `[tx-broadcaster] Transaction broadcast failed after ${attemptCount} attempts:`,
+    this.logger.error(
+      'Transaction broadcast failed after all attempts',
+      lastError,
       {
-        error: lastError?.message || 'Unknown error',
-        analysis: errorAnalysis,
+        metadata: {
+          messageId: txMessage.id,
+          transactionType: txMessage.transactionType,
+          attemptCount,
+          analysis: errorAnalysis,
+        },
       }
     );
 
@@ -527,35 +524,6 @@ export class SQSWorker {
     };
   }
 
-  private async sendToTxMonitorQueueWithRetry(
-    message: TxMonitorMessage,
-    maxRetries: number = 3
-  ): Promise<void> {
-    let lastError: Error | undefined;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        await this.queueService.sendToTxMonitorQueue(message);
-        return; // Success, exit early
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        console.warn(
-          `[tx-broadcaster] tx-monitor-queue send attempt ${attempt}/${maxRetries} failed:`,
-          error
-        );
-
-        if (attempt < maxRetries) {
-          // Exponential backoff: 1s, 2s, 4s
-          const delay = Math.pow(2, attempt - 1) * 1000;
-          await this.sleep(delay);
-        }
-      }
-    }
-
-    // All retries failed
-    throw lastError || new Error('All tx-monitor-queue send attempts failed');
-  }
-
   private async handleFailure(
     message: QueueMessage<any>,
     result: ProcessingResult
@@ -563,12 +531,10 @@ export class SQSWorker {
     if (!result.shouldRetry || !this.redisService) {
       // Delete message if not retryable or Redis not available
       await this.queueService.deleteMessage(
-        config.TX_REQUEST_QUEUE_URL,
+        this.config.SIGNED_TX_QUEUE_URL,
         message.receiptHandle
       );
-      console.log(
-        `[tx-broadcaster] Message ${message.id} failed and will not be retried`
-      );
+      // Message failed and will not be retried
 
       // Send failure result
       const unifiedMessage = this.convertToUnifiedMessage(message.body);
@@ -593,14 +559,13 @@ export class SQSWorker {
           unifiedMessage,
           result.error || 'Max retries exceeded'
         );
-        console.log(
-          `[tx-broadcaster] Message ${message.id} sent to DLQ after ${maxRetries} retries`
-        );
+        // Message sent to DLQ after max retries
       } catch (dlqError) {
-        console.error(
-          `[tx-broadcaster] Failed to send message ${message.id} to DLQ:`,
-          dlqError
-        );
+        this.logger.error('Failed to send message to DLQ', dlqError, {
+          metadata: {
+            messageId: message.id,
+          },
+        });
       }
 
       // Send failure result
@@ -614,16 +579,12 @@ export class SQSWorker {
       });
 
       await this.queueService.deleteMessage(
-        config.TX_REQUEST_QUEUE_URL,
+        this.config.SIGNED_TX_QUEUE_URL,
         message.receiptHandle
       );
-      console.log(
-        `[tx-broadcaster] Message ${message.id} exceeded max retries and was deleted`
-      );
+      // Message exceeded max retries and was deleted
     } else {
-      console.log(
-        `[tx-broadcaster] Message ${message.id} will be retried (attempt ${retryCount}/${maxRetries})`
-      );
+      // Message will be retried
       // Message will be retried automatically by SQS visibility timeout
     }
   }
@@ -679,12 +640,15 @@ export class SQSWorker {
 
     // Log stats every 10 messages
     if (this.stats.messagesProcessed % 10 === 0) {
-      console.log('[tx-broadcaster] Worker stats:', {
-        processed: this.stats.messagesProcessed,
-        succeeded: this.stats.messagesSucceeded,
-        failed: this.stats.messagesFailed,
-        successRate: `${((this.stats.messagesSucceeded / this.stats.messagesProcessed) * 100).toFixed(1)}%`,
-        avgProcessingTime: `${this.stats.averageProcessingTime.toFixed(0)}ms`,
+      this.logger.info('Worker statistics', {
+        metadata: {
+          processed: this.stats.messagesProcessed,
+          succeeded: this.stats.messagesSucceeded,
+          failed: this.stats.messagesFailed,
+          successRate: `${((this.stats.messagesSucceeded / this.stats.messagesProcessed) * 100).toFixed(1)}%`,
+          avgProcessingTime: `${this.stats.averageProcessingTime.toFixed(0)}ms`,
+          uptimeMs: Date.now() - this.stats.uptime,
+        },
       });
     }
   }
@@ -705,15 +669,19 @@ export class SQSWorker {
       };
 
       // DLQ URL이 설정되어 있는 경우에만 전송
-      const dlqUrl = config.TX_REQUEST_QUEUE_URL.replace('-queue', '-dlq');
+      const dlqUrl = this.config.SIGNED_TX_QUEUE_URL.replace('-queue', '-dlq');
 
-      console.log(`[tx-broadcaster] Sending message to DLQ: ${dlqUrl}`);
       await this.queueService.sendMessage(dlqUrl, dlqMessage);
 
       // DLQ 전송 메트릭 수집
       this.collectDLQMetric(message, error);
     } catch (error) {
-      console.error('[tx-broadcaster] Failed to send message to DLQ:', error);
+      this.logger.error('Failed to send message to DLQ', error, {
+        metadata: {
+          messageId: message.id,
+          transactionType: message.transactionType,
+        },
+      });
       throw error;
     }
   }
@@ -735,8 +703,7 @@ export class SQSWorker {
       originalHash: message.transactionHash,
     };
 
-    // 실제 프로덕션에서는 모니터링 시스템으로 전송
-    console.log('[tx-broadcaster] DLQ Metric:', metric);
+    // TODO: Send to monitoring system in production
   }
 
   /**
@@ -764,8 +731,7 @@ export class SQSWorker {
       context: 'transaction_broadcast',
     };
 
-    // 실제 프로덕션에서는 모니터링 시스템(예: CloudWatch, DataDog)으로 전송
-    console.log('[tx-broadcaster] Error Metric:', metric);
+    // TODO: Send to monitoring system (e.g., CloudWatch, DataDog) in production
   }
 
   private sleep(ms: number): Promise<void> {

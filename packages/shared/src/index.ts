@@ -12,3 +12,4 @@ export * from './providers/chain.provider';
 export * from './providers/chain-provider.factory';
 export * from './utils/hardhat-helpers';
 export * from './config/logger.config';
+export { default as chainsConfig } from './config/chains.config.json';

@@ -17,7 +17,7 @@
         "main": "apps/tx-broadcaster/src/main.ts",
         "tsConfig": "apps/tx-broadcaster/tsconfig.app.json",
         "assets": ["apps/tx-broadcaster/src/assets"],
-        "generatePackageJson": true,
+        "generatePackageJson": false,
         "esbuildOptions": {
           "sourcemap": true,
           "outExtension": {
@@ -28,7 +28,7 @@
       "configurations": {
         "development": {},
         "production": {
-          "generateLockfile": true,
+          "generateLockfile": false,
           "esbuildOptions": {
             "sourcemap": false,
             "outExtension": {

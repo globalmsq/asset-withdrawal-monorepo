@@ -1,114 +1,119 @@
 # TX Broadcaster Service
 
-Transaction broadcaster service for the asset withdrawal system. This service handles broadcasting signed transactions to the blockchain.
+A service that broadcasts signed transactions to the blockchain network.
 
-## Purpose
+## Overview
 
-The TX Broadcaster service is responsible for:
+1. **Transaction Broadcasting**: Sends signed transactions from signing-service to the blockchain
+2. **State Management**: Updates transaction status from SIGNED → BROADCASTING → BROADCASTED/FAILED
+3. **Result Recording**: Stores broadcast information in sent_transactions table
+4. **Retry Handling**: Manages retryable errors such as network failures
 
-- Receiving signed transactions from the signing service
-- Broadcasting transactions to multiple blockchain networks
-- Handling both single and batch transactions uniformly
-- Managing transaction retries with Redis deduplication
-- Sending broadcast results to the next service
+## Message Flow
+
+```
+signing-service → signed-tx-queue → tx-broadcaster → broadcast-tx-queue → tx-monitor
+```
+
+## Configuration
+
+```bash
+cp env.example .env
+```
+
+Key environment variables:
+
+- `TX_REQUEST_QUEUE_URL`: Queue for receiving signed transactions from signing-service
+- `BROADCAST_QUEUE_URL`: Queue for sending broadcast results to tx-monitor
+- `RPC_URL`: Blockchain RPC endpoint
+- `CHAIN_ID`: Target chain ID
+
+## Development
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run in development mode
+pnpm dev
+
+# Build
+pnpm build
+
+# Run in production
+pnpm start
+```
 
 ## Architecture
 
-This service operates as part of the withdrawal system pipeline:
+### Core Components
 
-1. **Signing Service** → Signs transactions
-2. **TX Broadcaster** → Broadcasts signed transactions to blockchain
-3. **TX Monitor** → Monitors transaction confirmations
+1. **SQSWorker**: SQS message processing and worker logic
+2. **TransactionBroadcaster**: Core transaction broadcasting logic
+3. **TransactionService**: Database state management
+4. **RetryService**: Retry logic and error analysis
 
-## Unified Message Handling
+### Broadcasting Approach
 
-The service supports both legacy and unified message formats:
+- **Direct Broadcasting**: Uses `rawTransaction` field directly from signing-service
+- **Minimal Conversion**: Converts signing-service messages with minimal transformation
+- **Preserved Metadata**: Additional fields (nonce, gasLimit, etc.) are preserved but not used for broadcasting
+- **Chain Detection**: Uses `chainId` for network selection and validation
 
-### Legacy Format (Single Transactions Only)
+### Optimized Message Processing
+
+The service now uses a streamlined approach:
+
+1. **Direct rawTransaction Usage**: The `rawTransaction` field from signing-service is used directly for blockchain broadcasting
+2. **Minimal Validation**: Only essential validations (format check, chain support) are performed
+3. **Simple Conversion**: Message conversion logic focuses on business fields (requestId, transactionType) rather than re-extracting transaction details
+
+### Message Formats
+
+#### Input (SignedTransaction from signing-service)
 
 ```typescript
-interface SignedTransactionMessage {
-  id: string;
-  withdrawalId: string;
-  signedTransaction: string;
+{
+  transactionType: 'SINGLE' | 'BATCH',
+  requestId: string,
+  hash: string,
+  rawTransaction: string,  // Ready-to-broadcast signed transaction
+  chainId: number,
+  // Additional fields (nonce, gasLimit, etc.) are preserved but not used for broadcasting
+}
+```
+
+#### Output (UnifiedBroadcastResultMessage)
+
+```typescript
+{
+  transactionType: 'SINGLE' | 'BATCH',
+  withdrawalId?: string,
+  batchId?: string,
+  originalTransactionHash: string,
+  broadcastTransactionHash?: string,
+  status: 'broadcasted' | 'failed',
   // ... other fields
 }
 ```
 
-### Unified Format (Single & Batch Transactions)
+## Error Handling
 
-```typescript
-interface UnifiedSignedTransactionMessage {
-  id: string;
-  transactionType: 'SINGLE' | 'BATCH';
-  withdrawalId?: string; // For single transactions
-  batchId?: string; // For batch transactions
-  signedTransaction: string; // Raw signed tx
-  chainId: number;
-  metadata?: {
-    totalRequests?: number; // Batch only
-    requestIds?: string[]; // Batch only
-    toAddress?: string; // Single only
-    amount?: string; // Single only
-  };
-}
-```
+### Retryable Errors
 
-The service automatically detects and converts message formats, ensuring backward compatibility while supporting new batch transaction capabilities.
+- Network connection errors
+- Temporary RPC node failures
+- Nonce conflicts
 
-## Configuration
+### Non-Retryable Errors
 
-### Environment Variables
+- Insufficient balance
+- Invalid signature
+- Unsupported chain ID
 
-See `env.example` for all available configuration options.
+## Monitoring
 
-Key configurations:
-
-- `PORT`: Service port (default: 3003)
-- `RPC_URL`: Blockchain RPC endpoint
-- `CHAIN_ID`: Blockchain chain ID
-- Database connection settings
-- Queue connection settings
-- Redis connection settings
-
-### Development Setup
-
-```bash
-# Install dependencies (from monorepo root)
-pnpm install
-
-# Start development server
-pnpm nx serve tx-broadcaster
-
-# Run tests
-pnpm nx test tx-broadcaster
-
-# Build for production
-pnpm nx build tx-broadcaster
-```
-
-## API Endpoints
-
-### Health Check
-
-- `GET /health` - Service health status
-- `GET /` - Service information
-
-## Docker
-
-The service includes a Dockerfile for containerized deployment:
-
-```bash
-# Build Docker image
-pnpm nx docker-build tx-broadcaster
-
-# Run container
-docker run -p 3003:3003 tx-broadcaster
-```
-
-## Dependencies
-
-- **Express**: Web framework
-- **Helmet**: Security middleware
-- **CORS**: Cross-origin resource sharing
-- **tsx**: TypeScript execution runtime
+- Broadcast success/failure rate
+- Average processing time
+- Retry count
+- DLQ message count

@@ -14,7 +14,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # Only copy if they exist
 COPY apps/api-server/package.json* ./apps/api-server/
 COPY apps/signing-service/package.json* ./apps/signing-service/
-COPY apps/tx-processor/package.json* ./apps/tx-processor/
 COPY apps/tx-monitor/package.json* ./apps/tx-monitor/
 COPY packages/shared/package.json* ./packages/shared/
 COPY packages/database/package.json* ./packages/database/
@@ -90,4 +89,3 @@ EXPOSE 3005
 # Change to signing-service directory and start the application
 WORKDIR /app/apps/signing-service
 CMD ["npm", "start"]
-

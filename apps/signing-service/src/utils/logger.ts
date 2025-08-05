@@ -2,6 +2,7 @@ import winston from 'winston';
 import { Config } from '../config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { LoggerService } from '@asset-withdrawal/shared';
 
 export interface AuditLog {
   timestamp: Date;
@@ -18,7 +19,7 @@ export interface AuditLog {
 }
 
 export class Logger {
-  private winston: winston.Logger;
+  private loggerService: LoggerService;
   private auditLogger: winston.Logger;
 
   constructor(config: Config) {
@@ -28,27 +29,10 @@ export class Logger {
       fs.mkdirSync(logDir, { recursive: true });
     }
 
-    // Main application logger
-    this.winston = winston.createLogger({
+    // Main application logger using shared LoggerService
+    this.loggerService = new LoggerService({
+      service: 'signing-service',
       level: config.logging.level,
-      format: winston.format.combine(
-        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-        winston.format.errors({ stack: true }),
-        winston.format.json()
-      ),
-      transports: [
-        new winston.transports.Console({
-          format: winston.format.combine(
-            winston.format.colorize(),
-            winston.format.printf(({ timestamp, level, message, ...meta }) => {
-              const metaStr = Object.keys(meta).length
-                ? JSON.stringify(meta)
-                : '';
-              return `${timestamp} [${level}]: ${message} ${metaStr}`;
-            })
-          ),
-        }),
-      ],
     });
 
     // Audit logger for security events
@@ -70,19 +54,19 @@ export class Logger {
   }
 
   info(message: string, meta?: any): void {
-    this.winston.info(message, meta);
+    this.loggerService.info(message, meta);
   }
 
   warn(message: string, meta?: any): void {
-    this.winston.warn(message, meta);
+    this.loggerService.warn(message, meta);
   }
 
   error(message: string, error?: Error | any, meta?: any): void {
-    this.winston.error(message, { error: error?.stack || error, ...meta });
+    this.loggerService.error(message, error, meta);
   }
 
   debug(message: string, meta?: any): void {
-    this.winston.debug(message, meta);
+    this.loggerService.debug(message, meta);
   }
 
   audit(log: AuditLog): void {
@@ -90,14 +74,20 @@ export class Logger {
 
     // Also log to main logger for visibility
     const { timestamp, action, success, error } = log;
-    const level = success ? 'info' : 'warn';
-    this.winston[level](`Audit: ${action}`, {
+    const message = `Audit: ${action}`;
+    const context = {
       timestamp,
       success,
       error,
       userId: log.userId,
       transactionId: log.transactionId,
-    });
+    };
+
+    if (success) {
+      this.loggerService.info(message, context);
+    } else {
+      this.loggerService.warn(message, context);
+    }
   }
 
   auditSuccess(action: string, details: Partial<AuditLog>): void {

@@ -13,9 +13,9 @@ import {
   WithdrawalRequest,
 } from '@asset-withdrawal/shared';
 import { setReadiness } from './middleware/readiness.middleware';
-import { Logger } from './utils/logger';
+import { LoggerService } from '@asset-withdrawal/shared';
 
-const logger = new Logger('ApiServer');
+const logger = new LoggerService({ service: 'api-server:main' });
 
 async function connectWithRetry(dbService: any, maxRetries = 10, delay = 5000) {
   for (let i = 0; i < maxRetries; i++) {
@@ -25,8 +25,7 @@ async function connectWithRetry(dbService: any, maxRetries = 10, delay = 5000) {
       return;
     } catch (error) {
       logger.warn(
-        `Database connection attempt ${i + 1}/${maxRetries} failed:`,
-        error instanceof Error ? error.message : String(error)
+        `Database connection attempt ${i + 1}/${maxRetries} failed: ${error instanceof Error ? error.message : String(error)}`
       );
 
       if (i === maxRetries - 1) {

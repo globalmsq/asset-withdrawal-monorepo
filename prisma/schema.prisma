@@ -130,3 +130,29 @@ model SignedBatchTransaction {
   @@index([createdAt])
   @@map("signed_batch_transactions")
 }
+
+model SentTransaction {
+  id                    BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  requestId             String?             @db.VarChar(36) // 단일 트랜잭션용
+  batchId               String?             @db.VarChar(36) // 배치 트랜잭션용
+  transactionType       String              @db.VarChar(10) // SINGLE, BATCH
+  originalTxHash        String              @db.VarChar(66) // 서명된 트랜잭션 해시
+  sentTxHash            String              @unique @db.VarChar(66) // 블록체인에 전송된 트랜잭션 해시
+  chainId               Int                 @db.UnsignedInt
+  blockNumber           BigInt?             @db.UnsignedBigInt
+  gasUsed               String?             @db.VarChar(50)
+  status                String              @default("SENT") @db.VarChar(20) // SENT, CONFIRMED, FAILED
+  error                 String?             @db.Text
+  sentAt                DateTime            @default(now())
+  confirmedAt           DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  @@index([requestId])
+  @@index([batchId])
+  @@index([originalTxHash])
+  @@index([sentTxHash])
+  @@index([status])
+  @@index([chainId])
+  @@map("sent_transactions")
+}

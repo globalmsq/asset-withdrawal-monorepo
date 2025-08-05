@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { config } from '../config';
+import { loadConfig } from '../config';
 import {
   BroadcastResult,
   BroadcastError,
@@ -10,16 +10,20 @@ import {
   ChainConfigService,
 } from './chain-config.service';
 import { TransactionService } from './transaction.service';
+import { LoggerService } from '@asset-withdrawal/shared';
 
 export class TransactionBroadcaster {
   private chainConfigService: ChainConfigService;
   private defaultProvider: ethers.JsonRpcProvider;
   private transactionService: TransactionService;
+  private config = loadConfig();
+  private logger: LoggerService;
 
   constructor() {
+    this.logger = new LoggerService({ service: 'tx-broadcaster:Broadcaster' });
     this.chainConfigService = getChainConfigService();
     // 기본 프로바이더 (환경변수 기반)
-    this.defaultProvider = new ethers.JsonRpcProvider(config.RPC_URL);
+    this.defaultProvider = new ethers.JsonRpcProvider(this.config.RPC_URL);
     // 트랜잭션 상태 관리 서비스
     this.transactionService = new TransactionService();
 
@@ -32,16 +36,11 @@ export class TransactionBroadcaster {
     signedTransaction: string,
     chainId?: number
   ): Promise<BroadcastResult> {
+    let txChainId: number | undefined;
     try {
-      console.log('[tx-broadcaster] Broadcasting transaction...');
-
       // Parse the signed transaction to validate it
       const parsedTx = ethers.Transaction.from(signedTransaction);
-      const txChainId = chainId || Number(parsedTx.chainId);
-
-      console.log(
-        `[tx-broadcaster] Parsed transaction hash: ${parsedTx.hash}, Chain ID: ${txChainId}`
-      );
+      txChainId = chainId || Number(parsedTx.chainId);
 
       // 체인 ID에 맞는 프로바이더 선택
       const provider = this.getProviderForChain(txChainId);
@@ -54,16 +53,23 @@ export class TransactionBroadcaster {
 
       // Send the transaction
       const response = await provider.broadcastTransaction(signedTransaction);
-      console.log(
-        `[tx-broadcaster] Transaction broadcasted: ${response.hash} on chain ${txChainId}`
-      );
+
+      this.logger.info('Transaction broadcasted successfully', {
+        transactionHash: response.hash,
+        chainId: txChainId,
+      });
 
       return {
         success: true,
         transactionHash: response.hash,
       };
     } catch (error) {
-      console.error('[tx-broadcaster] Broadcast error:', error);
+      this.logger.error('Broadcast error', error, {
+        chainId: txChainId,
+        metadata: {
+          signedTxLength: signedTransaction.length,
+        },
+      });
       return this.handleBroadcastError(error);
     }
   }
@@ -76,9 +82,7 @@ export class TransactionBroadcaster {
     timeoutMs: number = 300000 // 5 minutes
   ): Promise<BroadcastResult> {
     try {
-      console.log(
-        `[tx-broadcaster] Waiting for ${confirmations} confirmations for ${transactionHash} on chain ${chainId}...`
-      );
+      // Wait for transaction confirmations
 
       const provider = this.getProviderForChain(chainId);
       if (!provider) {
@@ -110,7 +114,14 @@ export class TransactionBroadcaster {
         receipt,
       };
     } catch (error) {
-      console.error('[tx-broadcaster] Confirmation error:', error);
+      this.logger.error('Confirmation error', error, {
+        transactionHash,
+        chainId,
+        metadata: {
+          confirmations,
+          timeoutMs,
+        },
+      });
       return this.handleBroadcastError(error);
     }
   }
@@ -125,6 +136,21 @@ export class TransactionBroadcaster {
     transaction?: BlockchainTransaction;
   }> {
     try {
+      // Debug: Check if signedTransaction is valid
+      if (!signedTransaction || typeof signedTransaction !== 'string') {
+        return {
+          valid: false,
+          error: `Invalid signed transaction: expected string, got ${typeof signedTransaction}`,
+        };
+      }
+
+      if (!signedTransaction.startsWith('0x')) {
+        return {
+          valid: false,
+          error: 'Signed transaction must start with 0x',
+        };
+      }
+
       const parsedTx = ethers.Transaction.from(signedTransaction);
       const txChainId = Number(parsedTx.chainId);
 
@@ -264,10 +290,7 @@ export class TransactionBroadcaster {
    */
   private getProviderForChain(chainId: number): ethers.JsonRpcProvider | null {
     // 환경변수로 설정된 체인 ID와 일치하면 기본 프로바이더 사용
-    if (chainId === config.CHAIN_ID) {
-      console.log(
-        `[tx-broadcaster] Using environment-configured provider for chain ${chainId}`
-      );
+    if (chainId === this.config.CHAIN_ID) {
       return this.defaultProvider;
     }
 
@@ -343,7 +366,6 @@ export class TransactionBroadcaster {
   ): Promise<BroadcastResult> {
     try {
       // 1. Update status to BROADCASTING before broadcast
-      console.log(`[tx-broadcaster] Updating ${requestId} to BROADCASTING`);
       await this.transactionService.updateToBroadcasting(requestId);
 
       // 2. Perform the broadcast
@@ -354,7 +376,6 @@ export class TransactionBroadcaster {
 
       if (result.success && result.transactionHash) {
         // 3. Update status to BROADCASTED on success
-        console.log(`[tx-broadcaster] Updating ${requestId} to BROADCASTED`);
         await this.transactionService.updateToBroadcasted(
           requestId,
           result.transactionHash,
@@ -365,9 +386,6 @@ export class TransactionBroadcaster {
       } else {
         // 4. Update status to FAILED on broadcast failure
         const errorMessage = result.error || 'Unknown broadcast error';
-        console.log(
-          `[tx-broadcaster] Updating ${requestId} to FAILED: ${errorMessage}`
-        );
         await this.transactionService.updateToFailed(requestId, errorMessage);
 
         return result;
@@ -408,7 +426,6 @@ export class TransactionBroadcaster {
   ): Promise<BroadcastResult> {
     try {
       // 1. Update batch status to BROADCASTING before broadcast
-      console.log(`[tx-broadcaster] Updating batch ${batchId} to BROADCASTING`);
       await this.transactionService.updateBatchToBroadcasting(batchId);
 
       // 2. Perform the broadcast
@@ -419,9 +436,6 @@ export class TransactionBroadcaster {
 
       if (result.success && result.transactionHash) {
         // 3. Update batch status to BROADCASTED on success
-        console.log(
-          `[tx-broadcaster] Updating batch ${batchId} to BROADCASTED`
-        );
         await this.transactionService.updateBatchToBroadcasted(
           batchId,
           result.transactionHash,
@@ -432,9 +446,6 @@ export class TransactionBroadcaster {
       } else {
         // 4. Update batch status to FAILED on broadcast failure
         const errorMessage = result.error || 'Unknown broadcast error';
-        console.log(
-          `[tx-broadcaster] Updating batch ${batchId} to FAILED: ${errorMessage}`
-        );
         await this.transactionService.updateBatchToFailed(
           batchId,
           errorMessage

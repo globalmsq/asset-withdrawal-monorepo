@@ -20,6 +20,26 @@ enum TransactionStatus {
 }
 ```
 
+## 데이터 저장소
+
+트랜잭션 라이프사이클에서 사용되는 주요 데이터 저장소와 각각의 역할:
+
+### withdrawal_requests 테이블
+
+- **역할**: 출금 요청의 전체 라이프사이클 상태 관리
+- **주요 필드**: 요청 ID, 사용자 정보, 금액, 주소, 상태, 트랜잭션 해시
+- **상태 전환**: PENDING → SIGNING → SIGNED → BROADCASTING → BROADCASTED → CONFIRMED/FAILED
+
+### sent_transactions 테이블
+
+- **역할**: 실제 블록체인에 전송된 트랜잭션 정보 기록
+- **용도**:
+  - TX Broadcaster가 브로드캐스트 성공 시 기록 생성
+  - 원본 트랜잭션 해시와 실제 전송된 해시 매핑
+  - TX Monitor의 트랜잭션 확인 작업 지원
+  - 가스비 사용량 및 블록 정보 추적
+- **라이프사이클**: SENT → CONFIRMED/FAILED
+
 ## 전체 플로우 다이어그램
 
 ```mermaid
@@ -39,7 +59,8 @@ graph TB
     TxBroadcaster --> Blockchain[Polygon Network]
     Blockchain --> |txHash 반환| TxBroadcaster
     TxBroadcaster --> |5. 브로드캐스트 완료| DB5[(status: BROADCASTED)]
-    DB5 --> Queue3[tx-monitor-queue]
+    TxBroadcaster --> |sent_transactions 저장| DB_ST[(sent_transactions)]
+    DB5 --> Queue3[broadcast-tx-queue]
 
     Queue3 --> TxMonitor[TX Monitor]
     TxMonitor --> |블록 확인| Blockchain
@@ -74,7 +95,8 @@ sequenceDiagram
     participant Queue2 as signed-tx-queue
     participant Broadcaster as TX Broadcaster
     participant Blockchain as Polygon Network
-    participant Queue3 as tx-monitor-queue
+    participant ST as sent_transactions DB
+    participant Queue3 as broadcast-tx-queue
     participant Monitor as TX Monitor
 
     User->>API: POST /withdrawals
@@ -94,7 +116,8 @@ sequenceDiagram
     Broadcaster->>Blockchain: eth_sendRawTransaction
     Blockchain-->>Broadcaster: txHash
     Broadcaster->>DB: status: BROADCASTED<br/>txHash, broadcastedAt
-    Broadcaster->>Queue3: 모니터링 요청
+    Broadcaster->>ST: sent_transactions 레코드 생성
+    Broadcaster->>Queue3: 브로드캐스트 결과 전송
 
     Queue3->>Monitor: 메시지 수신
     loop 12 confirmations
@@ -274,7 +297,10 @@ sequenceDiagram
    - status: BROADCASTING → BROADCASTED
    - txHash 저장
    - broadcastedAt 타임스탬프 저장
-6. tx-monitor-queue에 모니터링 요청 전송
+6. sent_transactions 테이블에 브로드캐스트 정보 저장:
+   - 원본 트랜잭션 해시와 실제 전송된 트랜잭션 해시 매핑
+   - 체인 ID, 블록 번호 등 메타데이터 저장
+7. broadcast-tx-queue에 브로드캐스트 결과 전송
 
 **실패 시나리오**:
 
@@ -288,14 +314,18 @@ sequenceDiagram
 
 **처리 과정**:
 
-1. tx-monitor-queue에서 메시지 수신
+1. broadcast-tx-queue에서 메시지 수신
 2. 블록체인에서 트랜잭션 상태 조회
 3. confirmation 수 추적 (목표: 12 confirmations)
 4. DB 업데이트:
    - blockNumber 저장
    - gasUsed 저장
    - confirmations 수 업데이트
-5. 12 confirmations 달성 시:
+5. sent_transactions 테이블 업데이트:
+   - 최종 확인된 블록 번호
+   - 실제 사용된 가스비
+   - 확인 타임스탬프
+6. 12 confirmations 달성 시:
    - status: BROADCASTED → CONFIRMED
    - confirmedAt 타임스탬프 저장
 
@@ -389,6 +419,44 @@ sequenceDiagram
    - 5분 이상 pending 트랜잭션
    - 실패율 5% 초과
    - DLQ 메시지 누적
+
+## 큐 시스템 아키텍처
+
+### 큐 목록 및 용도
+
+1. **tx-request-queue**
+   - 생산자: API Server (출금 요청 생성 시)
+   - 소비자: Signing Service
+   - 용도: 서명되지 않은 트랜잭션 요청 전달
+
+2. **signed-tx-queue**
+   - 생산자: Signing Service
+   - 소비자: TX Broadcaster
+   - 용도: 서명 완료된 트랜잭션 전달
+
+3. **broadcast-tx-queue**
+   - 생산자: TX Broadcaster
+   - 소비자: TX Monitor
+   - 용도: 브로드캐스트 완료된 트랜잭션 결과 및 모니터링 요청 전달
+   - 메시지 형식: UnifiedBroadcastResultMessage (단일/배치 트랜잭션 지원)
+
+### 메시지 흐름
+
+```
+API → tx-request-queue → Signing Service
+     → signed-tx-queue → TX Broadcaster
+     → broadcast-tx-queue → TX Monitor
+```
+
+### Dead Letter Queue (DLQ)
+
+각 큐는 대응하는 DLQ를 가지고 있습니다:
+
+- tx-request-dlq
+- signed-tx-dlq
+- broadcast-tx-dlq
+
+최대 재시도 횟수(기본 3회)를 초과한 메시지는 자동으로 DLQ로 이동됩니다.
 
 ## 보안 고려사항
 

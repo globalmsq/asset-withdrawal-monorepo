@@ -12,6 +12,11 @@ export type {
 } from './services/signed-single-transaction.service';
 export { SignedBatchTransactionService } from './signed-batch-transaction-service';
 export type { SignedBatchTransaction } from './signed-batch-transaction-service';
+export { SentTransactionService } from './services/SentTransactionService';
+export type {
+  CreateSentTransactionInput,
+  UpdateSentTransactionInput,
+} from './services/SentTransactionService';
 
 // Prisma client export for direct use if needed
 export { PrismaClient } from '@prisma/client';

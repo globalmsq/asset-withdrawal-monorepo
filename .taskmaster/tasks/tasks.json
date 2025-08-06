@@ -208,7 +208,7 @@
         "id": 12,
         "title": "[BFS-5] tx-broadcaster 서비스 구현",
         "description": "서명된 트랜잭션을 Polygon 네트워크에 브로드캐스트하고 database 패키지를 통해 트랜잭션 상태를 직접 관리하는 서비스 개발",
-        "status": "done",
+        "status": "in-progress",
         "dependencies": [11],
         "priority": "high",
         "details": "Nx를 사용하여 tx-broadcaster 앱 생성 (nx g @nx/node:app tx-broadcaster), signed-tx-queue에서 SQS 메시지 폴링, database 패키지를 통한 직접적인 데이터베이스 트랜잭션 상태 관리, Ethers.js v6를 사용하여 Polygon 네트워크 브로드캐스트, 트랜잭션 상태를 SIGNED → BROADCASTING → BROADCASTED/FAILED로 업데이트, txHash, broadcastedAt, blockNumber, 에러 메시지 저장, nonce 충돌 감지 및 DLQ 처리, RPC 실패 시 지수 백오프 재시도 로직, 브로드캐스트 성공 후 tx-monitor-queue에 메시지 전송, 배치 트랜잭션의 경우 batchId로 관련 트랜잭션들 일괄 상태 업데이트",
@@ -285,6 +285,15 @@
             "dependencies": [7],
             "details": "테스트 환경 구성: Docker Compose로 서비스 실행, LocalStack(SQS), SQS Admin UI(포트 3999), Redis Insight(포트 8001), Hardhat 노드(포트 8545)\n\n10개 테스트 케이스 실행:\n- TC-01: 정상 브로드캐스트 플로우 검증\n- TC-02: 네트워크 오류 시 재시도 로직 검증\n- TC-03: Nonce 충돌 감지 및 처리 검증\n- TC-04: 중복 메시지 방지 시스템 검증\n- TC-05: 통합 메시지 처리 파이프라인 검증\n- TC-06: 배치 트랜잭션 처리 검증\n- TC-07: DLQ(Dead Letter Queue) 처리 검증\n- TC-08: 큐 간 통신 정상성 검증\n- TC-09: 체인ID 검증 로직 테스트\n- TC-10: 통계 수집 및 모니터링 검증\n\n검증 체크리스트:\n1. 서비스 정상 실행 확인\n2. 테스트 메시지 전송 및 수신 확인\n3. 애플리케이션 로그를 통한 처리 과정 확인\n4. Redis 상태 및 중복 방지 동작 확인\n5. SQS 큐 메시지 처리 상태 확인\n6. 에러 처리 및 상태 전이 확인\n7. 재시도 로직 동작 확인\n8. DLQ로 메시지 전송 확인\n9. 통계 데이터 수집 확인\n10. 전체 파이프라인 통합 동작 검증",
             "testStrategy": "Docker 환경 통합 테스트, 10개 테스트 케이스 시나리오 검증, 모든 구성 요소 간 통신 및 상태 전이 확인, 에러 처리 및 복구 로직 검증"
+          },
+          {
+            "id": 9,
+            "title": "Docker integration",
+            "description": "Update Dockerfile and docker-compose configuration for tx-broadcaster service integration",
+            "details": "",
+            "status": "pending",
+            "dependencies": [],
+            "parentTaskId": 12
           }
         ]
       },
@@ -795,7 +804,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-08-05T12:24:55.573Z",
+      "updated": "2025-08-05T13:38:12.096Z",
       "description": "Tasks for master context"
     }
   }

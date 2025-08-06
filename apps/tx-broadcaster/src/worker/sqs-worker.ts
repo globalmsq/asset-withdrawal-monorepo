@@ -56,7 +56,7 @@ export class SQSWorker {
         chainId: this.config.CHAIN_ID,
         metadata: {
           signedTxQueueUrl: this.config.SIGNED_TX_QUEUE_URL,
-          broadcastQueueUrl: this.config.BROADCAST_QUEUE_URL,
+          broadcastQueueUrl: this.config.BROADCAST_TX_QUEUE_URL,
         },
       });
 

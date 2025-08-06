@@ -41,11 +41,31 @@ jest.mock('../services/chain-config.service', () => ({
 
 describe('SQSWorker', () => {
   let worker: SQSWorker;
+  const originalEnv = process.env;
 
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks();
+    
+    // Set up required environment variables for tests
+    process.env = {
+      ...originalEnv,
+      NODE_ENV: 'test',
+      SIGNED_TX_QUEUE_URL: 'https://sqs.test.com/signed-tx-queue',
+      BROADCAST_TX_QUEUE_URL: 'https://sqs.test.com/broadcast-tx-queue',
+      MYSQL_HOST: 'localhost',
+      MYSQL_PORT: '3306',
+      MYSQL_DATABASE: 'test_db',
+      MYSQL_USER: 'test',
+      MYSQL_PASSWORD: 'test',
+    };
+    
     worker = new SQSWorker();
+  });
+
+  afterEach(() => {
+    // Restore original environment
+    process.env = originalEnv;
   });
 
   describe('convertToUnifiedMessage', () => {

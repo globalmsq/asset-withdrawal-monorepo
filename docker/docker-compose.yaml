@@ -165,9 +165,7 @@ services:
       <<: *localstack-account
       NODE_ENV: development
       PORT: 8080
-      NO_COLOR: true
       LOG_FORMAT: simple
-      FORCE_COLOR: 0
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       MYSQL_DATABASE: withdrawal_system
@@ -209,6 +207,7 @@ services:
     environment:
       <<: *localstack-account
       NODE_ENV: development
+      LOG_FORMAT: simple
 
       # Security (change in production)
       SIGNING_SERVICE_ENCRYPTION_KEY: development-encryption-key-change-in-production-32
@@ -249,64 +248,59 @@ services:
       retries: 3
       start_period: 40s
 
-  # # Transaction Monitor
-  # tx-monitor:
-  #   container_name: withdrawal-tx-monitor
-  #   depends_on:
-  #     mysql:
-  #       condition: service_healthy
-  #     localstack:
-  #       condition: service_healthy
-  #     hardhat-deploy:
-  #       condition: service_completed_successfully
-  #     tx-processor:
-  #       condition: service_healthy
-  #   restart: unless-stopped
-  #   build:
-  #     context: ..
-  #     dockerfile: docker/dockerfile.packages
-  #     target: tx-monitor
-  #   command: ["pnpm", "dev"]
-  #   ports:
-  #     - 3002:3002
-  #   environment:
-  #     <<: *localstack-account
-  #     NODE_ENV: production
-  #     TX_MONITOR_PORT: 3002
+  # Transaction Broadcaster
+  tx-broadcaster:
+    container_name: withdrawal-tx-broadcaster
+    depends_on:
+      mysql:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      hardhat-deploy:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    build:
+      context: ..
+      dockerfile: docker/dockerfile.packages
+      target: tx-broadcaster
+    ports:
+      - 3001:3001
+    environment:
+      <<: *localstack-account
+      NODE_ENV: development
+      PORT: 3001
+      LOG_FORMAT: simple
 
-  #     # Database
-  #     DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}@mysql:3306/withdrawal_system
-  #     MYSQL_HOST: mysql
-  #     MYSQL_PORT: 3306
-  #     MYSQL_DATABASE: withdrawal_system
-  #     MYSQL_USER: root
-  #     MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-development-password-change-in-production}
+      # Database
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: withdrawal_system
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-pass}
 
-  #     # Queue Configuration
-  #     MONITOR_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/monitor-queue
-  #     COMPLETION_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/completion-queue
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
 
-  #     # Worker Configuration
-  #     MONITOR_WORKER_ENABLED: true
-  #     WORKER_BATCH_SIZE: 10
-  #     WORKER_INTERVAL: 5000
+      # Queue Configuration
+      SIGNED_TX_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue
+      BROADCAST_TX_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/broadcast-tx-queue
 
-  #     # RPC URL Override for Docker environment
-  #     RPC_URL: http://hardhat-node:8545
+      # RPC URL Override for Docker environment
+      # RPC_URL: http://hardhat-node:8545
 
-  #     # Monitoring Configuration
-  #     MONITOR_INTERVAL: 10000
-  #     MAX_RETRY_COUNT: 5
-  #   networks:
-  #     - withdrawal-network
-  #   volumes:
-  #     - deployment-data:/deployment:ro
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #     start_period: 40s
+    networks:
+      - withdrawal-network
+    volumes:
+      - deployment-data:/deployment:ro
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 networks:
   withdrawal-network:

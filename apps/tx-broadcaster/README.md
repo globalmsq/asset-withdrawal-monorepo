@@ -23,8 +23,8 @@ cp env.example .env
 
 Key environment variables:
 
-- `TX_REQUEST_QUEUE_URL`: Queue for receiving signed transactions from signing-service
-- `BROADCAST_QUEUE_URL`: Queue for sending broadcast results to tx-monitor
+- `SIGNED_TX_QUEUE_URL`: Queue for receiving signed transactions from signing-service
+- `BROADCAST_TX_QUEUE_URL`: Queue for sending broadcast results to tx-monitor
 - `RPC_URL`: Blockchain RPC endpoint
 - `CHAIN_ID`: Target chain ID
 

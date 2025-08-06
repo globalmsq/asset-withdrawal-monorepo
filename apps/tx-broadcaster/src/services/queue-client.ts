@@ -116,7 +116,7 @@ export class QueueService {
 
   // Send message to broadcast queue (next step in pipeline)
   async sendToBroadcastQueue(messageBody: any): Promise<string> {
-    return this.sendMessage(this.config.BROADCAST_QUEUE_URL, messageBody);
+    return this.sendMessage(this.config.BROADCAST_TX_QUEUE_URL, messageBody);
   }
 }
 

@@ -20,7 +20,7 @@ export interface AppConfig {
 
   // Queue URLs
   SIGNED_TX_QUEUE_URL: string;
-  BROADCAST_QUEUE_URL: string;
+  BROADCAST_TX_QUEUE_URL: string;
 
   // Blockchain Configuration
   RPC_URL: string;
@@ -80,7 +80,7 @@ export function loadConfig(): AppConfig {
 
     // Queue URLs
     SIGNED_TX_QUEUE_URL: getRequiredEnv('SIGNED_TX_QUEUE_URL'),
-    BROADCAST_QUEUE_URL: getRequiredEnv('BROADCAST_QUEUE_URL'),
+    BROADCAST_TX_QUEUE_URL: getRequiredEnv('BROADCAST_TX_QUEUE_URL'),
 
     // Blockchain Configuration
     RPC_URL: getOptionalEnv('RPC_URL', 'https://rpc-amoy.polygon.technology')!,
@@ -99,8 +99,8 @@ export function validateConfig(config: AppConfig): void {
   if (!config.SIGNED_TX_QUEUE_URL) {
     throw new Error('SIGNED_TX_QUEUE_URL is required');
   }
-  if (!config.BROADCAST_QUEUE_URL) {
-    throw new Error('BROADCAST_QUEUE_URL is required');
+  if (!config.BROADCAST_TX_QUEUE_URL) {
+    throw new Error('BROADCAST_TX_QUEUE_URL is required');
   }
 
   // Validate blockchain configuration

@@ -1,0 +1,125 @@
+# workflow.mdc - Development Workflow Guidelines
+
+## Git Workflow Guidelines
+
+### Branch Management
+
+1. **Never work directly on main branch** - Always create and work on feature branches
+2. **Branch naming convention**: `[JIRA-KEY]_descriptive-name`
+   - Example: `BFS-32_hardhat-localhost-support`
+   - Use parent task's Jira key
+   - Use lowercase and hyphens
+
+### Commit Message Convention
+
+1. **Jira key prefix required**: All commit messages must start with `[JIRA-KEY]` prefix
+2. **Format**: `[BFS-00] type: description`
+   - Example: `[BFS-32] feat: add Hardhat localhost network support`
+   - Example: `[BFS-32] fix: resolve nonce collision in tx-broadcaster`
+3. **Type prefixes**:
+   - `feat:` New feature
+   - `fix:` Bug fix
+   - `docs:` Documentation changes
+   - `style:` Code formatting (no logic changes)
+   - `refactor:` Code refactoring
+   - `test:` Test additions/modifications
+   - `chore:` Build/configuration changes
+
+### Pull Request Workflow
+
+1. **Create feature branch**:
+   ```bash
+   git checkout -b BFS-32_hardhat-localhost-support
+   ```
+
+2. **Commit with Jira key**:
+   ```bash
+   git commit -m "[BFS-32] feat: implement Hardhat node configuration"
+   ```
+
+3. **Push to remote**:
+   ```bash
+   git push -u origin BFS-32_hardhat-localhost-support
+   ```
+
+4. **Create Pull Request**:
+   ```bash
+   gh pr create --title "[BFS-32] Hardhat localhost network support" \
+                --body "Implementation of Hardhat node for local development..."
+   ```
+
+5. **PR Title Format**: `[JIRA-KEY] Description`
+6. **PR Description**: Include implementation details and testing notes
+7. **Update Task Status**: After creating PR, update Task Master status to review
+   ```bash
+   task-master set-status --id=<task-id> --status=review
+   ```
+
+### Example Workflow
+
+```bash
+# 1. Start new task
+task-master show 22  # Get Jira key (e.g., BFS-32)
+
+# 2. Create branch
+git checkout -b BFS-32_hardhat-localhost-support
+
+# 3. Make changes and commit
+git add .
+git commit -m "[BFS-32] feat: add Hardhat configuration"
+
+# 4. Push and create PR
+git push -u origin BFS-32_hardhat-localhost-support
+gh pr create --title "[BFS-32] Hardhat localhost network support"
+
+# 5. Update task status to review
+task-master set-status --id=<task-id> --status=review
+```
+
+## Task Master Workflow Integration
+
+### Starting Work on a Task
+
+**MANDATORY**: When beginning any task:
+
+1. Update Task Master status: `task-master set-status --id=<id> --status=in-progress`
+2. Immediately sync to Jira: Transition the Jira issue to "IN PROGRESS" status
+3. Add a comment in Jira indicating work has started (optional but recommended)
+
+### During Development
+
+- Add implementation notes to subtasks using `task-master update-subtask`
+- Optionally update Jira with progress comments
+- Keep both systems as source of truth for different audiences:
+  - Task Master: Technical implementation details
+  - Jira: Team collaboration and stakeholder visibility
+
+### Completing a Task
+
+**MANDATORY**: When finishing any task:
+
+1. Update Task Master status: `task-master set-status --id=<id> --status=done`
+2. Immediately sync to Jira: Transition the Jira issue to "DONE" status
+3. Add completion notes to Jira with summary of what was implemented
+
+## Development Workflow
+
+### After any code changes, automatically run:
+- `pnpm run lint`
+- `pnpm run typecheck`
+
+### For tests:
+- Create minimal test file structure when adding new features
+- Only implement full test coverage when explicitly requested
+- Do NOT run tests automatically unless asked
+
+## Review Process
+
+After completing tasks:
+
+1. Add a review section to `plan.md` summarizing all changes
+2. List any potential impacts or considerations
+3. Suggest any follow-up tasks if needed
+4. Provide high-level explanation of changes made
+
+Remember: Simplicity is key. Make minimal changes that achieve the goal effectively.

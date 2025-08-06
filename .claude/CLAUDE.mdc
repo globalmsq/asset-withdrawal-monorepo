@@ -1,0 +1,93 @@
+# CLAUDE.mdc - Asset Withdrawal System Core Rules
+
+## Project Overview
+
+This is a Polygon-focused blockchain withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests on the Polygon network, processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status.
+
+## Core Development Principles
+
+### Planning Phase
+- First, thoroughly analyze the problem and read relevant codebase files
+- Write a detailed plan to `plan.md` with specific todo items
+- Check in with the developer before starting implementation
+- Keep all changes simple and minimal - avoid complex modifications
+
+### Code Style
+- Use TypeScript strictly - ensure all types are properly defined
+- Follow existing patterns in the codebase
+- Keep functions small and focused (single responsibility)
+- Use async/await consistently for asynchronous operations
+- All code, comments, and documentation must be in English
+
+### Database Operations
+- Always use Prisma for database queries - never write raw SQL
+- Use transactions for operations that modify multiple records
+- Handle database errors gracefully with proper error messages
+- NO MIGRATION GENERATION: Do not create Prisma migration files
+- Schema changes should be documented in plan.md only
+
+### Security Practices
+- Never expose sensitive information in logs or responses
+- Always hash passwords using bcrypt before storing
+- Use JWT tokens for authentication (already set up)
+- Validate all user inputs thoroughly
+- Check user permissions before performing sensitive operations
+
+### Testing Requirements
+- When creating new features, initially create minimal test files with a single passing test
+- Only implement comprehensive tests when explicitly requested
+- When requested to write tests:
+  - Test both success and error cases
+  - Mock external dependencies (database, blockchain services, SQS)
+  - Use Jest and Supertest for API endpoints
+
+### Code Quality Checks
+**MANDATORY**: Run these commands after any code modification:
+```bash
+pnpm run lint        # Check code style
+pnpm run typecheck   # Check TypeScript types
+```
+
+### Git Commit Rules
+- **NEVER commit changes automatically**
+- **NEVER run `git commit` unless the user explicitly asks**
+- Only stage files (`git add`) when user requests
+- Always wait for explicit commit instructions from the user
+
+## Project-Specific Commands
+
+### Development
+```bash
+pnpm run dev         # Start development server
+pnpm run build       # Build all packages
+pnpm run serve       # Start production server
+```
+
+### Database
+```bash
+pnpm run db:migrate  # Run database migrations
+pnpm run db:seed     # Seed database with test data
+pnpm run db:reset    # Reset database (careful!)
+```
+
+### Docker
+```bash
+# Start all services (MySQL, LocalStack, SQS Admin UI)
+docker-compose -f docker/docker-compose.yaml up -d
+
+# Initialize LocalStack queues
+./docker/scripts/init-localstack.sh
+
+# View logs
+docker-compose -f docker/docker-compose.yaml logs -f
+```
+
+## Key Technologies
+- **Prisma**: ORM for MySQL database
+- **Express**: Web framework
+- **JWT**: Authentication
+- **Ethers.js**: Polygon blockchain interaction
+- **AWS SDK**: SQS queue management
+- **LocalStack**: Local AWS service emulation
+- **Nx**: Monorepo management
+- **Docker**: Containerization

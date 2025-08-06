@@ -1,0 +1,109 @@
+# document.mdc - Documentation Guidelines
+
+## Documentation Standards
+
+### When to Update Documentation
+
+- Update API documentation if you modify endpoints
+- Keep inline comments minimal - code should be self-explanatory
+- Update relevant documentation files if making architectural changes
+- Document any breaking changes in CHANGELOG.md
+- Update README.md only for major feature additions
+
+### Documentation Structure
+
+```
+docs/
+├── api/                        # API documentation
+├── ARCHITECTURE.md             # System architecture
+├── TECHNICAL_DESIGN.md         # Technical specifications
+├── SETUP.md                    # Installation and setup
+├── TRANSACTION_LIFECYCLE.md    # Transaction flow details
+└── README.md                   # Documentation index
+```
+
+### Language Requirements
+
+- **All documentation**: Must be written in English
+- **Code comments**: English only
+- **Commit messages**: English (with Jira key prefix)
+- **Task Master tasks**: Korean for local team
+- **Jira issues**: English for global team
+
+## Writing Style
+
+### Technical Documentation
+
+- Use clear, concise language
+- Include code examples where helpful
+- Use diagrams for complex flows (Mermaid preferred)
+- Keep sections focused and well-organized
+- Use consistent terminology throughout
+
+### API Documentation
+
+- Include endpoint URL and method
+- Document all parameters (required/optional)
+- Provide request/response examples
+- List possible error codes and meanings
+- Include authentication requirements
+
+### Code Comments
+
+- **Minimal inline comments**: Code should be self-documenting
+- **Complex logic**: Add brief explanations for non-obvious algorithms
+- **TODOs**: Use format `// TODO: [description]`
+- **Workarounds**: Document temporary solutions with reason
+- **JSDoc**: Use for public APIs and interfaces
+
+Example JSDoc:
+```typescript
+/**
+ * Process withdrawal request and send to queue
+ * @param request - Withdrawal request data
+ * @returns Promise with request ID
+ * @throws ValidationError if request is invalid
+ */
+```
+
+## Markdown Conventions
+
+### Headers
+- Use `#` for main title (one per document)
+- Use `##` for major sections
+- Use `###` for subsections
+- Maximum depth: 4 levels (`####`)
+
+### Code Blocks
+- Always specify language for syntax highlighting
+- Use `bash` for shell commands
+- Use `typescript` for TypeScript/JavaScript
+- Use `json` for JSON data
+
+### Lists
+- Use `-` for unordered lists
+- Use `1.` for ordered lists
+- Indent with 2 spaces for nested items
+
+### Links
+- Use relative paths for internal documents
+- Use descriptive link text (avoid "click here")
+- Verify all links work before committing
+
+## Documentation Updates
+
+### When Adding Features
+1. Update relevant technical documentation
+2. Add API documentation if new endpoints
+3. Update README.md if major feature
+4. Document environment variables if added
+
+### When Fixing Bugs
+1. Document in commit message
+2. Update CHANGELOG.md if significant
+3. Add comment if workaround implemented
+
+### When Refactoring
+1. Update architecture docs if structure changes
+2. Update API docs if interfaces change
+3. Document migration steps if breaking changes

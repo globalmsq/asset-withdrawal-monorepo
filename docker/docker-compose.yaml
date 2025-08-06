@@ -216,8 +216,12 @@ services:
       SIGNING_SERVICE_PRIVATE_KEY_SECRET: signing-service/private-key
 
       # Queue Configuration
-      TX_REQUEST_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/tx-request-queue
+      REQUEST_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/tx-request-queue
       SIGNED_TX_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue
+
+      # DLQ Configuration
+      REQUEST_DLQ_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/request-dlq
+      SIGNED_TX_DLQ_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-dlq
 
       # RPC URL Override for Docker environment
       # RPC_URL: http://hardhat-node:8545
@@ -287,6 +291,10 @@ services:
       # Queue Configuration
       SIGNED_TX_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue
       BROADCAST_TX_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/broadcast-tx-queue
+
+      # DLQ Configuration
+      SIGNED_TX_DLQ_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-dlq
+      BROADCAST_TX_DLQ_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/broadcast-tx-dlq
 
       # RPC URL Override for Docker environment
       # RPC_URL: http://hardhat-node:8545

@@ -49,7 +49,7 @@ export class SigningWorker extends BaseWorker<
   ) {
     super(
       'SigningWorker',
-      config.queue.txRequestQueueUrl,
+      config.queue.requestQueueUrl,
       config.queue.signedTxQueueUrl,
       {
         region: config.aws.region,
@@ -61,7 +61,11 @@ export class SigningWorker extends BaseWorker<
             }
           : undefined,
       },
-      logger
+      logger,
+      {
+        inputDlqUrl: config.queue.requestDlqUrl,
+        outputDlqUrl: config.queue.signedTxDlqUrl,
+      }
     );
 
     this.auditLogger = logger;

@@ -24,7 +24,10 @@ graph TB
         SQS3[tx-monitor-queue<br/>모니터링 큐]
         SQS4[balance-check-queue<br/>잔액 확인 큐]
         SQS5[balance-transfer-queue<br/>잔액 전송 큐]
-        DLQ[Dead Letter Queue]
+
+        DLQ1[request-dlq<br/>요청 DLQ]
+        DLQ2[signed-tx-dlq<br/>서명 DLQ]
+        DLQ3[broadcast-tx-dlq<br/>브로드캐스트 DLQ]
     end
 
     subgraph "처리 서비스"
@@ -71,11 +74,11 @@ graph TB
     AcctMgr --> Polygon
     SQS5 --> Signer
 
-    SQS1 -.->|실패 시| DLQ
-    SQS2 -.->|실패 시| DLQ
-    SQS3 -.->|실패 시| DLQ
-    SQS4 -.->|실패 시| DLQ
-    SQS5 -.->|실패 시| DLQ
+    SQS1 -.->|5회 실패 시| DLQ1
+    SQS2 -.->|5회 실패 시| DLQ2
+    SQS3 -.->|5회 실패 시| DLQ3
+    SQS4 -.->|실패 시| DLQ1
+    SQS5 -.->|실패 시| DLQ1
 ```
 
 ## 서비스별 상세 설명
@@ -140,6 +143,50 @@ graph TB
 - **기술 스택**: Cron Jobs, Ethers.js, Redis
 
 ## 데이터 플로우
+
+### DLQ 에러 처리 전략
+
+#### 에러 분류 시스템
+
+**영구 실패 (즉시 FAILED 처리):**
+
+- `INSUFFICIENT_FUNDS`: 잔액 부족
+- `INVALID_TRANSACTION`: 잘못된 트랜잭션 데이터
+- `EXECUTION_REVERTED`: 스마트 컨트랙트 실행 실패
+- `UNKNOWN`: 알 수 없는 에러
+
+**재시도 가능한 에러 (DLQ로 전송):**
+
+- `NETWORK`: 네트워크 연결 오류
+- `TIMEOUT`: 응답 시간 초과
+- `NONCE_TOO_LOW` / `NONCE_TOO_HIGH`: Nonce 충돌
+- `GAS_PRICE_TOO_LOW`: 가스비 부족
+- `REPLACEMENT_UNDERPRICED`: 트랜잭션 교체 시 가스비 부족
+- `OUT_OF_GAS`: 가스 한도 초과
+
+#### DLQ 메시지 구조
+
+```typescript
+interface DLQMessage<T = any> {
+  originalMessage: T; // 원본 메시지
+  error: {
+    type: DLQErrorType; // 에러 타입 분류
+    code?: string; // 에러 코드
+    message: string; // 에러 메시지
+    details?: Record<string, any>;
+  };
+  meta: {
+    timestamp: string; // 실패 시각
+    attemptCount: number; // 시도 횟수
+  };
+}
+```
+
+#### DLQ 설정
+
+- **maxReceiveCount**: 5 (5회 실패 시 DLQ로 이동)
+- **메시지 보존 기간**: 4일 (345600초)
+- **Recovery Service**: DLQ 메시지를 분석하여 복구 전략 수립 (향후 구현)
 
 ### 출금 요청 플로우
 

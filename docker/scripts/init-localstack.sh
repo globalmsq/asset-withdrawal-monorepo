@@ -31,25 +31,25 @@ awslocal sqs create-queue \
   --region $REGION \
   --attributes MessageRetentionPeriod=1209600,VisibilityTimeout=30
 
-# Create DLQ queues
+# Create DLQ queues with 4-day retention
 awslocal sqs create-queue \
-  --queue-name invalid-dlq \
+  --queue-name request-dlq \
   --region $REGION \
-  --attributes MessageRetentionPeriod=1209600
+  --attributes MessageRetentionPeriod=345600
 
 awslocal sqs create-queue \
   --queue-name signed-tx-dlq \
   --region $REGION \
-  --attributes MessageRetentionPeriod=1209600
+  --attributes MessageRetentionPeriod=345600
 
 awslocal sqs create-queue \
-  --queue-name broadcast-dlq \
+  --queue-name broadcast-tx-dlq \
   --region $REGION \
-  --attributes MessageRetentionPeriod=1209600
+  --attributes MessageRetentionPeriod=345600
 
 # Get queue ARNs
-INVALID_DLQ_ARN=$(awslocal sqs get-queue-attributes \
-  --queue-url http://localhost:4566/000000000000/invalid-dlq \
+REQUEST_DLQ_ARN=$(awslocal sqs get-queue-attributes \
+  --queue-url http://localhost:4566/000000000000/request-dlq \
   --region $REGION \
   --attribute-names QueueArn \
   --query 'Attributes.QueueArn' \
@@ -62,8 +62,8 @@ SIGNED_TX_DLQ_ARN=$(awslocal sqs get-queue-attributes \
   --query 'Attributes.QueueArn' \
   --output text)
 
-BROADCAST_DLQ_ARN=$(awslocal sqs get-queue-attributes \
-  --queue-url http://localhost:4566/000000000000/broadcast-dlq \
+BROADCAST_TX_DLQ_ARN=$(awslocal sqs get-queue-attributes \
+  --queue-url http://localhost:4566/000000000000/broadcast-tx-dlq \
   --region $REGION \
   --attribute-names QueueArn \
   --query 'Attributes.QueueArn' \
@@ -73,25 +73,25 @@ BROADCAST_DLQ_ARN=$(awslocal sqs get-queue-attributes \
 awslocal sqs set-queue-attributes \
   --queue-url http://localhost:4566/000000000000/tx-request-queue \
   --region $REGION \
-  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${INVALID_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${REQUEST_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"5\\\"}\"}"
 
 awslocal sqs set-queue-attributes \
   --queue-url http://localhost:4566/000000000000/signed-tx-queue \
   --region $REGION \
-  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${SIGNED_TX_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${SIGNED_TX_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"5\\\"}\"}"
 
 awslocal sqs set-queue-attributes \
   --queue-url http://localhost:4566/000000000000/broadcast-tx-queue \
   --region $REGION \
-  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${BROADCAST_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${BROADCAST_TX_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"5\\\"}\"}"
 
 echo "SQS queues created successfully:"
-echo "- tx-request-queue (DLQ: invalid-dlq)"
+echo "- tx-request-queue (DLQ: request-dlq)"
 echo "- signed-tx-queue (DLQ: signed-tx-dlq)"
-echo "- broadcast-tx-queue (DLQ: broadcast-dlq)"
-echo "- invalid-dlq"
+echo "- broadcast-tx-queue (DLQ: broadcast-tx-dlq)"
+echo "- request-dlq"
 echo "- signed-tx-dlq"
-echo "- broadcast-dlq"
+echo "- broadcast-tx-dlq"
 
 # Create development secrets in Secrets Manager (using Hardhat's first account)
 # Create signing-service private key (matches SIGNING_SERVICE_PRIVATE_KEY_SECRET default value)

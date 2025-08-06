@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { chainsConfig } from '@asset-withdrawal/shared';
+import { chainsConfig, LoggerService } from '@asset-withdrawal/shared';
 
 export interface ChainConfig {
   chainId: number;
@@ -24,8 +24,12 @@ export interface ChainsConfig {
 export class ChainConfigService {
   private chainsConfig: ChainsConfig = {};
   private providerCache: Map<number, ethers.JsonRpcProvider> = new Map();
+  private logger: LoggerService;
 
   constructor() {
+    this.logger = new LoggerService({
+      service: 'tx-broadcaster:ChainConfigService',
+    });
     this.loadChainsConfig();
   }
 
@@ -39,10 +43,7 @@ export class ChainConfigService {
 
       // Chain configuration loaded successfully
     } catch (error) {
-      console.error(
-        '[tx-broadcaster] Failed to load chain configuration:',
-        error
-      );
+      this.logger.error('Failed to load chain configuration', error);
       throw new Error(
         `Chain configuration initialization failed: ${error instanceof Error ? error.message : error}`
       );
@@ -149,8 +150,8 @@ export class ChainConfigService {
 
     const chainConfig = this.getChainConfig(chainId);
     if (!chainConfig) {
-      console.error(
-        `[tx-broadcaster] Unsupported chain ID: ${chainId}. Supported chains: ${this.getSupportedChainIds().join(', ')}`
+      this.logger.error(
+        `Unsupported chain ID: ${chainId}. Supported chains: ${this.getSupportedChainIds().join(', ')}`
       );
       return null;
     }
@@ -162,8 +163,8 @@ export class ChainConfigService {
       // Provider created successfully
       return provider;
     } catch (error) {
-      console.error(
-        `[tx-broadcaster] Failed to create provider for chain ${chainId} (${chainConfig.name}):`,
+      this.logger.error(
+        `Failed to create provider for chain ${chainId} (${chainConfig.name})`,
         error
       );
       return null;
@@ -217,7 +218,7 @@ export class ChainConfigService {
         }
       }
     }
-    console.log(`[tx-broadcaster] Supported chains: ${chains.join(', ')}`);
+    this.logger.info(`Supported chains: ${chains.join(', ')}`);
   }
 }
 

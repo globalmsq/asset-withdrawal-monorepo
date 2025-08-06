@@ -6,6 +6,7 @@ import {
   Message,
 } from '@aws-sdk/client-sqs';
 import { AppConfig } from '../config';
+import { LoggerService } from '@asset-withdrawal/shared';
 
 let sqsClient: SQSClient | null = null;
 
@@ -33,10 +34,12 @@ export interface QueueMessage<T = any> {
 export class QueueService {
   private sqs: SQSClient;
   private config: AppConfig;
+  private logger: LoggerService;
 
   constructor(config: AppConfig) {
     this.config = config;
     this.sqs = getSQSClient(config);
+    this.logger = new LoggerService({ service: 'tx-broadcaster:QueueService' });
   }
 
   // Receive messages from a queue
@@ -69,10 +72,7 @@ export class QueueService {
           | undefined,
       }));
     } catch (error) {
-      console.error(
-        `[tx-broadcaster] Error receiving messages from ${queueUrl}:`,
-        error
-      );
+      this.logger.error(`Error receiving messages from ${queueUrl}`, error);
       throw error;
     }
   }
@@ -88,10 +88,7 @@ export class QueueService {
       const response = await this.sqs.send(command);
       return response.MessageId!;
     } catch (error) {
-      console.error(
-        `[tx-broadcaster] Error sending message to ${queueUrl}:`,
-        error
-      );
+      this.logger.error(`Error sending message to ${queueUrl}`, error);
       throw error;
     }
   }
@@ -106,10 +103,7 @@ export class QueueService {
 
       await this.sqs.send(command);
     } catch (error) {
-      console.error(
-        `[tx-broadcaster] Error deleting message from ${queueUrl}:`,
-        error
-      );
+      this.logger.error(`Error deleting message from ${queueUrl}`, error);
       throw error;
     }
   }

@@ -81,7 +81,6 @@ export class RetryService {
   detectNonceConflict(error: any): {
     isNonceConflict: boolean;
     conflictType: 'too_low' | 'too_high' | 'pending' | 'unknown';
-    suggestedAction: 'retry' | 'refresh_nonce' | 'wait' | 'abort';
     details?: string;
   } {
     const message = error.message?.toLowerCase() || '';
@@ -92,7 +91,6 @@ export class RetryService {
       return {
         isNonceConflict: true,
         conflictType: 'too_low',
-        suggestedAction: 'refresh_nonce',
         details: 'Transaction nonce is too low, need to get fresh nonce',
       };
     }
@@ -102,7 +100,6 @@ export class RetryService {
       return {
         isNonceConflict: true,
         conflictType: 'too_low',
-        suggestedAction: 'refresh_nonce',
         details:
           'Nonce is lower than expected, likely due to previous transaction',
       };
@@ -112,7 +109,6 @@ export class RetryService {
       return {
         isNonceConflict: true,
         conflictType: 'too_high',
-        suggestedAction: 'wait',
         details: 'Nonce is higher than current, wait for pending transactions',
       };
     }
@@ -124,7 +120,6 @@ export class RetryService {
       return {
         isNonceConflict: true,
         conflictType: 'pending',
-        suggestedAction: 'retry',
         details:
           'Transaction with same nonce is pending, retry with higher gas price',
       };
@@ -145,7 +140,6 @@ export class RetryService {
         return {
           isNonceConflict: true,
           conflictType: 'unknown',
-          suggestedAction: 'refresh_nonce',
           details: `Nonce conflict detected: ${message}`,
         };
       }
@@ -154,7 +148,6 @@ export class RetryService {
     return {
       isNonceConflict: false,
       conflictType: 'unknown',
-      suggestedAction: 'retry',
     };
   }
 

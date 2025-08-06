@@ -106,12 +106,25 @@ docker-compose -f docker/docker-compose.yaml up -d mysql redis localstack
 
 이 스크립트는 다음 큐들을 생성합니다:
 
+**메인 큐:**
+
 - `tx-request-queue`: 출금 요청 큐
 - `signed-tx-queue`: 서명된 트랜잭션 큐
-- `tx-monitor-queue`: 모니터링 대상 트랜잭션 큐
+- `broadcast-tx-queue`: 브로드캐스트 완료 트랜잭션 큐
 - `balance-check-queue`: 잔액 확인 요청 큐 (Account Manager용)
 - `balance-transfer-queue`: 잔액 전송 요청 큐 (Account Manager용)
-- 각 큐의 DLQ (Dead Letter Queue)
+
+**DLQ (Dead Letter Queue):**
+
+- `request-dlq`: tx-request-queue의 DLQ (5회 실패 시)
+- `signed-tx-dlq`: signed-tx-queue의 DLQ (5회 실패 시)
+- `broadcast-tx-dlq`: broadcast-tx-queue의 DLQ (5회 실패 시)
+
+**DLQ 설정:**
+
+- maxReceiveCount: 5 (5회 처리 실패 시 DLQ로 이동)
+- 메시지 보존 기간: 4일 (345600초)
+- visibility timeout: 30초
 
 ### 6. 데이터베이스 마이그레이션
 
@@ -185,6 +198,37 @@ pnpm run test:e2e
 
 ```bash
 pnpm run test:coverage
+```
+
+## 환경 변수 설정
+
+### DLQ 관련 환경 변수
+
+```bash
+# Signing Service DLQ
+REQUEST_DLQ_URL=http://localhost:4566/000000000000/request-dlq
+SIGNED_TX_DLQ_URL=http://localhost:4566/000000000000/signed-tx-dlq
+
+# TX Broadcaster DLQ
+SIGNED_TX_DLQ_URL=http://localhost:4566/000000000000/signed-tx-dlq
+BROADCAST_TX_DLQ_URL=http://localhost:4566/000000000000/broadcast-tx-dlq
+```
+
+### 큐 상태 확인
+
+```bash
+# LocalStack에서 큐 목록 확인
+aws --endpoint-url=http://localhost:4566 sqs list-queues
+
+# 특정 큐의 메시지 수 확인
+aws --endpoint-url=http://localhost:4566 sqs get-queue-attributes \
+  --queue-url http://localhost:4566/000000000000/request-dlq \
+  --attribute-names ApproximateNumberOfMessages
+
+# DLQ 메시지 조회 (디버깅용)
+aws --endpoint-url=http://localhost:4566 sqs receive-message \
+  --queue-url http://localhost:4566/000000000000/request-dlq \
+  --max-number-of-messages 1
 ```
 
 ## 유용한 명령어

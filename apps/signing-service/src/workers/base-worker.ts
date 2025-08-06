@@ -1,4 +1,12 @@
-import { IQueue, Message, QueueFactory } from '@asset-withdrawal/shared';
+import {
+  IQueue,
+  Message,
+  QueueFactory,
+  DLQMessage,
+  DLQErrorType,
+  ErrorClassifier,
+  isPermanentFailure,
+} from '@asset-withdrawal/shared';
 import { Logger } from '../utils/logger';
 import { SQSClientConfig } from '@aws-sdk/client-sqs';
 
@@ -16,15 +24,20 @@ export abstract class BaseWorker<TInput, TOutput = void> {
   protected intervalId?: NodeJS.Timeout;
   protected inputQueue: IQueue<TInput>;
   protected outputQueue?: IQueue<TOutput>;
+  protected inputDlqQueue?: IQueue<DLQMessage<TInput>>;
+  protected outputDlqQueue?: IQueue<DLQMessage<TOutput>>;
   protected processingMessages: Set<string> = new Set();
   protected isProcessingBatch: boolean = false;
+  protected maxRetries: number = 5;
+  protected messageRetryCount: Map<string, number> = new Map();
 
   constructor(
     name: string,
     inputQueueUrl: string,
     outputQueueUrl: string | undefined,
     sqsConfig: SQSClientConfig,
-    logger?: Logger
+    logger?: Logger,
+    dlqUrls?: { inputDlqUrl?: string; outputDlqUrl?: string }
   ) {
     this.name = name;
     this.logger =
@@ -70,6 +83,31 @@ export abstract class BaseWorker<TInput, TOutput = void> {
       const outputQueueName = outputQueueUrl.split('/').pop() || outputQueueUrl;
       this.outputQueue = QueueFactory.create<TOutput>({
         queueName: outputQueueName,
+        region,
+        endpoint,
+        accessKeyId,
+        secretAccessKey,
+      });
+    }
+
+    // Initialize DLQ queues if URLs are provided
+    if (dlqUrls?.inputDlqUrl) {
+      const inputDlqName =
+        dlqUrls.inputDlqUrl.split('/').pop() || dlqUrls.inputDlqUrl;
+      this.inputDlqQueue = QueueFactory.create<DLQMessage<TInput>>({
+        queueName: inputDlqName,
+        region,
+        endpoint,
+        accessKeyId,
+        secretAccessKey,
+      });
+    }
+
+    if (dlqUrls?.outputDlqUrl) {
+      const outputDlqName =
+        dlqUrls.outputDlqUrl.split('/').pop() || dlqUrls.outputDlqUrl;
+      this.outputDlqQueue = QueueFactory.create<DLQMessage<TOutput>>({
+        queueName: outputDlqName,
         region,
         endpoint,
         accessKeyId,
@@ -187,7 +225,9 @@ export abstract class BaseWorker<TInput, TOutput = void> {
           this.lastError =
             error instanceof Error ? error.message : 'Unknown error';
           this.errorCount++;
-          // Message will be returned to queue after visibility timeout
+
+          // Handle DLQ for failed messages
+          await this.handleMessageFailure(message, error);
         } finally {
           this.processingMessages.delete(messageId);
         }
@@ -205,4 +245,83 @@ export abstract class BaseWorker<TInput, TOutput = void> {
   }
 
   protected abstract processMessage(data: TInput): Promise<TOutput | null>;
+
+  protected async handleMessageFailure(
+    message: Message<TInput>,
+    error: any
+  ): Promise<void> {
+    const messageId = message.id || message.receiptHandle;
+
+    // Track retry count
+    const retryCount = (this.messageRetryCount.get(messageId) || 0) + 1;
+    this.messageRetryCount.set(messageId, retryCount);
+
+    // Classify the error
+    const errorInfo = ErrorClassifier.classifyError(error);
+
+    // Check if it's a permanent failure or max retries exceeded
+    if (isPermanentFailure(errorInfo.type) || retryCount >= this.maxRetries) {
+      this.logger.warn(`Sending message to DLQ`, {
+        messageId,
+        errorType: errorInfo.type,
+        retryCount,
+        isPermanent: isPermanentFailure(errorInfo.type),
+      });
+
+      // Send to DLQ
+      await this.sendToDLQ(message, error, retryCount);
+
+      // Delete message from input queue
+      await this.inputQueue.deleteMessage(message.receiptHandle);
+
+      // Clear retry count
+      this.messageRetryCount.delete(messageId);
+    }
+    // Otherwise, message will be returned to queue after visibility timeout
+  }
+
+  protected async sendToDLQ(
+    message: Message<TInput>,
+    error: any,
+    attemptCount: number
+  ): Promise<void> {
+    if (!this.inputDlqQueue) {
+      this.logger.error('DLQ not configured, dropping message', {
+        messageId: message.id || message.receiptHandle,
+      });
+      return;
+    }
+
+    try {
+      const errorInfo = ErrorClassifier.classifyError(error);
+
+      const dlqMessage: DLQMessage<TInput> = {
+        originalMessage: message.body,
+        error: {
+          type: errorInfo.type,
+          code: errorInfo.code,
+          message:
+            typeof error === 'string'
+              ? error
+              : error?.message || error?.toString() || 'Unknown error',
+          details: errorInfo.details,
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          attemptCount,
+        },
+      };
+
+      await this.inputDlqQueue.sendMessage(dlqMessage);
+
+      this.logger.info('Message sent to DLQ', {
+        messageId: message.id || message.receiptHandle,
+        errorType: errorInfo.type,
+      });
+    } catch (dlqError) {
+      this.logger.error('Failed to send message to DLQ', dlqError, {
+        messageId: message.id || message.receiptHandle,
+      });
+    }
+  }
 }

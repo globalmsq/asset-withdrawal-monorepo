@@ -84,6 +84,11 @@ SINGLE_TX_GAS_ESTIMATE=65000               # Gas per single transaction
 BATCH_BASE_GAS=100000                      # Base gas for batch
 BATCH_PER_TX_GAS=25000                     # Additional gas per tx in batch
 
+# DLQ Configuration (LocalStack)
+REQUEST_DLQ_URL=http://localhost:4566/000000000000/request-dlq
+SIGNED_TX_DLQ_URL=http://localhost:4566/000000000000/signed-tx-dlq
+BROADCAST_TX_DLQ_URL=http://localhost:4566/000000000000/broadcast-tx-dlq
+
 # Account Manager Configuration
 BALANCE_CHECK_INTERVAL=300000               # 5 minutes (milliseconds)
 MIN_BALANCE_THRESHOLD=0.1                   # ETH minimum balance
@@ -149,7 +154,9 @@ graph TB
         SQS3[tx-monitor-queue]
         SQS4[balance-check-queue]
         SQS5[balance-transfer-queue]
-        DLQ[Dead Letter Queue]
+        DLQ1[request-dlq]
+        DLQ2[signed-tx-dlq]
+        DLQ3[broadcast-tx-dlq]
     end
 
     subgraph "Processing Services"
@@ -195,11 +202,11 @@ graph TB
     AcctMgr --> Polygon
     SQS5 --> Signer
 
-    SQS1 -.->|on failure| DLQ
-    SQS2 -.->|on failure| DLQ
-    SQS3 -.->|on failure| DLQ
-    SQS4 -.->|on failure| DLQ
-    SQS5 -.->|on failure| DLQ
+    SQS1 -.->|5 retries| DLQ1
+    SQS2 -.->|5 retries| DLQ2
+    SQS3 -.->|5 retries| DLQ3
+    SQS4 -.->|on failure| DLQ1
+    SQS5 -.->|on failure| DLQ1
 ```
 
 ### Core Services
@@ -237,6 +244,8 @@ graph TB
 - **Multi-Chain Support**: Polygon, Ethereum, BSC, and localhost (Hardhat) chains
 - **Local Development**: Hardhat node with 1-second mining for fast testing
 - **Automated Balance Management**: Account Manager maintains optimal sub-account balances
+- **DLQ Error Recovery**: Automatic error classification and recovery strategies
+- **Smart Error Handling**: Distinguishes permanent failures from retryable errors
 
 ## 🔧 API Reference
 

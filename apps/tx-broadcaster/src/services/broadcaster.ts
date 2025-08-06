@@ -242,8 +242,8 @@ export class TransactionBroadcaster {
         chainId: Number(network.chainId),
       };
     } catch (error) {
-      console.error(
-        `[tx-broadcaster] Failed to get network status for chain ${chainId}:`,
+      this.logger.error(
+        `Failed to get network status for chain ${chainId}`,
         error
       );
       throw new BroadcastError(
@@ -266,8 +266,8 @@ export class TransactionBroadcaster {
         : this.defaultProvider;
 
       if (!provider) {
-        console.warn(
-          `[tx-broadcaster] No provider available for chain ${chainId}, assuming transaction doesn't exist`
+        this.logger.warn(
+          `No provider available for chain ${chainId}, assuming transaction doesn't exist`
         );
         return false;
       }
@@ -276,9 +276,13 @@ export class TransactionBroadcaster {
       return receipt !== null;
     } catch (error) {
       // If we can't check, assume it doesn't exist and let broadcast handle duplicates
-      console.warn(
-        `[tx-broadcaster] Could not check transaction existence for ${transactionHash} on chain ${chainId}:`,
-        error
+      this.logger.warn(
+        `Could not check transaction existence for ${transactionHash} on chain ${chainId}`,
+        {
+          metadata: {
+            error: error instanceof Error ? error.message : String(error),
+          },
+        }
       );
       return false;
     }
@@ -394,18 +398,12 @@ export class TransactionBroadcaster {
       // 5. Handle unexpected errors
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      console.error(
-        `[tx-broadcaster] Unexpected error for ${requestId}:`,
-        error
-      );
+      this.logger.error(`Unexpected error for withdrawal ${requestId}`, error);
 
       try {
         await this.transactionService.updateToFailed(requestId, errorMessage);
       } catch (dbError) {
-        console.error(
-          `[tx-broadcaster] Failed to update ${requestId} to FAILED:`,
-          dbError
-        );
+        this.logger.error(`Failed to update ${requestId} to FAILED`, dbError);
       }
 
       return {
@@ -457,10 +455,7 @@ export class TransactionBroadcaster {
       // 5. Handle unexpected errors
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      console.error(
-        `[tx-broadcaster] Unexpected error for batch ${batchId}:`,
-        error
-      );
+      this.logger.error(`Unexpected error for batch ${batchId}`, error);
 
       try {
         await this.transactionService.updateBatchToFailed(
@@ -468,8 +463,8 @@ export class TransactionBroadcaster {
           errorMessage
         );
       } catch (dbError) {
-        console.error(
-          `[tx-broadcaster] Failed to update batch ${batchId} to FAILED:`,
+        this.logger.error(
+          `Failed to update batch ${batchId} to FAILED`,
           dbError
         );
       }

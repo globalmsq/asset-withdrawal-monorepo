@@ -403,6 +403,67 @@ stages:
 - 카나리 배포 (10% → 50% → 100%)
 - 자동 롤백 (오류율 > 5%)
 
+## DLQ 에러 처리 설계
+
+### 에러 분류 시스템
+
+#### 영구 실패 (Permanent Failures)
+
+즉시 FAILED 상태로 전환:
+
+- `INSUFFICIENT_FUNDS` - 잔액 부족
+- `INVALID_TRANSACTION` - 잘못된 트랜잭션 데이터
+- `EXECUTION_REVERTED` - 스마트 컨트랙트 실행 실패
+- `UNKNOWN` - 알 수 없는 에러
+
+#### 재시도 가능한 에러 (Retryable Errors)
+
+DLQ로 전송 후 복구 시도:
+
+- `NETWORK` - 네트워크 연결 오류
+- `TIMEOUT` - 응답 시간 초과
+- `NONCE_TOO_LOW` / `NONCE_TOO_HIGH` - Nonce 충돌
+- `GAS_PRICE_TOO_LOW` - 가스비 부족
+- `REPLACEMENT_UNDERPRICED` - 트랜잭션 교체 시 가스비 부족
+- `OUT_OF_GAS` - 실행 중 가스 소진
+
+### DLQ 메시지 형식
+
+```typescript
+interface DLQMessage<T = any> {
+  originalMessage: T;
+  error: {
+    type: DLQErrorType;
+    code?: string;
+    message: string;
+    details?: Record<string, any>;
+  };
+  meta: {
+    timestamp: string;
+    attemptCount: number;
+  };
+}
+```
+
+### Recovery Service 아키텍처 (향후 구현)
+
+#### 복구 전략
+
+1. **Nonce 충돌 처리**
+   - 온체인 nonce 조회
+   - 트랜잭션 재구성
+   - 서명 서비스로 재전송
+
+2. **가스비 문제 처리**
+   - 현재 가스 가격 조회
+   - 가스비 20-50% 인상
+   - 트랜잭션 재전송
+
+3. **네트워크 오류 처리**
+   - 지수 백오프로 대기
+   - RPC 엔드포인트 상태 확인
+   - 대체 RPC 사용
+
 ## 성능 최적화
 
 ### 데이터베이스 최적화

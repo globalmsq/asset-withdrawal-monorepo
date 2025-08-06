@@ -1,7 +1,9 @@
 import Redis from 'ioredis';
 import { loadConfig } from '../config';
+import { LoggerService } from '@asset-withdrawal/shared';
 
 let redisClient: Redis | null = null;
+const logger = new LoggerService({ service: 'tx-broadcaster:RedisClient' });
 
 export async function getRedisClient(): Promise<Redis> {
   if (!redisClient) {
@@ -20,7 +22,7 @@ export async function getRedisClient(): Promise<Redis> {
     });
 
     redisClient.on('error', (error: Error) => {
-      console.error('[tx-broadcaster] Redis error:', error);
+      logger.error('Redis error', error);
     });
 
     redisClient.on('close', () => {

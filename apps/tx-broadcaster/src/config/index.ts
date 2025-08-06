@@ -22,6 +22,10 @@ export interface AppConfig {
   SIGNED_TX_QUEUE_URL: string;
   BROADCAST_TX_QUEUE_URL: string;
 
+  // DLQ URLs (optional)
+  SIGNED_TX_DLQ_URL?: string;
+  BROADCAST_TX_DLQ_URL?: string;
+
   // Blockchain Configuration
   RPC_URL: string;
   CHAIN_ID: number;
@@ -81,6 +85,10 @@ export function loadConfig(): AppConfig {
     // Queue URLs
     SIGNED_TX_QUEUE_URL: getRequiredEnv('SIGNED_TX_QUEUE_URL'),
     BROADCAST_TX_QUEUE_URL: getRequiredEnv('BROADCAST_TX_QUEUE_URL'),
+
+    // DLQ URLs (optional)
+    SIGNED_TX_DLQ_URL: getOptionalEnv('SIGNED_TX_DLQ_URL'),
+    BROADCAST_TX_DLQ_URL: getOptionalEnv('BROADCAST_TX_DLQ_URL'),
 
     // Blockchain Configuration
     RPC_URL: getOptionalEnv('RPC_URL', 'https://rpc-amoy.polygon.technology')!,

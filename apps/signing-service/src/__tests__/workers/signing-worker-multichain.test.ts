@@ -105,8 +105,10 @@ describe('SigningWorker - Multi-chain Support', () => {
         privateKeySecret: 'test-private-key',
       },
       queue: {
-        txRequestQueueUrl: 'http://localhost:4566/queue/tx-request',
+        requestQueueUrl: 'http://localhost:4566/queue/tx-request',
         signedTxQueueUrl: 'http://localhost:4566/queue/signed-tx',
+        requestDlqUrl: 'http://localhost:4566/queue/request-dlq',
+        signedTxDlqUrl: 'http://localhost:4566/queue/signed-tx-dlq',
       },
       logging: {
         level: 'info',

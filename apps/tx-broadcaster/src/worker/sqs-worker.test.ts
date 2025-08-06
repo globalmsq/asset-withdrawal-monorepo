@@ -46,7 +46,7 @@ describe('SQSWorker', () => {
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks();
-    
+
     // Set up required environment variables for tests
     process.env = {
       ...originalEnv,
@@ -59,7 +59,7 @@ describe('SQSWorker', () => {
       MYSQL_USER: 'test',
       MYSQL_PASSWORD: 'test',
     };
-    
+
     worker = new SQSWorker();
   });
 

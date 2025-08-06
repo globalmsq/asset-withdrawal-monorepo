@@ -16,7 +16,15 @@ import { TransactionService } from '../services/transaction.service';
 import { RetryService } from '../services/retry.service';
 import { ProcessingResult, WorkerStats } from '../types';
 import { AppConfig } from '../config';
-import { LoggerService } from '@asset-withdrawal/shared';
+import {
+  LoggerService,
+  DLQ_ERROR_TYPE,
+  PERMANENT_FAILURE_TYPES,
+  DLQErrorType,
+  DLQMessage,
+  ErrorClassifier,
+  isPermanentFailure,
+} from '@asset-withdrawal/shared';
 
 export class SQSWorker {
   private config: AppConfig;
@@ -301,9 +309,14 @@ export class SQSWorker {
           // Send failure result to next queue
           await this.sendBroadcastResult(txMessage, broadcastResult);
 
+          // Classify error to determine if it's retryable
+          const errorInfo = ErrorClassifier.classifyError({
+            message: broadcastResult.error,
+          });
+
           return {
             success: false,
-            shouldRetry: this.isRetryableError(broadcastResult.error),
+            shouldRetry: !isPermanentFailure(errorInfo.type),
             error: broadcastResult.error,
           };
         }
@@ -381,10 +394,7 @@ export class SQSWorker {
           blockNumber: broadcastResult.blockNumber,
         });
       } catch (error) {
-        console.error(
-          '[tx-broadcaster] Failed to save sent transaction to database:',
-          error
-        );
+        this.logger.error('Failed to save sent transaction to database', error);
         // Continue even if DB save fails - queue message is more important
       }
     }
@@ -407,6 +417,8 @@ export class SQSWorker {
     error?: string;
     blockNumber?: number;
     attemptCount?: number;
+    isNonceConflict?: boolean;
+    affectedRequests?: string[];
   }> {
     let lastError: any;
     let attemptCount = 0;
@@ -450,6 +462,30 @@ export class SQSWorker {
       } catch (error) {
         lastError = error;
         attemptCount++;
+
+        // Check for nonce conflict
+        const nonceConflict = this.retryService.detectNonceConflict(error);
+        if (nonceConflict.isNonceConflict) {
+          this.logger.warn('Nonce conflict detected, will send to DLQ', {
+            metadata: {
+              messageId: txMessage.id,
+              transactionType: txMessage.transactionType,
+              conflictType: nonceConflict.conflictType,
+              details: nonceConflict.details,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          });
+
+          // Nonce conflicts go to DLQ for recovery service to handle
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          return {
+            success: false,
+            error: `Nonce conflict: ${nonceConflict.details || errorMessage}`,
+            attemptCount,
+            isNonceConflict: true,
+          };
+        }
 
         // 에러 분석 및 메트릭 수집
         const errorMetrics = this.retryService.generateErrorMetrics(
@@ -528,21 +564,74 @@ export class SQSWorker {
     message: QueueMessage<any>,
     result: ProcessingResult
   ): Promise<void> {
-    if (!result.shouldRetry || !this.redisService) {
-      // Delete message if not retryable or Redis not available
+    const unifiedMessage = this.convertToUnifiedMessage(message.body);
+
+    // Classify the error
+    const errorInfo = ErrorClassifier.classifyError({
+      message: result.error,
+      code: (result as any).errorCode,
+    });
+
+    // Check if it's a permanent failure
+    if (isPermanentFailure(errorInfo.type)) {
+      // Permanent failures are marked as FAILED immediately
+      this.logger.error('Permanent failure detected, marking as FAILED', null, {
+        metadata: {
+          messageId: message.id,
+          errorType: errorInfo.type,
+          error: result.error,
+        },
+      });
+
+      // Mark as FAILED in database
+      try {
+        if (
+          unifiedMessage.transactionType === 'SINGLE' &&
+          unifiedMessage.withdrawalId
+        ) {
+          await this.transactionService.updateToFailed(
+            unifiedMessage.withdrawalId,
+            result.error || 'Permanent failure'
+          );
+        } else if (
+          unifiedMessage.transactionType === 'BATCH' &&
+          unifiedMessage.batchId
+        ) {
+          await this.transactionService.updateBatchToFailed(
+            unifiedMessage.batchId,
+            result.error || 'Permanent failure'
+          );
+        }
+      } catch (dbError) {
+        this.logger.error('Failed to update status to FAILED', dbError);
+      }
+
+      // Send failure result
+      await this.sendBroadcastResult(unifiedMessage, {
+        success: false,
+        error: result.error || 'Permanent failure',
+      });
+
+      // Delete message from queue
       await this.queueService.deleteMessage(
         this.config.SIGNED_TX_QUEUE_URL,
         message.receiptHandle
       );
-      // Message failed and will not be retried
 
-      // Send failure result
-      const unifiedMessage = this.convertToUnifiedMessage(message.body);
-      await this.sendBroadcastResult(unifiedMessage, {
-        success: false,
-        error: result.error || 'Non-retryable error occurred',
-      });
+      return;
+    }
 
+    // For retryable errors, check retry count
+    if (!this.redisService) {
+      // If Redis not available, send to DLQ
+      await this.sendToDLQ(
+        unifiedMessage,
+        result.error || 'Redis not available'
+      );
+      await this.queueService.deleteMessage(
+        this.config.SIGNED_TX_QUEUE_URL,
+        message.receiptHandle
+      );
       return;
     }
 
@@ -551,15 +640,18 @@ export class SQSWorker {
     const maxRetries = this.retryService.getMaxRetries();
 
     if (retryCount >= maxRetries) {
-      // Max retries reached, send to DLQ if configured
-      const unifiedMessage = this.convertToUnifiedMessage(message.body);
-
+      // Max retries reached, send to DLQ
       try {
         await this.sendToDLQ(
           unifiedMessage,
           result.error || 'Max retries exceeded'
         );
-        // Message sent to DLQ after max retries
+        this.logger.info('Message sent to DLQ after max retries', {
+          metadata: {
+            messageId: message.id,
+            retryCount: maxRetries,
+          },
+        });
       } catch (dlqError) {
         this.logger.error('Failed to send message to DLQ', dlqError, {
           metadata: {
@@ -587,39 +679,6 @@ export class SQSWorker {
       // Message will be retried
       // Message will be retried automatically by SQS visibility timeout
     }
-  }
-
-  private isRetryableError(error?: string): boolean {
-    if (!error) return false;
-
-    const retryableErrors = [
-      'NETWORK_ERROR',
-      'SERVER_ERROR',
-      'NONCE_OR_GAS_ERROR',
-      'CONFIRMATION_TIMEOUT',
-      'PROVIDER_ERROR',
-    ];
-
-    const nonRetryableErrors = [
-      'Unsupported chain ID',
-      'Transaction validation failed',
-      'Transaction chain ID',
-      'does not match expected',
-      'INSUFFICIENT_FUNDS',
-    ];
-
-    // Check for non-retryable errors first
-    if (
-      nonRetryableErrors.some(nonRetryableError =>
-        error.includes(nonRetryableError)
-      )
-    ) {
-      return false;
-    }
-
-    return retryableErrors.some(retryableError =>
-      error.includes(retryableError)
-    );
   }
 
   private updateStats(success: boolean, processingTime: number): void {
@@ -654,35 +713,59 @@ export class SQSWorker {
   }
 
   /**
-   * DLQ(Dead Letter Queue)에 메시지를 전송합니다
+   * Send message to DLQ (Dead Letter Queue) for recovery processing
    */
   private async sendToDLQ(
     message: UnifiedSignedTransactionMessage,
-    error: string
+    error: any
   ): Promise<void> {
+    if (!this.config.SIGNED_TX_DLQ_URL) {
+      this.logger.error('DLQ URL not configured, dropping message', null, {
+        metadata: {
+          messageId: message.id,
+        },
+      });
+      return;
+    }
+
     try {
-      const dlqMessage = {
-        ...message,
-        failureReason: error,
-        failedAt: new Date().toISOString(),
-        maxRetriesExceeded: true,
+      const errorInfo = ErrorClassifier.classifyError(error);
+
+      const dlqMessage: DLQMessage<UnifiedSignedTransactionMessage> = {
+        originalMessage: message,
+        error: {
+          type: errorInfo.type,
+          code: errorInfo.code,
+          message:
+            typeof error === 'string'
+              ? error
+              : error?.message || error?.toString() || 'Unknown error',
+          details: errorInfo.details,
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          attemptCount: (message as any).attemptCount || 1,
+        },
       };
 
-      // DLQ URL이 설정되어 있는 경우에만 전송
-      const dlqUrl = this.config.SIGNED_TX_QUEUE_URL.replace('-queue', '-dlq');
+      await this.queueService.sendMessage(
+        this.config.SIGNED_TX_DLQ_URL,
+        dlqMessage
+      );
 
-      await this.queueService.sendMessage(dlqUrl, dlqMessage);
-
-      // DLQ 전송 메트릭 수집
-      this.collectDLQMetric(message, error);
-    } catch (error) {
-      this.logger.error('Failed to send message to DLQ', error, {
+      // Collect DLQ metrics
+      this.collectDLQMetric(
+        message,
+        typeof error === 'string' ? error : error?.message
+      );
+    } catch (dlqError) {
+      this.logger.error('Failed to send message to DLQ', dlqError, {
         metadata: {
           messageId: message.id,
           transactionType: message.transactionType,
         },
       });
-      throw error;
+      throw dlqError;
     }
   }
 

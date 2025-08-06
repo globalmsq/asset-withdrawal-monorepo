@@ -139,43 +139,53 @@ sequenceDiagram
 sequenceDiagram
     participant Queue as SQS Queue
     participant Service as Processing Service
+    participant Classifier as Error Classifier
     participant DB as Database
     participant DLQ as Dead Letter Queue
-    participant Admin as Admin/System
+    participant Recovery as Recovery Service
 
     Queue->>Service: 메시지 수신
+    Service->>Service: 처리 시도
 
-    alt 재시도 가능한 에러
-        Service->>Service: 처리 실패<br/>(네트워크, nonce 충돌)
-        Service-->>Queue: 메시지 visibility timeout
-        Note over Queue: 재시도 대기
-        Queue->>Service: 재시도 (1/3)
-        Service->>Service: 처리 시도
+    alt 처리 실패
+        Service->>Classifier: 에러 분류 요청
+        Classifier->>Classifier: 에러 타입 판단
 
-        alt 성공
-            Service->>DB: 상태 업데이트
+        alt 영구 실패 (Permanent Failure)
+            Note over Classifier: INSUFFICIENT_FUNDS<br/>INVALID_TRANSACTION<br/>EXECUTION_REVERTED<br/>UNKNOWN
+            Classifier-->>Service: isPermanent: true
+            Service->>DB: status: FAILED<br/>errorMessage
             Service->>Queue: 메시지 삭제
-        else 계속 실패
-            Queue->>Service: 재시도 (2/3)
-            Queue->>Service: 재시도 (3/3)
-            Queue->>DLQ: 최대 재시도 초과
-        end
+        else 재시도 가능 (Retryable)
+            Note over Classifier: NETWORK, TIMEOUT<br/>NONCE_TOO_LOW/HIGH<br/>GAS_PRICE_TOO_LOW
+            Classifier-->>Service: isPermanent: false
+            Service->>Service: 재시도 카운트 확인
 
-    else 재시도 불가능한 에러
-        Service->>Service: 처리 실패<br/>(잔액 부족, 잘못된 주소)
-        Service->>DB: status: FAILED<br/>errorMessage
+            alt 재시도 한도 내 (< 5회)
+                Service-->>Queue: visibility timeout<br/>(자동 재시도)
+                Note over Queue: SQS 자동 재시도
+            else 재시도 한도 초과 (5회)
+                Service->>DLQ: DLQ 메시지 생성<br/>에러 타입 포함
+                Service->>Queue: 메시지 삭제
+            end
+        end
+    else 처리 성공
+        Service->>DB: 상태 업데이트
         Service->>Queue: 메시지 삭제
-        Service->>Admin: 알림 전송
     end
 
-    DLQ->>Admin: DLQ 메시지 누적 알림
-    Admin->>DLQ: 메시지 분석
+    DLQ->>Recovery: DLQ 모니터링
+    Recovery->>Recovery: 에러 타입별<br/>복구 전략
 
-    alt 수동 재처리 가능
-        Admin->>Queue: 메시지 재전송
-    else 영구 실패
-        Admin->>DB: status: FAILED
-        Admin->>User: 실패 통지
+    alt Nonce 충돌
+        Recovery->>DB: Nonce 재할당
+        Recovery->>Queue: 재처리 요청
+    else 가스비 문제
+        Recovery->>Recovery: 가스비 재계산
+        Recovery->>Queue: 가스비 인상 후 재전송
+    else 네트워크 문제
+        Recovery->>Recovery: 대기 후 재시도
+        Recovery->>Queue: 지연 재전송
     end
 ```
 
@@ -279,8 +289,9 @@ sequenceDiagram
 
 **실패 시나리오**:
 
-- nonce 충돌: 재시도
+- nonce 충돌: DLQ로 이동 (Recovery Service에서 처리)
 - 가스비 추정 실패: DLQ로 이동
+- 잔액 부족: 즉시 FAILED 처리 (영구 실패)
 - 서명 실패: status → FAILED
 
 ### 3. 트랜잭션 브로드캐스트 (BROADCASTING → BROADCASTED)
@@ -304,8 +315,11 @@ sequenceDiagram
 
 **실패 시나리오**:
 
-- 네트워크 오류: 재시도 (최대 3회)
-- 트랜잭션 거부: DLQ로 이동
+- 네트워크 오류: 재시도 후 DLQ (최대 5회)
+- 트랜잭션 거부 (INVALID_TRANSACTION): 즉시 FAILED
+- 실행 실패 (EXECUTION_REVERTED): 즉시 FAILED
+- Nonce 충돌: DLQ로 이동 (Recovery Service 처리)
+- 가스 부족: DLQ로 이동 (가스비 재계산 필요)
 - 중복 트랜잭션: 기존 txHash 사용
 
 ### 4. 트랜잭션 확인 (BROADCASTED → CONFIRMED)
@@ -450,13 +464,87 @@ API → tx-request-queue → Signing Service
 
 ### Dead Letter Queue (DLQ)
 
+#### DLQ 구조
+
 각 큐는 대응하는 DLQ를 가지고 있습니다:
 
-- tx-request-dlq
-- signed-tx-dlq
-- broadcast-tx-dlq
+- **request-dlq**: tx-request-queue의 DLQ
+- **signed-tx-dlq**: signed-tx-queue의 DLQ
+- **broadcast-tx-dlq**: broadcast-tx-queue의 DLQ
 
-최대 재시도 횟수(기본 3회)를 초과한 메시지는 자동으로 DLQ로 이동됩니다.
+#### DLQ 설정
+
+- **maxReceiveCount**: 5 (5회 처리 실패 시 DLQ로 이동)
+- **메시지 보존 기간**: 4일 (345600초)
+- **visibility timeout**: 30초 (재시도 간격)
+
+#### 에러 분류 시스템
+
+**영구 실패 (Permanent Failures):**
+즉시 FAILED 처리되며 DLQ로 가지 않음:
+
+- `INSUFFICIENT_FUNDS`: 계정 잔액 부족
+- `INVALID_TRANSACTION`: 잘못된 트랜잭션 형식
+- `EXECUTION_REVERTED`: 스마트 컨트랙트 실행 실패
+- `UNKNOWN`: 알 수 없는 에러
+
+**재시도 가능한 에러 (Retryable Errors):**
+재시도 후 DLQ로 이동:
+
+- `NETWORK`: 네트워크 연결 오류
+- `TIMEOUT`: 응답 시간 초과
+- `NONCE_TOO_LOW` / `NONCE_TOO_HIGH`: Nonce 충돌
+- `GAS_PRICE_TOO_LOW`: 가스비 부족
+- `GAS_LIMIT_EXCEEDED`: 가스 한도 초과
+- `REPLACEMENT_UNDERPRICED`: 트랜잭션 교체 시 가스비 부족
+- `OUT_OF_GAS`: 실행 중 가스 소진
+
+#### DLQ 메시지 형식
+
+```json
+{
+  "originalMessage": {
+    "id": "req-123",
+    "transactionType": "SINGLE",
+    "withdrawalId": "withdrawal-456",
+    "signedTransaction": "0x...",
+    "chainId": 137
+  },
+  "error": {
+    "type": "NONCE_TOO_LOW",
+    "code": "-32000",
+    "message": "nonce too low",
+    "details": {
+      "expected": 10,
+      "got": 8
+    }
+  },
+  "meta": {
+    "timestamp": "2024-01-01T12:00:00Z",
+    "attemptCount": 5
+  }
+}
+```
+
+#### Recovery Service 처리 전략 (향후 구현)
+
+**Nonce 충돌 복구:**
+
+1. 현재 온체인 nonce 조회
+2. 트랜잭션 nonce 재할당
+3. 서명 서비스로 재전송
+
+**가스비 문제 복구:**
+
+1. 현재 네트워크 가스 가격 조회
+2. 가스비 20-50% 인상
+3. 트랜잭션 재구성 및 재전송
+
+**네트워크 오류 복구:**
+
+1. 지수 백오프로 대기
+2. RPC 엔드포인트 상태 확인
+3. 대체 RPC 사용 또는 지연 재시도
 
 ## 보안 고려사항
 

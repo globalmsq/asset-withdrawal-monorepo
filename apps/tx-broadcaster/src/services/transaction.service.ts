@@ -149,11 +149,15 @@ export class TransactionService {
    * Update batch transactions from SIGNED to BROADCASTING
    * Called before broadcasting batch transaction to blockchain
    * Note: BatchId is used to group withdrawal requests, not directly linked to SignedBatchTransaction
+   * SignedBatchTransaction will be updated later when we have the txHash
    */
   async updateBatchToBroadcasting(batchId: string): Promise<void> {
     try {
       // Update all WithdrawalRequests in the batch
       await this.withdrawalService.updateBatchStatus(batchId, 'BROADCASTING');
+
+      // Note: SignedBatchTransaction status update is deferred until we have the txHash
+      // It will be updated in updateBatchToBroadcasted or updateBatchToFailed
 
       this.logger.info('Batch status updated to BROADCASTING', {
         metadata: {
@@ -185,16 +189,29 @@ export class TransactionService {
       await this.withdrawalService.updateBatchStatus(batchId, 'BROADCASTED');
 
       // Update the SignedBatchTransaction record if it exists
-      // Note: SignedBatchTransaction should be created during signing phase
-      // We need to find it by txHash and then update it
-      // For now, we'll skip this update since the current API doesn't support finding by txHash directly
-      // This would typically be handled by the signing service or a separate batch transaction management service
+      // Find and update SignedBatchTransaction by txHash
+      const updatedBatchTx =
+        await this.batchTxService.updateBatchStatusByTxHash(
+          txHash,
+          'BROADCASTED',
+          broadcastedAt
+        );
+
+      if (!updatedBatchTx) {
+        this.logger.warn('SignedBatchTransaction not found for txHash', {
+          metadata: {
+            txHash,
+            batchId,
+          },
+        });
+      }
 
       this.logger.info('Batch status updated to BROADCASTED', {
         metadata: {
           batchId,
           txHash,
           broadcastedAt: broadcastedAt.toISOString(),
+          signedBatchTxUpdated: !!updatedBatchTx,
         },
       });
     } catch (error) {

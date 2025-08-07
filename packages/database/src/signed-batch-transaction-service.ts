@@ -151,4 +151,52 @@ export class SignedBatchTransactionService {
       this.convertToSignedBatchTransaction(batch)
     );
   }
+
+  /**
+   * Find a batch transaction by its transaction hash
+   * @param txHash The transaction hash to search for
+   * @returns The batch transaction if found, null otherwise
+   */
+  async getBatchTransactionByTxHash(
+    txHash: string
+  ): Promise<SignedBatchTransaction | null> {
+    const prismaBatch = await this.prisma.signedBatchTransaction.findFirst({
+      where: { txHash },
+    });
+    return prismaBatch
+      ? this.convertToSignedBatchTransaction(prismaBatch)
+      : null;
+  }
+
+  /**
+   * Update batch transaction status by transaction hash
+   * Used to update status after broadcasting
+   * @param txHash The transaction hash
+   * @param status The new status
+   * @param broadcastedAt Optional broadcast timestamp
+   * @returns The updated batch transaction
+   */
+  async updateBatchStatusByTxHash(
+    txHash: string,
+    status: string,
+    broadcastedAt?: Date
+  ): Promise<SignedBatchTransaction | null> {
+    const prismaBatch = await this.prisma.signedBatchTransaction.findFirst({
+      where: { txHash },
+    });
+
+    if (!prismaBatch) {
+      return null;
+    }
+
+    const updatedBatch = await this.prisma.signedBatchTransaction.update({
+      where: { id: prismaBatch.id },
+      data: {
+        status,
+        ...(broadcastedAt && { broadcastedAt }),
+      },
+    });
+
+    return this.convertToSignedBatchTransaction(updatedBatch);
+  }
 }

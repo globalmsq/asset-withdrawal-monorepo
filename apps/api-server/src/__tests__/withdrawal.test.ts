@@ -1,8 +1,4 @@
 // Mock all dependencies before any imports
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => '550e8400-e29b-41d4-a716-446655440000'),
-}));
-
 jest.mock('database');
 
 jest.mock('../services/auth.service');

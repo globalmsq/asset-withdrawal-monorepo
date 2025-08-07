@@ -83,6 +83,13 @@ MIN_BALANCE_THRESHOLD=0.1      # ETH
 BATCH_TRANSFER_ENABLED=true
 MAX_BATCH_SIZE=10
 
+# Recovery Service 설정 (개발 예정)
+RECOVERY_SERVICE_PORT=3006
+RECOVERY_SERVICE_PRIVATE_KEY_SECRET=signing-service/private-key
+RECOVERY_CHECK_INTERVAL=60000  # 1분
+DLQ_PROCESSING_ENABLED=true
+DUMMY_TX_GAS_PRICE=1000000000  # 1 Gwei
+
 # 로깅
 LOG_LEVEL=debug
 ```
@@ -96,6 +103,15 @@ docker-compose -f docker/docker-compose.yaml up -d
 # 또는 개별 서비스만 시작
 docker-compose -f docker/docker-compose.yaml up -d mysql redis localstack
 ```
+
+**Docker 서비스 구성:**
+
+- `mysql`: 데이터베이스
+- `redis`: 캐시 및 nonce 관리
+- `localstack`: AWS 서비스 에뮬레이션
+- `hardhat-node`: 로컬 블록체인
+- `sqs-admin`: SQS 모니터링 UI
+- `recovery-service`: DLQ 처리 및 복구 (개발 예정)
 
 ### 5. LocalStack 초기화
 
@@ -161,6 +177,9 @@ nx serve tx-monitor
 
 # Account Manager (개발 예정)
 nx serve account-manager
+
+# Recovery Service (개발 예정)
+nx serve recovery-service
 
 # Admin UI (React 앱, 개발 예정)
 nx serve admin-ui

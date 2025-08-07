@@ -852,7 +852,7 @@ let worker: SQSWorker | null = null;
 
 export async function startWorker(): Promise<void> {
   if (worker) {
-    console.warn('[tx-broadcaster] Worker already running');
+    // Worker already running - this is logged during initialization
     return;
   }
 

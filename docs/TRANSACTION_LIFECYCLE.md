@@ -253,12 +253,11 @@ sequenceDiagram
 
 ### 1. 출금 요청 생성 (PENDING)
 
-**엔드포인트**: `POST /api/v1/withdrawals`
+**엔드포인트**: `POST /api/withdrawal/request`
 
 ```json
 {
   "amount": "100.5",
-  "symbol": "USDT",
   "toAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f7F123",
   "tokenAddress": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
   "chain": "polygon",
@@ -493,7 +492,8 @@ API → tx-request-queue → Signing Service
 
 - `NETWORK`: 네트워크 연결 오류
 - `TIMEOUT`: 응답 시간 초과
-- `NONCE_TOO_LOW` / `NONCE_TOO_HIGH`: Nonce 충돌
+- `NONCE_TOO_LOW`: 이미 사용된 nonce (새 nonce로 재시도)
+- `NONCE_TOO_HIGH`: nonce gap 발생 (dummy tx로 gap filling 후 재시도)
 - `GAS_PRICE_TOO_LOW`: 가스비 부족
 - `GAS_LIMIT_EXCEEDED`: 가스 한도 초과
 - `REPLACEMENT_UNDERPRICED`: 트랜잭션 교체 시 가스비 부족
@@ -530,9 +530,12 @@ API → tx-request-queue → Signing Service
 
 **Nonce 충돌 복구:**
 
-1. 현재 온체인 nonce 조회
-2. 트랜잭션 nonce 재할당
-3. 서명 서비스로 재전송
+- `NONCE_TOO_LOW`: 새로운 nonce 할당 후 재시도
+- `NONCE_TOO_HIGH`:
+  1. DLQ에서 Recovery Service가 메시지 수신
+  2. Nonce gap 감지 (예: 현재 17, 시도한 19 → nonce 18 누락)
+  3. Dummy transaction으로 gap filling
+  4. 원본 트랜잭션 재시도
 
 **가스비 문제 복구:**
 
@@ -564,7 +567,7 @@ API → tx-request-queue → Signing Service
 
 ## API 응답 예시
 
-### 성공 응답
+### 성공 응답 (GET /api/withdrawal/status/:id)
 
 ```json
 {
@@ -579,7 +582,7 @@ API → tx-request-queue → Signing Service
 }
 ```
 
-### 실패 응답
+### 실패 응답 (GET /api/withdrawal/status/:id)
 
 ```json
 {

@@ -116,12 +116,7 @@ export function validateConfig(config: AppConfig): void {
     throw new Error('CHAIN_ID must be a positive number');
   }
 
-  // Note: Can't use Logger here as it creates circular dependency
-  // Configuration validation logging uses console.log
-  console.log('[tx-broadcaster] Configuration validated');
-  if (process.env.RPC_URL) {
-    console.log(
-      `[tx-broadcaster] Using RPC_URL override: ${process.env.RPC_URL}`
-    );
-  }
+  // Configuration validation successful
+  // Note: Logger can't be used here due to circular dependency
+  // These logs are only shown during startup for debugging purposes
 }

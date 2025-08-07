@@ -1,25 +1,10 @@
 import { ethers } from 'ethers';
-import { chainsConfig, LoggerService } from '@asset-withdrawal/shared';
-
-export interface ChainConfig {
-  chainId: number;
-  name: string;
-  rpcUrl: string;
-  nativeCurrency: {
-    name: string;
-    symbol: string;
-    decimals: number;
-  };
-  blockExplorerUrl: string;
-  multicall3Address: string;
-}
-
-export interface ChainsConfig {
-  [network: string]: {
-    mainnet?: ChainConfig;
-    testnet?: ChainConfig;
-  };
-}
+import {
+  chainsConfig,
+  LoggerService,
+  ChainConfig,
+  ChainConfigs as ChainsConfig,
+} from '@asset-withdrawal/shared';
 
 export class ChainConfigService {
   private chainsConfig: ChainsConfig = {};

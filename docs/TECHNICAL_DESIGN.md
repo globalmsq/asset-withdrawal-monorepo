@@ -180,17 +180,18 @@ model BalanceTransfer {
 #### 출금 API
 
 ```typescript
-POST /api/v1/withdrawals
+POST /api/withdrawal/request
 {
   "amount": "100.5",
-  "symbol": "USDT",
   "toAddress": "0x...",
   "tokenAddress": "0x...",
   "chain": "polygon",
   "network": "amoy"
 }
 
-GET /api/v1/withdrawals/:requestId
+GET /api/withdrawal/status/:id
+GET /api/withdrawal/request-queue/status  // 디버깅용
+GET /api/withdrawal/tx-queue/status       // 디버깅용
 ```
 
 ### Account Manager API (계획)
@@ -463,6 +464,75 @@ interface DLQMessage<T = any> {
    - 지수 백오프로 대기
    - RPC 엔드포인트 상태 확인
    - 대체 RPC 사용
+
+## NonceManager 설계
+
+### 주소별 순차 처리
+
+tx-broadcaster에서 NonceManager를 통해 주소별 트랜잭션 순차 처리:
+
+```typescript
+class NonceManager {
+  private pendingTransactions: Map<
+    string,
+    SortedMap<number, QueuedTransaction>
+  >;
+  private lastBroadcastedNonce: Map<string, number>;
+  private processingAddresses: Set<string>;
+
+  // 주소별로 독립적인 큐 관리
+  // 각 주소의 nonce 순서대로 처리 보장
+}
+```
+
+### Nonce 충돌 처리
+
+- `NONCE_TOO_LOW`: 새 nonce 할당 후 재시도
+- `NONCE_TOO_HIGH`: DLQ로 전송 → Recovery Service가 dummy tx로 gap filling
+
+## Recovery Service 설계
+
+### Dummy Transaction 전략
+
+Nonce gap을 채우기 위한 dummy transaction:
+
+```typescript
+interface DummyTransaction {
+  from: string; // 서명 주소
+  to: string; // from과 동일 (자기 자신)
+  value: '0'; // 0 ETH
+  nonce: number; // 누락된 nonce
+  gasPrice: string; // 최소 가스비
+  gasLimit: 21000; // 기본 전송 가스
+}
+```
+
+### 저장 전략
+
+Dummy transaction은 sent_transactions 테이블에만 기록:
+
+```typescript
+// sent_transactions 테이블에 추가 필드
+model SentTransaction {
+  // 기존 필드들...
+  transactionSource String? @default("USER") // USER: 사용자 요청, SYSTEM: dummy tx
+  // requestId가 null인 경우 = dummy transaction
+}
+```
+
+### 보안 아키텍처
+
+#### Just-in-time 키 로딩
+
+1. **키 로드**: AWS Secrets Manager에서 필요 시에만 로드
+2. **메모리 관리**: 서명 직후 즉시 메모리에서 삭제
+3. **감사 로깅**: 모든 dummy transaction 생성 기록
+
+### 에러 분류 시스템
+
+- **Permanent failures**: 즉시 FAILED 처리, 알림 발송
+- **Retryable errors**: 복구 시도
+- **Nonce errors**: Dummy tx 생성 후 원본 재시도
 
 ## 성능 최적화
 

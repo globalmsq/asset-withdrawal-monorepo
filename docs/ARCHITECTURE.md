@@ -35,6 +35,7 @@ graph TB
         Broadcaster[TX Broadcaster<br/>포트: 3004<br/>(개발 예정)]
         Monitor[TX Monitor<br/>포트: 3003<br/>(개발 예정)]
         AcctMgr[Account Manager<br/>포트: 3005<br/>(개발 예정)]
+    Recovery[Recovery Service<br/>포트: 3006<br/>(개발 예정)]
     end
 
     subgraph "데이터 레이어"
@@ -73,6 +74,12 @@ graph TB
     AcctMgr --> MySQL
     AcctMgr --> Polygon
     SQS5 --> Signer
+
+    Recovery --> DLQ1
+    Recovery --> DLQ2
+    Recovery --> DLQ3
+    Recovery --> Polygon
+    Recovery --> MySQL
 
     SQS1 -.->|5회 실패 시| DLQ1
     SQS2 -.->|5회 실패 시| DLQ2
@@ -114,7 +121,8 @@ graph TB
   - 서명된 트랜잭션 큐(signed-tx-queue) 소비
   - 블록체인 네트워크로 브로드캐스트
   - 트랜잭션 상태 업데이트
-  - nonce 충돌 감지 및 처리
+  - NonceManager를 통한 주소별 순차 처리
+  - nonce 충돌 감지 시 DLQ로 전송
   - 실패 시 재시도 로직
   - 모니터링 큐로 전달
 - **기술 스택**: Ethers.js, 재시도 라이브러리
@@ -141,6 +149,17 @@ graph TB
   - 메인 계정 잔액 부족 시 알림
   - ManagedAccount 및 BalanceTransfer 모델 관리
 - **기술 스택**: Cron Jobs, Ethers.js, Redis
+
+### 6. Recovery Service (recovery-service) - 개발 예정
+
+- **역할**: DLQ 메시지 처리 및 트랜잭션 복구
+- **주요 기능**:
+  - DLQ 메시지 모니터링 및 분석
+  - Nonce gap 감지 시 dummy transaction 생성
+  - 네트워크 오류 시 재시도 스케줄링
+  - 영구 실패 분류 및 알림
+  - Dummy transaction은 sent_transactions 테이블에만 기록
+- **기술 스택**: Ethers.js, AWS Secrets Manager (Just-in-time 키 로딩)
 
 ## 데이터 플로우
 
@@ -223,6 +242,21 @@ interface DLQMessage<T = any> {
    - 처리 속도: 수만 건의 트랜잭션을 빠르게 처리
    - 네트워크 혼잡 감소: 블록체인 트랜잭션 수 대폭 감소
    - 가스비 절감: 20-70% (부가적 이점)
+```
+
+### Recovery Service 플로우 - 개발 예정
+
+```
+1. DLQ 메시지 수신 및 분석
+2. 에러 타입별 처리:
+   - NONCE_TOO_HIGH:
+     • Nonce gap 감지 (예: 현재 17, 시도한 19 → 18 누락)
+     • Dummy transaction 생성 (from=to, value=0)
+     • 직접 서명 및 블록체인 전송
+     • sent_transactions 테이블에만 기록 (requestId=null, transactionSource='SYSTEM')
+   - NETWORK: 지연 재시도
+   - PERMANENT: 알림 발송
+3. 복구 완료 후 원본 트랜잭션 재처리
 ```
 
 ### 계정 관리 플로우 (Account Manager) - 개발 예정

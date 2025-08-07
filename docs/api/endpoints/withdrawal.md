@@ -8,7 +8,7 @@ The Withdrawal API allows users to request cryptocurrency withdrawals and track 
 
 ## Base URL
 
-- Development: `http://localhost:8080`
+- Development: `http://localhost:3000/api`
 - Production: `https://api.withdrawal.example.com`
 
 ## Authentication
@@ -29,8 +29,9 @@ Creates a new withdrawal request for processing.
 {
   "amount": "0.5",
   "toAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd",
-  "tokenAddress": "0x0000000000000000000000000000000000000000",
-  "network": "polygon"
+  "tokenAddress": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+  "chain": "polygon",
+  "network": "mainnet"
 }
 ```
 
@@ -38,8 +39,9 @@ Creates a new withdrawal request for processing.
 
 - `amount` (string, required): Amount to withdraw (string to preserve precision)
 - `toAddress` (string, required): Destination wallet address
-- `tokenAddress` (string, required): Token contract address (use 0x0 for native token)
-- `network` (string, required): Blockchain network (ethereum, polygon, bsc, arbitrum)
+- `tokenAddress` (string, required): Token contract address (ERC-20 tokens only, native tokens not supported)
+- `chain` (string, required): Blockchain name (polygon, localhost, ethereum, bsc)
+- `network` (string, required): Network type (mainnet, testnet, amoy)
 
 **Success Response (201):**
 
@@ -47,7 +49,7 @@ Creates a new withdrawal request for processing.
 {
   "success": true,
   "data": {
-    "id": "tx-1234567890-abc123def",
+    "id": "41d4-e29b-550e8400-a716-446655440000",
     "status": "pending",
     "createdAt": "2025-01-03T10:00:00Z",
     "updatedAt": "2025-01-03T10:00:00Z"
@@ -71,13 +73,14 @@ Creates a new withdrawal request for processing.
 **Example using cURL:**
 
 ```bash
-curl -X POST http://localhost:8080/withdrawal/request \
+curl -X POST http://localhost:3000/api/withdrawal/request \
   -H "Content-Type: application/json" \
   -d '{
     "amount": "0.5",
     "toAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd",
-    "tokenAddress": "0x0000000000000000000000000000000000000000",
-    "network": "polygon"
+    "tokenAddress": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+    "chain": "polygon",
+    "network": "mainnet"
   }'
 ```
 
@@ -97,8 +100,8 @@ Retrieves the current status of a withdrawal request.
 {
   "success": true,
   "data": {
-    "id": "tx-1234567890-abc123def",
-    "status": "completed",
+    "id": "41d4-e29b-550e8400-a716-446655440000",
+    "status": "CONFIRMED",
     "transactionHash": "0x123abc...",
     "createdAt": "2025-01-03T10:00:00Z",
     "updatedAt": "2025-01-03T10:05:00Z"
@@ -109,12 +112,15 @@ Retrieves the current status of a withdrawal request.
 
 **Transaction Statuses:**
 
-- `pending`: Request received and queued
-- `validating`: Validating user balance and parameters
-- `signing`: Creating blockchain transaction
-- `broadcasting`: Sending transaction to blockchain
-- `completed`: Transaction confirmed on blockchain
-- `failed`: Transaction failed (check error field)
+- `PENDING`: Request received and queued
+- `VALIDATING`: Validating user balance and parameters
+- `SIGNING`: Creating blockchain transaction
+- `SIGNED`: Transaction signed successfully
+- `BROADCASTING`: Sending transaction to blockchain
+- `BROADCASTED`: Transaction sent to blockchain (has txHash)
+- `CONFIRMED`: Transaction confirmed on blockchain
+- `FAILED`: Transaction failed (check error field)
+- `CANCELED`: Transaction was canceled
 
 **Error Responses:**
 
@@ -125,7 +131,7 @@ Retrieves the current status of a withdrawal request.
 **Example using cURL:**
 
 ```bash
-curl http://localhost:8080/withdrawal/status/tx-1234567890-abc123def
+curl http://localhost:3000/api/withdrawal/status/41d4-e29b-550e8400-a716-446655440000
 ```
 
 ### 3. Get Request Queue Status
@@ -155,7 +161,7 @@ Returns the current status of the withdrawal request queue (for debugging/monito
 **Example using cURL:**
 
 ```bash
-curl http://localhost:8080/withdrawal/request-queue/status
+curl http://localhost:3000/api/withdrawal/request-queue/status
 ```
 
 ### 4. Get Transaction Queue Status
@@ -185,7 +191,7 @@ Returns the current status of the signed transaction queue (for debugging/monito
 **Example using cURL:**
 
 ```bash
-curl http://localhost:8080/withdrawal/tx-queue/status
+curl http://localhost:3000/api/withdrawal/tx-queue/status
 ```
 
 ## Error Handling

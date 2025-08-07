@@ -10,7 +10,7 @@ import {
   ChainConfigService,
 } from './chain-config.service';
 import { TransactionService } from './transaction.service';
-import { LoggerService } from '@asset-withdrawal/shared';
+import { LoggerService, ERROR_MESSAGES } from '@asset-withdrawal/shared';
 
 export class TransactionBroadcaster {
   private chainConfigService: ChainConfigService;
@@ -47,7 +47,10 @@ export class TransactionBroadcaster {
       if (!provider) {
         return {
           success: false,
-          error: `Unsupported chain ID: ${txChainId}. Supported chains: ${this.chainConfigService.getSupportedChainIds().join(', ')}`,
+          error: ERROR_MESSAGES.TRANSACTION.UNSUPPORTED_CHAIN(
+            txChainId,
+            this.chainConfigService.getSupportedChainIds()
+          ),
         };
       }
 

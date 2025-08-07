@@ -46,6 +46,8 @@ This is a Polygon-focused blockchain withdrawal system built with TypeScript, Ex
 ```bash
 pnpm run lint        # Check code style
 pnpm run typecheck   # Check TypeScript types
+pnpm run format      # Check code formatting
+pnpm run depcheck    # Check for unused dependencies
 ```
 
 ### Git Commit Rules

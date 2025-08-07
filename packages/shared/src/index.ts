@@ -15,4 +15,5 @@ export * from './utils/hardhat-helpers';
 export * from './utils/error-classifier';
 export * from './config/logger.config';
 export * from './constants/error-types';
+export * from './constants/error-messages';
 export { default as chainsConfig } from './config/chains.config.json';

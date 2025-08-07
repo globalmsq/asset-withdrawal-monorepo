@@ -65,7 +65,8 @@ export class SigningWorker extends BaseWorker<
       {
         inputDlqUrl: config.queue.requestDlqUrl,
         outputDlqUrl: config.queue.signedTxDlqUrl,
-      }
+      },
+      config.redis // Pass Redis config to BaseWorker
     );
 
     this.auditLogger = logger;

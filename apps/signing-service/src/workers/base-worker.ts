@@ -9,6 +9,7 @@ import {
 } from '@asset-withdrawal/shared';
 import { Logger } from '../utils/logger';
 import { SQSClientConfig } from '@aws-sdk/client-sqs';
+import Redis from 'ioredis';
 
 export abstract class BaseWorker<TInput, TOutput = void> {
   public readonly name: string;
@@ -29,7 +30,8 @@ export abstract class BaseWorker<TInput, TOutput = void> {
   protected processingMessages: Set<string> = new Set();
   protected isProcessingBatch: boolean = false;
   protected maxRetries: number = 5;
-  protected messageRetryCount: Map<string, number> = new Map();
+  protected messageRetryCount: Map<string, number> = new Map(); // Fallback for when Redis is unavailable
+  protected redisClient?: Redis;
 
   constructor(
     name: string,
@@ -37,7 +39,8 @@ export abstract class BaseWorker<TInput, TOutput = void> {
     outputQueueUrl: string | undefined,
     sqsConfig: SQSClientConfig,
     logger?: Logger,
-    dlqUrls?: { inputDlqUrl?: string; outputDlqUrl?: string }
+    dlqUrls?: { inputDlqUrl?: string; outputDlqUrl?: string },
+    redisConfig?: { host: string; port: number; password?: string }
   ) {
     this.name = name;
     this.logger =
@@ -114,6 +117,116 @@ export abstract class BaseWorker<TInput, TOutput = void> {
         secretAccessKey,
       });
     }
+
+    // Initialize Redis client if config provided
+    if (redisConfig) {
+      this.initializeRedis(redisConfig);
+    }
+  }
+
+  /**
+   * Initialize Redis client for retry count persistence
+   */
+  private async initializeRedis(config: {
+    host: string;
+    port: number;
+    password?: string;
+  }): Promise<void> {
+    try {
+      this.redisClient = new Redis({
+        host: config.host,
+        port: config.port,
+        password: config.password,
+        enableReadyCheck: true,
+        maxRetriesPerRequest: 3,
+        lazyConnect: true,
+      });
+
+      this.redisClient.on('error', (error: Error) => {
+        this.logger.error('Redis error in BaseWorker', {
+          error: error.message,
+        });
+        // Continue operating with in-memory fallback
+      });
+
+      await this.redisClient.connect();
+      this.logger.info('Redis connected for retry count management');
+    } catch (error) {
+      this.logger.warn(
+        'Failed to connect to Redis, using in-memory retry counts',
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
+      );
+      // Continue without Redis - use in-memory Map as fallback
+    }
+  }
+
+  /**
+   * Get retry count for a message - uses Redis if available, falls back to in-memory Map
+   */
+  protected async getRetryCount(messageId: string): Promise<number> {
+    if (this.redisClient) {
+      try {
+        const count = await this.redisClient.get(`retry:${messageId}`);
+        return count ? parseInt(count, 10) : 0;
+      } catch (error) {
+        this.logger.warn(
+          'Failed to get retry count from Redis, using in-memory',
+          {
+            messageId,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
+      }
+    }
+    // Fallback to in-memory Map
+    return this.messageRetryCount.get(messageId) || 0;
+  }
+
+  /**
+   * Increment retry count for a message - uses Redis if available, falls back to in-memory Map
+   */
+  protected async incrementRetryCount(messageId: string): Promise<number> {
+    if (this.redisClient) {
+      try {
+        // Set expiry to 1 hour to auto-cleanup old retry counts
+        const newCount = await this.redisClient.incr(`retry:${messageId}`);
+        await this.redisClient.expire(`retry:${messageId}`, 3600);
+        return newCount;
+      } catch (error) {
+        this.logger.warn(
+          'Failed to increment retry count in Redis, using in-memory',
+          {
+            messageId,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
+      }
+    }
+    // Fallback to in-memory Map
+    const currentCount = this.messageRetryCount.get(messageId) || 0;
+    const newCount = currentCount + 1;
+    this.messageRetryCount.set(messageId, newCount);
+    return newCount;
+  }
+
+  /**
+   * Clear retry count for a message - uses Redis if available, falls back to in-memory Map
+   */
+  protected async clearRetryCount(messageId: string): Promise<void> {
+    if (this.redisClient) {
+      try {
+        await this.redisClient.del(`retry:${messageId}`);
+      } catch (error) {
+        this.logger.warn('Failed to clear retry count in Redis', {
+          messageId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    // Also clear from in-memory Map
+    this.messageRetryCount.delete(messageId);
   }
 
   async initialize(): Promise<void> {
@@ -169,6 +282,18 @@ export abstract class BaseWorker<TInput, TOutput = void> {
         `Waiting for ${this.processingMessages.size} messages to complete processing...`
       );
       await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Close Redis connection if exists
+    if (this.redisClient) {
+      try {
+        await this.redisClient.quit();
+        this.logger.info('Redis connection closed');
+      } catch (error) {
+        this.logger.warn('Failed to close Redis connection', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     this.logger.info('Worker stopped gracefully');
@@ -252,9 +377,8 @@ export abstract class BaseWorker<TInput, TOutput = void> {
   ): Promise<void> {
     const messageId = message.id || message.receiptHandle;
 
-    // Track retry count
-    const retryCount = (this.messageRetryCount.get(messageId) || 0) + 1;
-    this.messageRetryCount.set(messageId, retryCount);
+    // Track retry count using Redis or in-memory fallback
+    const retryCount = await this.incrementRetryCount(messageId);
 
     // Classify the error
     const errorInfo = ErrorClassifier.classifyError(error);
@@ -275,7 +399,7 @@ export abstract class BaseWorker<TInput, TOutput = void> {
       await this.inputQueue.deleteMessage(message.receiptHandle);
 
       // Clear retry count
-      this.messageRetryCount.delete(messageId);
+      await this.clearRetryCount(messageId);
     }
     // Otherwise, message will be returned to queue after visibility timeout
   }

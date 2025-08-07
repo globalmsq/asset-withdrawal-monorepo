@@ -17,7 +17,7 @@
         "main": "apps/tx-broadcaster/src/main.ts",
         "tsConfig": "apps/tx-broadcaster/tsconfig.app.json",
         "assets": ["apps/tx-broadcaster/src/assets"],
-        "generatePackageJson": false,
+        "generatePackageJson": true,
         "esbuildOptions": {
           "sourcemap": true,
           "outExtension": {

@@ -1,5 +1,5 @@
 # Task ID: 26
-# Title: Signing Service 단순화 및 안정성 개선
+# Title: [BFS-44] Signing Service 단순화 및 안정성 개선
 # Status: pending
 # Dependencies: 25, 24, 15, 11
 # Priority: medium

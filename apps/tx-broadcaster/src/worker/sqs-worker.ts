@@ -646,35 +646,52 @@ export class SQSWorker {
           unifiedMessage,
           result.error || 'Max retries exceeded'
         );
+
         this.logger.info('Message sent to DLQ after max retries', {
           metadata: {
             messageId: message.id,
             retryCount: maxRetries,
           },
         });
-      } catch (dlqError) {
-        this.logger.error('Failed to send message to DLQ', dlqError, {
+
+        // Only send failure result and delete if DLQ send succeeded
+        await this.sendBroadcastResult(unifiedMessage, {
+          success: false,
+          error: `Max retries (${maxRetries}) exceeded: ${result.error}`,
           metadata: {
-            messageId: message.id,
+            retryCount: maxRetries,
+            sentToDLQ: true,
           },
         });
+
+        await this.queueService.deleteMessage(
+          this.config.SIGNED_TX_QUEUE_URL,
+          message.receiptHandle
+        );
+
+        this.logger.info(
+          'Message deleted from main queue after successful DLQ transfer',
+          {
+            metadata: {
+              messageId: message.id,
+            },
+          }
+        );
+      } catch (dlqError) {
+        // Failed to send to DLQ - DO NOT delete the message
+        this.logger.error(
+          'Failed to send message to DLQ, will retry via SQS visibility timeout',
+          {
+            metadata: {
+              messageId: message.id,
+              error:
+                dlqError instanceof Error ? dlqError.message : String(dlqError),
+            },
+          }
+        );
+        // Do NOT delete from main queue - let SQS visibility timeout handle retry
+        // This prevents message loss if DLQ operation fails
       }
-
-      // Send failure result
-      await this.sendBroadcastResult(unifiedMessage, {
-        success: false,
-        error: `Max retries (${maxRetries}) exceeded: ${result.error}`,
-        metadata: {
-          retryCount: maxRetries,
-          sentToDLQ: true,
-        },
-      });
-
-      await this.queueService.deleteMessage(
-        this.config.SIGNED_TX_QUEUE_URL,
-        message.receiptHandle
-      );
-      // Message exceeded max retries and was deleted
     } else {
       // Message will be retried
       // Message will be retried automatically by SQS visibility timeout

@@ -392,14 +392,35 @@ export abstract class BaseWorker<TInput, TOutput = void> {
         isPermanent: isPermanentFailure(errorInfo.type),
       });
 
-      // Send to DLQ
-      await this.sendToDLQ(message, error, retryCount);
+      try {
+        // Send to DLQ
+        await this.sendToDLQ(message, error, retryCount);
 
-      // Delete message from input queue
-      await this.inputQueue.deleteMessage(message.receiptHandle);
+        // Only delete message if DLQ send succeeded
+        await this.inputQueue.deleteMessage(message.receiptHandle);
 
-      // Clear retry count
-      await this.clearRetryCount(messageId);
+        // Clear retry count
+        await this.clearRetryCount(messageId);
+
+        this.logger.info(
+          'Message successfully moved to DLQ and deleted from main queue',
+          {
+            messageId,
+          }
+        );
+      } catch (dlqError) {
+        // Failed to send to DLQ - DO NOT delete the message
+        this.logger.error(
+          'Failed to move message to DLQ, will retry via SQS visibility timeout',
+          {
+            messageId,
+            error:
+              dlqError instanceof Error ? dlqError.message : String(dlqError),
+          }
+        );
+        // Message will be retried when visibility timeout expires
+        // Do NOT delete from main queue to prevent message loss
+      }
     }
     // Otherwise, message will be returned to queue after visibility timeout
   }
@@ -446,6 +467,9 @@ export abstract class BaseWorker<TInput, TOutput = void> {
       this.logger.error('Failed to send message to DLQ', dlqError, {
         messageId: message.id || message.receiptHandle,
       });
+      // Re-throw error to prevent message loss
+      // Caller must handle this error and avoid deleting the message
+      throw dlqError;
     }
   }
 }

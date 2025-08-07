@@ -229,7 +229,7 @@ export class SQSWorker {
       userId: message.userId || 'unknown',
       transactionHash: message.transactionHash || '',
       signedTransaction: message.signedTransaction || '',
-      chainId: message.chainId || 31337,
+      chainId: message.chainId, // Don't default to 31337 - let rawTransaction's chainId be used
       metadata: {},
       createdAt: new Date().toISOString(),
     };

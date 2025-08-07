@@ -165,7 +165,9 @@ export class TransactionBroadcaster {
         };
       }
 
-      if (!parsedTx.value || parsedTx.value < 0) {
+      // Allow zero-value transactions (e.g., ERC20 approvals, smart contract calls)
+      // Only check for negative values (though ethers.js already validates this)
+      if (parsedTx.value < 0) {
         return {
           valid: false,
           error: 'Transaction value must be non-negative',

@@ -26,9 +26,9 @@ export interface AppConfig {
   SIGNED_TX_DLQ_URL?: string;
   BROADCAST_TX_DLQ_URL?: string;
 
-  // Blockchain Configuration
-  RPC_URL: string;
-  CHAIN_ID: number;
+  // Blockchain Configuration (Optional - will use chains.config.json)
+  RPC_URL?: string;
+  CHAIN_ID?: number;
 
   // Redis Configuration
   REDIS_HOST: string;
@@ -90,9 +90,9 @@ export function loadConfig(): AppConfig {
     SIGNED_TX_DLQ_URL: getOptionalEnv('SIGNED_TX_DLQ_URL'),
     BROADCAST_TX_DLQ_URL: getOptionalEnv('BROADCAST_TX_DLQ_URL'),
 
-    // Blockchain Configuration
-    RPC_URL: getOptionalEnv('RPC_URL', 'https://rpc-amoy.polygon.technology')!,
-    CHAIN_ID: getNumberEnv('CHAIN_ID', 80002),
+    // Blockchain Configuration (Optional - will use chains.config.json)
+    RPC_URL: getOptionalEnv('RPC_URL'),
+    CHAIN_ID: process.env.CHAIN_ID ? getNumberEnv('CHAIN_ID', 0) : undefined,
 
     // Redis Configuration
     REDIS_HOST: getOptionalEnv('REDIS_HOST', 'localhost')!,
@@ -111,10 +111,7 @@ export function validateConfig(config: AppConfig): void {
     throw new Error('BROADCAST_TX_QUEUE_URL is required');
   }
 
-  // Validate blockchain configuration
-  if (config.CHAIN_ID <= 0) {
-    throw new Error('CHAIN_ID must be a positive number');
-  }
+  // Blockchain configuration is now optional (will use chains.config.json)
 
   // Configuration validation successful
   // Note: Logger can't be used here due to circular dependency

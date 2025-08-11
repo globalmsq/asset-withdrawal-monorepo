@@ -97,7 +97,7 @@ export class ChainConfigService {
 
   /**
    * 체인 ID에 해당하는 체인 설정을 가져옵니다
-   * 환경변수가 설정되어 있으면 오버라이드합니다
+   * chains.config.json에서 직접 가져옵니다
    */
   getChainConfig(chainId: number): ChainConfig | null {
     // 모든 네트워크와 환경에서 해당 chainId 찾기
@@ -106,17 +106,7 @@ export class ChainConfigService {
     )) {
       for (const [envName, config] of Object.entries(environments)) {
         if (config && config.chainId === chainId) {
-          const chainConfig = { ...config };
-
-          // 환경변수로 오버라이드
-          const envRpcUrl = process.env.RPC_URL;
-          const envChainId = process.env.CHAIN_ID;
-
-          if (envRpcUrl) {
-            chainConfig.rpcUrl = envRpcUrl;
-          }
-
-          return chainConfig;
+          return config;
         }
       }
     }

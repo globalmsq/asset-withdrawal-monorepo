@@ -14,7 +14,6 @@ import { LoggerService, ERROR_MESSAGES } from '@asset-withdrawal/shared';
 
 export class TransactionBroadcaster {
   private chainConfigService: ChainConfigService;
-  private defaultProvider: ethers.JsonRpcProvider;
   private transactionService: TransactionService;
   private config = loadConfig();
   private logger: LoggerService;
@@ -22,8 +21,6 @@ export class TransactionBroadcaster {
   constructor() {
     this.logger = new LoggerService({ service: 'tx-broadcaster:Broadcaster' });
     this.chainConfigService = getChainConfigService();
-    // 기본 프로바이더 (환경변수 기반)
-    this.defaultProvider = new ethers.JsonRpcProvider(this.config.RPC_URL);
     // 트랜잭션 상태 관리 서비스
     this.transactionService = new TransactionService();
 
@@ -223,9 +220,15 @@ export class TransactionBroadcaster {
     chainId: number;
   }> {
     try {
-      const provider = chainId
-        ? this.getProviderForChain(chainId)
-        : this.defaultProvider;
+      if (!chainId) {
+        throw new BroadcastError(
+          'Chain ID is required to get network status',
+          'MISSING_CHAIN_ID',
+          false
+        );
+      }
+
+      const provider = this.getProviderForChain(chainId);
 
       if (!provider) {
         throw new BroadcastError(
@@ -266,9 +269,14 @@ export class TransactionBroadcaster {
     chainId?: number
   ): Promise<boolean> {
     try {
-      const provider = chainId
-        ? this.getProviderForChain(chainId)
-        : this.defaultProvider;
+      if (!chainId) {
+        this.logger.warn(
+          "Chain ID not provided, assuming transaction doesn't exist"
+        );
+        return false;
+      }
+
+      const provider = this.getProviderForChain(chainId);
 
       if (!provider) {
         this.logger.warn(
@@ -295,14 +303,9 @@ export class TransactionBroadcaster {
 
   /**
    * 체인 ID에 해당하는 프로바이더를 가져옵니다
-   * 환경변수가 설정된 경우 우선 사용합니다
+   * chains.config.json에서 설정을 가져옵니다
    */
   private getProviderForChain(chainId: number): ethers.JsonRpcProvider | null {
-    // 환경변수로 설정된 체인 ID와 일치하면 기본 프로바이더 사용
-    if (chainId === this.config.CHAIN_ID) {
-      return this.defaultProvider;
-    }
-
     // chains.config.json에서 프로바이더 가져오기
     return this.chainConfigService.getProvider(chainId);
   }

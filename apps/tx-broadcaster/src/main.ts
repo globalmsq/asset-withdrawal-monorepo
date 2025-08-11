@@ -19,7 +19,6 @@ async function bootstrap() {
 
   try {
     logger.info('Starting tx-broadcaster service...', {
-      chainId: config.CHAIN_ID,
       metadata: {
         nodeEnv: config.NODE_ENV,
         logLevel: config.LOG_LEVEL,
@@ -80,7 +79,6 @@ async function bootstrap() {
     process.on('SIGINT', () => shutdown('SIGINT'));
   } catch (error) {
     logger.error('Failed to start tx-broadcaster service', error, {
-      chainId: config.CHAIN_ID,
       metadata: {
         nodeEnv: config.NODE_ENV,
       },

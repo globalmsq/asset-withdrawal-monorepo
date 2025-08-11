@@ -25,6 +25,8 @@ import {
   ErrorClassifier,
   isPermanentFailure,
 } from '@asset-withdrawal/shared';
+import { NonceManager, QueuedTransaction } from '../services/nonce-manager';
+import { ethers } from 'ethers';
 
 export class SQSWorker {
   private config: AppConfig;
@@ -33,6 +35,7 @@ export class SQSWorker {
   private retryService: RetryService;
   private redisService: BroadcastRedisService | null = null;
   private transactionService: TransactionService;
+  private nonceManager: NonceManager;
   private isRunning = false;
   private stats: WorkerStats;
   private logger: LoggerService;
@@ -43,6 +46,7 @@ export class SQSWorker {
     this.queueService = new QueueService(this.config);
     this.broadcaster = new TransactionBroadcaster();
     this.transactionService = new TransactionService();
+    this.nonceManager = new NonceManager();
     this.retryService = new RetryService({
       maxRetries: 5,
       baseDelay: 2000, // 2초
@@ -61,7 +65,6 @@ export class SQSWorker {
   async start(): Promise<void> {
     try {
       this.logger.info('Starting SQS Worker...', {
-        chainId: this.config.CHAIN_ID,
         metadata: {
           signedTxQueueUrl: this.config.SIGNED_TX_QUEUE_URL,
           broadcastQueueUrl: this.config.BROADCAST_TX_QUEUE_URL,
@@ -82,12 +85,46 @@ export class SQSWorker {
       this.isRunning = true;
       this.logger.info('SQS Worker started successfully');
 
+      // Start periodic queue processor
+      this.startQueueProcessor();
+
       // Start processing loop
       await this.processLoop();
     } catch (error) {
       this.logger.error('Failed to start SQS Worker', error);
       throw error;
     }
+  }
+
+  /**
+   * Start a periodic processor for queued transactions
+   */
+  private startQueueProcessor(): void {
+    setInterval(async () => {
+      if (!this.isRunning) return;
+
+      try {
+        const stats = this.nonceManager.getStatistics();
+
+        if (stats.totalPendingTransactions > 0) {
+          this.logger.debug('Processing queued transactions', {
+            metadata: stats,
+          });
+
+          // Get all addresses with pending transactions
+          const statuses = this.nonceManager.getQueueStatus();
+
+          for (const status of statuses) {
+            if (status.pendingCount > 0 && !status.isProcessing) {
+              // Try to process this address queue
+              await this.processAddressQueue(status.address);
+            }
+          }
+        }
+      } catch (error) {
+        this.logger.error('Error in queue processor', error);
+      }
+    }, 5000); // Check every 5 seconds
   }
 
   async stop(): Promise<void> {
@@ -99,8 +136,8 @@ export class SQSWorker {
 
   private async testConnections(): Promise<void> {
     try {
-      // Test blockchain connection (default environment provider)
-      const networkStatus = await this.broadcaster.getNetworkStatus();
+      // Test blockchain connection - use localhost as default for testing
+      const networkStatus = await this.broadcaster.getNetworkStatus(31337);
       this.logger.info('Blockchain connection established', {
         chainId: networkStatus.chainId,
         metadata: {
@@ -250,82 +287,68 @@ export class SQSWorker {
         };
       }
 
-      // Use a composite key for Redis if transactionHash is missing
-      const redisKey =
-        txMessage.transactionHash ||
-        `${txMessage.id}_${txMessage.withdrawalId || txMessage.batchId}`;
-
-      // Check if already processed using Redis
-      if (this.redisService) {
-        // Check if already broadcasted
-        if (await this.redisService.isBroadcasted(redisKey)) {
-          return { success: true, shouldRetry: false };
-        }
-
-        // Set processing lock
-        const lockAcquired = await this.redisService.setProcessing(redisKey);
-        if (!lockAcquired) {
-          return { success: true, shouldRetry: false }; // Another worker is handling it
-        }
-      }
+      // Parse transaction to get from address and nonce
+      let parsedTx: ethers.Transaction;
+      let fromAddress: string;
+      let nonce: number;
 
       try {
-        // Process transaction for specified chain
-        // Note: rawTransaction contains all necessary info, minimal validation needed
+        parsedTx = ethers.Transaction.from(signedTransaction);
+        fromAddress = parsedTx.from?.toLowerCase() || '';
+        nonce = Number(parsedTx.nonce);
 
-        // Basic validation - ethers.js will do detailed parsing
-        if (!signedTransaction.startsWith('0x')) {
+        if (!fromAddress) {
           return {
             success: false,
             shouldRetry: false,
-            error: 'Invalid rawTransaction format - must start with 0x',
+            error: 'Cannot determine from address from transaction',
           };
         }
-
-        // Skip duplicate check for now - rawTransaction-based approach
-        // The transaction hash will be determined after parsing rawTransaction
-
-        // Direct broadcast using rawTransaction
-        const broadcastResult = await this.broadcastWithRetry(
-          txMessage,
-          signedTransaction, // This is the rawTransaction from signing-service
-          chainId
-        );
-
-        if (broadcastResult.success) {
-          // Mark as broadcasted in Redis
-          if (this.redisService) {
-            await this.redisService.markBroadcasted(
-              redisKey,
-              broadcastResult.transactionHash
-            );
-          }
-
-          // Send success result to next queue
-          await this.sendBroadcastResult(txMessage, broadcastResult);
-
-          return { success: true, shouldRetry: false, result: broadcastResult };
-        } else {
-          // Send failure result to next queue
-          await this.sendBroadcastResult(txMessage, broadcastResult);
-
-          // Classify error to determine if it's retryable
-          const errorInfo = ErrorClassifier.classifyError({
-            message: broadcastResult.error,
-          });
-
-          return {
-            success: false,
-            shouldRetry: !isPermanentFailure(errorInfo.type),
-            error: broadcastResult.error,
-          };
-        }
-      } finally {
-        // Remove processing lock
-        if (this.redisService) {
-          await this.redisService.removeProcessing(redisKey);
-        }
+      } catch (parseError) {
+        return {
+          success: false,
+          shouldRetry: false,
+          error: `Failed to parse transaction: ${parseError}`,
+        };
       }
+
+      // Add transaction to NonceManager queue
+      const queuedTx: QueuedTransaction = {
+        txHash: parsedTx.hash || txMessage.transactionHash || '',
+        nonce,
+        signedTx: signedTransaction,
+        requestId: txMessage.withdrawalId || txMessage.batchId || txMessage.id,
+        fromAddress,
+        timestamp: new Date(),
+        retryCount: 0,
+        transactionType: txMessage.transactionType, // Preserve transaction type
+        batchId: txMessage.batchId, // Store batchId for batch transactions
+      };
+
+      await this.nonceManager.addTransaction(queuedTx);
+
+      // Try to process transaction if address is not already processing
+      if (!this.nonceManager.isAddressProcessing(fromAddress)) {
+        return await this.processAddressQueue(fromAddress);
+      }
+
+      // Transaction queued, will be processed when current one completes
+      this.logger.info(
+        'Transaction queued, address is processing another transaction',
+        {
+          metadata: {
+            fromAddress,
+            nonce,
+            queueStatus: this.nonceManager.getQueueStatus(fromAddress)[0],
+          },
+        }
+      );
+
+      return {
+        success: true,
+        shouldRetry: false,
+        result: { queued: true },
+      };
     } catch (error) {
       return {
         success: false,
@@ -333,6 +356,204 @@ export class SQSWorker {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  }
+
+  /**
+   * Process all pending transactions for a specific address
+   */
+  private async processAddressQueue(
+    address: string
+  ): Promise<ProcessingResult> {
+    let lastResult: ProcessingResult = { success: true, shouldRetry: false };
+
+    while (true) {
+      const nextTx = await this.nonceManager.getNextTransaction(address);
+      if (!nextTx) {
+        break; // No more transactions to process
+      }
+
+      // Mark address as processing
+      await this.nonceManager.startProcessing(address);
+
+      try {
+        // Use a composite key for Redis
+        const redisKey = nextTx.txHash || `${nextTx.requestId}_${nextTx.nonce}`;
+
+        // Check if already processed using Redis
+        if (this.redisService) {
+          // Check if already broadcasted
+          if (await this.redisService.isBroadcasted(redisKey)) {
+            await this.nonceManager.completeTransaction(
+              address,
+              nextTx.nonce,
+              true
+            );
+            continue;
+          }
+
+          // Set processing lock
+          const lockAcquired = await this.redisService.setProcessing(redisKey);
+          if (!lockAcquired) {
+            await this.nonceManager.completeTransaction(
+              address,
+              nextTx.nonce,
+              false
+            );
+            continue; // Another worker is handling it
+          }
+        }
+
+        try {
+          // Basic validation
+          if (!nextTx.signedTx.startsWith('0x')) {
+            await this.nonceManager.removeTransaction(address, nextTx.nonce);
+            lastResult = {
+              success: false,
+              shouldRetry: false,
+              error: 'Invalid rawTransaction format - must start with 0x',
+            };
+            continue;
+          }
+
+          // Extract chainId from the signed transaction
+          const parsedTx = ethers.Transaction.from(nextTx.signedTx);
+          const txChainId = Number(parsedTx.chainId);
+
+          // Create a minimal message for broadcasting
+          const broadcastMessage: UnifiedSignedTransactionMessage = {
+            id: nextTx.requestId,
+            transactionType: nextTx.transactionType || 'SINGLE', // Use actual transaction type
+            withdrawalId:
+              nextTx.transactionType === 'BATCH' ? undefined : nextTx.requestId,
+            batchId:
+              nextTx.transactionType === 'BATCH' ? nextTx.batchId : undefined,
+            userId: 'nonce-manager',
+            transactionHash: nextTx.txHash,
+            signedTransaction: nextTx.signedTx,
+            chainId: txChainId,
+            metadata: {},
+            createdAt: nextTx.timestamp.toISOString(),
+          };
+
+          // Direct broadcast using rawTransaction
+          const broadcastResult = await this.broadcastWithRetry(
+            broadcastMessage,
+            nextTx.signedTx,
+            txChainId
+          );
+
+          if (broadcastResult.success) {
+            // Mark as broadcasted in Redis
+            if (this.redisService) {
+              await this.redisService.markBroadcasted(
+                redisKey,
+                broadcastResult.transactionHash
+              );
+            }
+
+            // Send success result to next queue
+            await this.sendBroadcastResult(broadcastMessage, broadcastResult);
+
+            // Complete transaction in NonceManager
+            await this.nonceManager.completeTransaction(
+              address,
+              nextTx.nonce,
+              true
+            );
+
+            lastResult = {
+              success: true,
+              shouldRetry: false,
+              result: broadcastResult,
+            };
+          } else {
+            // Classify error to determine if it's retryable
+            const errorInfo = ErrorClassifier.classifyError({
+              message: broadcastResult.error,
+            });
+
+            // Check for nonce-related errors
+            if (errorInfo.type === DLQ_ERROR_TYPE.NONCE_TOO_HIGH) {
+              // Nonce gap detected, stop processing this address
+              this.logger.warn(
+                'Nonce gap detected, stopping queue processing',
+                {
+                  metadata: {
+                    address,
+                    nonce: nextTx.nonce,
+                    error: broadcastResult.error,
+                  },
+                }
+              );
+
+              // Send to DLQ for recovery
+              await this.sendToDLQ(
+                broadcastMessage,
+                broadcastResult.error || 'Nonce gap detected'
+              );
+
+              // Remove from queue but don't mark as complete
+              // This will keep the nonce gap, preventing further processing
+              await this.nonceManager.removeTransaction(address, nextTx.nonce);
+
+              lastResult = {
+                success: false,
+                shouldRetry: false,
+                error: broadcastResult.error,
+              };
+              break; // Stop processing this address
+            }
+
+            if (isPermanentFailure(errorInfo.type)) {
+              // Permanent failure, remove from queue
+              await this.nonceManager.removeTransaction(address, nextTx.nonce);
+
+              // Send failure result to next queue
+              await this.sendBroadcastResult(broadcastMessage, broadcastResult);
+
+              lastResult = {
+                success: false,
+                shouldRetry: false,
+                error: broadcastResult.error,
+              };
+            } else {
+              // Temporary failure, complete but don't remove (will retry)
+              await this.nonceManager.completeTransaction(
+                address,
+                nextTx.nonce,
+                false
+              );
+
+              lastResult = {
+                success: false,
+                shouldRetry: true,
+                error: broadcastResult.error,
+              };
+              break; // Stop processing for now, will retry later
+            }
+          }
+        } finally {
+          // Remove processing lock
+          if (this.redisService) {
+            await this.redisService.removeProcessing(redisKey);
+          }
+        }
+      } catch (error) {
+        await this.nonceManager.completeTransaction(
+          address,
+          nextTx.nonce,
+          false
+        );
+        lastResult = {
+          success: false,
+          shouldRetry: true,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+        break;
+      }
+    }
+
+    return lastResult;
   }
 
   private async sendBroadcastResult(

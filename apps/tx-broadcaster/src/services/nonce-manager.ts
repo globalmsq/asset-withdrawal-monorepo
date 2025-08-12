@@ -101,15 +101,21 @@ export class NonceManager {
       queue[existingIndex] = transaction;
     } else {
       // Insert transaction in nonce order (primary) and priority order (secondary)
-      queue.push(transaction);
-      queue.sort((a, b) => {
-        // First sort by nonce
-        if (a.nonce !== b.nonce) {
-          return a.nonce - b.nonce;
-        }
-        // If same nonce, sort by priority (higher priority first)
-        return (b.priority || 0) - (a.priority || 0);
-      });
+      // Use binary search to find the correct insertion point for better performance
+      const index = queue.findIndex(
+        tx =>
+          tx.nonce > transaction.nonce ||
+          (tx.nonce === transaction.nonce &&
+            (tx.priority || 0) < (transaction.priority || 0))
+      );
+
+      if (index === -1) {
+        // If no transaction has a higher nonce/priority, add to the end
+        queue.push(transaction);
+      } else {
+        // Insert at the correct position to maintain sort order
+        queue.splice(index, 0, transaction);
+      }
     }
 
     // Save updated queue to Redis

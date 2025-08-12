@@ -17,7 +17,7 @@
     "ioredis": "^5.3.2",
     "@aws-sdk/client-sqs": "^3.450.0",
     "ethers": "^6.8.0",
-    "database": "workspace:*"
+    "@asset-withdrawal/database": "workspace:*"
   },
   "devDependencies": {
     "@types/express": "^4.17.17",

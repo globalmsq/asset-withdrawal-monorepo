@@ -70,20 +70,21 @@ BROADCAST_TX_DLQ_ARN=$(awslocal sqs get-queue-attributes \
   --output text)
 
 # Update main queues with redrive policies
+# Note: Using high maxReceiveCount (1000) for testing environment to prevent premature DLQ moves
 awslocal sqs set-queue-attributes \
   --queue-url http://localhost:4566/000000000000/tx-request-queue \
   --region $REGION \
-  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${REQUEST_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"5\\\"}\"}"
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${REQUEST_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
 
 awslocal sqs set-queue-attributes \
   --queue-url http://localhost:4566/000000000000/signed-tx-queue \
   --region $REGION \
-  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${SIGNED_TX_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"5\\\"}\"}"
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${SIGNED_TX_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
 
 awslocal sqs set-queue-attributes \
   --queue-url http://localhost:4566/000000000000/broadcast-tx-queue \
   --region $REGION \
-  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${BROADCAST_TX_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"5\\\"}\"}"
+  --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${BROADCAST_TX_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
 
 echo "SQS queues created successfully:"
 echo "- tx-request-queue (DLQ: request-dlq)"

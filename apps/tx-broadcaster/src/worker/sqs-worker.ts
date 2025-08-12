@@ -104,7 +104,7 @@ export class SQSWorker {
       if (!this.isRunning) return;
 
       try {
-        const stats = this.nonceManager.getStatistics();
+        const stats = await this.nonceManager.getStatistics();
 
         if (stats.totalPendingTransactions > 0) {
           this.logger.debug('Processing queued transactions', {
@@ -112,7 +112,7 @@ export class SQSWorker {
           });
 
           // Get all addresses with pending transactions
-          const statuses = this.nonceManager.getQueueStatus();
+          const statuses = await this.nonceManager.getQueueStatus();
 
           for (const status of statuses) {
             if (status.pendingCount > 0 && !status.isProcessing) {
@@ -328,18 +328,21 @@ export class SQSWorker {
       await this.nonceManager.addTransaction(queuedTx);
 
       // Try to process transaction if address is not already processing
-      if (!this.nonceManager.isAddressProcessing(fromAddress)) {
+      const isProcessing =
+        await this.nonceManager.isAddressProcessing(fromAddress);
+      if (!isProcessing) {
         return await this.processAddressQueue(fromAddress);
       }
 
       // Transaction queued, will be processed when current one completes
+      const queueStatuses = await this.nonceManager.getQueueStatus(fromAddress);
       this.logger.info(
         'Transaction queued, address is processing another transaction',
         {
           metadata: {
             fromAddress,
             nonce,
-            queueStatus: this.nonceManager.getQueueStatus(fromAddress)[0],
+            queueStatus: queueStatuses[0],
           },
         }
       );
@@ -476,7 +479,7 @@ export class SQSWorker {
             if (errorInfo.type === DLQ_ERROR_TYPE.NONCE_TOO_HIGH) {
               // Nonce gap detected, stop processing this address
               // Get detailed gap information
-              const gapInfo = this.nonceManager.getNonceGapInfo(address);
+              const gapInfo = await this.nonceManager.getNonceGapInfo(address);
 
               this.logger.warn(
                 'Nonce gap detected, stopping queue processing',

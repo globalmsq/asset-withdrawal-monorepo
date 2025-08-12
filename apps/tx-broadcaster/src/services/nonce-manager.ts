@@ -1,4 +1,6 @@
 import { LoggerService } from '@asset-withdrawal/shared';
+import { getRedisClient, NonceRedisService } from './redis-client';
+import type { Redis } from 'ioredis';
 
 /**
  * Queued transaction interface for nonce management
@@ -37,17 +39,27 @@ export interface QueueStatus {
  * - Nonce gap detection and prevention
  */
 export class NonceManager {
-  private pendingTransactions = new Map<string, QueuedTransaction[]>();
-  private lastBroadcastedNonce = new Map<string, number>();
-  private processingAddresses = new Set<string>();
-  private processingStartTime = new Map<string, Date>();
-  private addressLastProcessed = new Map<string, Date>();
-  private roundRobinIndex = 0;
+  private redis!: Redis;
+  private nonceRedisService!: NonceRedisService;
   private processingTimeout = 60000; // 60 seconds timeout for processing
   private logger: LoggerService;
 
   constructor() {
     this.logger = new LoggerService({ service: 'NonceManager' });
+    this.initializeRedis();
+  }
+
+  private async initializeRedis(): Promise<void> {
+    try {
+      this.redis = await getRedisClient();
+      this.nonceRedisService = new NonceRedisService(this.redis);
+      this.logger.info('NonceManager initialized with Redis storage');
+    } catch (error) {
+      this.logger.error('Failed to connect to Redis for NonceManager', error);
+      throw new Error(
+        'NonceManager requires Redis connection. Service cannot start.'
+      );
+    }
   }
 
   /**
@@ -55,6 +67,8 @@ export class NonceManager {
    * Maintains nonce ordering within the queue
    */
   async addTransaction(transaction: QueuedTransaction): Promise<void> {
+    await this.ensureRedisInitialized();
+
     const { fromAddress, nonce, txHash, transactionType } = transaction;
 
     this.logger.debug('Adding transaction to queue', {
@@ -66,8 +80,9 @@ export class NonceManager {
       },
     });
 
-    // Get or create queue for this address
-    let queue = this.pendingTransactions.get(fromAddress) || [];
+    // Get existing queue for this address
+    let queue =
+      await this.nonceRedisService.getPendingTransactions(fromAddress);
 
     // Check for duplicate nonce
     const existingIndex = queue.findIndex(tx => tx.nonce === nonce);
@@ -97,7 +112,8 @@ export class NonceManager {
       });
     }
 
-    this.pendingTransactions.set(fromAddress, queue);
+    // Save updated queue to Redis
+    await this.nonceRedisService.setPendingTransactions(fromAddress, queue);
 
     this.logger.info('Transaction added to queue', {
       metadata: {
@@ -108,6 +124,12 @@ export class NonceManager {
     });
   }
 
+  private async ensureRedisInitialized(): Promise<void> {
+    if (!this.redis || !this.nonceRedisService) {
+      await this.initializeRedis();
+    }
+  }
+
   /**
    * Get the next transaction that can be processed
    * Uses round-robin with queue length prioritization for fairness
@@ -116,6 +138,8 @@ export class NonceManager {
   async getNextTransaction(
     address?: string
   ): Promise<QueuedTransaction | null> {
+    await this.ensureRedisInitialized();
+
     // If specific address provided
     if (address) {
       return this.getNextTransactionForAddress(address);
@@ -124,20 +148,40 @@ export class NonceManager {
     // Check for stuck transactions (timeout)
     await this.checkAndReleaseTimedOutTransactions();
 
-    // Get all addresses with pending transactions that are not processing
-    const availableAddresses = Array.from(this.pendingTransactions.entries())
-      .filter(
-        ([addr, queue]) =>
-          queue.length > 0 && !this.processingAddresses.has(addr)
-      )
-      .map(([addr, queue]) => ({ address: addr, queueLength: queue.length }));
+    // Get all addresses with pending transactions
+    const addressesWithTransactions =
+      await this.nonceRedisService.getAddressesWithPendingTransactions();
+    const processingAddresses =
+      await this.nonceRedisService.getProcessingAddresses();
+    const processingAddressSet = new Set(processingAddresses);
 
-    if (availableAddresses.length === 0) {
+    // Filter available addresses (not processing and has transactions)
+    const availableAddressesInfo = [];
+    for (const addr of addressesWithTransactions) {
+      if (!processingAddressSet.has(addr)) {
+        const queue = await this.nonceRedisService.getPendingTransactions(addr);
+        if (queue.length > 0) {
+          availableAddressesInfo.push({
+            address: addr,
+            queueLength: queue.length,
+          });
+        }
+      }
+    }
+
+    if (availableAddressesInfo.length === 0) {
       return null;
     }
 
     // Sort by queue length (longer queues get priority) and last processed time
-    availableAddresses.sort((a, b) => {
+    const sortedAddresses = [];
+    for (const info of availableAddressesInfo) {
+      const lastProcessedTime =
+        (await this.nonceRedisService.getLastProcessedTime(info.address)) || 0;
+      sortedAddresses.push({ ...info, lastProcessedTime });
+    }
+
+    sortedAddresses.sort((a, b) => {
       // Prioritize longer queues
       const lengthDiff = b.queueLength - a.queueLength;
       if (lengthDiff !== 0) {
@@ -145,18 +189,14 @@ export class NonceManager {
       }
 
       // If same length, use round-robin based on last processed time
-      const aLastProcessed =
-        this.addressLastProcessed.get(a.address)?.getTime() || 0;
-      const bLastProcessed =
-        this.addressLastProcessed.get(b.address)?.getTime() || 0;
-      return aLastProcessed - bLastProcessed;
+      return a.lastProcessedTime - b.lastProcessedTime;
     });
 
     // Try to get transaction from the highest priority address
-    for (const { address: addr } of availableAddresses) {
+    for (const { address: addr } of sortedAddresses) {
       const transaction = await this.getNextTransactionForAddress(addr);
       if (transaction) {
-        this.addressLastProcessed.set(addr, new Date());
+        await this.nonceRedisService.setLastProcessedTime(addr);
         return transaction;
       }
     }
@@ -170,14 +210,15 @@ export class NonceManager {
   private async getNextTransactionForAddress(
     address: string
   ): Promise<QueuedTransaction | null> {
-    const queue = this.pendingTransactions.get(address);
+    const queue = await this.nonceRedisService.getPendingTransactions(address);
 
     if (!queue || queue.length === 0) {
       return null;
     }
 
     // Check if address is already processing
-    if (this.processingAddresses.has(address)) {
+    const isProcessing = await this.nonceRedisService.isProcessing(address);
+    if (isProcessing) {
       this.logger.debug('Address is already processing', {
         metadata: { address },
       });
@@ -186,10 +227,11 @@ export class NonceManager {
 
     // Get the first transaction in queue (lowest nonce)
     const nextTransaction = queue[0];
-    const lastNonce = this.lastBroadcastedNonce.get(address);
+    const lastNonce =
+      await this.nonceRedisService.getLastBroadcastedNonce(address);
 
     // Check nonce sequence
-    if (lastNonce !== undefined && nextTransaction.nonce !== lastNonce + 1) {
+    if (lastNonce !== null && nextTransaction.nonce !== lastNonce + 1) {
       this.logger.warn('Nonce gap detected, waiting for missing nonce', {
         metadata: {
           address,
@@ -208,8 +250,17 @@ export class NonceManager {
    * Mark transaction as being processed
    */
   async startProcessing(address: string): Promise<void> {
-    this.processingAddresses.add(address);
-    this.processingStartTime.set(address, new Date());
+    await this.ensureRedisInitialized();
+
+    const lockAcquired =
+      await this.nonceRedisService.setProcessingLock(address);
+    if (!lockAcquired) {
+      throw new Error(
+        `Failed to acquire processing lock for address: ${address}`
+      );
+    }
+
+    await this.nonceRedisService.setProcessingStartTime(address);
     this.logger.debug('Started processing for address', {
       metadata: { address },
     });
@@ -219,27 +270,19 @@ export class NonceManager {
    * Check for timed out transactions and release them
    */
   private async checkAndReleaseTimedOutTransactions(): Promise<void> {
-    const now = new Date();
-    const timedOutAddresses: string[] = [];
+    await this.ensureRedisInitialized();
 
-    for (const [address, startTime] of this.processingStartTime.entries()) {
-      const processingTime = now.getTime() - startTime.getTime();
-      if (processingTime > this.processingTimeout) {
-        timedOutAddresses.push(address);
-        this.logger.warn('Processing timeout detected, releasing address', {
-          metadata: {
-            address,
-            processingTimeMs: processingTime,
-            timeoutMs: this.processingTimeout,
-          },
-        });
-      }
-    }
+    const timedOutAddresses = await this.nonceRedisService.releaseTimedOutLocks(
+      this.processingTimeout
+    );
 
-    // Release timed out addresses
     for (const address of timedOutAddresses) {
-      this.processingAddresses.delete(address);
-      this.processingStartTime.delete(address);
+      this.logger.warn('Processing timeout detected, releasing address', {
+        metadata: {
+          address,
+          timeoutMs: this.processingTimeout,
+        },
+      });
     }
   }
 
@@ -251,6 +294,8 @@ export class NonceManager {
     nonce: number,
     success: boolean
   ): Promise<void> {
+    await this.ensureRedisInitialized();
+
     this.logger.info('Completing transaction', {
       metadata: {
         address,
@@ -261,29 +306,30 @@ export class NonceManager {
 
     if (success) {
       // Update last broadcasted nonce
-      this.lastBroadcastedNonce.set(address, nonce);
+      await this.nonceRedisService.setLastBroadcastedNonce(address, nonce);
 
       // Remove transaction from queue
-      const queue = this.pendingTransactions.get(address) || [];
+      const queue =
+        await this.nonceRedisService.getPendingTransactions(address);
       const updatedQueue = queue.filter(tx => tx.nonce !== nonce);
 
-      if (updatedQueue.length === 0) {
-        this.pendingTransactions.delete(address);
-      } else {
-        this.pendingTransactions.set(address, updatedQueue);
-      }
+      await this.nonceRedisService.setPendingTransactions(
+        address,
+        updatedQueue
+      );
     }
 
     // Clear processing flag and timing
-    this.processingAddresses.delete(address);
-    this.processingStartTime.delete(address);
+    await this.nonceRedisService.removeProcessingLock(address);
 
+    const remainingQueue =
+      await this.nonceRedisService.getPendingTransactions(address);
     this.logger.info('Transaction completed', {
       metadata: {
         address,
         nonce,
         success,
-        remainingInQueue: this.pendingTransactions.get(address)?.length || 0,
+        remainingInQueue: remainingQueue.length,
       },
     });
   }
@@ -292,18 +338,15 @@ export class NonceManager {
    * Remove a transaction from queue (e.g., on permanent failure)
    */
   async removeTransaction(address: string, nonce: number): Promise<void> {
-    const queue = this.pendingTransactions.get(address) || [];
+    await this.ensureRedisInitialized();
+
+    const queue = await this.nonceRedisService.getPendingTransactions(address);
     const updatedQueue = queue.filter(tx => tx.nonce !== nonce);
 
-    if (updatedQueue.length === 0) {
-      this.pendingTransactions.delete(address);
-    } else {
-      this.pendingTransactions.set(address, updatedQueue);
-    }
+    await this.nonceRedisService.setPendingTransactions(address, updatedQueue);
 
     // Clear processing flag and timing if this address was processing
-    this.processingAddresses.delete(address);
-    this.processingStartTime.delete(address);
+    await this.nonceRedisService.removeProcessingLock(address);
 
     this.logger.info('Transaction removed from queue', {
       metadata: {
@@ -317,41 +360,59 @@ export class NonceManager {
   /**
    * Check if an address is currently processing
    */
-  isAddressProcessing(address: string): boolean {
-    return this.processingAddresses.has(address);
+  async isAddressProcessing(address: string): Promise<boolean> {
+    await this.ensureRedisInitialized();
+    return this.nonceRedisService.isProcessing(address);
   }
 
   /**
    * Get queue status for monitoring
    */
-  getQueueStatus(address?: string): QueueStatus[] {
+  async getQueueStatus(address?: string): Promise<QueueStatus[]> {
+    await this.ensureRedisInitialized();
+
     const statuses: QueueStatus[] = [];
 
     if (address) {
       // Status for specific address
-      const queue = this.pendingTransactions.get(address) || [];
+      const queue =
+        await this.nonceRedisService.getPendingTransactions(address);
+      const isProcessing = await this.nonceRedisService.isProcessing(address);
+      const lastBroadcastedNonce =
+        await this.nonceRedisService.getLastBroadcastedNonce(address);
+
       statuses.push({
         address,
         pendingCount: queue.length,
-        isProcessing: this.processingAddresses.has(address),
-        lastBroadcastedNonce: this.lastBroadcastedNonce.get(address),
+        isProcessing,
+        lastBroadcastedNonce:
+          lastBroadcastedNonce !== null ? lastBroadcastedNonce : undefined,
         oldestTransactionTime:
           queue.length > 0 ? queue[0].timestamp : undefined,
       });
     } else {
       // Status for all addresses
+      const addressesWithTransactions =
+        await this.nonceRedisService.getAddressesWithPendingTransactions();
+      const processingAddresses =
+        await this.nonceRedisService.getProcessingAddresses();
       const allAddresses = new Set([
-        ...this.pendingTransactions.keys(),
-        ...this.processingAddresses,
+        ...addressesWithTransactions,
+        ...processingAddresses,
       ]);
 
       for (const addr of allAddresses) {
-        const queue = this.pendingTransactions.get(addr) || [];
+        const queue = await this.nonceRedisService.getPendingTransactions(addr);
+        const isProcessing = await this.nonceRedisService.isProcessing(addr);
+        const lastBroadcastedNonce =
+          await this.nonceRedisService.getLastBroadcastedNonce(addr);
+
         statuses.push({
           address: addr,
           pendingCount: queue.length,
-          isProcessing: this.processingAddresses.has(addr),
-          lastBroadcastedNonce: this.lastBroadcastedNonce.get(addr),
+          isProcessing,
+          lastBroadcastedNonce:
+            lastBroadcastedNonce !== null ? lastBroadcastedNonce : undefined,
           oldestTransactionTime:
             queue.length > 0 ? queue[0].timestamp : undefined,
         });
@@ -364,42 +425,42 @@ export class NonceManager {
   /**
    * Get all pending transactions for an address
    */
-  getPendingTransactions(address: string): QueuedTransaction[] {
-    return this.pendingTransactions.get(address) || [];
+  async getPendingTransactions(address: string): Promise<QueuedTransaction[]> {
+    await this.ensureRedisInitialized();
+    return this.nonceRedisService.getPendingTransactions(address);
   }
 
   /**
    * Clear all queues and reset state (for testing)
    */
   async clearAll(): Promise<void> {
-    this.pendingTransactions.clear();
-    this.lastBroadcastedNonce.clear();
-    this.processingAddresses.clear();
-    this.processingStartTime.clear();
-    this.addressLastProcessed.clear();
-    this.roundRobinIndex = 0;
+    await this.ensureRedisInitialized();
+    await this.nonceRedisService.clearAll();
     this.logger.info('All queues cleared');
   }
 
   /**
    * Get nonce gap information for an address
    */
-  getNonceGapInfo(address: string): {
+  async getNonceGapInfo(address: string): Promise<{
     hasGap: boolean;
     expectedNonce?: number;
     actualNonce?: number;
     gapSize?: number;
     missingNonces?: number[];
-  } | null {
-    const queue = this.pendingTransactions.get(address);
+  } | null> {
+    await this.ensureRedisInitialized();
+
+    const queue = await this.nonceRedisService.getPendingTransactions(address);
 
     if (!queue || queue.length === 0) {
       return null;
     }
 
-    const lastNonce = this.lastBroadcastedNonce.get(address);
+    const lastNonce =
+      await this.nonceRedisService.getLastBroadcastedNonce(address);
 
-    if (lastNonce === undefined) {
+    if (lastNonce === null) {
       // No previous broadcasts, no gap
       return { hasGap: false };
     }
@@ -429,7 +490,7 @@ export class NonceManager {
   /**
    * Get statistics for monitoring
    */
-  getStatistics(): {
+  async getStatistics(): Promise<{
     totalAddresses: number;
     totalPendingTransactions: number;
     processingAddresses: number;
@@ -438,15 +499,23 @@ export class NonceManager {
     maxQueueLength: number;
     oldestTransactionAge?: number;
     timedOutAddresses: number;
-  } {
+  }> {
+    await this.ensureRedisInitialized();
+
     let totalPendingTransactions = 0;
     let addressesWithGaps = 0;
     let maxQueueLength = 0;
     let oldestTransactionTime: Date | undefined;
-    let timedOutAddresses = 0;
     const now = new Date();
 
-    for (const [address, queue] of this.pendingTransactions.entries()) {
+    const addressesWithTransactions =
+      await this.nonceRedisService.getAddressesWithPendingTransactions();
+    const processingAddresses =
+      await this.nonceRedisService.getProcessingAddresses();
+
+    for (const address of addressesWithTransactions) {
+      const queue =
+        await this.nonceRedisService.getPendingTransactions(address);
       totalPendingTransactions += queue.length;
 
       // Track max queue length
@@ -466,8 +535,9 @@ export class NonceManager {
       }
 
       // Check for nonce gaps
-      const lastNonce = this.lastBroadcastedNonce.get(address);
-      if (lastNonce !== undefined && queue.length > 0) {
+      const lastNonce =
+        await this.nonceRedisService.getLastBroadcastedNonce(address);
+      if (lastNonce !== null && queue.length > 0) {
         const expectedNonce = lastNonce + 1;
         if (queue[0].nonce !== expectedNonce) {
           addressesWithGaps++;
@@ -475,23 +545,20 @@ export class NonceManager {
       }
     }
 
-    // Check for timed out addresses
-    for (const [address, startTime] of this.processingStartTime.entries()) {
-      const processingTime = now.getTime() - startTime.getTime();
-      if (processingTime > this.processingTimeout) {
-        timedOutAddresses++;
-      }
-    }
-
-    const addressCount = this.pendingTransactions.size;
+    // Check for timed out addresses using Redis-based timeout check
+    const timedOutAddresses = (
+      await this.nonceRedisService.releaseTimedOutLocks(this.processingTimeout)
+    ).length;
 
     return {
-      totalAddresses: addressCount,
+      totalAddresses: addressesWithTransactions.length,
       totalPendingTransactions,
-      processingAddresses: this.processingAddresses.size,
+      processingAddresses: processingAddresses.length,
       addressesWithGaps,
       averageQueueLength:
-        addressCount > 0 ? totalPendingTransactions / addressCount : 0,
+        addressesWithTransactions.length > 0
+          ? totalPendingTransactions / addressesWithTransactions.length
+          : 0,
       maxQueueLength,
       oldestTransactionAge: oldestTransactionTime
         ? now.getTime() - oldestTransactionTime.getTime()

@@ -367,8 +367,3 @@ export class RetryService {
     };
   }
 }
-
-/**
- * 기본 RetryService 인스턴스
- */
-export const defaultRetryService = new RetryService();

@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Lint 자동 수정
+echo "🔧 Running lint:fix..."
+pnpm run lint:fix
+
+# Format 자동 수정  
+echo "💅 Running format:fix..."
+pnpm run format:fix
+
+# TypeScript 타입 체크
+echo "🔍 Running typecheck..."
+pnpm run typecheck
+
+# 변경된 파일들을 다시 stage
+echo "📦 Re-staging formatted files..."
+git add .

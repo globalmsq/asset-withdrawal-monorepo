@@ -6,6 +6,14 @@ import {
 
 // Mock the dependencies
 jest.mock('../../services/broadcaster');
+jest.mock('@asset-withdrawal/shared', () => ({
+  LoggerService: jest.fn().mockImplementation(() => ({
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  })),
+}));
 jest.mock('../../services/redis-client', () => ({
   getRedisClient: jest.fn(),
   BroadcastRedisService: jest.fn(),
@@ -37,6 +45,21 @@ jest.mock('../../services/chain-config.service', () => ({
     isChainSupported: jest.fn().mockReturnValue(true),
     logSupportedChains: jest.fn(),
   }),
+}));
+jest.mock('../../services/nonce-manager', () => ({
+  NonceManager: jest.fn().mockImplementation(() => ({
+    addTransaction: jest.fn(),
+    getNextTransaction: jest.fn(),
+    startProcessing: jest.fn(),
+    completeTransaction: jest.fn(),
+    removeTransaction: jest.fn(),
+    isAddressProcessing: jest.fn(),
+    getQueueStatus: jest.fn(),
+    getPendingTransactions: jest.fn(),
+    clearAll: jest.fn(),
+    getNonceGapInfo: jest.fn(),
+    getStatistics: jest.fn(),
+  })),
 }));
 
 describe('SQSWorker', () => {

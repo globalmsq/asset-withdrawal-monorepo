@@ -1,5 +1,5 @@
 {
-  "name": "database",
+  "name": "@asset-withdrawal/database",
   "version": "1.0.0",
   "private": true,
   "main": "./lib/index.js",

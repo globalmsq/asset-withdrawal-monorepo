@@ -475,6 +475,9 @@ export class SQSWorker {
             // Check for nonce-related errors
             if (errorInfo.type === DLQ_ERROR_TYPE.NONCE_TOO_HIGH) {
               // Nonce gap detected, stop processing this address
+              // Get detailed gap information
+              const gapInfo = this.nonceManager.getNonceGapInfo(address);
+              
               this.logger.warn(
                 'Nonce gap detected, stopping queue processing',
                 {
@@ -482,14 +485,16 @@ export class SQSWorker {
                     address,
                     nonce: nextTx.nonce,
                     error: broadcastResult.error,
+                    gapInfo,
                   },
                 }
               );
 
-              // Send to DLQ for recovery
-              await this.sendToDLQ(
+              // Send to DLQ for recovery with gap information
+              await this.sendToDLQWithGapInfo(
                 broadcastMessage,
-                broadcastResult.error || 'Nonce gap detected'
+                broadcastResult.error || 'Nonce gap detected',
+                gapInfo
               );
 
               // Remove from queue but don't mark as complete
@@ -996,6 +1001,74 @@ export class SQSWorker {
         message,
         typeof error === 'string' ? error : error?.message
       );
+    } catch (dlqError) {
+      this.logger.error('Failed to send message to DLQ', dlqError, {
+        metadata: {
+          messageId: message.id,
+          transactionType: message.transactionType,
+        },
+      });
+      throw dlqError;
+    }
+  }
+
+  /**
+   * Send message to DLQ with nonce gap information
+   */
+  private async sendToDLQWithGapInfo(
+    message: UnifiedSignedTransactionMessage,
+    error: any,
+    gapInfo: any
+  ): Promise<void> {
+    if (!this.config.SIGNED_TX_DLQ_URL) {
+      this.logger.error('DLQ URL not configured, dropping message', null, {
+        metadata: {
+          messageId: message.id,
+        },
+      });
+      return;
+    }
+
+    try {
+      const errorInfo = ErrorClassifier.classifyError(error);
+
+      const dlqMessage: DLQMessage<UnifiedSignedTransactionMessage> = {
+        originalMessage: message,
+        error: {
+          type: errorInfo.type,
+          code: errorInfo.code,
+          message:
+            typeof error === 'string'
+              ? error
+              : error?.message || error?.toString() || 'Unknown error',
+          details: {
+            ...errorInfo.details,
+            nonceGapInfo: gapInfo, // Include nonce gap details
+          },
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          attemptCount: (message as any).attemptCount || 1,
+        },
+      };
+
+      await this.queueService.sendMessage(
+        this.config.SIGNED_TX_DLQ_URL,
+        dlqMessage
+      );
+
+      // Collect DLQ metrics with gap info
+      this.collectDLQMetric(
+        message,
+        typeof error === 'string' ? error : error?.message
+      );
+      
+      this.logger.info('Sent nonce gap message to DLQ', {
+        metadata: {
+          messageId: message.id,
+          gapInfo,
+        },
+      });
     } catch (dlqError) {
       this.logger.error('Failed to send message to DLQ', dlqError, {
         metadata: {

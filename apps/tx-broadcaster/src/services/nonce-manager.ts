@@ -195,6 +195,7 @@ export class NonceManager {
           address,
           expectedNonce: lastNonce + 1,
           actualNonce: nextTransaction.nonce,
+          gapSize: nextTransaction.nonce - (lastNonce + 1),
         },
       });
       return null;
@@ -378,6 +379,51 @@ export class NonceManager {
     this.addressLastProcessed.clear();
     this.roundRobinIndex = 0;
     this.logger.info('All queues cleared');
+  }
+
+  /**
+   * Get nonce gap information for an address
+   */
+  getNonceGapInfo(address: string): {
+    hasGap: boolean;
+    expectedNonce?: number;
+    actualNonce?: number;
+    gapSize?: number;
+    missingNonces?: number[];
+  } | null {
+    const queue = this.pendingTransactions.get(address);
+    
+    if (!queue || queue.length === 0) {
+      return null;
+    }
+
+    const lastNonce = this.lastBroadcastedNonce.get(address);
+    
+    if (lastNonce === undefined) {
+      // No previous broadcasts, no gap
+      return { hasGap: false };
+    }
+
+    const nextTransaction = queue[0];
+    const expectedNonce = lastNonce + 1;
+    
+    if (nextTransaction.nonce !== expectedNonce) {
+      // Calculate missing nonces
+      const missingNonces: number[] = [];
+      for (let n = expectedNonce; n < nextTransaction.nonce; n++) {
+        missingNonces.push(n);
+      }
+      
+      return {
+        hasGap: true,
+        expectedNonce,
+        actualNonce: nextTransaction.nonce,
+        gapSize: nextTransaction.nonce - expectedNonce,
+        missingNonces,
+      };
+    }
+
+    return { hasGap: false };
   }
 
   /**

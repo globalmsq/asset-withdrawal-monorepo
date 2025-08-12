@@ -1,4 +1,8 @@
 #!/usr/bin/env sh
+# This pre-commit hook automatically formats and lints staged files,
+# and then re-stages them before committing.
+# This ensures all committed code adheres to the project's code style.
+# Note: This will modify your staged files in place.
 . "$(dirname -- "$0")/_/husky.sh"
 
 # Auto-fix for linting

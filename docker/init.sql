@@ -160,7 +160,6 @@ CREATE TABLE IF NOT EXISTS `sent_transactions` (
     INDEX `sent_transactions_requestId_idx`(`requestId`),
     INDEX `sent_transactions_batchId_idx`(`batchId`),
     INDEX `sent_transactions_originalTxHash_idx`(`originalTxHash`),
-    INDEX `sent_transactions_sentTxHash_idx`(`sentTxHash`),
     INDEX `sent_transactions_status_idx`(`status`),
     INDEX `sent_transactions_chainId_idx`(`chainId`),
     PRIMARY KEY (`id`)

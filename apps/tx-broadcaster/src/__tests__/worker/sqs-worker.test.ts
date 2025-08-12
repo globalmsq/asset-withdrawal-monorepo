@@ -1,18 +1,18 @@
-import { SQSWorker } from './sqs-worker';
+import { SQSWorker } from '../../worker/sqs-worker';
 import {
   SignedTransactionMessage,
   UnifiedSignedTransactionMessage,
-} from '../services/queue-client';
+} from '../../services/queue-client';
 
 // Mock the dependencies
-jest.mock('../services/broadcaster');
-jest.mock('../services/redis-client', () => ({
+jest.mock('../../services/broadcaster');
+jest.mock('../../services/redis-client', () => ({
   getRedisClient: jest.fn(),
   BroadcastRedisService: jest.fn(),
   closeRedisClient: jest.fn(),
 }));
-jest.mock('../services/queue-client', () => ({
-  ...jest.requireActual('../services/queue-client'),
+jest.mock('../../services/queue-client', () => ({
+  ...jest.requireActual('../../services/queue-client'),
   QueueService: jest.fn().mockImplementation(() => ({
     receiveMessages: jest.fn(),
     sendMessage: jest.fn(),
@@ -20,7 +20,7 @@ jest.mock('../services/queue-client', () => ({
     sendToBroadcastQueue: jest.fn(),
   })),
 }));
-jest.mock('../services/chain-config.service', () => ({
+jest.mock('../../services/chain-config.service', () => ({
   ChainConfigService: jest.fn().mockImplementation(() => ({
     loadChainsConfig: jest.fn(),
     getChainConfig: jest.fn(),

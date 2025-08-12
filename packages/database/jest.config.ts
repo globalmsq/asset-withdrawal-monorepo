@@ -7,6 +7,7 @@ export default {
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
   coverageDirectory: '../../coverage/libs/data-access',
+  testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.spec.ts'],
   moduleNameMapper: {
     '^@asset-withdrawal/shared$': '<rootDir>/../shared/src/index.ts',
     '^@asset-withdrawal/database$': '<rootDir>/src/index.ts',

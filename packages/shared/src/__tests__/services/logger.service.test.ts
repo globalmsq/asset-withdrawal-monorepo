@@ -1,4 +1,4 @@
-import { LoggerService } from '../logger.service';
+import { LoggerService } from '../../services/logger.service';
 import { LogLevel } from '../../types/logger.types';
 
 // Mock winston

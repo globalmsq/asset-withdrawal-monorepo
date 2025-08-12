@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { ChainProvider } from '@asset-withdrawal/shared';
-import { MulticallService, BatchTransferRequest } from '../multicall.service';
+import { MulticallService, BatchTransferRequest } from '../../services/multicall.service';
 import { Logger } from '../../utils/logger';
 
 // Mock dependencies
@@ -115,7 +115,7 @@ describe('MulticallService - Multi-chain Support', () => {
 
       // Mock the actual MulticallService import to test the constructor behavior
       const { MulticallService: ActualMulticallService } = jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       );
       const multicallService = new ActualMulticallService(
         polygonProvider,
@@ -145,7 +145,7 @@ describe('MulticallService - Multi-chain Support', () => {
         1
       );
       const multicallService = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(ethereumProvider, mockLogger);
 
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -167,7 +167,7 @@ describe('MulticallService - Multi-chain Support', () => {
     it('should use correct gas limits for BSC', async () => {
       const bscProvider = createMockChainProvider('bsc', 'mainnet', 56);
       const multicallService = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(bscProvider, mockLogger);
 
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -193,7 +193,7 @@ describe('MulticallService - Multi-chain Support', () => {
         31337
       );
       const multicallService = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(localhostProvider, mockLogger);
 
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -221,7 +221,7 @@ describe('MulticallService - Multi-chain Support', () => {
         1
       );
       const multicallService = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(ethereumProvider, mockLogger);
 
       const batchSize = multicallService.getOptimalBatchSize(50000n); // 50k gas per call estimate
@@ -234,7 +234,7 @@ describe('MulticallService - Multi-chain Support', () => {
     it('should calculate larger batch size for BSC', async () => {
       const bscProvider = createMockChainProvider('bsc', 'mainnet', 56);
       const multicallService = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(bscProvider, mockLogger);
 
       const batchSize = multicallService.getOptimalBatchSize(50000n); // 50k gas per call estimate
@@ -260,7 +260,7 @@ describe('MulticallService - Multi-chain Support', () => {
         1
       );
       const ethereumMulticall = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(ethereumProvider, mockLogger);
 
       // Mock different gas estimates for different batch sizes
@@ -282,7 +282,7 @@ describe('MulticallService - Multi-chain Support', () => {
       // Test on BSC (larger batches expected)
       const bscProvider = createMockChainProvider('bsc', 'mainnet', 56);
       const bscMulticall = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(bscProvider, mockLogger);
 
       const bscResult = await bscMulticall.prepareBatchTransfer(transfers);
@@ -314,7 +314,7 @@ describe('MulticallService - Multi-chain Support', () => {
         137
       );
       const multicallService = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(polygonProvider, mockLogger);
 
       const transfers: BatchTransferRequest[] = [
@@ -349,7 +349,7 @@ describe('MulticallService - Multi-chain Support', () => {
         1
       );
       const multicallService = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(ethereumProvider, mockLogger);
 
       const transfers: BatchTransferRequest[] = [
@@ -384,7 +384,7 @@ describe('MulticallService - Multi-chain Support', () => {
       );
 
       const multicallService = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(localhostProvider, mockLogger);
 
       expect(ethers.Contract).toHaveBeenCalledWith(
@@ -419,7 +419,7 @@ describe('MulticallService - Multi-chain Support', () => {
           chainInfo.chainId
         );
         const multicallService = new (jest.requireActual(
-          '../multicall.service'
+          '../../services/multicall.service'
         ).MulticallService)(provider, mockLogger);
 
         expect(provider.getMulticall3Address).toHaveBeenCalled();
@@ -450,7 +450,7 @@ describe('MulticallService - Multi-chain Support', () => {
         137
       );
       const polygonMulticall = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(polygonProvider, mockLogger);
 
       mockMulticall3Contract.aggregate3.estimateGas.mockResolvedValueOnce(
@@ -469,7 +469,7 @@ describe('MulticallService - Multi-chain Support', () => {
         1
       );
       const ethereumMulticall = new (jest.requireActual(
-        '../multicall.service'
+        '../../services/multicall.service'
       ).MulticallService)(ethereumProvider, mockLogger);
 
       mockMulticall3Contract.aggregate3.estimateGas.mockResolvedValueOnce(

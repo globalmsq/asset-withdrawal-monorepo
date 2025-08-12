@@ -1,4 +1,4 @@
-import { SecureSecretsManager } from '../secrets-manager';
+import { SecureSecretsManager } from '../../services/secrets-manager';
 import { Config } from '../../config';
 import { Logger } from '../../utils/logger';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';

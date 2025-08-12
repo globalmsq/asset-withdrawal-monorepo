@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { ChainProvider } from '@asset-withdrawal/shared';
-import { MulticallService, BatchTransferRequest } from '../multicall.service';
+import { MulticallService, BatchTransferRequest } from '../../services/multicall.service';
 import { Logger } from '../../utils/logger';
 
 // Mock dependencies

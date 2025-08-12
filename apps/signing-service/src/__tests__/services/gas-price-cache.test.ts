@@ -1,4 +1,4 @@
-import { GasPriceCache } from './gas-price-cache';
+import { GasPriceCache } from '../../services/gas-price-cache';
 
 describe('GasPriceCache', () => {
   let cache: GasPriceCache;

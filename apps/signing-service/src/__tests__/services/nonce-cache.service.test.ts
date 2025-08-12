@@ -1,4 +1,4 @@
-import { NonceCacheService } from './nonce-cache.service';
+import { NonceCacheService } from '../../services/nonce-cache.service';
 
 // Mock Redis client
 const mockRedisClient = {

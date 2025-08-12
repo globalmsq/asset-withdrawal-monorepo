@@ -27,7 +27,9 @@
             "title": "[BFS-3] MulticallService 클래스 구현",
             "description": "여러 ERC20 전송을 하나의 트랜잭션으로 배치 처리하는 MulticallService 핵심 클래스 개발",
             "jiraKey": "BFS-3",
-            "dependencies": ["11.1"],
+            "dependencies": [
+              "11.1"
+            ],
             "details": "MulticallService 클래스 구조 설계, 배치 전송 요청 처리 메서드, Multicall3 컨트랙트와의 인터페이스 구현, 에러 핸들링 로직 추가\n<info added on 2025-07-21T14:35:33.022Z>\nMulticallService 클래스 구현이 완료되었습니다. apps/signing-service/src/services/multicall.service.ts 파일에 다음 주요 메서드들이 구현되었습니다: prepareBatchTransfer (배치 전송 준비), encodeBatchTransaction (트랜잭션 인코딩), validateBatch (배치 검증), getOptimalBatchSize (최적 배치 크기 계산). ChainProvider를 통해 Multicall3 컨트랙트 주소를 동적으로 가져오도록 설계하였으며, apps/signing-service/src/services/__tests__/multicall.service.test.ts 테스트 파일을 작성하여 모든 기능에 대한 검증을 완료했습니다.\n</info added on 2025-07-21T14:35:33.022Z>",
             "status": "done",
             "testStrategy": ""
@@ -37,7 +39,9 @@
             "title": "[BFS-14] ABI 인코딩 및 calldata 생성 로직 구현",
             "description": "ERC20 전송을 위한 ABI 인코딩과 Multicall3용 calldata 생성 로직 개발",
             "jiraKey": "BFS-14",
-            "dependencies": ["11.2"],
+            "dependencies": [
+              "11.2"
+            ],
             "details": "ERC20 transfer 함수 ABI 인코딩, Multicall3 aggregate 함수를 위한 calldata 배열 생성, 인코딩 정확성 검증, 바이트 데이터 최적화",
             "status": "done",
             "testStrategy": ""
@@ -47,7 +51,9 @@
             "title": "[BFS-15] 배치 크기 최적화 로직 구현",
             "description": "가스 한도 내에서 최대 전송 수를 계산하는 배치 크기 최적화 기능 개발",
             "jiraKey": "BFS-15",
-            "dependencies": ["11.3"],
+            "dependencies": [
+              "11.3"
+            ],
             "details": "가스 사용량 추정 로직, 블록 가스 한도 대비 최적 배치 크기 계산, 동적 배치 크기 조정 알고리즘, 가스비 효율성 분석",
             "status": "done",
             "testStrategy": ""
@@ -57,7 +63,9 @@
             "title": "[BFS-16] TransactionSigner 확장 및 배치 서명 기능 추가",
             "description": "기존 TransactionSigner에 signBatchTransaction() 메서드를 추가하여 배치 트랜잭션 서명 지원",
             "jiraKey": "BFS-16",
-            "dependencies": ["11.4"],
+            "dependencies": [
+              "11.4"
+            ],
             "details": "signBatchTransaction() 메서드 구현, 단일 트랜잭션과 배치 트랜잭션 서명 로직 통합, nonce 관리 개선, 서명 검증 로직 추가",
             "status": "done",
             "testStrategy": ""
@@ -67,7 +75,9 @@
             "title": "[BFS-17] 데이터 모델 업데이트 및 통합 테스트",
             "description": "WithdrawalRequest 모델에 type 필드 추가 및 전체 Multicall3 기능 통합 테스트 수행",
             "jiraKey": "BFS-17",
-            "dependencies": ["11.5"],
+            "dependencies": [
+              "11.5"
+            ],
             "details": "WithdrawalRequest 모델에 type: 'SINGLE' | 'BATCH' 필드 추가, 데이터베이스 스키마 업데이트, 단일/배치 전송 통합 테스트, 성능 비교 테스트 수행",
             "status": "done",
             "testStrategy": ""
@@ -87,7 +97,9 @@
             "title": "[BFS-19] MulticallService 클래스 리팩토링 및 확장",
             "description": "기존 MulticallService를 확장하여 실제 배치 전송 기능 완성 및 성능 최적화",
             "jiraKey": "BFS-19",
-            "dependencies": ["11.7"],
+            "dependencies": [
+              "11.7"
+            ],
             "details": "MulticallService에서 실제 Multicall3 컨트랙트 호출 로직 구현, 배치 전송 결과 파싱 및 처리, 가스 추정 로직 개선, aggregate3 메서드를 사용한 배치 호출 구현, 실패한 전송 건 개별 처리 로직 추가",
             "status": "done",
             "testStrategy": ""
@@ -97,7 +109,9 @@
             "title": "[BFS-20] ERC-20 ABI 인코딩 및 calldata 생성 로직 구현",
             "description": "ERC-20 transfer 메서드를 위한 ABI 인코딩 로직 및 Multicall3용 calldata 생성 기능 구현",
             "jiraKey": "BFS-20",
-            "dependencies": ["11.8"],
+            "dependencies": [
+              "11.8"
+            ],
             "details": "Ethers.js Interface를 사용한 transfer 메서드 인코딩, Multicall3.Call 구조체 생성 로직, 다중 토큰 전송을 위한 calldata 배열 생성, 각 전송 건별 target, allowFailure, callData 설정, ABI 인코딩 오류 핸들링",
             "status": "done",
             "testStrategy": ""
@@ -107,7 +121,9 @@
             "title": "[BFS-21] 배치 크기 최적화 및 가스 계산 로직",
             "description": "가스 한도 내에서 최적의 배치 크기를 계산하고 동적으로 조정하는 기능 구현",
             "jiraKey": "BFS-21",
-            "dependencies": ["11.9"],
+            "dependencies": [
+              "11.9"
+            ],
             "details": "가스 한도 기반 최대 배치 크기 계산 알고리즘, 토큰별 전송 비용 추정, 배치 오버헤드 고려한 최적화, 동적 배치 분할 로직, Polygon 네트워크 가스 특성 반영, 배치 크기별 성능 테스트 및 벤치마킹\n<info added on 2025-07-22T15:13:46.918Z>\n구현 완료: Polygon 네트워크 기반 가스 최적화 시스템 - 30M 가스 한도와 75% 안전 마진을 적용한 동적 배치 분할 알고리즘 구현, 토큰별 가스 비용 학습 캐싱 시스템 도입으로 실시간 비용 예측 정확도 향상, 배치 크기에 따른 점감 가스 비용 계산 로직으로 배치 효율성 극대화, 향상된 fallback 가스 추정 메커니즘으로 네트워크 혼잡 상황 대응 강화, 모든 단위 테스트 및 통합 테스트 통과 확인\n</info added on 2025-07-22T15:13:46.918Z>",
             "status": "done",
             "testStrategy": ""
@@ -117,7 +133,9 @@
             "title": "[BFS-22] TransactionSigner 배치 전송 기능 확장",
             "description": "TransactionSigner 클래스에 배치 트랜잭션 서명 기능 추가 및 기존 단일 전송과의 통합",
             "jiraKey": "BFS-22",
-            "dependencies": ["11.10"],
+            "dependencies": [
+              "11.10"
+            ],
             "details": "signBatchTransaction() 메서드 구현, 배치 트랜잭션 가스 추정 로직, EIP-1559 트랜잭션 타입 지원, 배치와 단일 전송 구분 로직, nonce 관리 개선, 트랜잭션 서명 실패 시 개별 전송으로 fallback 메커니즘\n<info added on 2025-07-22T15:20:23.097Z>\nBFS-22 구현 완료. signBatchTransaction() 메서드와 signBatchTransactionWithSplitting() 메서드 추가하여 Multicall3 배치 전송 서명 지원. getGasPrice() 메서드 추출로 코드 중복 제거. 단일 및 분할 배치, 검증 실패 처리, 가스 추정, Redis 연결 에러 처리, 대용량 배치 시나리오 등에 대한 포괄적인 테스트 커버리지 구현. MulticallService와의 통합으로 배치 준비 및 인코딩 지원. Polygon 네트워크에서 EIP-1559 트랜잭션 지원. 배치 분할 시 순차적 nonce 관리 구현. 모든 테스트, 린트 검사, 타입 검사 통과 확인.\n</info added on 2025-07-22T15:20:23.097Z>",
             "status": "done",
             "testStrategy": ""
@@ -127,7 +145,9 @@
             "title": "[BFS-23] WithdrawalRequest 모델 업데이트 및 배치 처리 지원",
             "description": "WithdrawalRequest 모델에 배치 전송 타입 필드 추가 및 관련 데이터베이스 스키마 업데이트",
             "jiraKey": "BFS-23",
-            "dependencies": ["11.11"],
+            "dependencies": [
+              "11.11"
+            ],
             "details": "WithdrawalRequest에 type 필드 추가 ('SINGLE' | 'BATCH'), batchId 필드 추가로 배치 그룹 관리, Prisma 스키마 업데이트, 기존 레코드와의 호환성 보장, 배치 전송 상태 추적 로직, 배치 내 개별 전송 상태 관리 기능",
             "status": "done",
             "testStrategy": ""
@@ -198,7 +218,9 @@
             "description": "큐 메시지를 분석하여 배치/단일 처리를 동적으로 결정하고 Multicall3 컨트랙트를 활용한 배치 처리 최적화 구현 [Updated: 2025. 7. 22.] [Updated: 2025. 7. 22.] [Updated: 2025. 7. 22.]",
             "jiraKey": "BFS-30",
             "status": "done",
-            "dependencies": ["11.18"],
+            "dependencies": [
+              "11.18"
+            ],
             "details": "SigningWorker 클래스의 processBatch() 메서드 리팩토링으로 동적 배치 처리 로직 구현:\n\n1. shouldUseBatchProcessing() 메서드 구현\n   - 환경 변수 ENABLE_BATCH_PROCESSING 체크 (기본값: true)\n   - 큐 메시지 수가 MIN_BATCH_SIZE (기본: 5) 이상인지 확인\n   - 동일 토큰 주소의 트랜잭션이 BATCH_THRESHOLD (기본: 3) 이상인지 검증\n   - 예상 가스 절약률이 MIN_GAS_SAVINGS_PERCENT (기본: 20%) 이상인지 계산\n\n2. groupByToken() 메서드 구현\n   ```typescript\n   private groupByToken(messages: Message<WithdrawalMessage>[]): Map<string, Message<WithdrawalMessage>[]> {\n     return messages.reduce((groups, message) => {\n       const tokenAddress = message.body.tokenAddress.toLowerCase();\n       if (!groups.has(tokenAddress)) {\n         groups.set(tokenAddress, []);\n       }\n       groups.get(tokenAddress)!.push(message);\n       return groups;\n     }, new Map());\n   }\n   ```\n\n3. calculateGasSavings() 메서드 구현\n   - 개별 처리 예상 가스: count * SINGLE_TX_GAS_ESTIMATE\n   - 배치 처리 예상 가스: BATCH_BASE_GAS + (count * BATCH_PER_TX_GAS)\n   - 절약률 계산: ((개별 - 배치) / 개별) * 100\n\n4. processBatch() 메서드 수정\n   ```typescript\n   async processBatch(messages: Message<WithdrawalMessage>[]): Promise<void> {\n     if (await this.shouldUseBatchProcessing(messages)) {\n       const tokenGroups = this.groupByToken(messages);\n       \n       for (const [tokenAddress, groupMessages] of tokenGroups) {\n         if (groupMessages.length >= this.config.BATCH_THRESHOLD) {\n           await this.processBatchGroup(tokenAddress, groupMessages);\n         } else {\n           await this.processSingleTransactions(groupMessages);\n         }\n       }\n     } else {\n       await this.processSingleTransactions(messages);\n     }\n   }\n   ```\n\n5. processBatchGroup() 메서드 구현\n   - BatchTransaction 엔티티 생성 (status: 'pending')\n   - 개별 Transaction 레코드 생성 및 batchId 연결\n   - Multicall3 컨트랙트 호출 데이터 생성\n   - 배치 트랜잭션 서명 및 전송\n   - 결과에 따른 상태 업데이트\n\n6. 환경 변수 설정\n   ```env\n   ENABLE_BATCH_PROCESSING=true\n   MIN_BATCH_SIZE=5\n   BATCH_THRESHOLD=3\n   MIN_GAS_SAVINGS_PERCENT=20\n   SINGLE_TX_GAS_ESTIMATE=65000\n   BATCH_BASE_GAS=100000\n   BATCH_PER_TX_GAS=25000\n   ```\n\n7. 로깅 및 메트릭 추가\n   - 배치 처리 결정 로직 로깅\n   - 가스 절약 예상치 로깅\n   - 배치 처리 성공/실패 메트릭\n<info added on 2025-07-22T14:01:02.619Z>\n종속성 업데이트: 이전 종속성인 11, 11.3, 11.4에서 11.18 (WithdrawalRequest 모델 및 데이터베이스 스키마 업데이트)로 변경. 11.11, 11.11.3, 11.11.4는 존재하지 않는 태스크였으므로 제거됨.\n</info added on 2025-07-22T14:01:02.619Z>\n<info added on 2025-07-22T14:09:36.960Z>\nJira 이슈 키: BFS-30\n</info added on 2025-07-22T14:09:36.960Z>\n<info added on 2025-07-22T14:13:27.897Z>\n제목을 \"[BFS-30] SigningWorker 동적 배치 처리 로직 구현\"으로 업데이트함. Jira 이슈 키 BFS-30이 제목에 접두사로 추가됨.\n</info added on 2025-07-22T14:13:27.897Z>\n<info added on 2025-07-23T02:11:54.817Z>\n코드베이스 분석 결과:\n- SigningWorker가 BaseWorker를 상속받아 processBatch() 메서드 사용\n- 현재는 개별 트랜잭션 처리만 구현되어 있음\n- MulticallService가 이미 구현되어 배치 처리 기능 제공\n- BatchTransaction 모델이 Prisma 스키마에 정의됨\n- Config 클래스를 통한 환경 변수 관리 구조 확인\n\n구현 준비사항:\n- BaseWorker의 기존 processBatch() 메서드를 오버라이드하여 동적 배치 처리 로직 추가\n- MulticallService와의 연동을 통한 실제 배치 트랜잭션 실행\n- Config 클래스에 배치 처리 관련 환경 변수 추가 필요\n- BatchTransaction 모델을 활용한 배치 상태 관리 구현\n</info added on 2025-07-23T02:11:54.817Z>\n<info added on 2025-07-23T02:19:48.749Z>\n구현 완료 - 2025년 7월 23일:\n\n✅ 주요 구현 사항:\n- shouldUseBatchProcessing(): 환경변수(ENABLE_BATCH_PROCESSING), 메시지 수(MIN_BATCH_SIZE), 토큰 그룹 크기(BATCH_THRESHOLD), 가스 절약률(MIN_GAS_SAVINGS_PERCENT) 기반 동적 판단 로직 완성\n- groupByToken(): 토큰 주소별 메시지 그룹화 메서드 구현\n- calculateGasSavings(): 배치 vs 개별 처리 가스 비용 비교 및 절약률 계산 로직 구현\n- processBatch() 메서드 오버라이드: BaseWorker 상속하여 배치/개별 처리 분기 로직 완성\n- processBatchTransactions(): 토큰 그룹별 배치 처리 실행 메서드 구현\n- processBatchGroup(): BatchTransaction 엔티티 생성, Multicall3 컨트랙트 연동, 트랜잭션 서명 및 상태 관리 완성\n\n✅ 검증 완료:\n- 모든 단위 테스트 작성 및 통과\n- TypeScript 타입체크 통과\n- ESLint 코드 품질 검사 통과\n- MulticallService와의 연동 검증 완료\n\n구현된 기능으로 동적 배치 처리 최적화를 통한 가스 비용 절약 및 트랜잭션 처리 효율성 향상 달성.\n</info added on 2025-07-23T02:19:48.749Z>",
             "testStrategy": "1. shouldUseBatchProcessing() 단위 테스트\n   - 환경 변수가 false일 때 항상 false 반환 확인\n   - 메시지 수가 MIN_BATCH_SIZE 미만일 때 false 반환 확인\n   - 동일 토큰 그룹이 BATCH_THRESHOLD 미만일 때 false 반환 확인\n   - 가스 절약률이 MIN_GAS_SAVINGS_PERCENT 미만일 때 false 반환 확인\n   - 모든 조건 충족 시 true 반환 확인\n\n2. groupByToken() 단위 테스트\n   - 빈 메시지 배열 처리 확인\n   - 단일 토큰 주소 그룹핑 확인\n   - 여러 토큰 주소 정확한 그룹핑 확인\n   - 대소문자 정규화 확인 (0xABC와 0xabc가 같은 그룹)\n\n3. calculateGasSavings() 단위 테스트\n   - 다양한 트랜잭션 수에 대한 절약률 계산 정확성\n   - 음수 절약률 처리 (배치가 더 비쌀 때)\n   - 경계값 테스트 (1개, 2개, 임계값 근처)\n\n4. processBatch() 통합 테스트\n   - 배치 처리 비활성화 시 모든 트랜잭션 개별 처리 확인\n   - 메시지 수 부족 시 개별 처리 확인\n   - 동일 토큰 그룹이 임계값 이상일 때만 배치 처리 확인\n   - 혼합 시나리오 테스트 (일부는 배치, 일부는 개별)\n\n5. processBatchGroup() 통합 테스트\n   - BatchTransaction 레코드 생성 확인\n   - 개별 Transaction 레코드의 batchId 연결 확인\n   - Multicall3 호출 데이터 정확성 검증\n   - 성공/실패 시 상태 업데이트 확인\n\n6. E2E 테스트\n   - 실제 큐 메시지로 전체 플로우 테스트\n   - 배치 처리 후 블록체인 상태 검증\n   - 가스 사용량 실제 측정 및 예상치 비교"
           }
@@ -208,8 +230,10 @@
         "id": 12,
         "title": "[BFS-5] tx-broadcaster 서비스 구현",
         "description": "서명된 트랜잭션을 Polygon 네트워크에 브로드캐스트하고 database 패키지를 통해 트랜잭션 상태를 직접 관리하는 서비스 개발",
-        "status": "in-progress",
-        "dependencies": [11],
+        "status": "done",
+        "dependencies": [
+          11
+        ],
         "priority": "high",
         "details": "Nx를 사용하여 tx-broadcaster 앱 생성 (nx g @nx/node:app tx-broadcaster), signed-tx-queue에서 SQS 메시지 폴링, database 패키지를 통한 직접적인 데이터베이스 트랜잭션 상태 관리, Ethers.js v6를 사용하여 Polygon 네트워크 브로드캐스트, 트랜잭션 상태를 SIGNED → BROADCASTING → BROADCASTED/FAILED로 업데이트, txHash, broadcastedAt, blockNumber, 에러 메시지 저장, nonce 충돌 감지 및 DLQ 처리, RPC 실패 시 지수 백오프 재시도 로직, 브로드캐스트 성공 후 tx-monitor-queue에 메시지 전송, 배치 트랜잭션의 경우 batchId로 관련 트랜잭션들 일괄 상태 업데이트",
         "testStrategy": "정상 브로드캐스트 플로우 테스트, nonce 충돌 시나리오 테스트, RPC 실패 및 재시도 테스트, 재시도 한도 초과 시 DLQ 처리 테스트, 단일/배치 트랜잭션 브로드캐스트 테스트, database 패키지를 통한 상태 업데이트 테스트, 통합 테스트 환경에서 10개 테스트 케이스 실행 검증",
@@ -228,7 +252,9 @@
             "title": "SQS 폴링 로직 구현 및 signed-tx-queue 연결",
             "description": "signed-tx-queue에서 서명된 트랜잭션 메시지를 지속적으로 폴링하는 로직을 구현합니다 [Updated: 2025. 8. 4.]",
             "status": "done",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "QueueConsumer 클래스 구현, signed-tx-queue URL 설정, 메시지 수신 및 파싱 로직, visibility timeout 설정 (300초), 메시지 삭제 처리, 에러 발생 시 DLQ 전송 로직\n<info added on 2025-08-04T09:04:29.412Z>\n제목이 '[BFS-49] SQS 폴링 로직 구현 및 signed-tx-queue 연결'로 변경되었습니다. 이는 BFS-49 작업 키를 참조하여 작업의 식별성을 개선하고 Jira 연동을 위한 표준 명명 규칙을 준수합니다.\n</info added on 2025-08-04T09:04:29.412Z>\n<info added on 2025-08-04T09:34:01.455Z>\ntx-broadcaster 서비스의 전체 SQS 폴링 및 메시지 처리 시스템이 완료되었습니다. SQS Worker를 통한 메시지 폴링 및 처리, Redis 기반 중복 방지 시스템, Express 서버와 워커의 병렬 실행 구조, ethers.js 기반 블록체인 브로드캐스팅, 포괄적인 에러 처리 및 재시도 메커니즘이 모두 구현되었습니다. 이로써 signed-tx-queue에서 메시지를 수신하여 broadcast-tx-queue로 전달하는 완전한 파이프라인이 구축되었습니다.\n</info added on 2025-08-04T09:34:01.455Z>",
             "testStrategy": ""
           },
@@ -237,7 +263,9 @@
             "title": "Polygon 네트워크 브로드캐스트 로직 구현",
             "description": "Ethers.js v6를 사용하여 서명된 트랜잭션을 Polygon 네트워크에 브로드캐스트하는 서비스를 구현합니다 [Updated: 2025. 8. 4.]",
             "status": "done",
-            "dependencies": [2],
+            "dependencies": [
+              2
+            ],
             "details": "BroadcastService 클래스 구현, Ethers.js v6 Provider 설정 (Polygon RPC), sendRawTransaction 메서드 구현, 트랜잭션 해시 반환 처리, 네트워크별 설정 관리 (Amoy, Mainnet)\n<info added on 2025-08-04T09:04:46.664Z>\n제목이 '[BFS-50] Polygon 네트워크 브로드캐스트 로직 구현'로 변경됨. 이는 상위 작업 BFS-52의 하위 기능으로 Polygon 네트워크 전용 브로드캐스트 로직 구현에 집중하는 것을 명확히 함.\n</info added on 2025-08-04T09:04:46.664Z>",
             "testStrategy": ""
           },
@@ -246,7 +274,9 @@
             "title": "TransactionService 클래스 구현 및 상태 관리 로직",
             "description": "트랜잭션 라이프사이클 문서의 3단계 상태 전이를 위한 TransactionService 클래스를 구현하고 database 패키지를 연동합니다",
             "status": "done",
-            "dependencies": [3],
+            "dependencies": [
+              3
+            ],
             "details": "TransactionService 클래스 구현: updateToBroadcasting(requestId) - SIGNED → BROADCASTING 상태 전이, updateToBroadcasted(requestId, txHash, broadcastedAt) - BROADCASTING → BROADCASTED 상태 전이, updateToFailed(requestId, errorMessage) - 실패 시 FAILED 상태 처리, updateBatchToBroadcasting/Broadcasted(batchId) - 배치 트랜잭션 일괄 상태 관리, WithdrawalRequest.status, txHash, broadcastedAt 필드 업데이트, SignedSingleTransaction/SignedBatchTransaction 테이블 연동\n<info added on 2025-08-04T14:34:18.209Z>\n완료 상세사항:\n\n**TransactionService 클래스 구현 완료**\n- updateToBroadcasting(): SIGNED → BROADCASTING 상태 전이, 타임스탬프 기록\n- updateToBroadcasted(): BROADCASTING → BROADCASTED 상태 전이, txHash와 broadcastedAt 필드 저장\n- updateToFailed(): 브로드캐스트 실패 시 FAILED 상태 처리, 에러 메시지 저장\n- updateBatchToBroadcasting/Broadcasted(): 배치 트랜잭션 일괄 상태 관리 메서드\n\n**TransactionBroadcaster 연동 완료**\n- broadcastTransaction() 메서드에 상태 관리 로직 완전 통합\n- 브로드캐스트 전후 상태 전이 자동화 (SIGNED → BROADCASTING → BROADCASTED/FAILED)\n- 에러 핸들링 및 상태 롤백 로직 포함\n\n**데이터베이스 연동 완료**\n- database 패키지 의존성 정상 추가, Prisma 클라이언트 연결 확인\n- WithdrawalRequest, SignedSingleTransaction, SignedBatchTransaction 테이블 모든 필드 업데이트 지원\n- 단일/배치 트랜잭션 시나리오 모두 검증 완료\n\n**검증 및 테스트**\n- 트랜잭션 라이프사이클 3단계 정상 플로우 구현 완성\n- 문서 정의와 상태 전이 로직 정확히 일치 확인\n- 모든 에러 시나리오 처리 및 데이터 무결성 보장\n</info added on 2025-08-04T14:34:18.209Z>",
             "testStrategy": "상태 전이 로직 테스트, 단일/배치 트랜잭션 상태 업데이트 테스트, database 패키지 연동 테스트, 실패 시나리오 처리 테스트"
           },
@@ -255,7 +285,9 @@
             "title": "TransactionBroadcaster 클래스와 상태 관리 통합",
             "description": "TransactionBroadcaster 클래스의 broadcastTransaction() 메서드에 상태 관리 로직을 통합하여 자동화된 상태 전이를 구현합니다",
             "status": "done",
-            "dependencies": [4],
+            "dependencies": [
+              4
+            ],
             "details": "broadcastTransaction() 메서드에 상태 관리 로직 통합, 브로드캐스트 전후 상태 업데이트 자동화 (SIGNED → BROADCASTING → BROADCASTED), 성공/실패 시나리오별 적절한 상태 전이 처리, TransactionService와 BroadcastService 간 협력 구조 구현, 트랜잭션 라이프사이클 문서의 정상 플로우 완전 구현",
             "testStrategy": "통합된 브로드캐스트 및 상태 관리 테스트, 성공/실패 시나리오별 상태 전이 테스트, 자동화된 상태 업데이트 검증 테스트"
           },
@@ -264,7 +296,9 @@
             "title": "tx-monitor-queue 메시지 전송 로직 구현",
             "description": "브로드캐스트 성공 후 tx-monitor-queue에 메시지를 전송하는 로직을 구현합니다",
             "status": "done",
-            "dependencies": [5],
+            "dependencies": [
+              5
+            ],
             "details": "tx-monitor-queue 연결 설정, 브로드캐스트 성공 시 모니터링 메시지 전송, 메시지 포맷 정의 (txHash, broadcastedAt, blockNumber 포함), 단일 및 배치 트랜잭션 메시지 처리, 메시지 전송 실패 시 재시도 로직",
             "testStrategy": "메시지 전송 성공 테스트, 메시지 포맷 검증 테스트, 전송 실패 및 재시도 테스트"
           },
@@ -273,7 +307,9 @@
             "title": "에러 처리 및 재시도 로직 구현",
             "description": "nonce 충돌, RPC 실패 등의 에러를 처리하고 지수 백오프 재시도 로직을 구현합니다",
             "status": "done",
-            "dependencies": [6],
+            "dependencies": [
+              6
+            ],
             "details": "RetryService 구현 (지수 백오프 알고리즘), nonce 충돌 감지 및 처리 로직, RPC 에러 분류 및 재시도 가능 여부 판단, 최대 재시도 횟수 설정 (5회), 재시도 실패 시 FAILED 상태 및 DLQ 전송, 에러별 모니터링 메트릭 수집, database를 통한 에러 메시지 저장",
             "testStrategy": "nonce 충돌 처리 테스트, RPC 실패 재시도 테스트, 재시도 한도 초과 시 DLQ 처리 테스트, 에러 메시지 저장 테스트"
           },
@@ -282,7 +318,9 @@
             "title": "tx-broadcaster 서비스 통합 테스트 실행",
             "description": "Docker+LocalStack+SQS Admin UI+Redis+Hardhat 환경에서 10개 테스트 케이스를 통해 tx-broadcaster 서비스의 전체 기능을 종합 검증합니다",
             "status": "done",
-            "dependencies": [7],
+            "dependencies": [
+              7
+            ],
             "details": "테스트 환경 구성: Docker Compose로 서비스 실행, LocalStack(SQS), SQS Admin UI(포트 3999), Redis Insight(포트 8001), Hardhat 노드(포트 8545)\n\n10개 테스트 케이스 실행:\n- TC-01: 정상 브로드캐스트 플로우 검증\n- TC-02: 네트워크 오류 시 재시도 로직 검증\n- TC-03: Nonce 충돌 감지 및 처리 검증\n- TC-04: 중복 메시지 방지 시스템 검증\n- TC-05: 통합 메시지 처리 파이프라인 검증\n- TC-06: 배치 트랜잭션 처리 검증\n- TC-07: DLQ(Dead Letter Queue) 처리 검증\n- TC-08: 큐 간 통신 정상성 검증\n- TC-09: 체인ID 검증 로직 테스트\n- TC-10: 통계 수집 및 모니터링 검증\n\n검증 체크리스트:\n1. 서비스 정상 실행 확인\n2. 테스트 메시지 전송 및 수신 확인\n3. 애플리케이션 로그를 통한 처리 과정 확인\n4. Redis 상태 및 중복 방지 동작 확인\n5. SQS 큐 메시지 처리 상태 확인\n6. 에러 처리 및 상태 전이 확인\n7. 재시도 로직 동작 확인\n8. DLQ로 메시지 전송 확인\n9. 통계 데이터 수집 확인\n10. 전체 파이프라인 통합 동작 검증",
             "testStrategy": "Docker 환경 통합 테스트, 10개 테스트 케이스 시나리오 검증, 모든 구성 요소 간 통신 및 상태 전이 확인, 에러 처리 및 복구 로직 검증"
           },
@@ -300,7 +338,9 @@
             "title": "Nonce 순서 보장 시스템 구현",
             "description": "NonceManager 서비스를 생성하여 주소별 nonce 추적 및 관리, Redis 기반 상태 관리, nonce 갭 감지 및 복구 메커니즘을 구현합니다. [Updated: 2025. 8. 7.]",
             "status": "done",
-            "dependencies": [12],
+            "dependencies": [
+              12
+            ],
             "details": "**구현 목표**\n- 블록체인 트랜잭션의 nonce 순서를 보장하는 중앙화된 관리 시스템 구축\n- Redis를 활용한 고성능 nonce 상태 관리 및 동시성 제어\n- nonce 갭 발생 시 자동 감지 및 복구 메커니즘으로 트랜잭션 안정성 확보\n\n**1. NonceManager 서비스 생성**\n- `packages/shared/src/services/nonce-manager.service.ts` 생성\n- 주소별 nonce 추적을 위한 인터페이스 및 클래스 구현\n```typescript\ninterface NonceManagerConfig {\n  redisUrl: string;\n  gapDetectionInterval: number;\n  maxGapSize: number;\n  recoveryTimeoutMs: number;\n}\n\nclass NonceManager {\n  constructor(\n    private redis: Redis,\n    private logger: Logger,\n    private config: NonceManagerConfig\n  ) {}\n\n  async getNextNonce(address: string): Promise<number>;\n  async reserveNonce(address: string, txHash: string): Promise<number>;\n  async confirmNonce(address: string, nonce: number, txHash: string): Promise<void>;\n  async detectGaps(): Promise<NonceGap[]>;\n  async recoverGap(address: string, gap: NonceGap): Promise<void>;\n}\n```\n\n**2. Redis 기반 상태 관리**\n- 주소별 nonce 상태를 Redis Hash로 관리\n- Key 구조: `nonce:{address}` → {current: number, pending: Set<number>, confirmed: Set<number>}\n- Redis 트랜잭션(MULTI/EXEC)을 사용한 원자적 nonce 할당\n- TTL 설정을 통한 오래된 nonce 데이터 자동 정리\n\n**3. Nonce 갭 감지 시스템**\n- 주기적으로(기본 30초) 모든 주소의 nonce 상태 스캔\n- pending과 confirmed nonce 사이의 갭 식별\n- 임계값(기본 5개) 이상의 갭 발견 시 알림 및 복구 트리거\n```typescript\ninterface NonceGap {\n  address: string;\n  expectedNonce: number;\n  actualNonce: number;\n  gapSize: number;\n  detectedAt: Date;\n}\n```\n\n**4. 복구 메커니즘 구현**\n- 갭이 발견된 nonce에 대한 블록체인 상태 조회\n- 트랜잭션이 실제로 실패했는지 확인 후 nonce 재할당\n- 복구 불가능한 경우 DLQ로 메시지 전송 및 수동 처리 요청\n- 복구 과정 중 해당 주소의 새로운 트랜잭션 처리 일시 중단\n\n**5. 동시성 제어 및 락 메커니즘**\n- Redis 분산 락을 사용한 주소별 nonce 할당 동시성 제어\n- Lock timeout 설정을 통한 데드락 방지\n- Lock 획득 실패 시 재시도 로직 구현\n<info added on 2025-08-07T12:45:39.158Z>\n**수정된 구현 목표**\n- tx-broadcaster 서비스 내부에 NonceManager 클래스를 구현하여 주소별 트랜잭션 순차 처리\n- 메모리 기반 주소별 큐 관리로 nonce 순서 보장\n- Redis 대신 인메모리 데이터 구조를 사용한 경량화된 nonce 관리\n\n**1. 내부 NonceManager 클래스 구현**\n- `apps/tx-broadcaster/src/services/nonce-manager.ts` 파일에 구현\n- 주소별 트랜잭션 큐 관리를 위한 인터페이스 및 클래스\n```typescript\ninterface QueuedTransaction {\n  txHash: string;\n  nonce: number;\n  signedTx: string;\n  timestamp: Date;\n}\n\nclass NonceManager {\n  private pendingTransactions = new Map<string, QueuedTransaction[]>(); // 주소별 트랜잭션 큐\n  private lastBroadcastedNonce = new Map<string, number>(); // 주소별 마지막 브로드캐스트된 nonce\n  private processingAddresses = new Set<string>(); // 현재 처리 중인 주소들\n\n  async queueTransaction(address: string, transaction: QueuedTransaction): Promise<void>;\n  async processNextTransaction(address: string): Promise<QueuedTransaction | null>;\n  isAddressProcessing(address: string): boolean;\n  setAddressProcessing(address: string, processing: boolean): void;\n}\n```\n\n**2. 메모리 기반 주소별 큐 관리**\n- pendingTransactions Map: 주소별로 대기 중인 트랜잭션들을 nonce 순서대로 저장\n- 트랜잭션 추가 시 nonce 순서에 따라 큐에 삽입\n- 트랜잭션 처리 시 FIFO 순서로 dequeue 처리\n\n**3. 순차 처리 보장 메커니즘**\n- processingAddresses Set으로 동일 주소의 동시 처리 방지\n- 주소별로 한 번에 하나의 트랜잭션만 브로드캐스트 처리\n- 트랜잭션 완료 후 다음 대기 중인 트랜잭션 자동 처리\n\n**4. Nonce 추적 및 검증**\n- lastBroadcastedNonce Map으로 주소별 마지막 성공 nonce 추적\n- 새 트랜잭션의 nonce가 예상 값(lastNonce + 1)과 일치하는지 검증\n- nonce 순서가 맞지 않는 트랜잭션은 큐에서 대기\n\n**5. tx-broadcaster와의 통합**\n- SQS 메시지 처리 시 NonceManager를 통해 트랜잭션 큐잉\n- 브로드캐스트 성공/실패 시 lastBroadcastedNonce 업데이트\n- 주소별 순차 처리를 통한 nonce 충돌 원천 방지\n</info added on 2025-08-07T12:45:39.158Z>\n<info added on 2025-08-07T12:52:57.762Z>\n**Jira 연동 정보**\n- Jira 키: BFS-74\n- 상위 작업: BFS-5 (tx-broadcaster 서비스 구현)\n</info added on 2025-08-07T12:52:57.762Z>",
             "testStrategy": "**1. NonceManager 서비스 단위 테스트**\n- Mock Redis 인스턴스를 사용한 nonce 할당 테스트\n- 동일 주소에 대한 연속 nonce 할당이 순차적으로 증가하는지 확인\n- reserveNonce와 confirmNonce 조합 테스트로 pending 상태 관리 검증\n- Redis 연결 실패 시 에러 처리 동작 확인\n\n**2. 갭 감지 및 복구 시스템 테스트**\n- 의도적으로 nonce 갭을 생성하여 detectGaps 메서드 동작 검증\n- 다양한 갭 크기(1개, 5개, 10개)에 대한 감지 정확성 테스트\n- 블록체인에서 트랜잭션이 확인된 경우와 실패한 경우의 복구 로직 분기 테스트\n- 복구 불가능한 상황에서 DLQ 전송 동작 확인\n\n**3. 동시성 및 성능 테스트**\n- 동일 주소에 대한 동시 nonce 요청(50개)에서 중복 할당이 발생하지 않는지 테스트\n- 여러 주소에 대한 병렬 nonce 할당 성능 측정\n- Redis 분산 락의 timeout 및 재시도 로직 검증\n- 높은 부하 상황에서의 메모리 사용량 및 응답 시간 모니터링\n\n**4. 통합 테스트**\n- tx-processor와 NonceManager 연동 테스트\n- 실제 Redis 인스턴스를 사용한 End-to-End 테스트\n- 서비스 재시작 후 nonce 상태 복구 테스트\n- LocalStack 환경에서 DLQ 연동 동작 확인"
           },
@@ -309,7 +349,9 @@
             "title": "트랜잭션 큐 순서 보장 구현",
             "description": "같은 주소의 트랜잭션은 nonce 순서로 순차 처리하고, 다른 주소의 트랜잭션은 병렬 처리할 수 있는 TransactionQueue 서비스를 구현하여 트랜잭션 처리 효율성과 블록체인 규칙 준수를 보장합니다. [Updated: 2025. 8. 7.]",
             "status": "done",
-            "dependencies": [12],
+            "dependencies": [
+              12
+            ],
             "details": "**구현 목표**\n- 주소별 트랜잭션 큐를 분리하여 동일 주소 내 순차 처리와 주소간 병렬 처리 구현\n- nonce 기반 트랜잭션 순서 보장으로 블록체인 네트워크 규칙 준수\n- 큐 상태 모니터링과 데드락 방지 메커니즘 구현\n\n**1. TransactionQueue 서비스 생성**\n- `packages/shared/src/services/transaction-queue.service.ts` 생성\n- 주소별 큐 관리를 위한 Map<string, Transaction[]> 구조 구현\n- 각 주소별 처리 상태 추적 (processing, idle)\n```typescript\ninterface QueuedTransaction {\n  id: string;\n  fromAddress: string;\n  nonce: number;\n  priority: number;\n  createdAt: Date;\n  transaction: SignedBatchTransaction;\n}\n\nclass TransactionQueue {\n  private addressQueues: Map<string, QueuedTransaction[]>;\n  private processingAddresses: Set<string>;\n  private logger: Logger;\n}\n```\n\n**2. 주소별 큐 관리 시스템**\n- enqueue() 메서드: 트랜잭션을 해당 주소 큐에 nonce 순서대로 삽입\n- dequeue() 메서드: 처리 중이지 않은 주소의 다음 트랜잭션 반환\n- nonce 순서 보장을 위한 정렬 알고리즘 구현\n- 주소별 처리 락 메커니즘으로 동시 처리 방지\n\n**3. 병렬 처리 최적화**\n- getNextAvailableTransaction(): 처리 가능한 주소의 다음 트랜잭션 선택\n- 라운드로빈 방식으로 주소간 공평한 처리 기회 제공\n- 큐 길이 기반 우선순위 조정 (긴 큐 우선 처리)\n- 타임아웃 기반 데드락 감지 및 해제\n\n**4. tx-broadcaster와의 통합**\n- signing-service에서 서명된 트랜잭션을 TransactionQueue에 추가\n- tx-broadcaster에서 큐로부터 순차적으로 트랜잭션 가져와 브로드캐스트\n- 처리 완료 시 해당 주소 락 해제 및 다음 트랜잭션 활성화\n- 실패한 트랜잭션의 재시도 및 DLQ 처리\n<info added on 2025-08-07T12:46:34.680Z>\n**NonceManager와 SQS 메시지 처리 통합 설계**\n\n**1. SQS 메시지 수신 및 NonceManager 통합**\n- tx-broadcaster에서 signed-tx-queue SQS 메시지 폴링 시 NonceManager 초기화\n- 메시지 수신 시 fromAddress를 키로 NonceManager.getQueue() 호출하여 주소별 큐 접근\n- NonceManager 인터페이스에 addTransaction(address, transaction) 메서드 추가\n- SQS 메시지 파싱 후 즉시 NonceManager에 트랜잭션 추가하여 주소별 큐잉 구현\n\n**2. NonceManager 기반 순차/병렬 처리 로직**\n- NonceManager.getNextTransaction() 메서드로 처리 가능한 트랜잭션 선택\n- 동일 주소 내에서는 nonce 순서 보장을 위해 이전 트랜잭션 완료 대기\n- 다른 주소의 트랜잭션은 독립적으로 병렬 처리 가능하도록 주소별 처리 상태 분리\n- Worker 풀 패턴 적용하여 여러 주소의 트랜잭션을 동시 브로드캐스트\n\n**3. 통합 포인트 및 메시지 처리 흐름**\n```typescript\n// SQS 메시지 처리 통합점\nasync processSignedTransaction(sqsMessage) {\n  const transaction = JSON.parse(sqsMessage.body);\n  await nonceManager.addTransaction(transaction.fromAddress, transaction);\n  \n  // 처리 가능한 트랜잭션 즉시 브로드캐스트 시작\n  this.triggerProcessing();\n}\n\n// NonceManager를 통한 순차 처리\nasync processNextTransactions() {\n  const availableTransactions = await nonceManager.getReadyTransactions();\n  await Promise.all(availableTransactions.map(tx => this.broadcastTransaction(tx)));\n}\n```\n\n**4. NonceManager와 기존 코드 연결점**\n- SQS Consumer에서 메시지 수신 즉시 NonceManager.addTransaction() 호출\n- 브로드캐스트 성공/실패 시 NonceManager.completeTransaction()으로 다음 트랜잭션 활성화\n- nonce 갭 발생 시 NonceManager의 재정렬 및 복구 메커니즘 활용\n- DLQ 처리 시에도 NonceManager를 통해 해당 주소의 다음 트랜잭션 처리 재개\n</info added on 2025-08-07T12:46:34.680Z>\n<info added on 2025-08-07T12:53:16.844Z>\n**Jira Issue 연결**\n- Jira Key: BFS-75\n- 해당 기능 구현을 위한 Jira 이슈가 생성되어 프로젝트 추적 시스템과 연동됨\n</info added on 2025-08-07T12:53:16.844Z>",
             "testStrategy": "**1. 단위 테스트**\n- TransactionQueue 서비스의 enqueue/dequeue 기본 동작 테스트\n- 동일 주소의 트랜잭션이 nonce 순서대로 정렬되는지 확인\n- 다른 주소의 트랜잭션이 독립적으로 처리되는지 검증\n- 처리 중인 주소의 추가 트랜잭션이 대기 상태가 되는지 확인\n- 빈 큐에서 dequeue 시 적절한 처리 확인\n\n**2. 순서 보장 테스트**\n- 동일 주소에서 nonce가 뒤섞인 트랜잭션들을 추가 후 올바른 순서로 처리되는지 확인\n- nonce gap이 있는 경우 (nonce 1, 3 있고 2 없음) 대기 상태 처리 테스트\n- 여러 주소의 트랜잭션을 동시에 추가하고 각 주소별로 독립적인 순서 처리 확인\n\n**3. 병렬 처리 성능 테스트**\n- 10개 서로 다른 주소에서 각각 5개씩 트랜잭션 추가\n- 모든 주소의 트랜잭션이 동시에 처리 가능한지 확인\n- 라운드로빈 방식으로 공평하게 처리되는지 검증\n- 큐 길이가 긴 주소가 우선 처리되는지 확인\n\n**4. 통합 테스트**\n- signing-service → TransactionQueue → tx-broadcaster 전체 플로우 테스트\n- 실제 블록체인 환경에서 nonce 순서 위반으로 인한 실패가 발생하지 않는지 확인\n- 높은 부하 상황에서 큐 성능과 순서 보장 유지 확인\n- 실패한 트랜잭션의 재시도 로직과 DLQ 전송 동작 검증"
           },
@@ -332,7 +374,9 @@
         "details": "Nx를 사용하여 tx-monitor 앱 생성, tx-monitor-queue에서 브로드캐스트된 트랜잭션 수신, Polygon 네트워크에서 트랜잭션 상태 및 confirmations 수 추적, 12 confirmations 달성 시 CONFIRMED 상태로 업데이트, 실패한 트랜잭션 감지 및 알림, 장기간 pending 상태인 트랜잭션에 대한 가스비 인상 재시도 트리거, Redis를 사용한 모니터링 상태 캐싱으로 성능 최적화, 배치 트랜잭션의 경우 모든 개별 전송 확인",
         "testStrategy": "트랜잭션 확인 수 추적 테스트, 성공/실패 트랜잭션 상태 업데이트 테스트, 장기간 pending 트랜잭션 감지 테스트, 가스비 인상 재시도 로직 테스트, 배치 트랜잭션 모니터링 테스트",
         "priority": "high",
-        "dependencies": [12],
+        "dependencies": [
+          12
+        ],
         "status": "pending",
         "subtasks": [
           {
@@ -348,7 +392,9 @@
             "id": 2,
             "title": "트랜잭션 상태 추적 및 확인 로직 구현",
             "description": "블록체인에서 트랜잭션 상태를 추적하고 confirmation 수를 모니터링하는 핵심 로직 개발",
-            "dependencies": ["13.1"],
+            "dependencies": [
+              "13.1"
+            ],
             "details": "TransactionMonitor 클래스 구현, ethers.js를 사용한 블록체인 연결 및 트랜잭션 조회, getTransactionReceipt()로 트랜잭션 영수증 확인, confirmations 수 계산 로직 (currentBlock - txBlock), 12 confirmations 달성 시 상태 업데이트, 트랜잭션 실패/성공 감지 로직, 배치 트랜잭션의 개별 전송 확인 로직",
             "status": "pending",
             "testStrategy": ""
@@ -357,7 +403,9 @@
             "id": 3,
             "title": "SQS 큐 통합 및 메시지 처리 구현",
             "description": "tx-monitor-queue에서 메시지를 수신하고 처리하는 큐 통합 로직 구현",
-            "dependencies": ["13.2"],
+            "dependencies": [
+              "13.2"
+            ],
             "details": "QueueService를 사용한 tx-monitor-queue 연결, 브로드캐스트된 트랜잭션 메시지 수신 및 파싱, 메시지 처리 로직 (트랜잭션 해시, withdrawalId 추출), 장기간 pending 트랜잭션 감지 시 tx-processor-queue로 재시도 메시지 전송, 메시지 처리 완료 후 큐에서 삭제, 에러 처리 및 DLQ 전송 로직",
             "status": "pending",
             "testStrategy": ""
@@ -366,7 +414,9 @@
             "id": 4,
             "title": "Redis 캐싱 시스템 구현 및 성능 최적화",
             "description": "트랜잭션 모니터링 상태를 Redis에 캐싱하여 성능을 최적화하는 시스템 구현",
-            "dependencies": ["13.3"],
+            "dependencies": [
+              "13.3"
+            ],
             "details": "Redis 클라이언트 설정 및 연결 관리, 트랜잭션별 모니터링 상태 캐싱 (lastBlock, confirmations, status), TTL 설정으로 메모리 효율적 관리, 캐시 히트/미스 로직 구현, 블록체인 조회 빈도 최적화 (캐시된 데이터 우선 사용), 배치 작업을 위한 Redis pipeline 사용, 모니터링 대시보드용 집계 데이터 캐싱",
             "status": "pending",
             "testStrategy": ""
@@ -381,7 +431,9 @@
         "details": "각 큐(tx-request-queue, signed-tx-queue)에 대한 DLQ 설정, 실패 메시지 분류 로직 (영구적 실패 vs 일시적 실패), 재시도 자격 판단 알고리즘 (시간 기반, 실패 유형 기반), 재시도 가능한 메시지를 원본 큐로 재전송, 수동 개입이 필요한 메시지에 대한 알림 시스템, DLQ 메시지 조회 및 관리 API, 실패 패턴 분석 및 로깅",
         "testStrategy": "영구적 vs 일시적 실패 분류 테스트, 재시도 로직 검증 테스트, DLQ 메시지 복구 테스트, 수동 개입 알림 테스트, 실패 패턴 분석 테스트",
         "priority": "medium",
-        "dependencies": [12],
+        "dependencies": [
+          12
+        ],
         "status": "pending",
         "subtasks": []
       },
@@ -393,7 +445,9 @@
         "details": "ERC-20 토큰 잔액 확인을 위한 BalanceService 구현, Ethers.js를 사용하여 토큰 컨트랙트 잔액 조회, 네이티브 토큰(MATIC) 잔액 확인, 가스 수수료 계산 및 검증 (EIP-1559 기준), 출금 한도 확인 로직, Redis를 활용한 잔액 정보 캐싱 (30초 TTL), 배치 전송의 경우 총 출금 금액과 잔액 비교, 잔액 부족 시 적절한 에러 응답",
         "testStrategy": "토큰 잔액 조회 정확성 테스트, 가스 수수료 계산 테스트, 잔액 부족 시나리오 테스트, 캐싱 동작 검증 테스트, 배치 전송 잔액 검증 테스트",
         "priority": "medium",
-        "dependencies": [11],
+        "dependencies": [
+          11
+        ],
         "status": "pending",
         "subtasks": []
       },
@@ -417,7 +471,9 @@
         "details": "트랜잭션 관리 API (GET /admin/transactions, GET /admin/transactions/:id, POST /admin/transactions/:id/retry, PUT /admin/transactions/:id/status), 큐 관리 API (GET /admin/queues, GET /admin/queues/:name/messages, POST /admin/queues/:name/purge), 사용자 관리 API (GET /admin/users, POST /admin/users, PUT /admin/users/:id, DELETE /admin/users/:id), 시스템 통계 및 분석 API (GET /admin/stats, GET /admin/analytics, GET /admin/health), 검색/필터링/페이징 기능, 감사 로그 기록",
         "testStrategy": "각 Admin API 엔드포인트 기능 테스트, 권한 검증 테스트, 검색/필터링 정확성 테스트, 페이징 동작 테스트, 감사 로그 기록 테스트",
         "priority": "medium",
-        "dependencies": [16],
+        "dependencies": [
+          16
+        ],
         "status": "pending",
         "subtasks": []
       },
@@ -429,7 +485,9 @@
         "details": "Nx를 사용하여 React 앱 생성 (nx add @nx/react, nx g @nx/react:app admin-ui), Ant Design + Tailwind CSS를 활용한 UI 컴포넌트, TanStack Query(서버 상태) + Zustand(클라이언트 상태) 상태 관리, 실시간 대시보드 (트랜잭션 통계, 시스템 상태), 트랜잭션 관리 페이지 (검색/필터, 상태 추적, 수동 재시도), 큐 모니터링 페이지, 사용자 관리 페이지, Recharts를 사용한 데이터 시각화, 반응형 디자인 구현",
         "testStrategy": "각 페이지 렌더링 테스트, 사용자 상호작용 테스트, 실시간 데이터 업데이트 테스트, 반응형 디자인 테스트, 접근성(a11y) 테스트",
         "priority": "medium",
-        "dependencies": [17],
+        "dependencies": [
+          17
+        ],
         "status": "pending",
         "subtasks": []
       },
@@ -441,7 +499,9 @@
         "details": "Socket.IO를 사용한 WebSocket 서버 구현, 클라이언트-서버 이벤트 정의 (queue:update, transaction:update, system:alert), 구독/구독 취소 메커니즘, 실시간 큐 상태 모니터링, 트랜잭션 상태 변경 실시간 알림, 시스템 알림 브로드캐스트, 연결 상태 관리 및 재연결 로직, JWT 토큰 기반 WebSocket 인증",
         "testStrategy": "WebSocket 연결/해제 테스트, 실시간 이벤트 전송/수신 테스트, 구독/구독 취소 테스트, 재연결 로직 테스트, 인증된 WebSocket 연결 테스트",
         "priority": "low",
-        "dependencies": [18],
+        "dependencies": [
+          18
+        ],
         "status": "pending",
         "subtasks": []
       },
@@ -453,7 +513,9 @@
         "details": "prom-client를 사용한 Prometheus 메트릭 수집, 애플리케이션 메트릭 정의 (api_request_duration_seconds, queue_message_count, transaction_total), 시스템 메트릭 수집 (CPU, 메모리, 디스크 사용률), Grafana 대시보드 구성, 알림 임계값 설정 (API 오류율 > 5%, 큐 메시지 > 1000개), AlertManager 연동, 이메일/Slack 알림 설정, 메트릭 보존 정책 설정",
         "testStrategy": "메트릭 수집 정확성 테스트, 알림 트리거 테스트, Grafana 대시보드 시각화 테스트, 임계값 기반 알림 테스트, 메트릭 데이터 보존 테스트",
         "priority": "low",
-        "dependencies": [13],
+        "dependencies": [
+          13
+        ],
         "status": "pending",
         "subtasks": []
       },
@@ -462,7 +524,10 @@
         "title": "[BFS-31] 영구 연결을 위한 자동 재연결 로직 구현",
         "description": "Redis, 블록체인 노드 등의 영구 연결이 끊어졌을 때 자동으로 재연결을 시도하는 복원력 있는 연결 관리 시스템을 구현합니다.",
         "status": "pending",
-        "dependencies": [15, 20],
+        "dependencies": [
+          15,
+          20
+        ],
         "priority": "medium",
         "details": "연결 관리를 위한 ConnectionManager 클래스 구현 (재연결 로직, 연결 상태 추적, 이벤트 발생), Redis 재연결 로직 구현 (ioredis의 reconnectOnError 활용, 지수 백오프 재시도 전략, 최대 재시도 횟수 제한), 블록체인 노드 재연결 구현 (Ethers.js의 WebSocketProvider 재연결 처리, 폴백 RPC 엔드포인트 설정, 연결 상태 모니터링), 재연결 전략 설정 (초기 재시도 간격: 1초, 최대 재시도 간격: 30초, 지수 백오프 계수: 2, 최대 재시도 횟수: 10회), 연결 상태 이벤트 (connected, disconnected, reconnecting, reconnected, error), 헬스체크 엔드포인트에 연결 상태 포함, 연결 실패 시 graceful degradation 처리, 연결 복구 시 대기 중인 작업 재개 로직, 연결 상태 메트릭 수집 (Prometheus)",
         "testStrategy": "Redis 연결 끊김 및 자동 재연결 테스트, 블록체인 노드 연결 실패 시나리오 테스트, 지수 백오프 재시도 간격 검증, 최대 재시도 횟수 도달 시 동작 테스트, 동시 다중 연결 재연결 테스트, 연결 복구 후 대기 작업 처리 테스트, 헬스체크 연결 상태 반영 테스트, 메트릭 수집 정확성 테스트",
@@ -492,7 +557,9 @@
             "title": "Localhost chain configuration in chains.config.json and ChainProvider integration",
             "description": "Configure localhost chain in chains.config.json and integrate with existing ChainProvider mechanism, removing environment variable dependencies.",
             "status": "done",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "Add localhost chain configuration to chains.config.json (chainId: 31337, name: 'localhost', symbol: 'ETH', decimals: 18, rpcUrl: 'http://127.0.0.1:8545'), add 'localhost' to ChainName type in packages/shared/src/types/chain.types.ts, add localhost case handling in packages/shared/src/providers/chain-provider.factory.ts (create JsonRpcProvider instance), add networks.hardhat configuration to hardhat.config.ts (chainId: 31337, mining.auto: true, mining.interval: 3000, accounts configuration - including LocalStack private key 0x0000000000000000000000000000000000000000000000000000000000000001 to generate signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf), integrate hardhat service into existing docker-compose.yaml (run npx hardhat node --hostname 0.0.0.0), remove environment variable setup for POLYGON_NETWORK=localhost, LOCALHOST_RPC_URL, LOCALHOST_SIGNING_PRIVATE_KEY\n<info added on 2025-07-24T07:36:28.619Z>\n구현 완료: localhost 체인 설정이 성공적으로 완료됨. chains.config.json에 chainId 31337로 localhost 체인 추가, ChainName 및 ChainNetwork 타입에 localhost 포함 업데이트, ChainProviderFactory에 createLocalhostProvider 메서드 추가, hardhat.config.ts에 3초 마이닝 간격과 LocalStack 개인키 설정 적용, docker-compose.yaml에 hardhat-node 및 hardhat-deploy 서비스 추가, signing-service에서 Polygon 관련 환경변수 제거. 모든 TypeScript 타입 검사 및 린트 검사 통과 확인.\n</info added on 2025-07-24T07:36:28.619Z>",
             "testStrategy": "Validate localhost chain configuration loading from chains.config.json, test ChainProvider.getProvider('localhost') functionality, verify hardhat node connection through provider, test signing address generation from LocalStack private key, validate docker-compose hardhat service integration, confirm removal of environment variable dependencies"
           },
@@ -501,7 +568,9 @@
             "title": "ERC20 token and Multicall3 contract deployment script implementation",
             "description": "Implement scripts to deploy test ERC20 tokens and Multicall3 contract, transferring all tokens to the signing address.",
             "status": "done",
-            "dependencies": [2],
+            "dependencies": [
+              2
+            ],
             "details": "Create contracts/TestToken.sol (inherit OpenZeppelin ERC20, include minting function), add contracts/Multicall3.sol (for batch calls), write scripts/deploy-localhost.ts deployment script, deploy ERC20 token and transfer all tokens (e.g., 1,000,000 TEST) to signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf, deploy Multicall3 contract, save deployed contract addresses to .env.localhost file (TEST_TOKEN_ADDRESS, MULTICALL3_ADDRESS), create scripts/setup-test-data.ts for test data setup (user creation, sample withdrawal requests, etc.), automate type generation with TypeChain\n<info added on 2025-07-23T13:08:36.235Z>\nCreate contracts/Multicall3.sol file using provided Multicall3.sol code, create contracts/TestToken.sol file (inherit OpenZeppelin ERC20 with minting functionality), write scripts/deploy.js deployment script (deploy both contracts and transfer all tokens to signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf), save deployment information to deployment.json file (instead of or in addition to existing .env.localhost)\n</info added on 2025-07-23T13:08:36.235Z>\n<info added on 2025-07-25T01:54:27.287Z>\n구현 완료: contracts/TestToken.sol (OpenZeppelin ERC20 상속 및 minting 기능), contracts/Multicall3.sol (전체 구현), scripts/deploy.js 배포 스크립트 (두 컨트랙트 배포 및 signing address 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf로 모든 토큰 전송), hardhat.config.js 컴파일 설정. 배포 스크립트는 컨트랙트 주소를 deployment.json과 .env.localhost 파일 양쪽에 저장. 컨트랙트 컴파일 성공 확인.\n</info added on 2025-07-25T01:54:27.287Z>",
             "testStrategy": "Verify successful contract compilation, test deployment script execution, confirm all tokens transferred to signing address, test Multicall3 batch call functionality, verify contract addresses saved to environment variables"
           },
@@ -510,7 +579,9 @@
             "title": "Test helper utilities and developer tools implementation",
             "description": "Implement helper functions for efficient testing on Hardhat network and integrate developer tools.",
             "status": "done",
-            "dependencies": [3],
+            "dependencies": [
+              3
+            ],
             "details": "Create packages/shared/src/utils/hardhat-helpers.ts (getSigningAccount, fundAccount, advanceTime, takeSnapshot/revertToSnapshot functions, Multicall3 interface functions), integrate Hardhat Network Helpers (@nomicfoundation/hardhat-network-helpers), setup console.log debugging support, configure hardhat-gas-reporter plugin, setup solidity-coverage plugin, add Fork mode support (forking configuration in hardhat.config.ts), add signing address related helper functions\n<info added on 2025-07-23T13:08:56.753Z>\nImplement init-hardhat.sh script: Hardhat node waiting logic (check http://127.0.0.1:8545 status with curl, wait up to 30 seconds), contract compilation (execute npx hardhat compile), deployment script execution (node scripts/deploy.js), integration with hardhat-deploy service in docker-compose.yaml (set depends_on to run after hardhat-node is ready, dependency management through healthcheck), script execution permissions (chmod +x init-hardhat.sh), error handling and logging (output success/failure logs for each step)\n</info added on 2025-07-23T13:08:56.753Z>",
             "testStrategy": "Unit test helper functions, test signing address query functions, verify snapshot/revert functionality operation, validate time manipulation function accuracy, confirm gas reporting output, test Multicall3 helper functions"
           },
@@ -519,7 +590,9 @@
             "title": "Automation scripts and development workflow integration with explicit chain parameter support",
             "description": "Create automation scripts for local development environment and integrate with existing Docker Compose system using explicit chain parameters instead of environment variables.",
             "status": "done",
-            "dependencies": [4],
+            "dependencies": [
+              4
+            ],
             "details": "Add dev:localhost script to package.json (sequential execution: start Hardhat node → deploy contracts → setup test data → start API server), write scripts/start-local-dev.sh shell script, modify all microservices to recognize localhost chain through explicit chain parameter specification in API requests (not environment variables), update blockchain connection logic in withdrawal-api, tx-processor, tx-monitor services to use ChainProvider with explicit chain='localhost' parameter, fully integrate hardhat service into existing docker-compose.yaml file, add dependency management with LocalStack, update README.md with local development guide (including LocalStack private key, signing address, Multicall3 usage, explicit chain parameter usage), add hardhat-node and hardhat-deploy service configuration to docker-compose.yaml file (hardhat-node: use hardhat/hardhat:latest image, port mapping 8545:8545, chain-id 31337 setting; hardhat-deploy: dedicated service for contract deployment, hardhat-node dependency setting), update all microservices (withdrawal-api, tx-processor, tx-monitor) to handle localhost chain through ChainProvider mechanism, set Multicall3 contract address for localhost chain (0xcA11bde05977b3631167028862bE2a173976CA11 standard address or deployed address), manage inter-service network dependencies (sequential start: hardhat-node → hardhat-deploy → api services), healthcheck configuration to verify service readiness",
             "testStrategy": "Test complete local development environment startup, verify Docker Compose integration, validate inter-service communication with explicit chain parameters, test complete flow using signing address: withdrawal request → processing → monitoring, test batch queries using Multicall3, test automatic restart and state recovery, verify API requests properly specify chain parameter, test ChainProvider localhost chain handling"
           },
@@ -539,7 +612,11 @@
         "title": "[BFS-38] 네이티브 토큰(ETH, MATIC, BNB 등) 출금 지원 구현",
         "description": "현재 ERC-20 토큰만 지원하는 시스템을 확장하여 네이티브 토큰(ETH, MATIC, BNB 등)의 출금을 지원하도록 구현합니다. API 레벨에서의 검증부터 signing-service의 트랜잭션 처리까지 전체 파이프라인을 수정합니다.",
         "status": "pending",
-        "dependencies": [11, 15, 22],
+        "dependencies": [
+          11,
+          15,
+          22
+        ],
         "priority": "medium",
         "details": "**Jira 키: BFS-38**\n\n1. **토큰 타입 구분 체계 구현**\n   - WithdrawalRequest 모델에 tokenType 필드 추가 ('NATIVE' | 'ERC20')\n   - 토큰 주소가 '0x0' 또는 null인 경우 네이티브 토큰으로 식별\n   - packages/shared/src/types에 TokenType enum 정의\n\n2. **API 레벨 변경사항**\n   - withdrawal-api의 validator에서 네이티브 토큰 요청 허용\n   - 네이티브 토큰의 경우 tokenAddress를 '0x0000000000000000000000000000000000000000' 또는 null로 처리\n   - 요청 검증 시 네이티브 토큰과 ERC20 토큰 별도 처리 로직 추가\n\n3. **signing-service 수정사항**\n   - TransactionSigner 클래스에 네이티브 토큰 전송 로직 추가\n   - 네이티브 토큰은 배치 처리(Multicall3) 불가능하도록 제한\n   - signNativeTransaction() 메서드 구현:\n     ```typescript\n     async signNativeTransaction(request: WithdrawalRequest): Promise<TransactionResponse> {\n       const tx = {\n         to: request.recipientAddress,\n         value: ethers.parseUnits(request.amount, 18), // 네이티브 토큰은 항상 18 decimals\n         gasLimit: 21000, // 네이티브 전송은 고정 가스\n         maxFeePerGas: await this.provider.getGasPrice(),\n         maxPriorityFeePerGas: ethers.parseUnits('2', 'gwei'),\n         nonce: await this.provider.getTransactionCount(this.signerAddress),\n         chainId: this.chainId\n       };\n       return await this.signer.sendTransaction(tx);\n     }\n     ```\n\n4. **트랜잭션 처리 플로우 수정**\n   - processWithdrawal() 메서드에서 토큰 타입 확인 후 분기 처리\n   - 네이티브 토큰은 개별 트랜잭션으로만 처리\n   - ERC20 토큰은 기존 배치/단일 처리 로직 유지\n\n5. **잔액 검증 로직 업데이트**\n   - BalanceService에서 네이티브 토큰 잔액 확인 로직 추가\n   - provider.getBalance() 사용하여 네이티브 잔액 조회\n   - 가스비 계산 시 네이티브 토큰 전송은 21,000 gas 고정\n\n6. **데이터베이스 마이그레이션**\n   - WithdrawalRequest 테이블에 tokenType 컬럼 추가\n   - 기존 레코드는 모두 'ERC20'로 기본값 설정\n\n7. **에러 처리 강화**\n   - 네이티브 토큰 배치 전송 시도 시 명확한 에러 메시지\n   - 잔액 부족 시 가스비 포함 필요 금액 안내",
         "testStrategy": "1. **단위 테스트**\n   - 네이티브 토큰 식별 로직 테스트 (tokenAddress가 null, '0x0' 등)\n   - signNativeTransaction() 메서드 동작 검증\n   - 네이티브 토큰 잔액 조회 정확성 테스트\n\n2. **통합 테스트**\n   - API 엔드포인트에서 네이티브 토큰 출금 요청 수락 테스트\n   - 네이티브 토큰과 ERC20 토큰 혼합 요청 시나리오\n   - 배치 전송에서 네이티브 토큰 제외 검증\n\n3. **Hardhat 로컬 환경 테스트**\n   - 로컬 체인에서 실제 네이티브 토큰 전송 테스트\n   - 가스비 계산 정확성 검증\n   - 트랜잭션 확인 및 잔액 변화 추적\n\n4. **엣지 케이스 테스트**\n   - 네이티브 토큰 잔액이 정확히 가스비만큼인 경우\n   - 네이티브 토큰 배치 전송 시도 시 에러 처리\n   - 다양한 체인(Polygon, BSC, Ethereum)에서의 네이티브 토큰 처리\n\n5. **성능 테스트**\n   - 대량의 네이티브 토큰 개별 전송 처리 시간 측정\n   - ERC20 배치 전송 대비 처리량 비교",
@@ -550,7 +627,11 @@
         "title": "[BFS-40] 배치 트랜잭션 allowance 최적화 구현",
         "description": "Multicall3 배치 트랜잭션 실행 시 매번 approve 트랜잭션을 보내는 대신 기존 allowance를 확인하고 재사용하여 불필요한 트랜잭션을 줄이고 가스비와 처리 시간을 절약하는 최적화 시스템을 구현합니다.",
         "status": "done",
-        "dependencies": [22, 15, 11],
+        "dependencies": [
+          22,
+          15,
+          11
+        ],
         "priority": "medium",
         "details": "**구현 목표**\n- 현재 매 배치마다 실행되는 approve 트랜잭션을 최소화\n- allowance 상태를 추적하여 필요한 경우에만 approve 실행\n- 가스비 절감 및 트랜잭션 처리 시간 단축\n\n**1. Allowance 추적 시스템 구현**\n- signing-service에 AllowanceManager 클래스 생성\n- Redis를 사용한 allowance 캐싱 시스템 구현\n  ```typescript\n  interface AllowanceCache {\n    tokenAddress: string;\n    spenderAddress: string;\n    allowance: string;\n    lastUpdated: number;\n    blockNumber: number;\n  }\n  ```\n- 캐시 키 구조: `allowance:${chainId}:${tokenAddress}:${ownerAddress}:${spenderAddress}`\n\n**2. Allowance 체크 로직 구현**\n- 배치 실행 전 현재 allowance 확인\n- 온체인 allowance vs 캐시된 allowance 검증\n- 필요한 토큰 수량과 현재 allowance 비교\n  ```typescript\n  async checkAllowance(tokenAddress: string, amount: BigNumber): Promise<boolean> {\n    const currentAllowance = await this.getAllowance(tokenAddress);\n    return currentAllowance.gte(amount);\n  }\n  ```\n\n**3. 조건부 Approve 실행**\n- allowance가 부족한 경우에만 approve 트랜잭션 실행\n- Infinite approval vs 정확한 금액 approval 설정 옵션\n- approve 트랜잭션 실패 시 재시도 로직\n\n**4. Multicall3Service 수정**\n- prepareBatchTransaction() 메서드에 allowance 체크 로직 추가\n- approve 트랜잭션을 조건부로 배치에 포함\n- 배치 실행 후 allowance 캐시 업데이트\n\n**5. 안전장치 구현**\n- allowance 캐시 TTL 설정 (기본 1시간)\n- 블록 번호 기반 캐시 무효화\n- approve 트랜잭션 실패 시 전체 배치 중단\n- Emergency reset 기능 (캐시 전체 삭제)\n\n**6. 설정 옵션**\n- ALLOWANCE_OPTIMIZATION_ENABLED: 최적화 활성화 여부\n- INFINITE_APPROVAL_ENABLED: 무한 approval 사용 여부\n- ALLOWANCE_CACHE_TTL: 캐시 유효 시간\n- MIN_ALLOWANCE_BUFFER: 최소 여유 allowance (10%)\n\n**7. 모니터링 및 메트릭**\n- approve 트랜잭션 절감률 추적\n- 가스비 절감액 계산\n- allowance 캐시 히트률 모니터링\n- approve 트랜잭션 실패율 추적",
         "testStrategy": "**1. 단위 테스트**\n- AllowanceManager의 캐싱 로직 테스트\n- checkAllowance() 메서드의 정확성 검증\n- 캐시 TTL 및 무효화 로직 테스트\n- Infinite approval vs 정확한 금액 approval 테스트\n\n**2. 통합 테스트**\n- 첫 번째 배치: approve + multicall 실행 확인\n- 두 번째 배치: approve 스킵하고 multicall만 실행 확인\n- allowance 소진 시나리오: 자동 재approve 테스트\n- 다중 토큰 배치에서 선택적 approve 테스트\n\n**3. 시나리오 테스트**\n- 동일 토큰 연속 배치 처리 (approve 1회만 실행)\n- allowance 부족 상황 자동 감지 및 처리\n- 캐시 만료 후 allowance 재확인\n- approve 트랜잭션 실패 시 배치 중단 확인\n\n**4. 성능 테스트**\n- 최적화 전후 가스비 비교 (예상 절감률 30-50%)\n- 배치 처리 시간 비교 (approve 제외로 인한 속도 향상)\n- 캐시 히트률 측정 (목표 80% 이상)\n\n**5. 엣지 케이스**\n- approve 트랜잭션 pending 중 배치 실행 방지\n- 네트워크 재구성 시 캐시 무효화\n- 동시 다중 배치 실행 시 allowance 경합 조건\n- 토큰 컨트랙트의 특수한 approve 구현 대응",
@@ -563,7 +644,11 @@
         "details": "**1. 아키텍처 개선**\n- signing-service에서 approve 트랜잭션 로직을 제거하고 서명 기능만 유지\n- tx-processor(broadcaster)에 approve 트랜잭션 처리 책임 이전\n- 트랜잭션 타입별 처리 분리: APPROVE, MULTICALL 타입 추가\n\n**2. Allowance 추적 시스템**\n- GlobalAllowanceTracker 클래스 구현 (Redis 기반)\n- 펜딩 트랜잭션의 allowance 소비량 예약 시스템\n- 키 구조: `pending_allowance:${chainId}:${tokenAddress}:${spenderAddress}`\n- 실시간 allowance 상태 동기화 및 블록체인 상태와의 일치성 보장\n\n**3. Queue 기반 트랜잭션 관리**\n- allowance 부족 시 트랜잭션을 대기 큐에 저장\n- approve 트랜잭션 완료 후 대기 중인 트랜잭션 자동 재개\n- 큐 우선순위 관리 (고액 트랜잭션 우선 처리)\n\n**4. 블록체인 상태 동기화**\n- 블록 이벤트 리스너를 통한 allowance 변경 감지\n- 트랜잭션 컨펌 후 캐시 업데이트\n- 데드락 방지를 위한 타임아웃 및 정리 로직\n\n**5. 프로덕션 환경 고려사항**\n- 동시성 제어를 위한 Redis 분산 락 구현\n- 메트릭 수집 (allowance 소진율, 대기 큐 길이)\n- 장애 복구 시나리오 처리",
         "testStrategy": "**1. 아키텍처 분리 테스트**\n- signing-service에서 approve 로직 제거 검증\n- broadcaster의 approve 트랜잭션 처리 능력 테스트\n- 트랜잭션 타입별 라우팅 정확성 검증\n\n**2. Allowance 추적 정확성 테스트**\n- 펜딩 트랜잭션 allowance 예약/해제 테스트\n- 동시 트랜잭션 처리 시 allowance 경합 상황 테스트\n- 블록체인 상태와 캐시 동기화 정확성 검증\n\n**3. 큐잉 시스템 테스트**\n- allowance 부족 시 대기 큐 저장 테스트\n- approve 완료 후 대기 트랜잭션 자동 재개 테스트\n- 큐 우선순위 및 순서 보장 테스트\n\n**4. 동시성 및 성능 테스트**\n- 다중 사용자 동시 트랜잭션 처리 테스트\n- Redis 분산 락 동작 검증\n- 대용량 트랜잭션 처리 성능 테스트\n\n**5. 장애 복구 테스트**\n- 네트워크 단절 시 상태 복구 테스트\n- 서비스 재시작 후 펜딩 상태 복원 테스트\n- 블록체인 노드 장애 시 fallback 처리 테스트",
         "status": "pending",
-        "dependencies": [24, 15, 11],
+        "dependencies": [
+          24,
+          15,
+          11
+        ],
         "priority": "medium",
         "subtasks": []
       },
@@ -572,7 +657,12 @@
         "title": "[BFS-44] Signing Service 단순화 및 안정성 개선",
         "description": "Balance와 Allowance는 충분하다고 가정하고 복잡한 사전 검증을 제거하여 서비스를 단순하게 유지합니다. Approve TX는 모두 제거하고, 오류 발생 시에만 대기 및 복구하는 방식으로 구현합니다.",
         "status": "pending",
-        "dependencies": [25, 24, 15, 11],
+        "dependencies": [
+          25,
+          24,
+          15,
+          11
+        ],
         "priority": "medium",
         "details": "**1. 사전 검증 로직 제거**\n- signing-service에서 BalanceService 및 AllowanceManager의 사전 검증 로직 제거\n- 트랜잭션 서명 전 잔액/allowance 확인 단계 생략\n- Redis 캐싱 기반 잔액 추적 시스템 비활성화\n- 복잡한 allowance 추적 및 예약 시스템 제거\n\n**2. Approve 트랜잭션 완전 제거**\n- MulticallService에서 approve 트랜잭션 생성 로직 제거\n- 배치 트랜잭션 처리 시 approve 단계 생략\n- AllowanceManager.checkAllowance() 호출 제거\n- 모든 토큰이 충분한 allowance를 가지고 있다고 가정\n\n**3. 오류 기반 처리 방식 구현**\n- 트랜잭션 실행 후 실패 결과를 기반으로 처리\n- allowance 부족으로 실패 시 approve 트랜잭션 자동 생성 및 재시도\n- 잔액 부족으로 실패 시 대기 큐에 저장 후 지연 처리\n- 에러 코드 분석을 통한 실패 원인 식별 (ERC20: insufficient allowance, insufficient balance)\n\n**4. 단순화된 트랜잭션 플로우**\n- signing-service: 서명 요청 → 즉시 서명 → 결과 반환\n- tx-processor: 트랜잭션 전송 → 실패 시 복구 로직 실행\n- 성공 케이스에서는 최소한의 처리로 빠른 응답\n- 실패 케이스에서만 복구 메커니즘 동작\n\n**5. 복구 메커니즘 구현**\n- TransactionRecoveryService 클래스 생성\n- 실패 트랜잭션 분석 및 자동 복구 시도\n- approve 후 원본 트랜잭션 재실행\n- 최대 재시도 횟수 제한 (3회)\n- 복구 불가능한 경우 DLQ(Dead Letter Queue)로 이동",
         "testStrategy": "**1. 단순화 검증 테스트**\n- signing-service에서 잔액/allowance 검증 로직 제거 확인\n- approve 트랜잭션 생성 코드 완전 제거 검증\n- Redis 캐싱 시스템 비활성화 테스트\n- 트랜잭션 서명 속도 개선 측정 (이전 대비 50% 이상 단축 목표)\n\n**2. 오류 기반 처리 테스트**\n- allowance 부족 시나리오에서 자동 approve + 재시도 테스트\n- 잔액 부족 시나리오에서 대기 큐 저장 테스트\n- 다양한 에러 코드에 대한 복구 로직 정확성 검증\n- 최대 재시도 횟수 도달 시 DLQ 처리 테스트\n\n**3. 성능 및 안정성 테스트**\n- 성공 케이스에서의 처리 시간 단축 검증\n- 높은 성공률 환경에서의 시스템 부하 감소 측정\n- 실패율이 높은 환경에서의 복구 메커니즘 안정성 테스트\n- 동시 다중 트랜잭션 처리 시 복구 로직 충돌 방지 테스트\n\n**4. 통합 테스트**\n- Hardhat 로컬 환경에서 충분한 allowance 상황 시뮬레이션\n- 실제 트랜잭션 실행 및 성공률 측정\n- 복구 메커니즘 동작 시 전체 플로우 검증",
@@ -591,7 +681,9 @@
             "title": "사전 검증 로직 제거 및 의존성 정리",
             "description": "signing-service에서 BalanceService, AllowanceManager의 사전 검증 로직을 완전히 제거하고 관련 의존성을 정리합니다.",
             "status": "done",
-            "dependencies": [1],
+            "dependencies": [
+              1
+            ],
             "details": "TransactionSigner에서 BalanceService.checkBalance() 및 AllowanceManager.checkAllowance() 호출 제거, Redis 캐싱 기반 잔액 추적 시스템 비활성화, signing-worker.ts에서 사전 검증 단계 생략하도록 수정, 사용하지 않는 import 및 의존성 정리, 환경 변수에서 잔액 검증 관련 설정 제거\n<info added on 2025-07-31T06:11:00.598Z>\n사전 검증 로직 분석 완료: BalanceService, AllowanceManager 클래스 및 관련 메서드들이 이미 제거된 상태임을 확인. Redis 기반 잔액 추적 시스템도 비활성화됨. 현재 config에 남아있는 allowance 관련 설정(allowanceStrategy, allowanceMultiplier, allowanceAmount)은 approve 트랜잭션 최적화용이며, Task 26.3에서 approve 로직과 함께 제거 예정. 해당 서브태스크는 실질적으로 완료된 상태로 판단됨.\n</info added on 2025-07-31T06:11:00.598Z>",
             "testStrategy": "사전 검증 로직 제거 후 서명 속도 개선 측정, 트랜잭션 서명 과정에서 잔액/allowance 검증 호출이 없는지 확인"
           },
@@ -600,7 +692,9 @@
             "title": "Approve 트랜잭션 생성 로직 완전 제거",
             "description": "MulticallService와 관련 서비스에서 approve 트랜잭션을 생성하는 모든 로직을 제거합니다.",
             "status": "done",
-            "dependencies": [2],
+            "dependencies": [
+              2
+            ],
             "details": "MulticallService.buildTransaction()에서 approve 트랜잭션 생성 코드 제거, AllowanceManager.checkAllowance() 메서드 호출 제거, 배치 트랜잭션 처리 시 approve 단계 완전 생략, APPROVE 트랜잭션 타입 관련 로직 제거, 모든 토큰이 충분한 allowance를 가지고 있다고 가정하는 주석 추가\n<info added on 2025-07-31T06:17:31.272Z>\n구현 완료:\n- transaction-signer.ts와 multicall.service.ts에서 ERC20_ABI의 'approve' 함수 제거\n- 시작 시 MAX approval을 생성하던 initializeMaxApprovals() 메서드 삭제\n- approve 트랜잭션을 전송하던 approveToken() 메서드 삭제\n- approval 금액을 계산하던 calculateOptimalAllowance() 메서드 삭제\n- signBatchTransaction()에서 approve 트랜잭션 호출 제거\n- approve 로직이 제거되고 충분한 allowance를 가정한다는 주석 추가\n- allowance 최적화 설정 제거 (allowanceStrategy, allowanceMultiplier, allowanceAmount)\n- env.example에서 BATCH_ALLOWANCE_* 환경 변수 제거\n- allowance 관련 설정을 제거하도록 테스트 파일 업데이트\n- 모든 lint 오류 수정 완료 및 빌드 성공\n</info added on 2025-07-31T06:17:31.272Z>",
             "testStrategy": "approve 트랜잭션이 생성되지 않는지 확인, 배치 트랜잭션에서 approve 단계가 생략되는지 테스트"
           },
@@ -609,7 +703,9 @@
             "title": "트랜잭션 실패 에러 분석 시스템 구현",
             "description": "트랜잭션 실행 후 실패 결과를 분석하여 실패 원인을 식별하는 시스템을 구현합니다.",
             "status": "pending",
-            "dependencies": [3],
+            "dependencies": [
+              3
+            ],
             "details": "TransactionErrorAnalyzer 클래스 생성, ERC20 표준 에러 코드 분석 (insufficient allowance, insufficient balance), 컨트랙트 revert 메시지 파싱 로직, 에러 타입별 분류 시스템 (ALLOWANCE_ERROR, BALANCE_ERROR, GAS_ERROR, UNKNOWN_ERROR), ethers.js 에러 객체에서 원인 추출 메서드 구현",
             "testStrategy": "다양한 실패 시나리오에서 에러 분석 정확성 테스트, allowance 부족과 잔액 부족 시나리오 구분 테스트"
           },
@@ -618,7 +714,9 @@
             "title": "오류 기반 자동 복구 메커니즘 구현",
             "description": "실패 분석 결과에 따라 approve 트랜잭션 생성 및 재시도, 또는 대기 큐 저장을 처리하는 복구 시스템을 구현합니다.",
             "status": "pending",
-            "dependencies": [4],
+            "dependencies": [
+              4
+            ],
             "details": "TransactionRecoveryService 클래스 생성, allowance 부족 시 approve 트랜잭션 자동 생성 로직, approve 완료 후 원본 트랜잭션 재실행 메커니즘, 잔액 부족 시 대기 큐(Redis)에 저장하는 로직, 최대 재시도 횟수 제한 (3회) 및 재시도 간격 설정, 복구 불가능한 경우 DLQ(Dead Letter Queue)로 이동 처리",
             "testStrategy": "allowance 부족 시 자동 approve 및 재실행 테스트, 잔액 부족 시 대기 큐 저장 테스트, 최대 재시도 초과 시 DLQ 이동 테스트"
           },
@@ -627,7 +725,9 @@
             "title": "단순화된 트랜잭션 플로우 통합 및 테스트",
             "description": "새로운 오류 기반 처리 방식을 기존 시스템에 통합하고 전체 플로우를 검증합니다.",
             "status": "pending",
-            "dependencies": [5],
+            "dependencies": [
+              5
+            ],
             "details": "signing-service와 tx-processor 간의 새로운 플로우 통합, 성공 케이스에서 최소한의 처리로 빠른 응답 보장, 실패 케이스에서만 복구 메커니즘 동작하도록 조건부 처리, WithdrawalRequest 상태 관리 업데이트 (RECOVERY_PENDING, RECOVERY_FAILED 상태 추가), 전체 시스템의 성능 및 안정성 검증을 위한 통합 테스트 구현",
             "testStrategy": "전체 플로우 통합 테스트, 성공/실패 시나리오별 응답 시간 측정, 복구 메커니즘 동작 검증, 시스템 부하 테스트를 통한 안정성 확인"
           }
@@ -640,7 +740,10 @@
         "details": "**구현 목표**\n- 서브 계정 잔액을 지속적으로 모니터링하고 임계값 도달 시 자동 충전\n- 배치 처리를 통한 가스비 최적화 및 메인 계정 잔액 부족 시 알림\n- ManagedAccount 및 BalanceTransfer 모델을 통한 계정 관리 시스템\n\n**1. 데이터베이스 모델 구현**\n- ManagedAccount 모델 추가\n  ```typescript\n  model ManagedAccount {\n    id          String   @id @default(cuid())\n    address     String   @unique\n    name        String\n    threshold   Decimal  // 최소 잔액 임계값\n    targetAmount Decimal // 충전 목표 금액\n    isActive    Boolean  @default(true)\n    mainAccount String   // 메인 계정 주소\n    createdAt   DateTime @default(now())\n    updatedAt   DateTime @updatedAt\n    balanceTransfers BalanceTransfer[]\n  }\n  ```\n- BalanceTransfer 모델 추가\n  ```typescript\n  model BalanceTransfer {\n    id              String         @id @default(cuid())\n    fromAddress     String\n    toAddress       String\n    amount          Decimal\n    transactionHash String?\n    status          TransferStatus @default(PENDING)\n    managedAccount  ManagedAccount @relation(fields: [toAddress], references: [address])\n    createdAt       DateTime       @default(now())\n    updatedAt       DateTime       @updatedAt\n  }\n  \n  enum TransferStatus {\n    PENDING\n    PROCESSING\n    COMPLETED\n    FAILED\n  }\n  ```\n\n**2. Account Manager 서비스 구현**\n- Nx를 사용하여 account-manager 앱 생성 (nx g @nx/node:app account-manager)\n- AccountBalanceMonitor 클래스로 서브 계정 잔액 모니터링\n- BalanceTransferService 클래스로 자동 충전 로직 구현\n- Redis를 사용한 잔액 캐싱 및 모니터링 상태 관리\n- 배치 처리를 위한 BatchTransferProcessor 구현\n\n**3. 잔액 모니터링 시스템**\n- 주기적인 서브 계정 잔액 확인 (30초 간격)\n- 임계값 도달 시 자동 충전 트리거\n- 메인 계정 잔액 확인 및 부족 시 알림 발송\n- 잔액 변화 이력 추적 및 로깅\n\n**4. 배치 처리 최적화**\n- 동시간대 여러 충전 요청을 배치로 묶어 처리\n- Multicall3을 활용한 배치 전송으로 가스비 절감\n- 배치 크기 최적화 및 가스 한도 내 처리\n- 실패한 전송에 대한 개별 재시도 로직\n\n**5. 알림 시스템**\n- 메인 계정 잔액 부족 시 이메일/Slack 알림\n- 충전 실패 시 관리자 알림\n- 비정상적인 잔액 소모 패턴 감지 및 알림\n\n**6. API 엔드포인트**\n- GET /account-manager/accounts - 관리 계정 목록 조회\n- POST /account-manager/accounts - 새 관리 계정 등록\n- PUT /account-manager/accounts/:id - 계정 설정 업데이트\n- GET /account-manager/transfers - 잔액 이전 내역 조회\n- POST /account-manager/transfers/manual - 수동 잔액 이전",
         "testStrategy": "**1. 단위 테스트**\n- ManagedAccount 및 BalanceTransfer 모델 CRUD 테스트\n- AccountBalanceMonitor의 잔액 확인 로직 테스트\n- BalanceTransferService의 충전 로직 테스트\n- 임계값 도달 감지 및 트리거 테스트\n- 배치 처리 로직 및 최적화 테스트\n\n**2. 통합 테스트**\n- 실제 Polygon 테스트넷에서 잔액 모니터링 테스트\n- 임계값 도달 시 자동 충전 플로우 테스트\n- 메인 계정 잔액 부족 시나리오 테스트\n- 배치 전송 성공/실패 시나리오 테스트\n- 동시 다중 계정 모니터링 테스트\n\n**3. 성능 테스트**\n- 대량 계정(100개+) 모니터링 성능 테스트\n- 배치 처리 효율성 및 가스비 절감 검증\n- Redis 캐싱 성능 및 메모리 사용량 테스트\n- 모니터링 주기별 시스템 부하 테스트\n\n**4. 장애 복구 테스트**\n- 네트워크 장애 시 재시도 로직 테스트\n- RPC 노드 실패 시 폴백 처리 테스트\n- 서비스 재시작 시 상태 복구 테스트\n- 부분 실패한 배치 전송 복구 테스트",
         "status": "pending",
-        "dependencies": [12, 15],
+        "dependencies": [
+          12,
+          15
+        ],
         "priority": "medium",
         "subtasks": [
           {
@@ -656,7 +759,9 @@
             "id": 2,
             "title": "Account Manager 앱 초기 구조 및 서비스 계층 구현",
             "description": "Nx를 사용하여 account-manager 앱을 생성하고 핵심 서비스 클래스들을 구현하여 계정 관리의 기본 비즈니스 로직을 구축합니다.",
-            "dependencies": ["27.1"],
+            "dependencies": [
+              "27.1"
+            ],
             "details": "Nx 명령어로 account-manager 앱 생성 (nx g @nx/node:app account-manager), AccountBalanceMonitor 클래스 구현 (잔액 조회, 임계값 비교, 모니터링 스케줄러), BalanceTransferService 클래스 구현 (충전 로직, 트랜잭션 생성, 상태 관리), BatchTransferProcessor 클래스 구현 (배치 큐 관리, 배치 크기 최적화, Multicall3 통합), Redis 클라이언트 설정 및 캐싱 레이어 구현, 환경 변수 설정 (MONITORING_INTERVAL, BATCH_SIZE, GAS_LIMIT 등)",
             "status": "pending",
             "testStrategy": "각 서비스 클래스의 메서드 단위 테스트, Redis 연결 및 캐싱 동작 테스트, 환경 변수 로딩 및 검증 테스트, 서비스 간 의존성 주입 테스트"
@@ -665,7 +770,9 @@
             "id": 3,
             "title": "잔액 모니터링 및 자동 충전 시스템 구현",
             "description": "주기적으로 서브 계정의 잔액을 확인하고 임계값 도달 시 자동으로 충전을 트리거하는 모니터링 시스템을 구현합니다.",
-            "dependencies": ["27.2"],
+            "dependencies": [
+              "27.2"
+            ],
             "details": "30초 간격 모니터링 스케줄러 구현 (node-cron 또는 bull 사용), Web3/Ethers.js를 통한 실시간 잔액 조회 로직, 임계값 비교 및 충전 필요성 판단 알고리즘, 메인 계정 잔액 확인 및 충분성 검증, 충전 트리거 이벤트 발생 및 큐 등록, Redis를 활용한 잔액 캐싱 (TTL 설정), 모니터링 상태 추적 (last_checked, next_check 등), 동시성 제어를 위한 분산 락 구현",
             "status": "pending",
             "testStrategy": "스케줄러 동작 및 주기 정확성 테스트, 잔액 조회 API 모킹 및 임계값 시나리오 테스트, 메인 계정 잔액 부족 시나리오 테스트, Redis 캐시 만료 및 갱신 테스트, 분산 락 경합 상황 테스트"
@@ -674,7 +781,9 @@
             "id": 4,
             "title": "배치 처리 최적화 및 가스비 절감 시스템 구현",
             "description": "여러 충전 요청을 배치로 묶어 Multicall3을 통해 처리하여 가스비를 절감하고 처리 효율을 높이는 시스템을 구현합니다.",
-            "dependencies": ["27.3"],
+            "dependencies": [
+              "27.3"
+            ],
             "details": "배치 큐 시스템 구현 (Bull Queue 활용), 시간 윈도우 기반 배치 수집 (예: 30초 동안 요청 수집), Multicall3 컨트랙트 인터페이스 구현, 배치 크기 최적화 알고리즘 (가스 한도 고려), 배치 트랜잭션 구성 및 가스 추정, 개별 전송 실패 처리 및 재시도 로직, 배치 처리 결과 파싱 및 개별 상태 업데이트, 가스비 절감 메트릭 수집 및 로깅",
             "status": "pending",
             "testStrategy": "다양한 배치 크기에 대한 가스 소비 테스트, Multicall3 통합 테스트 (성공/부분실패 시나리오), 배치 큐 동작 및 시간 윈도우 테스트, 재시도 로직 및 지수 백오프 테스트, 가스비 절감 효과 측정 테스트"
@@ -683,7 +792,9 @@
             "id": 5,
             "title": "API 엔드포인트 및 알림 시스템 구현",
             "description": "Account Manager 기능을 제어하고 모니터링할 수 있는 RESTful API와 중요 이벤트에 대한 알림 시스템을 구현합니다.",
-            "dependencies": ["27.4"],
+            "dependencies": [
+              "27.4"
+            ],
             "details": "Express Router 설정 및 API 엔드포인트 구현 (GET /accounts, POST /accounts, PUT /accounts/:id, GET /transfers, POST /transfers/manual), 요청 검증 미들웨어 구현 (Joi 또는 Zod 사용), 알림 서비스 구현 (EmailService, SlackService 인터페이스), 메인 계정 잔액 부족 알림 로직, 충전 실패 알림 및 에러 상세 정보 포함, 비정상 패턴 감지 알고리즘 (급격한 잔액 소모 등), 알림 템플릿 및 포맷팅 시스템, 알림 전송 이력 및 재시도 관리",
             "status": "pending",
             "testStrategy": "각 API 엔드포인트 통합 테스트, 요청 검증 및 에러 핸들링 테스트, 알림 서비스 모킹 및 전송 검증 테스트, 알림 템플릿 렌더링 테스트, 비정상 패턴 감지 알고리즘 정확성 테스트"
@@ -695,7 +806,10 @@
         "title": "[BFS-41] 프로덕션급 로깅 라이브러리 마이그레이션",
         "description": "현재 커스텀 Logger를 winston 또는 pino 같은 프로덕션급 로깅 라이브러리로 대체하여 구조화된 로깅, 설정 가능한 로그 레벨, 다양한 출력 옵션을 지원하도록 시스템을 개선합니다.",
         "status": "done",
-        "dependencies": [11, 15],
+        "dependencies": [
+          11,
+          15
+        ],
         "priority": "medium",
         "details": "**구현 목표**\n- 현재 커스텀 Logger 클래스를 프로덕션급 로깅 라이브러리로 완전 대체\n- 구조화된 로깅으로 로그 분석 및 모니터링 개선\n- 환경별 로그 레벨 설정 및 다양한 출력 대상 지원\n\n**1. 로깅 라이브러리 선택 및 설치**\n- winston vs pino 성능 및 기능 비교 분석\n- 선택된 라이브러리 설치 및 기본 설정\n- TypeScript 타입 정의 설치\n\n**2. 통합 Logger 서비스 구현**\n- packages/shared/src/services에 LoggerService 클래스 생성\n- 환경 변수 기반 로그 레벨 설정 (LOG_LEVEL)\n- 구조화된 로그 포맷 정의 (JSON 형태)\n```typescript\ninterface LogContext {\n  service: string;\n  requestId?: string;\n  userId?: string;\n  transactionHash?: string;\n  chainId?: number;\n  metadata?: Record<string, any>;\n}\n```\n\n**3. 출력 대상 설정**\n- 개발 환경: 콘솔 출력 (색상 포함)\n- 프로덕션 환경: 파일 출력 + 외부 서비스 연동\n- 로그 파일 로테이션 설정 (daily, 최대 크기 제한)\n- 에러 로그 별도 파일 저장\n\n**4. 기존 Logger 대체**\n- withdrawal-api, tx-processor, tx-monitor 앱들의 기존 Logger import 교체\n- console.log/error 호출을 구조화된 로그로 변환\n- 중요 비즈니스 로직에 추적 가능한 로그 추가\n- 민감한 정보(개인키, 비밀번호) 로깅 방지 필터 구현\n\n**5. 로그 레벨 및 필터링**\n- ERROR: 시스템 오류, 예외 상황\n- WARN: 경고, 잠재적 문제\n- INFO: 일반적인 비즈니스 로직 실행\n- DEBUG: 상세한 디버깅 정보\n- 환경별 기본 로그 레벨 설정 (개발: DEBUG, 프로덕션: INFO)\n\n**6. 성능 최적화**\n- 비동기 로깅으로 메인 스레드 블로킹 방지\n- 로그 버퍼링 및 배치 처리\n- 고빈도 로그에 대한 샘플링 적용",
         "testStrategy": "**1. 로깅 시스템 검증 테스트**\n- LoggerService 인스턴스 생성 및 기본 설정 테스트\n- 각 로그 레벨별 출력 정확성 검증\n- 구조화된 로그 포맷 JSON 검증\n- 환경 변수별 로그 레벨 동적 변경 테스트\n\n**2. 출력 대상 테스트**\n- 콘솔 출력 형식 및 색상 표시 확인\n- 파일 출력 기능 및 로테이션 정책 테스트\n- 에러 로그 별도 파일 저장 검증\n- 로그 파일 크기 제한 및 아카이브 기능 테스트\n\n**3. 보안 및 필터링 테스트**\n- 민감한 정보 자동 마스킹 기능 검증\n- 개인키, 비밀번호 등이 로그에 노출되지 않는지 확인\n- 로그 컨텍스트 정보 정확성 검증 (requestId, userId 등)\n\n**4. 성능 테스트**\n- 고빈도 로깅 상황에서 메인 스레드 블로킹 없음 확인\n- 로그 버퍼링 및 배치 처리 성능 측정\n- 기존 커스텀 Logger 대비 성능 개선 측정\n\n**5. 통합 테스트**\n- 모든 마이크로서비스에서 동일한 로그 포맷 출력 확인\n- 분산 환경에서 requestId 추적 가능성 검증\n- 로그 분석 도구와의 호환성 테스트",
@@ -706,7 +820,10 @@
         "title": "[BFS-42] NonceCacheService의 Dependency Injection 개선",
         "description": "NonceCacheService 생성자에서 Logger를 필수 파라미터로 변경하고 기본 Logger 인스턴스 생성 로직을 제거하여 의존성 주입 패턴을 개선합니다.",
         "status": "pending",
-        "dependencies": [28, 15],
+        "dependencies": [
+          28,
+          15
+        ],
         "priority": "medium",
         "details": "**구현 목표**\n- NonceCacheService의 생성자에서 Logger 의존성을 명시적으로 주입받도록 변경\n- 클래스 내부에서 Logger 인스턴스를 직접 생성하는 로직 제거\n- 의존성 역전 원칙(DIP)을 준수하여 테스트 가능성과 유연성 향상\n\n**1. NonceCacheService 생성자 수정**\n- 현재 생성자에서 Logger 매개변수를 선택적(optional)에서 필수(required)로 변경\n- 기본 Logger 인스턴스 생성 로직 제거\n```typescript\n// Before\nconstructor(private logger: Logger = new Logger()) {}\n\n// After\nconstructor(private logger: Logger) {}\n```\n\n**2. 호출부 코드 수정**\n- NonceCacheService를 사용하는 모든 클래스에서 Logger 인스턴스를 명시적으로 전달\n- signing-service, tx-processor 등에서 LoggerService 인스턴스 주입\n- 테스트 코드에서 Mock Logger 주입 가능하도록 수정\n\n**3. 타입 안전성 개선**\n- Logger 인터페이스 타입 정의 확인 및 필요시 개선\n- 의존성 주입 컨테이너 사용 시 Logger 등록 설정",
         "testStrategy": "**1. 생성자 변경 테스트**\n- Logger 없이 NonceCacheService 인스턴스 생성 시 TypeScript 컴파일 오류 발생 확인\n- 올바른 Logger 인스턴스로 생성 시 정상 작동 확인\n- Mock Logger를 주입하여 로그 메서드 호출 여부 검증\n\n**2. 의존성 주입 테스트**\n- 실제 LoggerService 인스턴스 주입 시 정상 로깅 동작 확인\n- 다양한 Logger 구현체(winston, pino 등) 주입 테스트\n- 로그 레벨별 출력 정확성 검증\n\n**3. 통합 테스트**\n- signing-service에서 NonceCacheService 사용 시 정상 작동 확인\n- tx-processor에서 논스 캐싱 기능과 로깅 기능 동시 검증\n- 에러 상황에서 적절한 로그 출력 여부 확인\n\n**4. 리팩토링 검증**\n- 모든 NonceCacheService 사용처에서 Logger 주입 확인\n- 기존 기능 동작에 영향 없음을 확인하는 회귀 테스트",
@@ -717,7 +834,9 @@
         "title": "[BFS-45] GitHub Actions CI/CD 파이프라인에 코드 품질 검사 단계 추가",
         "description": "PR과 main 브랜치에서 자동으로 실행되는 코드 품질 검사 파이프라인을 구성하여 lint, typecheck, depcheck, test, format 검사를 포함한 포괄적인 품질 관리 시스템을 구현합니다.",
         "status": "done",
-        "dependencies": [28],
+        "dependencies": [
+          28
+        ],
         "priority": "medium",
         "jiraKey": "BFS-45",
         "details": "**1. GitHub Actions 워크플로우 파일 생성**\n- `.github/workflows/ci.yml` 생성\n- PR 생성/업데이트 및 main 브랜치 push 시 트리거 설정\n- Node.js 18.x 환경 설정 및 의존성 캐싱 구성\n\n**2. 코드 품질 검사 단계 구현**\n- ESLint를 통한 코드 스타일 및 품질 검사 (`npm run lint`)\n- TypeScript 컴파일러를 통한 타입 검사 (`npm run typecheck`)\n- depcheck를 통한 미사용 의존성 검사\n- Jest를 통한 단위/통합 테스트 실행 (`npm test`)\n- Prettier를 통한 코드 포맷팅 검사 (`npm run format:check`)\n\n**3. 실패 처리 및 보고 시스템**\n- 각 단계별 실패 시 워크플로우 중단 설정\n- PR에 검사 결과 상태 표시 및 코멘트 추가\n- 테스트 커버리지 리포트 생성 및 아티팩트 저장\n- Slack 알림 연동 (선택사항)\n\n**4. 성능 최적화**\n- npm 캐시 설정으로 의존성 설치 시간 단축\n- 병렬 실행 가능한 작업들을 matrix 전략으로 구성\n- 조건부 실행으로 불필요한 작업 스킵",
@@ -736,7 +855,9 @@
             "id": 2,
             "title": "ESLint 및 TypeScript 코드 품질 검사 단계 구현",
             "description": "코드 스타일 검사를 위한 ESLint와 타입 안전성 검사를 위한 TypeScript 컴파일러 단계를 추가합니다.",
-            "dependencies": ["30.1"],
+            "dependencies": [
+              "30.1"
+            ],
             "details": "npm run lint 명령어를 통한 ESLint 검사 단계 추가, npm run typecheck 명령어를 통한 TypeScript 컴파일 검사 추가, 각 단계별 실패 시 워크플로우 중단 설정, 에러 출력 형식 최적화\n<info added on 2025-08-03T01:52:40.267Z>\nNx 모노레포 환경에서 모든 프로젝트에 걸쳐 검사를 실행하는 Nx 기반 명령어로 구현 완료. code-quality 작업에서 'npm run lint'와 'npm run typecheck' 명령어가 추가되어 전체 워크스페이스의 코드 품질을 일괄 검사합니다.\n</info added on 2025-08-03T01:52:40.267Z>",
             "status": "done",
             "testStrategy": "의도적인 lint 오류 및 TypeScript 타입 오류 시나리오로 검사 실패 및 워크플로우 중단 확인"
@@ -745,7 +866,9 @@
             "id": 3,
             "title": "의존성 검사 및 코드 포맷팅 검증 단계 추가",
             "description": "미사용 의존성 검사를 위한 depcheck와 코드 포맷팅 검사를 위한 Prettier 단계를 구현합니다.",
-            "dependencies": ["30.2"],
+            "dependencies": [
+              "30.2"
+            ],
             "details": "depcheck 패키지 설치 및 npm script 추가, 미사용 의존성 검사 단계 구현, npm run format:check 명령어를 통한 Prettier 포맷팅 검사 추가, 각 검사별 상세 에러 리포트 설정\n<info added on 2025-08-03T01:53:04.258Z>\n의존성 검사는 `continue-on-error: true` 옵션을 사용하여 검사 실패 시에도 워크플로우가 계속 진행되도록 설정됨. 코드 포맷팅 검증은 Prettier를 실행한 후 `git diff --exit-code` 명령어로 커밋되지 않은 포맷팅 변경사항이 있는지 확인하여 포맷팅 일관성을 보장함.\n</info added on 2025-08-03T01:53:04.258Z>",
             "status": "done",
             "testStrategy": "미사용 의존성 추가 후 depcheck 감지 능력 확인, 의도적인 포맷팅 오류로 format 검사 실패 테스트"
@@ -754,7 +877,9 @@
             "id": 4,
             "title": "테스트 실행 및 커버리지 리포트 생성 단계 구현",
             "description": "Jest 테스트 실행과 테스트 커버리지 리포트 생성 및 아티팩트 저장 기능을 추가합니다.",
-            "dependencies": ["30.3"],
+            "dependencies": [
+              "30.3"
+            ],
             "details": "npm test 명령어를 통한 Jest 테스트 실행 단계 추가, 테스트 커버리지 리포트 생성 설정, 커버리지 결과를 GitHub Actions 아티팩트로 저장, 테스트 결과 요약을 PR 코멘트로 추가하는 액션 설정\n<info added on 2025-08-03T01:53:29.518Z>\n구현 완료: npm run coverage 명령어로 테스트 실행 단계 변경, Codecov 통합을 위해 codecov/codecov-action@v3 액션 추가, 커버리지 업로드 실패 시에도 워크플로우가 계속 진행되도록 continue-on-error: true 설정 적용\n</info added on 2025-08-03T01:53:29.518Z>",
             "status": "done",
             "testStrategy": "테스트 실패 시나리오에서 전체 워크플로우 중단 확인, 커버리지 리포트 생성 및 아티팩트 업로드 성공 여부 검증"
@@ -763,7 +888,9 @@
             "id": 5,
             "title": "성능 최적화 및 병렬 실행 구성",
             "description": "워크플로우 실행 시간을 단축하기 위한 성능 최적화 및 병렬 처리 설정을 구현합니다.",
-            "dependencies": ["30.4"],
+            "dependencies": [
+              "30.4"
+            ],
             "details": "독립적인 검사 단계들을 matrix 전략으로 병렬 실행 구성, npm 캐시 최적화 설정으로 의존성 설치 시간 단축, 조건부 실행으로 불필요한 작업 스킵 로직 추가, 워크플로우 실행 시간 모니터링 설정, 실패 시 빠른 중단(fail-fast) 전략 적용\n<info added on 2025-08-03T01:53:53.440Z>\nNode.js 18.x 매트릭스 전략으로 코드 품질 검사와 테스트 작업 병렬 실행 최적화 완료. 'needs: [code-quality, test]' 종속성을 통한 빌드 검증 작업 추가로 품질 게이트 강화. npm 캐싱 설정으로 의존성 설치 시간 단축 및 전체 워크플로우 효율성 개선.\n</info added on 2025-08-03T01:53:53.440Z>",
             "status": "done",
             "testStrategy": "병렬 실행으로 인한 성능 향상 측정, 캐시 적중률 및 의존성 설치 시간 단축 확인, 조건부 실행 시나리오별 동작 검증"
@@ -777,7 +904,10 @@
         "details": "**구현 목표**\n- yarn 기반의 모든 설정과 명령어를 pnpm으로 전환\n- CI/CD 파이프라인, Docker 환경, 개발 문서 전체에 걸친 일관된 pnpm 적용\n- 기존 yarn 워크스페이스 구조를 pnpm 워크스페이스로 원활하게 마이그레이션\n\n**1. 의존성 마이그레이션**\n- pnpm 설치: `npm install -g pnpm@latest`\n- yarn.lock 파일을 기반으로 pnpm-lock.yaml 생성\n```bash\npnpm import  # yarn.lock을 읽어 pnpm-lock.yaml 생성\nrm yarn.lock\n```\n\n**2. 워크스페이스 설정 변환**\n- pnpm-workspace.yaml 파일 생성\n```yaml\npackages:\n  - 'packages/*'\n  - 'apps/*'\n```\n- 루트 package.json의 workspaces 필드 제거 (pnpm은 별도 파일 사용)\n\n**3. .npmrc 설정 파일 생성**\n```ini\n# .npmrc\nauto-install-peers=true\nstrict-peer-dependencies=false\nshared-workspace-lockfile=true\nhoist=true\nhoist-pattern[]=*\npublic-hoist-pattern[]=*eslint*\npublic-hoist-pattern[]=*prettier*\n```\n\n**4. GitHub Actions 워크플로우 수정**\n- .github/workflows/ci.yml 수정\n```yaml\n- uses: pnpm/action-setup@v2\n  with:\n    version: 8\n- name: Install dependencies\n  run: pnpm install --frozen-lockfile\n- name: Run lint\n  run: pnpm run lint\n- name: Run tests\n  run: pnpm test\n```\n- nightly.yml과 production.yml도 동일하게 수정\n\n**5. Docker 파일 업데이트**\n- dockerfile.packages 수정\n```dockerfile\n# pnpm 설치\nRUN npm install -g pnpm@8\n\n# 의존성 파일 복사\nCOPY pnpm-lock.yaml pnpm-workspace.yaml ./\nCOPY packages/*/package.json ./packages/\nCOPY apps/*/package.json ./apps/\n\n# 의존성 설치\nRUN pnpm install --frozen-lockfile --prod\n```\n- docker-compose.yaml 내 모든 yarn 명령어를 pnpm으로 변경\n\n**6. 문서 파일 업데이트**\n- SETUP.md, README.md, CLAUDE.md 등의 모든 yarn 명령어를 pnpm으로 변경\n- 예시:\n  - `yarn install` → `pnpm install`\n  - `yarn dev` → `pnpm dev`\n  - `yarn workspace @package/name add` → `pnpm add -w @package/name`\n  - `yarn build` → `pnpm build`\n\n**7. Claude 설정 업데이트**\n- .claude/settings.json에 pnpm 명령어 허용 추가\n```json\n{\n  \"allowedTools\": [\n    \"Bash(pnpm:*)\",\n    \"Bash(pnpm install:*)\",\n    \"Bash(pnpm add:*)\",\n    \"Bash(pnpm remove:*)\",\n    \"Bash(pnpm run:*)\",\n    \"Bash(pnpm exec:*)\",\n    \"Bash(pnpm workspace:*)\"\n  ]\n}\n```\n\n**8. 개발자 로컬 환경 마이그레이션 가이드**\n- node_modules 및 캐시 정리\n```bash\nrm -rf node_modules\nrm -rf packages/*/node_modules\nrm -rf apps/*/node_modules\npnpm store prune\n```\n- pnpm으로 새로 설치\n```bash\npnpm install\n```",
         "testStrategy": "**1. 의존성 설치 검증**\n- 클린 환경에서 `pnpm install` 실행 및 성공 확인\n- 모든 워크스페이스 패키지가 올바르게 링크되었는지 확인\n- `pnpm list` 명령으로 의존성 트리 정상 표시 확인\n- yarn.lock 파일이 제거되고 pnpm-lock.yaml만 존재하는지 확인\n\n**2. 개발 명령어 동작 테스트**\n- `pnpm dev` 실행하여 개발 서버 정상 시작 확인\n- `pnpm build` 실행하여 빌드 성공 확인\n- `pnpm test` 실행하여 모든 테스트 통과 확인\n- `pnpm lint` 및 `pnpm typecheck` 정상 동작 확인\n\n**3. 워크스페이스 기능 테스트**\n- 워크스페이스 간 의존성 해결 테스트\n- `pnpm workspace @withdrawal/shared add lodash` 같은 워크스페이스 명령어 테스트\n- 공유 패키지 변경 시 다른 패키지에서 즉시 반영되는지 확인\n\n**4. CI/CD 파이프라인 검증**\n- 새 PR 생성하여 GitHub Actions CI 파이프라인 정상 실행 확인\n- pnpm 설치, 의존성 설치, 테스트 실행 모든 단계 성공 확인\n- 빌드 아티팩트 생성 및 업로드 정상 동작 확인\n\n**5. Docker 환경 테스트**\n- `docker-compose build` 실행하여 이미지 빌드 성공 확인\n- 컨테이너 시작 및 애플리케이션 정상 동작 확인\n- 컨테이너 내부에서 pnpm 명령어 사용 가능 확인\n\n**6. 성능 비교 테스트**\n- 클린 설치 시간 측정 (yarn vs pnpm)\n- node_modules 디스크 사용량 비교\n- 빌드 시간 비교 및 개선 사항 문서화\n\n**7. 개발자 경험 검증**\n- 팀원들이 로컬 환경에서 마이그레이션 가이드 따라 성공적으로 전환\n- IDE(VSCode 등)에서 자동 완성 및 타입 체크 정상 동작\n- 기존 개발 워크플로우가 중단 없이 계속 가능한지 확인",
         "status": "done",
-        "dependencies": [30, 28],
+        "dependencies": [
+          30,
+          28
+        ],
         "priority": "medium",
         "jiraKey": "BFS-47",
         "subtasks": [
@@ -794,7 +924,9 @@
             "id": 2,
             "title": "의존성 파일 변환 및 워크스페이스 설정",
             "description": "yarn.lock을 pnpm-lock.yaml로 변환하고 pnpm 워크스페이스 구조를 설정합니다.",
-            "dependencies": ["31.1"],
+            "dependencies": [
+              "31.1"
+            ],
             "details": "pnpm import 명령으로 yarn.lock 변환, pnpm-workspace.yaml 파일 생성, .npmrc 설정 파일 작성, 루트 package.json의 workspaces 필드 제거, 호이스팅 패턴 설정\n<info added on 2025-08-04T05:19:31.336Z>\n구현 완료: pnpm import를 통해 yarn.lock을 pnpm-lock.yaml로 성공적으로 변환했습니다. pnpm-workspace.yaml 파일을 생성하여 모노레포 구조를 정의했고, .npmrc 파일을 통해 pnpm 전용 설정을 구성했습니다. pnpm install 실행으로 모든 의존성을 정상 설치했으며, node_modules 크기가 716MB에서 558MB로 22% 감소하여 디스크 공간 절약 효과를 확인했습니다.\n</info added on 2025-08-04T05:19:31.336Z>",
             "status": "done",
             "testStrategy": "pnpm-lock.yaml 파일 생성 확인, pnpm install --frozen-lockfile 성공 여부, 워크스페이스 패키지 간 링크 정상 작동 검증"
@@ -803,7 +935,9 @@
             "id": 3,
             "title": "CI/CD 파이프라인 및 Docker 환경 수정",
             "description": "GitHub Actions 워크플로우와 Docker 파일을 pnpm 환경에 맞게 수정합니다.",
-            "dependencies": ["31.2"],
+            "dependencies": [
+              "31.2"
+            ],
             "details": "모든 GitHub Actions 워크플로우 파일에 pnpm/action-setup 추가, yarn 명령어를 pnpm으로 변경, dockerfile.packages 수정, docker-compose.yaml 내 모든 yarn 명령어 변경, 빌드 캐시 최적화 설정\n<info added on 2025-08-04T05:23:17.096Z>\n구현 완료:\n- .github/workflows/ci.yml: pnpm/action-setup@v4 추가, 모든 yarn 명령어를 pnpm으로 변경\n- .github/workflows/production.yml: pnpm/action-setup@v4 추가, 모든 yarn 명령어를 pnpm으로 변경  \n- .github/workflows/nightly.yml: pnpm/action-setup@v4 추가, 모든 yarn 명령어를 pnpm으로 변경\n- docker/dockerfile.packages: yarn 대신 pnpm 사용하도록 전체 수정, pnpm store를 /root/.local/share/pnpm으로 설정\n- docker/docker-compose.yaml: 모든 yarn 명령어를 pnpm으로 변경 (dev, build, lint, typecheck 등)\n모든 CI/CD 파이프라인과 Docker 환경이 pnpm 기반으로 성공적으로 전환됨.\n</info added on 2025-08-04T05:23:17.096Z>",
             "status": "done",
             "testStrategy": "GitHub Actions 워크플로우 로컬 실행 테스트, Docker 이미지 빌드 성공 확인, 컨테이너 내부에서 pnpm 명령어 실행 가능 여부 검증"
@@ -812,7 +946,9 @@
             "id": 4,
             "title": "프로젝트 문서 및 개발 스크립트 업데이트",
             "description": "모든 문서 파일과 개발 스크립트에서 yarn 참조를 pnpm으로 변경합니다.",
-            "dependencies": ["31.2"],
+            "dependencies": [
+              "31.2"
+            ],
             "details": "README.md, SETUP.md, CLAUDE.md 등 모든 문서 파일 수정, package.json 스크립트 명령어 업데이트, 개발자 가이드 문서 작성, yarn workspace 명령어를 pnpm 등가 명령어로 변환, 마이그레이션 가이드 문서 작성\n<info added on 2025-08-04T05:25:52.527Z>\n프로젝트 전체 문서의 yarn 명령어 pnpm 마이그레이션 완료: package.json 루트 bootstrap 스크립트 pnpm으로 변경, SETUP.md 내 모든 npm 명령어를 pnpm 명령어로 일괄 변환, CLAUDE.md의 개발 가이드라인 내 npm 명령어를 pnpm으로 수정, .taskmaster/CLAUDE.md의 Task Master 워크플로우 명령어를 pnpm으로 업데이트, .github/workflows/README.md의 GitHub Actions 가이드 내 yarn 참조를 pnpm으로 변경하여 문서와 실제 패키지 매니저 간 일관성 확보\n</info added on 2025-08-04T05:25:52.527Z>",
             "status": "done",
             "testStrategy": "문서 내 yarn 키워드 검색으로 누락 확인, 변경된 명령어 실행 가능 여부 테스트, 개발자 가이드 따라 신규 환경 구성 성공 확인"
@@ -821,7 +957,10 @@
             "id": 5,
             "title": "Claude 설정 업데이트 및 전체 시스템 검증",
             "description": "Claude Code 설정을 업데이트하고 전체 시스템이 pnpm으로 정상 작동하는지 검증합니다.",
-            "dependencies": ["31.3", "31.4"],
+            "dependencies": [
+              "31.3",
+              "31.4"
+            ],
             "details": ".claude/settings.json에 pnpm 명령어 허용 목록 추가, 모든 개발 명령어 실행 테스트, 프로덕션 빌드 및 배포 프로세스 검증, 성능 벤치마크 수행, 롤백 계획 수립\n<info added on 2025-08-04T05:31:28.002Z>\n구현 완료 사항:\n\n**Claude Code 설정 업데이트**\n- .claude/settings.json에 pnpm 관련 허용 명령어 포괄적 추가 완료:\n  - 기본 pnpm 명령어: pnpm, pnpm install, pnpm add, pnpm remove\n  - 실행 스크립트: pnpm run, pnpm exec  \n  - 워크스페이스 명령어: pnpm workspace\n- 모든 pnpm 작업에 대한 권한 설정 완료\n\n**전체 시스템 검증 결과**\n- TypeScript 타입 검사 통과: signing-service의 누락된 @aws-sdk/client-sqs 의존성 추가하여 컴파일 오류 해결\n- 린팅 검사 통과: 모든 패키지에서 pnpm run lint 성공\n- 빌드 검증 완료: pnpm run build로 모든 패키지 정상 빌드 확인\n- 워크스페이스 기능 정상 작동: pnpm 워크스페이스 의존성 해결 검증 완료\n\n**마이그레이션 성과 확인**\n- node_modules 크기 22% 감소 달성 (716MB → 558MB)\n- 의존성 설치 속도 향상 확인\n- pnpm의 격리된 node_modules 구조로 엄격한 의존성 관리 실현\n- 모노레포 아키텍처에 최적화된 워크스페이스 지원 개선\n\npnpm 마이그레이션 프로세스 완전 완료, 모든 시스템 정상 작동 검증됨\n</info added on 2025-08-04T05:31:28.002Z>",
             "status": "done",
             "testStrategy": "pnpm dev/build/test/lint 명령어 전체 실행, 의존성 설치 속도 비교, 디스크 사용량 측정, Claude Code에서 pnpm 명령어 실행 가능 확인"
@@ -835,7 +974,11 @@
         "details": "**구현 목표**\n- 트랜잭션 서명 전 포괄적인 보안 검증을 통한 리스크 최소화\n- 단계별 검증 시스템으로 유연하고 확장 가능한 보안 아키텍처 구축\n- 환경 변수 기반 검증 규칙 관리로 운영 환경에 맞는 커스터마이징 지원\n\n**1. TransactionValidator 서비스 구현**\n- `apps/signing-service/src/services/transaction-validator.service.ts` 생성\n- ValidationResult 인터페이스 정의 (valid, warnings, errors, riskLevel)\n- 단계별 검증 체인 구현 (Chain of Responsibility 패턴)\n```typescript\ninterface ValidationRule {\n  name: string;\n  validate(request: WithdrawalRequest): Promise<ValidationResult>;\n  isEnabled: boolean;\n  priority: number;\n}\n```\n\n**2. Phase 1 - 핵심 검증 기능**\n- **금액 범위 검증**: 토큰별 최소/최대 금액, 일일 한도 체크\n- **주소 유효성 강화**: Checksum 검증, 컨트랙트/EOA 구분, 0x00 주소 차단\n- **잔액 확인 통합**: 기존 BalanceService와 연동하여 실시간 잔액 검증\n- **가스비 검증**: EIP-1559 기준 가스 계산 및 네이티브 토큰 잔액 확인\n\n**3. Phase 2 - 보안 검증 기능**\n- **블랙리스트 시스템**: BlacklistedAddress 테이블 기반 주소 차단\n- **거래 내역 분석**: 첫 거래 주소에 대한 추가 검증 및 경고\n- **패턴 분석**: 연속 동일 주소 출금, 비정상 금액 패턴 감지\n- **검증 로그**: ValidationLog 테이블에 모든 검증 결과 기록\n\n**4. 데이터베이스 스키마 확장**\n```prisma\nmodel BlacklistedAddress {\n  id        String   @id @default(cuid())\n  address   String   @unique\n  reason    String\n  severity  String   // HIGH, MEDIUM, LOW\n  addedBy   String\n  createdAt DateTime @default(now())\n}\n\nmodel WhitelistedAddress {\n  id        String   @id @default(cuid())\n  address   String   @unique\n  label     String?\n  createdAt DateTime @default(now())\n}\n\nmodel ValidationLog {\n  id           String   @id @default(cuid())\n  requestId    String\n  validationRules String // JSON array\n  result       String   // PASSED, FAILED, WARNING\n  riskLevel    String   // LOW, MEDIUM, HIGH\n  warnings     String?  // JSON array\n  errors       String?  // JSON array\n  createdAt    DateTime @default(now())\n}\n```\n\n**5. 환경 변수 기반 설정**\n```env\n# 검증 기능 on/off\nVALIDATION_ENABLED=true\nVALIDATION_STRICT_MODE=false\n\n# 금액 제한 (USD 기준)\nMIN_WITHDRAWAL_AMOUNT=1\nMAX_WITHDRAWAL_AMOUNT_MATIC=1000\nMAX_WITHDRAWAL_AMOUNT_USDC=5000\nMAX_WITHDRAWAL_AMOUNT_USDT=5000\n\n# 보안 설정\nBLACKLIST_CHECK_ENABLED=true\nFIRST_TIME_ADDRESS_WARNING=true\nCONSECUTIVE_WITHDRAWAL_LIMIT=5\nDAILY_LIMIT_ENABLED=false\n```\n\n**6. signing-worker.ts 통합**\n- `processMessage` 메서드에 검증 단계 추가 (잔액 확인 이후)\n- 검증 실패 시 트랜잭션 거부 및 적절한 에러 메시지 반환\n- 경고 수준의 검증 결과는 로깅 후 처리 계속\n- 검증 결과를 SQS 응답에 포함하여 상위 서비스에 정보 제공",
         "testStrategy": "**1. 단위 테스트**\n- TransactionValidator 서비스의 각 검증 규칙별 단위 테스트\n- ValidationRule 인터페이스 구현체들의 개별 동작 테스트\n- 금액 범위 검증: 최소/최대 금액 경계값 테스트, 토큰별 설정 적용 테스트\n- 주소 유효성 검증: 유효/무효 주소 형식, checksum 검증, 컨트랙트/EOA 구분 테스트\n- 블랙리스트 검증: 블랙리스트 주소 차단, 화이트리스트 우선 처리 테스트\n\n**2. 통합 테스트**\n- signing-worker와 TransactionValidator의 전체 플로우 테스트\n- 검증 실패 시나리오별 에러 처리 및 응답 형식 검증\n- 데이터베이스 트랜잭션 롤백 및 로그 저장 정확성 테스트\n- 환경 변수 변경에 따른 검증 규칙 동적 적용 테스트\n\n**3. 보안 테스트**\n- 악의적인 주소로의 출금 시도 차단 테스트\n- 비정상적인 금액 패턴 감지 능력 테스트\n- 연속 출금 제한 기능 동작 검증\n- 검증 우회 시도에 대한 방어 테스트\n\n**4. 성능 테스트**\n- 대량 트랜잭션 처리 시 검증 성능 측정 (목표: 평균 100ms 이내)\n- Redis 캐싱을 통한 블랙리스트 조회 성능 테스트\n- 검증 로그 저장이 메인 트랜잭션 처리에 미치는 영향 측정\n- 메모리 사용량 모니터링 및 최적화 검증\n\n**5. 설정 테스트**\n- 다양한 환경 변수 조합에서의 검증 동작 테스트\n- Strict 모드 vs Normal 모드 차이점 검증\n- 토큰별 개별 설정 적용 정확성 테스트\n- 검증 기능 비활성화 시 성능 개선 측정",
         "status": "pending",
-        "dependencies": [15, 28, 11],
+        "dependencies": [
+          15,
+          28,
+          11
+        ],
         "priority": "medium",
         "subtasks": [
           {
@@ -851,7 +994,9 @@
             "id": 2,
             "title": "Phase 1 핵심 검증 기능 구현 (금액, 주소, 잔액, 가스비)",
             "description": "트랜잭션의 기본적인 유효성을 검증하는 핵심 검증 규칙들을 구현합니다. 금액 범위, 주소 유효성, 잔액 확인, 가스비 검증 등의 필수 검증 기능을 포함합니다.",
-            "dependencies": ["32.1"],
+            "dependencies": [
+              "32.1"
+            ],
             "details": "AmountRangeValidator: 토큰별 최소/최대 금액 검증 및 일일 한도 체크 구현. AddressValidator: Ethereum 주소 checksum 검증, 컨트랙트/EOA 구분, 0x00 주소 차단 기능 구현. BalanceValidator: 기존 BalanceService와 연동하여 실시간 토큰 잔액 및 네이티브 토큰 잔액 검증. GasFeeValidator: EIP-1559 기준으로 예상 가스비를 계산하고 네이티브 토큰 잔액이 충분한지 확인. 각 검증기는 ValidationRule 인터페이스를 구현하며 환경 변수로 설정된 임계값을 사용합니다.",
             "status": "pending",
             "testStrategy": "각 검증기별 경계값 테스트 (최소/최대 금액, 유효/무효 주소), 토큰별 설정 적용 테스트, checksum 주소 검증 테스트, 잔액 부족 시나리오 테스트, 가스비 계산 정확성 테스트"
@@ -860,7 +1005,10 @@
             "id": 3,
             "title": "Phase 2 보안 검증 기능 구현 (블랙리스트, 패턴 분석)",
             "description": "악의적인 트랜잭션을 사전에 차단하기 위한 고급 보안 검증 기능을 구현합니다. 블랙리스트 시스템과 거래 패턴 분석을 통해 의심스러운 트랜잭션을 감지합니다.",
-            "dependencies": ["32.1", "32.2"],
+            "dependencies": [
+              "32.1",
+              "32.2"
+            ],
             "details": "BlacklistValidator: BlacklistedAddress 테이블을 조회하여 차단된 주소로의 출금 방지, WhitelistedAddress는 블랙리스트 검증 우회 허용. TransactionHistoryValidator: 첫 거래 주소에 대한 추가 검증, 최근 거래 내역 분석을 통한 위험도 평가. PatternAnalysisValidator: 연속 동일 주소 출금 감지, 비정상적인 금액 패턴 (예: 급격한 금액 증가), 짧은 시간 내 반복 출금 시도 감지. 각 검증 결과는 riskLevel (LOW, MEDIUM, HIGH)로 분류되어 종합 평가에 반영됩니다.",
             "status": "pending",
             "testStrategy": "블랙리스트 주소 차단 테스트, 화이트리스트 우선 처리 테스트, 첫 거래 주소 경고 테스트, 연속 출금 패턴 감지 테스트, 비정상 금액 패턴 감지 테스트"
@@ -878,7 +1026,12 @@
             "id": 5,
             "title": "signing-worker 통합 및 환경 변수 기반 설정 시스템 구현",
             "description": "TransactionValidator를 signing-worker에 통합하고, 환경 변수를 통해 검증 규칙을 유연하게 관리할 수 있는 설정 시스템을 구현합니다.",
-            "dependencies": ["32.1", "32.2", "32.3", "32.4"],
+            "dependencies": [
+              "32.1",
+              "32.2",
+              "32.3",
+              "32.4"
+            ],
             "details": "signing-worker.ts의 processMessage 메서드에 TransactionValidator를 통합하여 잔액 확인 이후 검증 단계를 추가합니다. 검증 실패 시 트랜잭션을 거부하고 적절한 에러 메시지를 SQS 응답에 포함시킵니다. 경고 수준의 검증 결과는 로깅 후 처리를 계속하되, 상위 서비스에 정보를 전달합니다. .env 파일에 VALIDATION_ENABLED, VALIDATION_STRICT_MODE, 토큰별 금액 제한, 보안 설정 등의 환경 변수를 정의하고, ConfigService를 통해 런타임에 설정을 로드합니다.",
             "status": "pending",
             "testStrategy": "signing-worker 통합 테스트, 검증 실패 시 트랜잭션 거부 테스트, 경고 레벨 처리 테스트, 환경 변수 변경에 따른 동작 변화 테스트, SQS 응답에 검증 결과 포함 확인 테스트"
@@ -893,7 +1046,12 @@
         "details": "**구현 목표**\n- 모든 DLQ(request-dlq, signed-tx-dlq, broadcast-tx-dlq)를 모니터링하는 중앙화된 서비스 구현\n- 에러 타입별 자동 복구 전략으로 시스템 안정성 극대화\n- 복구 불가능한 메시지에 대한 영구 실패 처리 및 알림 시스템\n\n**1. Recovery Service 앱 생성**\n- `apps/recovery-service` 디렉토리 생성\n- Express 기반 웹 서버 및 워커 프로세스 분리\n- 환경 변수 기반 DLQ 설정 및 복구 정책 관리\n\n**2. DLQ 모니터링 시스템**\n- DLQMonitor 클래스로 request-dlq, signed-tx-dlq, broadcast-tx-dlq 동시 모니터링\n- 폴링 기반 메시지 수신 (기본 30초 간격, 설정 가능)\n- 메시지 분석을 위한 ErrorAnalyzer 구현\n```typescript\ninterface RecoveryStrategy {\n  canRecover(error: DLQMessage): boolean;\n  recover(message: DLQMessage): Promise<RecoveryResult>;\n  getMaxRetryCount(): number;\n}\n```\n\n**3. 에러 타입별 복구 전략**\n- NetworkErrorRecovery: 네트워크 에러 시 지수 백오프로 재시도 (최대 5회)\n- NonceErrorRecovery: nonce 충돌 시 NonceCacheService 재시작 후 재시도\n- InsufficientBalanceRecovery: 잔액 부족 시 영구 실패 처리 및 알림\n- GasErrorRecovery: 가스 부족 시 가스비 재계산 후 재시도\n- UnknownErrorRecovery: 분류되지 않은 에러의 기본 재시도 로직\n\n**4. 복구 워크플로우**\n- RecoveryOrchestrator가 메시지 수신부터 복구 완료까지 전체 프로세스 관리\n- 복구 성공 시 원본 큐로 메시지 재전송\n- 복구 실패 시 재시도 카운트 증가 후 재처리 또는 영구 실패 처리\n- 모든 복구 활동 로깅 및 메트릭 수집\n\n**5. 관리 API 및 모니터링**\n- REST API로 복구 상태 조회 및 수동 복구 트리거\n- Prometheus 메트릭 노출 (복구 성공/실패율, 처리 시간 등)\n- 영구 실패 메시지에 대한 알림 시스템 (이메일/Slack)\n\n**6. 데이터베이스 모델**\n- RecoveryAttempt 모델로 복구 시도 이력 추적\n- 메시지 ID, 에러 유형, 복구 전략, 시도 횟수, 결과 저장",
         "testStrategy": "**1. DLQ 모니터링 테스트**\n- 각 DLQ(request-dlq, signed-tx-dlq, broadcast-tx-dlq)에 테스트 메시지 전송\n- DLQMonitor가 모든 큐에서 메시지를 정상 수신하는지 확인\n- 폴링 간격 설정 및 동시 처리 능력 테스트\n- 큐 연결 실패 시 재연결 로직 검증\n\n**2. 에러 분석 및 복구 전략 테스트**\n- 네트워크 에러 시뮬레이션으로 NetworkErrorRecovery 동작 확인\n- nonce 충돌 상황 재현 후 NonceErrorRecovery 복구 테스트\n- 잔액 부족 메시지로 InsufficientBalanceRecovery 영구 실패 처리 검증\n- 가스 부족 에러에 대한 GasErrorRecovery 가스비 재계산 테스트\n- 알 수 없는 에러에 대한 기본 재시도 로직 테스트\n\n**3. 복구 워크플로우 통합 테스트**\n- 메시지 수신부터 복구 완료까지 전체 플로우 테스트\n- 복구 성공 시 원본 큐로 메시지 재전송 확인\n- 최대 재시도 횟수 도달 시 영구 실패 처리 테스트\n- 동시 복구 작업 처리 시 리소스 경합 상황 테스트\n\n**4. API 및 모니터링 테스트**\n- REST API를 통한 복구 상태 조회 기능 테스트\n- 수동 복구 트리거 API 동작 확인\n- Prometheus 메트릭 정확성 검증\n- 영구 실패 알림 시스템 동작 테스트\n\n**5. 성능 및 안정성 테스트**\n- 대량 DLQ 메시지 처리 시 메모리 사용량 모니터링\n- 장시간 실행 시 메모리 누수 및 커넥션 풀 관리 테스트\n- 서비스 재시작 시 진행 중인 복구 작업 복원 테스트",
         "status": "pending",
-        "dependencies": [11, 15, 28, 29],
+        "dependencies": [
+          11,
+          15,
+          28,
+          29
+        ],
         "priority": "medium",
         "subtasks": [
           {
@@ -910,7 +1068,9 @@
             "id": 2,
             "title": "[BFS-55] DLQ 모니터링 시스템 구현",
             "description": "모든 DLQ(request-dlq, signed-tx-dlq, broadcast-tx-dlq)를 동시에 모니터링하는 DLQMonitor 클래스를 구현합니다.",
-            "dependencies": ["33.1"],
+            "dependencies": [
+              "33.1"
+            ],
             "details": "DLQMonitor 클래스 구현으로 3개 DLQ 동시 폴링, SQS 메시지 수신 및 파싱 로직, 폴링 인터벌 30초 기본값으로 설정(환경변수로 조정 가능), 메시지 배치 처리 및 병렬 처리 지원, 연결 실패 시 재연결 로직, 메시지 수신 실패 로그 및 메트릭 기록, graceful shutdown 지원",
             "status": "pending",
             "testStrategy": "각 DLQ에 테스트 메시지 전송 후 수신 확인, 폴링 간격 설정 테스트, 동시 처리 능력 테스트, 큐 연결 실패 시 재연결 로직 검증, 메시지 파싱 정확성 테스트",
@@ -920,7 +1080,9 @@
             "id": 3,
             "title": "[BFS-56] 에러 분석 및 복구 전략 시스템 구현",
             "description": "에러 타입을 분석하고 각 타입별로 적절한 복구 전략을 적용하는 ErrorAnalyzer와 RecoveryStrategy 시스템을 구현합니다.",
-            "dependencies": ["33.2"],
+            "dependencies": [
+              "33.2"
+            ],
             "details": "ErrorAnalyzer 클래스로 DLQ 메시지의 에러 타입 분류, RecoveryStrategy 인터페이스 정의, NetworkErrorRecovery 구현(지수 백오프, 최대 5회 재시도), NonceErrorRecovery 구현(NonceCacheService 재시작 후 재시도), InsufficientBalanceRecovery 구현(영구 실패 처리), GasErrorRecovery 구현(가스비 재계산), UnknownErrorRecovery 구현(기본 재시도), 복구 전략별 최대 재시도 횟수 설정",
             "status": "pending",
             "testStrategy": "에러 타입별 분류 정확성 테스트, 네트워크 에러 시뮬레이션 및 복구 테스트, nonce 충돌 상황 재현 및 복구 테스트, 잔액 부족 상황 영구 실패 처리 테스트, 각 복구 전략의 재시도 로직 테스트",
@@ -930,7 +1092,9 @@
             "id": 4,
             "title": "[BFS-57] RecoveryOrchestrator 및 워크플로우 구현",
             "description": "메시지 수신부터 복구 완료까지 전체 프로세스를 관리하는 RecoveryOrchestrator와 복구 워크플로우를 구현합니다.",
-            "dependencies": ["33.3"],
+            "dependencies": [
+              "33.3"
+            ],
             "details": "RecoveryOrchestrator 클래스로 전체 복구 프로세스 조율, 메시지 수신 → 에러 분석 → 복구 전략 선택 → 복구 실행 워크플로우, 복구 성공 시 원본 큐로 메시지 재전송 로직, 복구 실패 시 재시도 카운트 증가 및 재처리, 최대 재시도 초과 시 영구 실패 처리, 모든 복구 활동 로깅 및 메트릭 수집, RecoveryAttempt 데이터베이스 모델 연동",
             "status": "pending",
             "testStrategy": "전체 워크플로우 통합 테스트, 복구 성공 시 메시지 재전송 확인, 복구 실패 및 재시도 로직 테스트, 영구 실패 처리 테스트, 데이터베이스 기록 정확성 테스트",
@@ -940,7 +1104,9 @@
             "id": 5,
             "title": "[BFS-58] 관리 API 및 모니터링 시스템 구현",
             "description": "복구 상태 조회, 수동 복구 트리거를 위한 REST API와 Prometheus 메트릭, 알림 시스템을 구현합니다.",
-            "dependencies": ["33.4"],
+            "dependencies": [
+              "33.4"
+            ],
             "details": "REST API 엔드포인트 구현(/api/recovery/status, /api/recovery/trigger, /api/recovery/stats), Prometheus 메트릭 노출(복구 성공률, 실패율, 처리 시간, 큐별 메시지 수), 영구 실패 메시지에 대한 알림 시스템(이메일/Slack 통합), 복구 대시보드용 API 엔드포인트, 복구 이력 조회 API, 수동 복구 트리거 기능, 시스템 상태 모니터링 API",
             "status": "pending",
             "testStrategy": "API 엔드포인트 동작 테스트, Prometheus 메트릭 정확성 검증, 알림 시스템 동작 테스트, 수동 복구 트리거 테스트, 복구 상태 조회 API 테스트",
@@ -960,7 +1126,9 @@
             "id": 7,
             "title": "[BFS-60] ErrorAnalyzer 구현 - DLQ 메시지 에러 분석 및 분류 시스템",
             "description": "DLQ 메시지의 에러 내용을 분석하여 에러 타입을 분류하고 적절한 복구 전략을 결정하는 ErrorAnalyzer를 구현합니다.",
-            "dependencies": ["33.2"],
+            "dependencies": [
+              "33.2"
+            ],
             "details": "src/services/error-analyzer.service.ts 파일 생성, 에러 타입 enum 정의(NETWORK_ERROR, NONCE_ERROR, INSUFFICIENT_BALANCE, GAS_ERROR, UNKNOWN_ERROR), 메시지 내용 파싱 및 에러 패턴 매칭 로직, 각 에러 타입별 특성 분석 메서드 구현, 에러 심각도 레벨 분류, 복구 가능성 판단 로직",
             "status": "pending",
             "testStrategy": "각 에러 타입별 샘플 메시지로 분류 정확성 테스트, 알 수 없는 에러 패턴에 대한 기본 처리 검증, 에러 심각도 분류 테스트",
@@ -970,7 +1138,9 @@
             "id": 8,
             "title": "[BFS-61] RecoveryStrategy 인터페이스 및 구체 전략 클래스들 구현",
             "description": "각 에러 타입별로 특화된 복구 전략을 구현하는 RecoveryStrategy 인터페이스와 구체 전략 클래스들을 구현합니다.",
-            "dependencies": ["33.2"],
+            "dependencies": [
+              "33.2"
+            ],
             "details": "src/strategies/ 디렉토리 생성, RecoveryStrategy 인터페이스 정의(canRecover, recover, getMaxRetryCount 메서드), NetworkErrorRecovery(지수 백오프 재시도, 최대 5회), NonceErrorRecovery(NonceCacheService 재시작 후 재시도), InsufficientBalanceRecovery(영구 실패 처리), GasErrorRecovery(가스비 재계산 후 재시도), UnknownErrorRecovery(기본 재시도 로직) 클래스 구현",
             "status": "pending",
             "testStrategy": "각 전략별 복구 로직 단위 테스트, 최대 재시도 횟수 제한 테스트, 복구 불가능 메시지 처리 테스트, 전략 선택 로직 검증",
@@ -980,7 +1150,11 @@
             "id": 9,
             "title": "[BFS-62] RecoveryOrchestrator 구현 - 전체 복구 워크플로우 관리",
             "description": "DLQ 메시지 수신부터 복구 완료까지 전체 프로세스를 관리하는 RecoveryOrchestrator 클래스를 구현합니다.",
-            "dependencies": ["33.1", "33.2", "33.3"],
+            "dependencies": [
+              "33.1",
+              "33.2",
+              "33.3"
+            ],
             "details": "src/services/recovery-orchestrator.service.ts 파일 생성, DLQMonitor와 ErrorAnalyzer, RecoveryStrategy 클래스들을 조합한 워크플로우 관리, 메시지 수신 → 에러 분석 → 전략 선택 → 복구 실행 → 결과 처리 파이프라인 구현, 복구 성공 시 원본 큐로 재전송 로직, 복구 실패 시 재시도 카운트 관리, 영구 실패 처리 및 알림 발송, RecoveryAttempt 데이터베이스 모델에 복구 이력 저장",
             "status": "pending",
             "testStrategy": "전체 복구 워크플로우 시나리오 테스트, 복구 성공/실패 케이스별 처리 검증, 재시도 로직 및 영구 실패 처리 테스트, 데이터베이스 이력 저장 확인",
@@ -990,7 +1164,9 @@
             "id": 10,
             "title": "[BFS-63] 관리 API 및 모니터링 시스템 구현",
             "description": "Recovery Service의 상태 조회, 수동 복구 트리거, 메트릭 수집을 위한 REST API와 모니터링 시스템을 구현합니다.",
-            "dependencies": ["33.4"],
+            "dependencies": [
+              "33.4"
+            ],
             "details": "src/controllers/recovery.controller.ts 생성, GET /api/recovery/status (전체 복구 상태 조회), POST /api/recovery/trigger (수동 복구 실행), GET /api/recovery/metrics (Prometheus 메트릭), GET /api/recovery/history (복구 이력 조회) 엔드포인트 구현, Prometheus 메트릭 수집(복구 성공/실패율, 처리 시간, 큐별 메시지 수), 영구 실패 메시지 알림 시스템(이메일/Slack 연동), 복구 대시보드용 데이터 API 제공",
             "status": "pending",
             "testStrategy": "각 API 엔드포인트 응답 형식 및 상태 코드 테스트, 수동 복구 트리거 동작 검증, Prometheus 메트릭 수집 정확성 테스트, 알림 시스템 발송 테스트",
@@ -1060,7 +1236,9 @@
             "id": 17,
             "title": "[BFS-70] RecoveryStrategy 인터페이스 및 기본 클래스 정의",
             "description": "복구 전략의 공통 인터페이스와 기본 구현을 정의합니다. 모든 복구 전략이 따라야 할 메소드와 공통 로직을 제공하는 기반 클래스를 구현합니다.",
-            "dependencies": ["33.16"],
+            "dependencies": [
+              "33.16"
+            ],
             "details": "RecoveryStrategy 인터페이스 정의: canHandle(errorType: ErrorType), execute(message: DLQMessage), getRetryPolicy(), getMaxRetries() 메소드, BaseRecoveryStrategy 추상 클래스 구현으로 공통 로직 제공, RetryPolicy 타입 정의 (LINEAR, EXPONENTIAL), 복구 결과를 위한 RecoveryResult 타입 정의 (SUCCESS, RETRY, PERMANENT_FAILURE)",
             "status": "pending",
             "testStrategy": "인터페이스 구현체들의 메소드 호출 테스트, 기본 클래스의 공통 로직 동작 확인, 복구 정책 설정 및 적용 검증",
@@ -1070,7 +1248,9 @@
             "id": 18,
             "title": "[BFS-71] NetworkErrorRecovery 전략 구현",
             "description": "네트워크 관련 에러에 대한 복구 전략을 구현합니다. 지수 백오프 방식으로 재시도하며 최대 5회까지 시도한 후 원본 큐로 재전송합니다.",
-            "dependencies": ["33.17"],
+            "dependencies": [
+              "33.17"
+            ],
             "details": "NetworkErrorRecovery 클래스 구현, 지수 백오프 로직 (2초->4초->8초->16초->32초), 최대 5회 재시도 제한, 네트워크 에러 타입 감지 (연결 실패, 타임아웃, DNS 오류), 재시도 성공 시 원본 큐로 메시지 재전송, 재시도 실패 시 다음 전략으로 전달 또는 영구 실패 처리",
             "status": "pending",
             "testStrategy": "네트워크 에러 시뮬레이션으로 지수 백오프 동작 확인, 최대 재시도 횟수 도달 후 처리 검증, 원본 큐 재전송 로직 테스트",
@@ -1080,7 +1260,9 @@
             "id": 19,
             "title": "[BFS-72] NonceErrorRecovery 및 InsufficientFundsRecovery 전략 구현",
             "description": "Nonce 충돌과 잔액 부족 에러에 대한 복구 전략을 구현합니다. Nonce 에러는 상태 리셋 후 재처리하고, 잔액 부족은 영구 실패로 처리합니다.",
-            "dependencies": ["33.17"],
+            "dependencies": [
+              "33.17"
+            ],
             "details": "NonceErrorRecovery: withdrawal_requests 테이블에서 해당 요청의 상태를 PENDING으로 리셋, request-queue로 메시지 재전송, NonceCacheService 캐시 무효화, InsufficientFundsRecovery: withdrawal_requests 상태를 FAILED로 마킹, 영구 실패 처리로 더 이상 재시도 안함, 관리자 알림 트리거, 사용자 알림 시스템 연동",
             "status": "pending",
             "testStrategy": "Nonce 충돌 상황 재현 후 상태 리셋 및 재처리 확인, 잔액 부족 시 영구 실패 처리 및 알림 발송 검증, 데이터베이스 상태 변경 트랜잭션 테스트",
@@ -1090,7 +1272,9 @@
             "id": 20,
             "title": "[BFS-73] GasErrorRecovery 및 UnknownErrorRecovery 전략 구현",
             "description": "가스 관련 에러와 분류되지 않은 에러에 대한 복구 전략을 구현합니다. 가스 에러는 가스비 재계산 후 재시도하고, 알 수 없는 에러는 기본 재시도 로직을 적용합니다.",
-            "dependencies": ["33.17"],
+            "dependencies": [
+              "33.17"
+            ],
             "details": "GasErrorRecovery: 현재 네트워크 상태 기반 가스비 재계산, Gas Price Oracle 연동으로 적정 가스비 산출, 재계산된 가스비로 트랜잭션 재생성 후 재시도, 최대 3회 가스비 조정 시도, UnknownErrorRecovery: 기본 선형 백오프로 재시도 (5초 간격), 최대 3회 재시도 후 수동 검토를 위한 별도 큐로 이동, 에러 상세 정보 로깅 및 관리자 알림",
             "status": "pending",
             "testStrategy": "가스 부족 시나리오에서 가스비 재계산 및 재시도 확인, 알 수 없는 에러의 기본 재시도 로직 검증, 최대 재시도 후 수동 검토 큐 이동 테스트",
@@ -1110,7 +1294,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-08-12T08:31:56.223Z",
+      "updated": "2025-08-12T11:09:53.832Z",
       "description": "Tasks for master context"
     }
   }

@@ -392,13 +392,13 @@ export class NonceManager {
     missingNonces?: number[];
   } | null {
     const queue = this.pendingTransactions.get(address);
-    
+
     if (!queue || queue.length === 0) {
       return null;
     }
 
     const lastNonce = this.lastBroadcastedNonce.get(address);
-    
+
     if (lastNonce === undefined) {
       // No previous broadcasts, no gap
       return { hasGap: false };
@@ -406,14 +406,14 @@ export class NonceManager {
 
     const nextTransaction = queue[0];
     const expectedNonce = lastNonce + 1;
-    
+
     if (nextTransaction.nonce !== expectedNonce) {
       // Calculate missing nonces
       const missingNonces: number[] = [];
       for (let n = expectedNonce; n < nextTransaction.nonce; n++) {
         missingNonces.push(n);
       }
-      
+
       return {
         hasGap: true,
         expectedNonce,

@@ -9,6 +9,7 @@ This document describes the nonce gap detection and recovery strategy implemente
 ### What is a Nonce Gap?
 
 A nonce gap occurs when:
+
 - A transaction with nonce N fails or is dropped
 - A transaction with nonce N+1 (or higher) is waiting to be broadcast
 - The blockchain expects nonce N next, but we're trying to send N+1
@@ -114,6 +115,7 @@ PROCESSING_TIMEOUT=60000
 ### Queue Configuration
 
 The DLQ should be configured with:
+
 - Message retention: 14 days (maximum)
 - Visibility timeout: 5 minutes
 - Maximum receives: 10
@@ -131,16 +133,16 @@ The DLQ should be configured with:
 
 ```typescript
 // Gap detected
-"Nonce gap detected, stopping queue processing"
+'Nonce gap detected, stopping queue processing';
 
 // Sent to DLQ
-"Sent nonce gap message to DLQ"
+'Sent nonce gap message to DLQ';
 
 // Recovery attempted (future)
-"Attempting nonce gap recovery"
+'Attempting nonce gap recovery';
 
 // Recovery successful (future)
-"Nonce gap recovered successfully"
+'Nonce gap recovered successfully';
 ```
 
 ## Error Scenarios
@@ -169,7 +171,7 @@ The DLQ should be configured with:
 
 ## Best Practices
 
-1. **Prevention is Better**: 
+1. **Prevention is Better**:
    - Use reliable RPC endpoints
    - Implement proper retry logic
    - Monitor gas prices

@@ -477,7 +477,7 @@ export class SQSWorker {
               // Nonce gap detected, stop processing this address
               // Get detailed gap information
               const gapInfo = this.nonceManager.getNonceGapInfo(address);
-              
+
               this.logger.warn(
                 'Nonce gap detected, stopping queue processing',
                 {
@@ -1062,7 +1062,7 @@ export class SQSWorker {
         message,
         typeof error === 'string' ? error : error?.message
       );
-      
+
       this.logger.info('Sent nonce gap message to DLQ', {
         metadata: {
           messageId: message.id,

@@ -27,6 +27,8 @@ export interface BroadcastResult {
   blockNumber?: number;
   gasUsed?: string;
   error?: string;
+  errorCode?: string;
+  retryable?: boolean;
   receipt?: any;
 }
 

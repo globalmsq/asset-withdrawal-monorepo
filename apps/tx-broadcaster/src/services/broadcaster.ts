@@ -99,11 +99,22 @@ export class TransactionBroadcaster {
       );
 
       if (!receipt) {
-        throw new BroadcastError(
-          'Transaction confirmation timeout',
-          'CONFIRMATION_TIMEOUT',
-          true
-        );
+        return {
+          success: false,
+          error: 'Transaction receipt not found',
+          errorCode: 'RECEIPT_NOT_FOUND',
+          retryable: true,
+        };
+      }
+
+      // Check if transaction failed
+      if (receipt.status === 0) {
+        return {
+          success: false,
+          error: 'Transaction failed on-chain',
+          errorCode: 'TRANSACTION_FAILED',
+          retryable: false,
+        };
       }
 
       return {
@@ -131,7 +142,7 @@ export class TransactionBroadcaster {
     signedTransaction: string,
     expectedChainId?: number
   ): Promise<{
-    valid: boolean;
+    isValid: boolean;
     error?: string;
     transaction?: BlockchainTransaction;
   }> {
@@ -139,14 +150,14 @@ export class TransactionBroadcaster {
       // Debug: Check if signedTransaction is valid
       if (!signedTransaction || typeof signedTransaction !== 'string') {
         return {
-          valid: false,
+          isValid: false,
           error: `Invalid signed transaction: expected string, got ${typeof signedTransaction}`,
         };
       }
 
       if (!signedTransaction.startsWith('0x')) {
         return {
-          valid: false,
+          isValid: false,
           error: 'Signed transaction must start with 0x',
         };
       }
@@ -157,7 +168,7 @@ export class TransactionBroadcaster {
       // Basic validation
       if (!parsedTx.to) {
         return {
-          valid: false,
+          isValid: false,
           error: 'Transaction must have a recipient address',
         };
       }
@@ -166,7 +177,7 @@ export class TransactionBroadcaster {
       // Only check for negative values (though ethers.js already validates this)
       if (parsedTx.value < 0) {
         return {
-          valid: false,
+          isValid: false,
           error: 'Transaction value must be non-negative',
         };
       }
@@ -174,7 +185,7 @@ export class TransactionBroadcaster {
       // 체인 ID 검증 (동적)
       if (expectedChainId && txChainId !== expectedChainId) {
         return {
-          valid: false,
+          isValid: false,
           error: `Transaction chain ID ${txChainId} does not match expected ${expectedChainId}`,
         };
       }
@@ -182,14 +193,14 @@ export class TransactionBroadcaster {
       // 지원되는 체인인지 확인
       if (!this.chainConfigService.isChainSupported(txChainId)) {
         return {
-          valid: false,
+          isValid: false,
           error: `Unsupported chain ID: ${txChainId}. Supported chains: ${this.chainConfigService.getSupportedChainIds().join(', ')}`,
         };
       }
 
       // Check if transaction is properly signed
       if (!parsedTx.signature) {
-        return { valid: false, error: 'Transaction is not signed' };
+        return { isValid: false, error: 'Transaction is not signed' };
       }
 
       const transaction: BlockchainTransaction = {
@@ -204,10 +215,10 @@ export class TransactionBroadcaster {
         chainId: txChainId,
       };
 
-      return { valid: true, transaction };
+      return { isValid: true, transaction };
     } catch (error) {
       return {
-        valid: false,
+        isValid: false,
         error: `Failed to parse transaction: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
@@ -215,27 +226,27 @@ export class TransactionBroadcaster {
 
   // Get current network status for a specific chain
   async getNetworkStatus(chainId?: number): Promise<{
-    blockNumber: number;
-    gasPrice: string;
-    chainId: number;
+    connected: boolean;
+    blockNumber?: number;
+    gasPrice?: string;
+    chainId?: number;
+    error?: string;
   }> {
     try {
       if (!chainId) {
-        throw new BroadcastError(
-          'Chain ID is required to get network status',
-          'MISSING_CHAIN_ID',
-          false
-        );
+        return {
+          connected: false,
+          error: 'Chain ID is required to get network status',
+        };
       }
 
       const provider = this.getProviderForChain(chainId);
 
       if (!provider) {
-        throw new BroadcastError(
-          `No provider available for chain ID: ${chainId}`,
-          'PROVIDER_ERROR',
-          false
-        );
+        return {
+          connected: false,
+          error: `No provider available for chain ID: ${chainId}`,
+        };
       }
 
       const [blockNumber, gasPrice, network] = await Promise.all([
@@ -245,6 +256,7 @@ export class TransactionBroadcaster {
       ]);
 
       return {
+        connected: true,
         blockNumber,
         gasPrice: gasPrice.gasPrice?.toString() || '0',
         chainId: Number(network.chainId),
@@ -254,12 +266,10 @@ export class TransactionBroadcaster {
         `Failed to get network status for chain ${chainId}`,
         error
       );
-      throw new BroadcastError(
-        'Failed to get network status',
-        'NETWORK_ERROR',
-        true,
-        error as Error
-      );
+      return {
+        connected: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 
@@ -285,8 +295,8 @@ export class TransactionBroadcaster {
         return false;
       }
 
-      const receipt = await provider.getTransactionReceipt(transactionHash);
-      return receipt !== null;
+      const transaction = await provider.getTransaction(transactionHash);
+      return transaction !== null;
     } catch (error) {
       // If we can't check, assume it doesn't exist and let broadcast handle duplicates
       this.logger.warn(
@@ -312,37 +322,77 @@ export class TransactionBroadcaster {
 
   private handleBroadcastError(error: any): BroadcastResult {
     let broadcastError: BroadcastError;
+    let errorCode: string | undefined;
+    let retryable: boolean = false;
 
     if (error instanceof BroadcastError) {
       broadcastError = error;
+      errorCode = error.code;
+      retryable = error.retryable;
     } else if (error.code) {
       // Handle specific ethers.js error codes
       switch (error.code) {
         case 'INSUFFICIENT_FUNDS':
           broadcastError = new BroadcastError(
-            'Insufficient funds for transaction',
+            error.message || 'Insufficient funds for transaction',
             'INSUFFICIENT_FUNDS',
             false,
             error
           );
+          errorCode = 'INSUFFICIENT_FUNDS';
+          retryable = false;
+          break;
+        case 'NONCE_TOO_HIGH':
+          broadcastError = new BroadcastError(
+            error.message || 'Nonce too high',
+            'NONCE_TOO_HIGH',
+            true,
+            error
+          );
+          errorCode = 'NONCE_TOO_HIGH';
+          retryable = true;
+          break;
+        case 'NONCE_TOO_LOW':
+          broadcastError = new BroadcastError(
+            error.message || 'Nonce too low',
+            'NONCE_TOO_LOW',
+            false,
+            error
+          );
+          errorCode = 'NONCE_TOO_LOW';
+          retryable = false;
           break;
         case 'NONCE_EXPIRED':
         case 'REPLACEMENT_UNDERPRICED':
           broadcastError = new BroadcastError(
-            'Transaction nonce or gas price issue',
-            'NONCE_OR_GAS_ERROR',
-            true,
+            error.message || 'Transaction nonce or gas price issue',
+            error.code,
+            false,
             error
           );
+          errorCode = error.code;
+          retryable = false;
           break;
         case 'NETWORK_ERROR':
         case 'SERVER_ERROR':
           broadcastError = new BroadcastError(
-            'Network connectivity issue',
+            error.message || 'Network connectivity issue',
             'NETWORK_ERROR',
             true,
             error
           );
+          errorCode = 'NETWORK_ERROR';
+          retryable = true;
+          break;
+        case 'TIMEOUT':
+          broadcastError = new BroadcastError(
+            error.message || 'Transaction timeout',
+            'TIMEOUT',
+            true,
+            error
+          );
+          errorCode = 'TIMEOUT';
+          retryable = true;
           break;
         default:
           broadcastError = new BroadcastError(
@@ -351,6 +401,8 @@ export class TransactionBroadcaster {
             false,
             error
           );
+          errorCode = error.code;
+          retryable = false;
       }
     } else {
       broadcastError = new BroadcastError(
@@ -359,12 +411,16 @@ export class TransactionBroadcaster {
         false,
         error
       );
+      errorCode = 'UNKNOWN_ERROR';
+      retryable = false;
     }
 
     return {
       success: false,
       error: broadcastError.message,
-    };
+      errorCode,
+      retryable,
+    } as BroadcastResult;
   }
 
   /**

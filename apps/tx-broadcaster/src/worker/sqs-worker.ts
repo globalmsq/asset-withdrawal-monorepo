@@ -28,6 +28,7 @@ import {
 } from '@asset-withdrawal/shared';
 import { NonceManager, QueuedTransaction } from '../services/nonce-manager';
 import { ethers } from 'ethers';
+import { createChainContext } from '../types/chain-context';
 
 export class SQSWorker {
   private config: AppConfig;
@@ -314,7 +315,7 @@ export class SQSWorker {
     txMessage: UnifiedSignedTransactionMessage
   ): Promise<ProcessingResult> {
     try {
-      const { signedTransaction, chainId } = txMessage;
+      const { signedTransaction, chainId, chain, network } = txMessage;
 
       // Validate required fields for broadcasting
       if (!signedTransaction) {
@@ -324,6 +325,18 @@ export class SQSWorker {
           error: 'No rawTransaction provided - cannot broadcast',
         };
       }
+
+      // Validate chain and network are provided
+      if (!chain || !network) {
+        return {
+          success: false,
+          shouldRetry: false,
+          error: `Missing chain or network information: chain=${chain}, network=${network}`,
+        };
+      }
+
+      // Create ChainContext with chain and network as primary identifiers
+      const chainContext = createChainContext(chain, network, chainId);
 
       // Parse transaction to get from address and nonce
       let parsedTx: ethers.Transaction;
@@ -361,14 +374,12 @@ export class SQSWorker {
         retryCount: 0,
         transactionType: txMessage.transactionType, // Preserve transaction type
         batchId: txMessage.batchId, // Store batchId for batch transactions
+        chainContext, // Add ChainContext with chain/network as primary identifiers
       };
 
       // Process transaction with new memory buffer approach and SQS search
       const readyToBroadcast =
-        await this.nonceManager.processTransactionWithSQSSearch(
-          queuedTx,
-          chainId
-        );
+        await this.nonceManager.processTransactionWithSQSSearch(queuedTx);
 
       if (readyToBroadcast) {
         // Transaction is next in sequence - broadcast it
@@ -384,7 +395,7 @@ export class SQSWorker {
           // Process any buffered transactions that are now ready
           const bufferedTxs = await this.nonceManager.processBufferedSequence(
             fromAddress,
-            chainId
+            chainContext
           );
           for (const bufferedTx of bufferedTxs) {
             // Create a message for buffered transaction with its own unique data
@@ -657,34 +668,144 @@ export class SQSWorker {
             continue;
           }
 
-          // Extract chainId from the signed transaction
-          const parsedTx = ethers.Transaction.from(nextTx.signedTx);
-          const txChainId = Number(parsedTx.chainId);
+          // We now have chainContext in the QueuedTransaction
+          // Use it to get chain, network, and chainId
+          const { chainContext } = nextTx;
 
-          // We cannot determine chain/network from chainId alone
-          // This is a problem - we need the original message context
-          // For now, skip this transaction to prevent saving incorrect data
-          this.logger.error(
-            'Cannot determine chain/network in processAddressQueue - missing original message context',
+          if (!chainContext) {
+            // This should not happen with new code, but handle for backward compatibility
+            this.logger.error(
+              'Missing chainContext in QueuedTransaction - this should not happen',
+              {
+                metadata: {
+                  address,
+                  nonce: nextTx.nonce,
+                  requestId: nextTx.requestId,
+                },
+              }
+            );
+
+            // Skip this transaction
+            await this.nonceManager.removeTransaction(address, nextTx.nonce);
+            lastResult = {
+              success: false,
+              shouldRetry: false,
+              error: 'Missing chainContext - cannot process queued transaction',
+            };
+            continue;
+          }
+
+          // Now we can properly use chain and network from chainContext
+          const chain = chainContext.chain;
+          const network = chainContext.network;
+          const chainId = chainContext.getChainId();
+
+          this.logger.debug(
+            'Processing queued transaction with proper context',
             {
               metadata: {
                 address,
                 nonce: nextTx.nonce,
-                chainId: txChainId,
+                chain,
+                network,
+                chainId,
                 requestId: nextTx.requestId,
               },
             }
           );
 
-          // Skip this transaction - we can't process it without chain/network
-          await this.nonceManager.removeTransaction(address, nextTx.nonce);
-          lastResult = {
-            success: false,
-            shouldRetry: false,
-            error:
-              'Missing chain/network context - cannot process queued transaction',
+          // Create a minimal UnifiedSignedTransactionMessage for broadcasting
+          // This is for transactions that were queued but lost their original context
+          const reconstructedMessage: UnifiedSignedTransactionMessage = {
+            id: nextTx.requestId,
+            transactionType: nextTx.transactionType || 'SINGLE',
+            withdrawalId:
+              nextTx.transactionType === 'BATCH' ? undefined : nextTx.requestId,
+            batchId:
+              nextTx.batchId ||
+              (nextTx.transactionType === 'BATCH'
+                ? nextTx.requestId
+                : undefined),
+            userId: 'unknown', // We don't have this info
+            transactionHash: nextTx.txHash,
+            signedTransaction: nextTx.signedTx,
+            nonce: nextTx.nonce,
+            chainId,
+            chain,
+            network,
+            metadata: {},
+            createdAt: nextTx.timestamp.toISOString(),
           };
-          continue;
+
+          // Now we can properly broadcast the transaction with full context
+          const broadcastResult = await this.broadcastTransaction(
+            nextTx,
+            reconstructedMessage
+          );
+
+          // Update nonce manager based on result
+          if (broadcastResult.success) {
+            await this.nonceManager.completeTransaction(
+              address,
+              nextTx.nonce,
+              true
+            );
+
+            // Process any buffered transactions that are now ready
+            const bufferedTxs = await this.nonceManager.processBufferedSequence(
+              address,
+              chainContext
+            );
+
+            for (const bufferedTx of bufferedTxs) {
+              // Create message for buffered transaction
+              const bufferedMessage: UnifiedSignedTransactionMessage = {
+                id: bufferedTx.requestId,
+                transactionType: bufferedTx.transactionType || 'SINGLE',
+                withdrawalId:
+                  bufferedTx.transactionType === 'BATCH'
+                    ? undefined
+                    : bufferedTx.requestId,
+                batchId:
+                  bufferedTx.batchId ||
+                  (bufferedTx.transactionType === 'BATCH'
+                    ? bufferedTx.requestId
+                    : undefined),
+                userId: 'unknown',
+                transactionHash: bufferedTx.txHash,
+                signedTransaction: bufferedTx.signedTx,
+                nonce: bufferedTx.nonce,
+                chainId,
+                chain,
+                network,
+                metadata: {},
+                createdAt: bufferedTx.timestamp.toISOString(),
+              };
+
+              const bufferedResult = await this.broadcastTransaction(
+                bufferedTx,
+                bufferedMessage
+              );
+
+              if (bufferedResult.success) {
+                await this.nonceManager.updateLastBroadcastedNonce(
+                  address,
+                  bufferedTx.nonce
+                );
+              } else {
+                // Stop processing buffered transactions on failure
+                break;
+              }
+            }
+          } else {
+            await this.nonceManager.completeTransaction(
+              address,
+              nextTx.nonce,
+              false
+            );
+          }
+
+          lastResult = broadcastResult;
         } finally {
           // Remove processing lock
           if (this.redisService) {

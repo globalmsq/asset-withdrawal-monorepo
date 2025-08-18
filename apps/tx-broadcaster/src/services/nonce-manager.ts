@@ -8,6 +8,7 @@ import {
 } from './chain-config.service';
 import { QueueService } from './queue-client';
 import type { AppConfig } from '../config';
+import type { ChainContext } from '../types/chain-context';
 
 /**
  * Queued transaction interface for nonce management
@@ -23,6 +24,7 @@ export interface QueuedTransaction {
   priority?: number; // Higher number = higher priority
   transactionType?: 'SINGLE' | 'BATCH'; // Track transaction type
   batchId?: string; // Store batchId separately for batch transactions
+  chainContext: ChainContext; // Chain and network context with provider access
 }
 
 /**
@@ -112,14 +114,14 @@ export class NonceManager {
    * Process a transaction with memory buffer logic
    * Returns true if transaction was processed immediately, false if buffered
    */
-  async processTransaction(
-    transaction: QueuedTransaction,
-    chainId: number
-  ): Promise<boolean> {
-    const { fromAddress, nonce, txHash } = transaction;
+  async processTransaction(transaction: QueuedTransaction): Promise<boolean> {
+    const { fromAddress, nonce, txHash, chainContext } = transaction;
 
-    // Get expected nonce
-    const expectedNonce = await this.getExpectedNonce(fromAddress, chainId);
+    // Get expected nonce using chainContext from transaction
+    const expectedNonce = await this.getExpectedNonce(
+      fromAddress,
+      chainContext
+    );
 
     this.logger.debug('Processing transaction', {
       metadata: {
@@ -221,7 +223,7 @@ export class NonceManager {
    */
   async processBufferedSequence(
     address: string,
-    chainId: number
+    context: ChainContext
   ): Promise<QueuedTransaction[]> {
     const buffer = this.buffers.get(address);
     if (!buffer || buffer.size === 0) {
@@ -229,7 +231,7 @@ export class NonceManager {
     }
 
     const processed: QueuedTransaction[] = [];
-    let currentNonce = await this.getExpectedNonce(address, chainId);
+    let currentNonce = await this.getExpectedNonce(address, context);
 
     // Process consecutive nonces from buffer
     while (buffer.has(currentNonce)) {
@@ -278,7 +280,7 @@ export class NonceManager {
    */
   private async getExpectedNonce(
     address: string,
-    chainId: number
+    context: ChainContext
   ): Promise<number> {
     // Check memory cache first
     if (this.lastBroadcastedNonces.has(address)) {
@@ -295,7 +297,7 @@ export class NonceManager {
 
     // No previous transactions in memory or Redis - fetch from blockchain
     try {
-      const blockchainNonce = await this.getBlockchainNonce(address, chainId);
+      const blockchainNonce = await this.getBlockchainNonce(address, context);
 
       // Cache the blockchain nonce as the "last broadcasted" nonce
       // This handles the case where transactions were sent outside this service
@@ -334,23 +336,37 @@ export class NonceManager {
   /**
    * Get blockchain nonce for an address
    */
-  async getBlockchainNonce(address: string, chainId: number): Promise<number> {
+  async getBlockchainNonce(
+    address: string,
+    context: ChainContext
+  ): Promise<number> {
     try {
-      const provider = this.chainConfigService.getProvider(chainId);
+      const provider = context.getProvider();
       if (!provider) {
-        throw new Error(`No provider available for chain ${chainId}`);
+        throw new Error(`No provider available for ${context.toString()}`);
       }
 
       const nonce = await provider.getTransactionCount(address, 'latest');
 
       this.logger.debug('Retrieved blockchain nonce', {
-        metadata: { address, chainId, nonce },
+        metadata: {
+          address,
+          chain: context.chain,
+          network: context.network,
+          chainId: context.chainId,
+          nonce,
+        },
       });
 
       return nonce;
     } catch (error) {
       this.logger.error('Failed to get blockchain nonce', error, {
-        metadata: { address, chainId },
+        metadata: {
+          address,
+          chain: context.chain,
+          network: context.network,
+          chainId: context.chainId,
+        },
       });
       throw error;
     }
@@ -872,17 +888,14 @@ export class NonceManager {
   /**
    * Handle NONCE_TOO_HIGH error by buffering and setting up dummy tx timer
    */
-  async handleNonceTooHigh(
-    transaction: QueuedTransaction,
-    chainId: number
-  ): Promise<void> {
-    const { fromAddress, nonce } = transaction;
+  async handleNonceTooHigh(transaction: QueuedTransaction): Promise<void> {
+    const { fromAddress, nonce, chainContext } = transaction;
 
     try {
-      // Get current blockchain nonce
+      // Get current blockchain nonce using chainContext from transaction
       const blockchainNonce = await this.getBlockchainNonce(
         fromAddress,
-        chainId
+        chainContext
       );
 
       this.logger.warn('NONCE_TOO_HIGH detected, buffering transaction', {
@@ -898,7 +911,7 @@ export class NonceManager {
       this.addToBuffer(fromAddress, nonce, transaction);
 
       // Start address-specific timer if not already running
-      this.startAddressTimer(fromAddress, chainId);
+      this.startAddressTimer(fromAddress, chainContext);
     } catch (error) {
       this.logger.error('Error handling NONCE_TOO_HIGH', error, {
         metadata: { fromAddress, nonce },
@@ -910,7 +923,7 @@ export class NonceManager {
   /**
    * Start or restart timer for a specific address
    */
-  private startAddressTimer(address: string, chainId: number): void {
+  private startAddressTimer(address: string, context: ChainContext): void {
     // Clear existing timer if any
     this.clearAddressTimer(address);
 
@@ -929,8 +942,8 @@ export class NonceManager {
 
         const waitTime = Date.now() - startTime;
 
-        // Get current blockchain nonce
-        const blockchainNonce = await this.getBlockchainNonce(address, chainId);
+        // Get current blockchain nonce using the provided context
+        const blockchainNonce = await this.getBlockchainNonce(address, context);
 
         // Check if any buffered transaction can now be processed
         const buffer = this.buffers.get(address);
@@ -977,7 +990,7 @@ export class NonceManager {
             address,
             blockchainNonce,
             lowestBufferedNonce,
-            chainId
+            context
           );
 
           // Clear timer after sending dummy transactions
@@ -995,7 +1008,9 @@ export class NonceManager {
     this.logger.info('Started address timer for NONCE_TOO_HIGH handling', {
       metadata: {
         address,
-        chainId,
+        chain: context.chain,
+        network: context.network,
+        chainId: context.chainId,
         checkInterval: this.NONCE_CHECK_INTERVAL / 1000 + 's',
         timeout: this.DUMMY_TX_WAIT_TIME / 1000 + 's',
       },
@@ -1025,12 +1040,12 @@ export class NonceManager {
     fromAddress: string,
     startNonce: number,
     endNonce: number,
-    chainId: number
+    context: ChainContext
   ): Promise<void> {
     try {
-      const provider = this.chainConfigService.getProvider(chainId);
+      const provider = context.getProvider();
       if (!provider) {
-        throw new Error(`No provider available for chain ${chainId}`);
+        throw new Error(`No provider available for ${context.toString()}`);
       }
 
       // Get wallet/signer - this needs to be implemented based on your setup
@@ -1040,7 +1055,9 @@ export class NonceManager {
           fromAddress,
           startNonce,
           endNonce,
-          chainId,
+          chain: context.chain,
+          network: context.network,
+          chainId: context.chainId,
           gapSize: endNonce - startNonce,
         },
       });
@@ -1081,7 +1098,14 @@ export class NonceManager {
       }
     } catch (error) {
       this.logger.error('Failed to send dummy transactions', error, {
-        metadata: { fromAddress, startNonce, endNonce, chainId },
+        metadata: {
+          fromAddress,
+          startNonce,
+          endNonce,
+          chain: context.chain,
+          network: context.network,
+          chainId: context.chainId,
+        },
       });
       throw error;
     }
@@ -1094,17 +1118,20 @@ export class NonceManager {
   async searchSQSForMissingNonces(
     address: string,
     missingNonces: number[],
-    chainId: number
+    context: ChainContext
   ): Promise<QueuedTransaction[]> {
     if (!this.queueService || !this.config) {
       this.logger.warn('QueueService not initialized, cannot search SQS');
       return [];
     }
 
+    const chainId = context.getChainId();
     this.logger.info('Searching SQS for missing nonces', {
       metadata: {
         address,
         missingNonces,
+        chain: context.chain,
+        network: context.network,
         chainId,
       },
     });
@@ -1154,6 +1181,7 @@ export class NonceManager {
               timestamp: new Date(txData.createdAt || Date.now()),
               transactionType: txData.transactionType,
               batchId: txData.batchId,
+              chainContext: context, // Add chainContext from parameter
             };
 
             foundTransactions.push(queuedTx);
@@ -1208,13 +1236,15 @@ export class NonceManager {
    * Process transaction with SQS search for missing nonces
    */
   async processTransactionWithSQSSearch(
-    transaction: QueuedTransaction,
-    chainId: number
+    transaction: QueuedTransaction
   ): Promise<boolean> {
-    const { fromAddress, nonce, txHash } = transaction;
+    const { fromAddress, nonce, txHash, chainContext } = transaction;
 
-    // Get expected nonce
-    const expectedNonce = await this.getExpectedNonce(fromAddress, chainId);
+    // Get expected nonce using chainContext from transaction
+    const expectedNonce = await this.getExpectedNonce(
+      fromAddress,
+      chainContext
+    );
 
     this.logger.debug('Processing transaction with SQS search', {
       metadata: {
@@ -1260,7 +1290,7 @@ export class NonceManager {
       const foundTransactions = await this.searchSQSForMissingNonces(
         fromAddress,
         missingNonces,
-        chainId
+        chainContext
       );
 
       // Add found transactions to buffer

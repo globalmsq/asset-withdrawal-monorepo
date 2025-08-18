@@ -60,7 +60,7 @@ jest.mock('../../services/chain-config.service', () => ({
 }));
 jest.mock('../../services/nonce-manager', () => ({
   NonceManager: jest.fn().mockImplementation(() => ({
-    addTransaction: jest.fn(),
+    addTransaction: jest.fn(), // Kept for test compatibility only
     getNextTransaction: jest.fn(),
     startProcessing: jest.fn(),
     completeTransaction: jest.fn(),

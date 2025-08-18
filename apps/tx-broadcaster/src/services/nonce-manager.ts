@@ -447,10 +447,9 @@ export class NonceManager {
   }
 
   /**
-   * Add a transaction to the address-specific queue
-   * Maintains nonce ordering within the queue
-   *
-   * @deprecated Use processTransaction() for memory buffer approach
+   * Add transaction to the queue (used for testing only)
+   * @deprecated This method is only used in tests. Production code should use processTransactionWithSQSSearch()
+   * @internal For testing purposes only
    */
   async addTransaction(transaction: QueuedTransaction): Promise<void> {
     await this.ensureRedisInitialized();

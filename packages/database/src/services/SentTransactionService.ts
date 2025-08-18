@@ -7,7 +7,9 @@ export interface CreateSentTransactionInput {
   transactionType: 'SINGLE' | 'BATCH';
   originalTxHash: string;
   sentTxHash: string;
-  chainId: number;
+  chain: string;
+  network: string;
+  nonce: number;
   blockNumber?: bigint;
   gasUsed?: string;
   status?: string;
@@ -18,6 +20,7 @@ export interface CreateSentTransactionInput {
 
 export interface UpdateSentTransactionInput {
   status?: string;
+  nonce?: number;
   blockNumber?: bigint;
   gasUsed?: string;
   error?: string;
@@ -119,11 +122,14 @@ export class SentTransactionService {
   }
 
   /**
-   * Get sent transactions by chain ID
+   * Get sent transactions by chain and network
    */
-  async getByChainId(chainId: number): Promise<SentTransaction[]> {
+  async getByChainAndNetwork(
+    chain: string,
+    network: string
+  ): Promise<SentTransaction[]> {
     return await this.prisma.sentTransaction.findMany({
-      where: { chainId },
+      where: { chain, network },
       orderBy: { createdAt: 'desc' },
     });
   }

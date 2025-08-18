@@ -15,7 +15,8 @@ export interface CreateSignedTransactionDto {
   amount: string;
   symbol: string;
   data?: string;
-  chainId: number;
+  chain: string;
+  network: string;
   tryCount?: number;
   status?: string;
   errorMessage?: string;

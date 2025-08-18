@@ -34,7 +34,8 @@ describe('SignedSingleTransactionService', () => {
         value: '1000000000000000000',
         amount: '1000000000000000000',
         symbol: 'USDT',
-        chainId: 80002,
+        chain: 'polygon',
+        network: 'testnet',
       };
 
       const expectedResult = {
@@ -80,7 +81,8 @@ describe('SignedSingleTransactionService', () => {
         value: '1000000000000000000',
         amount: '1000000000000000000',
         symbol: 'USDC',
-        chainId: 80002,
+        chain: 'polygon',
+        network: 'testnet',
         status: 'FAILED',
         errorMessage: 'Test error',
       };

@@ -11,6 +11,20 @@ jest.mock('@asset-withdrawal/shared', () => ({
   })),
 }));
 
+// Mock ChainConfigService
+jest.mock('../../services/chain-config.service', () => ({
+  getChainConfigService: jest.fn().mockReturnValue({
+    getProvider: jest.fn().mockReturnValue({
+      getTransactionCount: jest.fn().mockResolvedValue(0),
+    }),
+  }),
+  ChainConfigService: jest.fn().mockImplementation(() => ({
+    getProvider: jest.fn().mockReturnValue({
+      getTransactionCount: jest.fn().mockResolvedValue(0),
+    }),
+  })),
+}));
+
 // Create mock functions that we can control from tests
 const mockNonceRedisService = {
   getPendingTransactions: jest.fn(),

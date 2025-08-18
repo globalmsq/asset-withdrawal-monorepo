@@ -775,7 +775,8 @@ export class SigningWorker extends BaseWorker<
           totalRequests: messages.length,
           totalAmount: totalAmount,
           symbol: symbol,
-          chainId: chainProvider.getChainId(),
+          chain: chain,
+          network: network,
           nonce: actualNonce, // Store the actual nonce that will be used
           gasLimit: '0', // Will be updated when signed
           tryCount: 0,
@@ -1135,7 +1136,8 @@ export class SigningWorker extends BaseWorker<
           amount: amount,
           symbol: symbol || 'UNKNOWN',
           data: signedTx.data,
-          chainId: signedTx.chainId,
+          chain: chain,
+          network: network,
           tryCount,
           status: 'SIGNED',
         });

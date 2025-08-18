@@ -14,6 +14,7 @@ import {
 import { TransactionBroadcaster } from '../services/broadcaster';
 import { TransactionService } from '../services/transaction.service';
 import { RetryService } from '../services/retry.service';
+import { getChainConfigService } from '../services/chain-config.service';
 import { ProcessingResult, WorkerStats } from '../types';
 import { AppConfig } from '../config';
 import {
@@ -46,7 +47,7 @@ export class SQSWorker {
     this.queueService = new QueueService(this.config);
     this.broadcaster = new TransactionBroadcaster();
     this.transactionService = new TransactionService();
-    this.nonceManager = new NonceManager();
+    this.nonceManager = new NonceManager(undefined, this.config); // Pass config for SQS access
     this.retryService = new RetryService({
       maxRetries: 5,
       baseDelay: 2000, // 2초
@@ -165,7 +166,7 @@ export class SQSWorker {
         const messages =
           await this.queueService.receiveMessages<SignedTransactionMessage>(
             this.config.SIGNED_TX_QUEUE_URL,
-            5, // Process up to 5 messages at once
+            10, // Process up to 10 messages at once (increased from 5)
             20 // Long polling for 20 seconds
           );
 
@@ -224,6 +225,8 @@ export class SQSWorker {
         metadata: {
           messageId: message.id,
           processingTime: Date.now() - startTime,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          messageBody: JSON.stringify(message.body),
         },
       });
       result = {
@@ -242,6 +245,35 @@ export class SQSWorker {
   ): UnifiedSignedTransactionMessage {
     // Check if it's a SignedTransaction from signing-service (primary format)
     if ('rawTransaction' in message) {
+      // Extract chain and network information
+      const chain = message.chain;
+      const network = message.network;
+
+      // Chain and network are REQUIRED - throw error if missing
+      if (!chain || !network) {
+        throw new Error(
+          `Missing required chain or network information: chain=${chain}, network=${network}`
+        );
+      }
+
+      // Get chainId from chain+network using ChainConfigService
+      const chainConfigService = getChainConfigService();
+      const chainConfig = chainConfigService.getChainConfigByChainAndNetwork(
+        chain,
+        network
+      );
+
+      if (!chainConfig) {
+        throw new Error(
+          `Chain configuration not found for ${chain}/${network}`
+        );
+      }
+
+      // Use chainId from config, but allow environment variables to override
+      const chainId = process.env.CHAIN_ID
+        ? parseInt(process.env.CHAIN_ID)
+        : chainConfig.chainId;
+
       return {
         id: message.requestId || message.id || 'unknown',
         transactionType: message.transactionType || 'SINGLE',
@@ -252,7 +284,10 @@ export class SQSWorker {
         userId: 'signing-service',
         transactionHash: message.hash || '',
         signedTransaction: message.rawTransaction,
-        chainId: message.chainId,
+        nonce: message.nonce || 0, // Add nonce from signing service message
+        chainId: chainId,
+        chain: chain,
+        network: network,
         metadata: {}, // Minimal metadata since rawTransaction contains all info
         createdAt: new Date().toISOString(),
       };
@@ -266,8 +301,11 @@ export class SQSWorker {
       userId: message.userId || 'unknown',
       transactionHash: message.transactionHash || '',
       signedTransaction: message.signedTransaction || '',
+      nonce: message.nonce || 0, // Add nonce from legacy message format
       chainId: message.chainId, // Don't default to 31337 - let rawTransaction's chainId be used
-      metadata: {},
+      chain: message.chain,
+      network: message.network,
+      metadata: message.metadata || {},
       createdAt: new Date().toISOString(),
     };
   }
@@ -325,27 +363,87 @@ export class SQSWorker {
         batchId: txMessage.batchId, // Store batchId for batch transactions
       };
 
-      await this.nonceManager.addTransaction(queuedTx);
+      // Process transaction with new memory buffer approach and SQS search
+      const readyToBroadcast =
+        await this.nonceManager.processTransactionWithSQSSearch(
+          queuedTx,
+          chainId
+        );
 
-      // Try to process transaction if address is not already processing
-      const isProcessing =
-        await this.nonceManager.isAddressProcessing(fromAddress);
-      if (!isProcessing) {
-        return await this.processAddressQueue(fromAddress);
-      }
+      if (readyToBroadcast) {
+        // Transaction is next in sequence - broadcast it
+        const result = await this.broadcastTransaction(queuedTx, txMessage);
 
-      // Transaction queued, will be processed when current one completes
-      const queueStatuses = await this.nonceManager.getQueueStatus(fromAddress);
-      this.logger.info(
-        'Transaction queued, address is processing another transaction',
-        {
-          metadata: {
+        if (result.success) {
+          // Update last nonce
+          await this.nonceManager.updateLastBroadcastedNonce(
             fromAddress,
-            nonce,
-            queueStatus: queueStatuses[0],
-          },
+            nonce
+          );
+
+          // Process any buffered transactions that are now ready
+          const bufferedTxs = await this.nonceManager.processBufferedSequence(
+            fromAddress,
+            chainId
+          );
+          for (const bufferedTx of bufferedTxs) {
+            // Create a message for buffered transaction with its own unique data
+            const bufferedMessage: UnifiedSignedTransactionMessage = {
+              id: bufferedTx.requestId,
+              transactionType: bufferedTx.transactionType || 'SINGLE',
+              withdrawalId:
+                bufferedTx.transactionType === 'BATCH'
+                  ? undefined
+                  : bufferedTx.requestId,
+              batchId:
+                bufferedTx.transactionType === 'BATCH'
+                  ? bufferedTx.batchId
+                  : undefined,
+              userId: txMessage.userId,
+              transactionHash: bufferedTx.txHash,
+              signedTransaction: bufferedTx.signedTx,
+              nonce: bufferedTx.nonce,
+              chainId: txMessage.chainId,
+              chain: txMessage.chain,
+              network: txMessage.network,
+              metadata: {},
+              createdAt: bufferedTx.timestamp.toISOString(),
+            };
+
+            const bufferedResult = await this.broadcastTransaction(
+              bufferedTx,
+              bufferedMessage
+            );
+            if (bufferedResult.success) {
+              await this.nonceManager.updateLastBroadcastedNonce(
+                fromAddress,
+                bufferedTx.nonce
+              );
+            } else {
+              // Stop processing buffered transactions on failure
+              break;
+            }
+          }
         }
-      );
+
+        return result;
+      } else {
+        // Transaction buffered - log status
+        const gapStatus = this.nonceManager.getGapStatus();
+        if (gapStatus.has(fromAddress)) {
+          const status = gapStatus.get(fromAddress)!;
+          this.logger.info('Transaction buffered due to nonce gap', {
+            metadata: {
+              fromAddress,
+              waitingFor: status.waitingFor,
+              bufferedNonces: status.bufferedNonces,
+              bufferSize: status.bufferSize,
+            },
+          });
+        }
+
+        return { success: true, shouldRetry: false };
+      }
 
       return {
         success: true,
@@ -353,6 +451,147 @@ export class SQSWorker {
         result: { queued: true },
       };
     } catch (error) {
+      return {
+        success: false,
+        shouldRetry: true,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Broadcast a single transaction
+   */
+  private async broadcastTransaction(
+    queuedTx: QueuedTransaction,
+    originalMessage: UnifiedSignedTransactionMessage
+  ): Promise<ProcessingResult> {
+    try {
+      // Use a composite key for Redis
+      const redisKey =
+        queuedTx.txHash || `${queuedTx.requestId}_${queuedTx.nonce}`;
+
+      // Check if already processed using Redis
+      if (this.redisService) {
+        // Check if already broadcasted
+        if (await this.redisService.isBroadcasted(redisKey)) {
+          this.logger.info('Transaction already broadcasted', {
+            metadata: { txHash: queuedTx.txHash, nonce: queuedTx.nonce },
+          });
+          return { success: true, shouldRetry: false };
+        }
+
+        // Set processing lock
+        const lockAcquired = await this.redisService.setProcessing(redisKey);
+        if (!lockAcquired) {
+          this.logger.info('Transaction already being processed', {
+            metadata: { txHash: queuedTx.txHash, nonce: queuedTx.nonce },
+          });
+          return { success: false, shouldRetry: false };
+        }
+      }
+
+      try {
+        // Basic validation
+        if (!queuedTx.signedTx.startsWith('0x')) {
+          return {
+            success: false,
+            shouldRetry: false,
+            error: 'Invalid rawTransaction format - must start with 0x',
+          };
+        }
+
+        // Create broadcast message
+        const broadcastMessage: UnifiedSignedTransactionMessage = {
+          ...originalMessage,
+          signedTransaction: queuedTx.signedTx,
+          transactionHash: queuedTx.txHash,
+        };
+
+        // Broadcast the transaction
+        const broadcastResult = await this.broadcaster.broadcastTransaction(
+          queuedTx.signedTx
+        );
+
+        if (broadcastResult.success) {
+          this.logger.info('Transaction broadcasted successfully', {
+            metadata: {
+              txHash: broadcastResult.transactionHash,
+              nonce: queuedTx.nonce,
+              fromAddress: queuedTx.fromAddress,
+            },
+          });
+
+          // Mark as broadcasted in Redis
+          if (this.redisService) {
+            await this.redisService.markBroadcasted(
+              redisKey,
+              broadcastResult.transactionHash
+            );
+          }
+
+          // Update database status
+          if (queuedTx.transactionType === 'BATCH' && queuedTx.batchId) {
+            await this.transactionService.updateBatchToBroadcasted(
+              queuedTx.batchId,
+              broadcastResult.transactionHash!
+            );
+          } else {
+            await this.transactionService.updateToBroadcasted(
+              queuedTx.requestId,
+              broadcastResult.transactionHash!
+            );
+          }
+
+          // Send success result to next queue
+          await this.sendBroadcastResult(broadcastMessage, broadcastResult);
+
+          return { success: true, shouldRetry: false };
+        } else {
+          // Handle broadcast failure
+          const errorInfo = ErrorClassifier.classifyError(
+            broadcastResult.error || ''
+          );
+
+          if (errorInfo.type === DLQ_ERROR_TYPE.NONCE_TOO_HIGH) {
+            this.logger.warn('Nonce gap detected during broadcast', {
+              metadata: {
+                nonce: queuedTx.nonce,
+                fromAddress: queuedTx.fromAddress,
+                error: broadcastResult.error,
+              },
+            });
+            return {
+              success: false,
+              shouldRetry: false,
+              error: broadcastResult.error,
+            };
+          }
+
+          if (isPermanentFailure(errorInfo.type)) {
+            // Send failure result to next queue
+            await this.sendBroadcastResult(broadcastMessage, broadcastResult);
+            return {
+              success: false,
+              shouldRetry: false,
+              error: broadcastResult.error,
+            };
+          } else {
+            return {
+              success: false,
+              shouldRetry: true,
+              error: broadcastResult.error,
+            };
+          }
+        }
+      } finally {
+        // Clean up Redis lock
+        if (this.redisService) {
+          await this.redisService.removeProcessing(redisKey);
+        }
+      }
+    } catch (error) {
+      this.logger.error('Error broadcasting transaction', error);
       return {
         success: false,
         shouldRetry: true,
@@ -422,124 +661,30 @@ export class SQSWorker {
           const parsedTx = ethers.Transaction.from(nextTx.signedTx);
           const txChainId = Number(parsedTx.chainId);
 
-          // Create a minimal message for broadcasting
-          const broadcastMessage: UnifiedSignedTransactionMessage = {
-            id: nextTx.requestId,
-            transactionType: nextTx.transactionType || 'SINGLE', // Use actual transaction type
-            withdrawalId:
-              nextTx.transactionType === 'BATCH' ? undefined : nextTx.requestId,
-            batchId:
-              nextTx.transactionType === 'BATCH' ? nextTx.batchId : undefined,
-            userId: 'nonce-manager',
-            transactionHash: nextTx.txHash,
-            signedTransaction: nextTx.signedTx,
-            chainId: txChainId,
-            metadata: {},
-            createdAt: nextTx.timestamp.toISOString(),
-          };
-
-          // Direct broadcast using rawTransaction
-          const broadcastResult = await this.broadcastWithRetry(
-            broadcastMessage,
-            nextTx.signedTx,
-            txChainId
+          // We cannot determine chain/network from chainId alone
+          // This is a problem - we need the original message context
+          // For now, skip this transaction to prevent saving incorrect data
+          this.logger.error(
+            'Cannot determine chain/network in processAddressQueue - missing original message context',
+            {
+              metadata: {
+                address,
+                nonce: nextTx.nonce,
+                chainId: txChainId,
+                requestId: nextTx.requestId,
+              },
+            }
           );
 
-          if (broadcastResult.success) {
-            // Mark as broadcasted in Redis
-            if (this.redisService) {
-              await this.redisService.markBroadcasted(
-                redisKey,
-                broadcastResult.transactionHash
-              );
-            }
-
-            // Send success result to next queue
-            await this.sendBroadcastResult(broadcastMessage, broadcastResult);
-
-            // Complete transaction in NonceManager
-            await this.nonceManager.completeTransaction(
-              address,
-              nextTx.nonce,
-              true
-            );
-
-            lastResult = {
-              success: true,
-              shouldRetry: false,
-              result: broadcastResult,
-            };
-          } else {
-            // Classify error to determine if it's retryable
-            const errorInfo = ErrorClassifier.classifyError({
-              message: broadcastResult.error,
-            });
-
-            // Check for nonce-related errors
-            if (errorInfo.type === DLQ_ERROR_TYPE.NONCE_TOO_HIGH) {
-              // Nonce gap detected, stop processing this address
-              // Get detailed gap information
-              const gapInfo = await this.nonceManager.getNonceGapInfo(address);
-
-              this.logger.warn(
-                'Nonce gap detected, stopping queue processing',
-                {
-                  metadata: {
-                    address,
-                    nonce: nextTx.nonce,
-                    error: broadcastResult.error,
-                    gapInfo,
-                  },
-                }
-              );
-
-              // Send to DLQ for recovery with gap information
-              await this.sendToDLQWithGapInfo(
-                broadcastMessage,
-                broadcastResult.error || 'Nonce gap detected',
-                gapInfo
-              );
-
-              // Remove from queue but don't mark as complete
-              // This will keep the nonce gap, preventing further processing
-              await this.nonceManager.removeTransaction(address, nextTx.nonce);
-
-              lastResult = {
-                success: false,
-                shouldRetry: false,
-                error: broadcastResult.error,
-              };
-              break; // Stop processing this address
-            }
-
-            if (isPermanentFailure(errorInfo.type)) {
-              // Permanent failure, remove from queue
-              await this.nonceManager.removeTransaction(address, nextTx.nonce);
-
-              // Send failure result to next queue
-              await this.sendBroadcastResult(broadcastMessage, broadcastResult);
-
-              lastResult = {
-                success: false,
-                shouldRetry: false,
-                error: broadcastResult.error,
-              };
-            } else {
-              // Temporary failure, complete but don't remove (will retry)
-              await this.nonceManager.completeTransaction(
-                address,
-                nextTx.nonce,
-                false
-              );
-
-              lastResult = {
-                success: false,
-                shouldRetry: true,
-                error: broadcastResult.error,
-              };
-              break; // Stop processing for now, will retry later
-            }
-          }
+          // Skip this transaction - we can't process it without chain/network
+          await this.nonceManager.removeTransaction(address, nextTx.nonce);
+          lastResult = {
+            success: false,
+            shouldRetry: false,
+            error:
+              'Missing chain/network context - cannot process queued transaction',
+          };
+          continue;
         } finally {
           // Remove processing lock
           if (this.redisService) {
@@ -593,6 +738,8 @@ export class SQSWorker {
         ? new Date().toISOString()
         : undefined,
       blockNumber: broadcastResult.blockNumber,
+      chain: originalMessage.chain!, // Include chain from original message
+      network: originalMessage.network!, // Include network from original message
       metadata: {
         // 원본 메시지의 메타데이터
         ...(originalMessage.transactionType === 'BATCH' &&
@@ -607,6 +754,13 @@ export class SQSWorker {
     // Save to sent_transactions table if broadcast was successful
     if (broadcastResult.success && broadcastResult.transactionHash) {
       try {
+        // Throw error if chain/network is missing - no defaults!
+        if (!originalMessage.chain || !originalMessage.network) {
+          throw new Error(
+            `Cannot save sent transaction: missing required chain/network information. chain=${originalMessage.chain}, network=${originalMessage.network}`
+          );
+        }
+
         await this.transactionService.saveSentTransaction({
           requestId:
             originalMessage.transactionType === 'SINGLE'
@@ -619,7 +773,9 @@ export class SQSWorker {
           transactionType: originalMessage.transactionType,
           originalTxHash: originalMessage.transactionHash,
           sentTxHash: broadcastResult.transactionHash,
-          chainId: originalMessage.chainId || 31337, // Default to localhost chain
+          chain: originalMessage.chain, // Use actual values from message
+          network: originalMessage.network, // Use actual values from message
+          nonce: originalMessage.nonce, // Use nonce from message instead of parsing signed transaction
           blockNumber: broadcastResult.blockNumber,
         });
       } catch (error) {

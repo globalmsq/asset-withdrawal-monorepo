@@ -87,7 +87,8 @@ model SignedSingleTransaction {
   amount                String              @db.VarChar(50) // Transaction amount
   symbol                String              @db.VarChar(10) // Token symbol
   data                  String?             @db.Text // Transaction data (for contract calls)
-  chainId               Int                 @db.UnsignedInt
+  chain                 String              @db.VarChar(20) // Blockchain name (e.g., 'polygon', 'ethereum')
+  network               String              @db.VarChar(50) // Network type (e.g., 'mainnet', 'testnet')
   tryCount              Int                 @default(0) // Try count
   status                String              @default("SIGNED") @db.VarChar(20) // SIGNED, BROADCASTED, CONFIRMED, FAILED
   gasUsed               String?             @db.VarChar(50)
@@ -101,6 +102,7 @@ model SignedSingleTransaction {
   @@index([txHash])
   @@index([createdAt])
   @@index([status])
+  @@index([chain, network])
   @@map("signed_single_transactions")
 }
 
@@ -111,7 +113,8 @@ model SignedBatchTransaction {
   totalRequests         Int                 @db.UnsignedInt
   totalAmount           String              @db.VarChar(50) // Total amount across all transactions
   symbol                String              @db.VarChar(10) // Token symbol
-  chainId               Int                 @db.UnsignedInt
+  chain                 String              @db.VarChar(20) // Blockchain name (e.g., 'polygon', 'ethereum')
+  network               String              @db.VarChar(50) // Network type (e.g., 'mainnet', 'testnet')
   nonce                 Int                 @db.UnsignedInt
   gasLimit              String              @db.VarChar(50)
   maxFeePerGas          String?             @db.VarChar(50) // EIP-1559
@@ -128,6 +131,7 @@ model SignedBatchTransaction {
   @@index([txHash])
   @@index([status])
   @@index([createdAt])
+  @@index([chain, network])
   @@map("signed_batch_transactions")
 }
 
@@ -138,7 +142,9 @@ model SentTransaction {
   transactionType       String              @db.VarChar(10) // SINGLE, BATCH
   originalTxHash        String              @db.VarChar(66) // 서명된 트랜잭션 해시
   sentTxHash            String              @unique @db.VarChar(66) // 블록체인에 전송된 트랜잭션 해시
-  chainId               Int                 @db.UnsignedInt
+  chain                 String              @db.VarChar(20) // Blockchain name (e.g., 'polygon', 'ethereum')
+  network               String              @db.VarChar(50) // Network type (e.g., 'mainnet', 'testnet')
+  nonce                 Int                 @db.UnsignedInt // Transaction nonce
   blockNumber           BigInt?             @db.UnsignedBigInt
   gasUsed               String?             @db.VarChar(50)
   status                String              @default("SENT") @db.VarChar(20) // SENT, CONFIRMED, FAILED
@@ -153,6 +159,7 @@ model SentTransaction {
   @@index([originalTxHash])
   @@index([sentTxHash])
   @@index([status])
-  @@index([chainId])
+  @@index([nonce])
+  @@index([chain, network])
   @@map("sent_transactions")
 }

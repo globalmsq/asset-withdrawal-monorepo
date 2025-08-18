@@ -115,6 +115,76 @@ export class ChainConfigService {
   }
 
   /**
+   * chain과 network로 체인 설정을 가져옵니다
+   * chains.config.json 구조: { polygon: { mainnet: {...}, testnet: {...} } }
+   */
+  getChainConfigByChainAndNetwork(
+    chain: string,
+    network: string
+  ): ChainConfig | null {
+    const chainData = this.chainsConfig[chain];
+    if (!chainData || !chainData[network as keyof typeof chainData]) {
+      this.logger.error(`Chain config not found for ${chain}/${network}`);
+      return null;
+    }
+
+    return chainData[network as keyof typeof chainData] || null;
+  }
+
+  /**
+   * chain과 network로 ethers provider를 가져옵니다 (환경변수 오버라이드 지원)
+   */
+  getProviderByChainNetwork(
+    chain: string,
+    network: string
+  ): { provider: ethers.JsonRpcProvider; chainId: number } | null {
+    const chainConfig = this.getChainConfigByChainAndNetwork(chain, network);
+    if (!chainConfig) {
+      this.logger.error(`Chain config not found for ${chain}/${network}`);
+      return null;
+    }
+
+    // 환경변수로 오버라이드 (다른 앱들과 통일성 유지)
+    const rpcUrl = process.env.RPC_URL || chainConfig.rpcUrl;
+    const chainId = process.env.CHAIN_ID
+      ? parseInt(process.env.CHAIN_ID)
+      : chainConfig.chainId;
+
+    // 캐시 키는 실제 사용되는 rpcUrl + chainId 조합으로 생성
+    const cacheKey = chainId;
+    if (this.providerCache.has(cacheKey)) {
+      return {
+        provider: this.providerCache.get(cacheKey)!,
+        chainId,
+      };
+    }
+
+    try {
+      const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+      this.providerCache.set(cacheKey, provider);
+
+      this.logger.info(`Provider created for ${chain}/${network}`, {
+        metadata: {
+          chainId,
+          rpcUrl: rpcUrl.substring(0, 20) + '...', // 로깅용으로 축약
+          envOverride: {
+            rpcUrl: !!process.env.RPC_URL,
+            chainId: !!process.env.CHAIN_ID,
+          },
+        },
+      });
+
+      return { provider, chainId };
+    } catch (error) {
+      this.logger.error(
+        `Failed to create provider for ${chain}/${network} (chainId: ${chainId})`,
+        error
+      );
+      return null;
+    }
+  }
+
+  /**
    * 체인 ID에 해당하는 ethers provider를 가져옵니다 (캐싱 지원)
    */
   getProvider(chainId: number): ethers.JsonRpcProvider | null {

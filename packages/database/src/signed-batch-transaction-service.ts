@@ -9,7 +9,8 @@ export interface SignedBatchTransaction {
   totalRequests: number;
   totalAmount: string;
   symbol: string;
-  chainId: number;
+  chain: string;
+  network: string;
   nonce: number;
   gasLimit: string;
   maxFeePerGas: string | null;
@@ -43,7 +44,6 @@ export class SignedBatchTransactionService {
       ...prismaBatch,
       id: prismaBatch.id.toString(), // Convert BigInt to string
       totalRequests: Number(prismaBatch.totalRequests),
-      chainId: Number(prismaBatch.chainId),
       nonce: Number(prismaBatch.nonce),
       tryCount: Number(prismaBatch.tryCount),
     };
@@ -54,7 +54,8 @@ export class SignedBatchTransactionService {
     totalRequests: number;
     totalAmount: string;
     symbol: string;
-    chainId: number;
+    chain: string;
+    network: string;
     nonce: number;
     gasLimit: string;
     status?: string;

@@ -140,7 +140,10 @@ export interface UnifiedSignedTransactionMessage {
   userId: string;
   transactionHash: string;
   signedTransaction: string; // Raw signed tx (contains all info)
+  nonce: number; // Transaction nonce
   chainId: number;
+  chain?: string; // Chain name (e.g., 'polygon', 'ethereum')
+  network?: string; // Network environment (e.g., 'mainnet', 'testnet')
   metadata?: {
     // Additional info only when needed
     totalRequests?: number; // Batch only
@@ -179,6 +182,8 @@ export interface UnifiedBroadcastResultMessage {
   broadcastedAt?: string;
   blockNumber?: number;
   gasUsed?: string;
+  chain: string; // Chain identifier (e.g., 'polygon', 'ethereum')
+  network: string; // Network type (e.g., 'mainnet', 'testnet')
   metadata?: {
     // Additional result info
     affectedRequests?: string[]; // For batch transactions

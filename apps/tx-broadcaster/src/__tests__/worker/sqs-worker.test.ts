@@ -33,6 +33,12 @@ jest.mock('../../services/chain-config.service', () => ({
     loadChainsConfig: jest.fn(),
     getChainConfig: jest.fn(),
     getProvider: jest.fn(),
+    getChainConfigByChainAndNetwork: jest.fn().mockReturnValue({
+      chainId: 137,
+      name: 'Polygon Mainnet',
+      rpcUrl: 'https://polygon-rpc.com',
+    }),
+    getProviderByChainNetwork: jest.fn(),
     getSupportedChainIds: jest.fn().mockReturnValue([137, 80002]),
     isChainSupported: jest.fn().mockReturnValue(true),
     logSupportedChains: jest.fn(),
@@ -41,6 +47,12 @@ jest.mock('../../services/chain-config.service', () => ({
     loadChainsConfig: jest.fn(),
     getChainConfig: jest.fn(),
     getProvider: jest.fn(),
+    getChainConfigByChainAndNetwork: jest.fn().mockReturnValue({
+      chainId: 137,
+      name: 'Polygon Mainnet',
+      rpcUrl: 'https://polygon-rpc.com',
+    }),
+    getProviderByChainNetwork: jest.fn(),
     getSupportedChainIds: jest.fn().mockReturnValue([137, 80002]),
     isChainSupported: jest.fn().mockReturnValue(true),
     logSupportedChains: jest.fn(),
@@ -59,6 +71,9 @@ jest.mock('../../services/nonce-manager', () => ({
     clearAll: jest.fn(),
     getNonceGapInfo: jest.fn(),
     getStatistics: jest.fn(),
+    processTransactionWithSQSSearch: jest.fn().mockResolvedValue(true),
+    processBufferedSequence: jest.fn().mockResolvedValue([]),
+    updateLastBroadcastedNonce: jest.fn(),
   })),
 }));
 
@@ -83,6 +98,10 @@ describe('SQSWorker', () => {
       MYSQL_PASSWORD: 'test',
     };
 
+    // Ensure CHAIN_ID and RPC_URL are not set so mock config values are used
+    delete process.env.CHAIN_ID;
+    delete process.env.RPC_URL;
+
     worker = new SQSWorker();
   });
 
@@ -99,6 +118,9 @@ describe('SQSWorker', () => {
         hash: '0xabc123',
         rawTransaction: '0xsigned',
         chainId: 137,
+        chain: 'polygon',
+        network: 'mainnet',
+        nonce: 0,
       };
 
       // @ts-ignore - accessing private method for testing
@@ -112,7 +134,10 @@ describe('SQSWorker', () => {
         userId: 'signing-service',
         transactionHash: '0xabc123',
         signedTransaction: '0xsigned',
+        nonce: 0,
         chainId: 137,
+        chain: 'polygon',
+        network: 'mainnet',
         metadata: {},
         createdAt: expect.any(String),
       });
@@ -126,6 +151,9 @@ describe('SQSWorker', () => {
         hash: '0xbatch123',
         rawTransaction: '0xsignedbatch',
         chainId: 137,
+        chain: 'polygon',
+        network: 'mainnet',
+        nonce: 0,
       };
 
       // @ts-ignore - accessing private method for testing
@@ -139,7 +167,10 @@ describe('SQSWorker', () => {
         userId: 'signing-service',
         transactionHash: '0xbatch123',
         signedTransaction: '0xsignedbatch',
+        nonce: 0,
         chainId: 137,
+        chain: 'polygon',
+        network: 'mainnet',
         metadata: {},
         createdAt: expect.any(String),
       });
@@ -153,6 +184,8 @@ describe('SQSWorker', () => {
         transactionHash: '0xlegacy123',
         signedTransaction: '0xlegacysigned',
         chainId: 137,
+        chain: 'polygon',
+        network: 'mainnet',
       };
 
       // @ts-ignore - accessing private method for testing
@@ -165,7 +198,10 @@ describe('SQSWorker', () => {
         userId: 'user-456',
         transactionHash: '0xlegacy123',
         signedTransaction: '0xlegacysigned',
+        nonce: 0,
         chainId: 137,
+        chain: 'polygon',
+        network: 'mainnet',
         metadata: {},
         createdAt: expect.any(String),
       });

@@ -286,7 +286,9 @@ export class TransactionService {
     transactionType: 'SINGLE' | 'BATCH';
     originalTxHash: string;
     sentTxHash: string;
-    chainId: number;
+    chain: string;
+    network: string;
+    nonce: number;
     blockNumber?: number;
   }) {
     try {
@@ -299,11 +301,12 @@ export class TransactionService {
 
       this.logger.info('Sent transaction saved successfully', {
         requestId: data.requestId,
-        chainId: data.chainId,
         metadata: {
           batchId: data.batchId,
           transactionType: data.transactionType,
           sentTxHash: data.sentTxHash,
+          chain: data.chain,
+          network: data.network,
         },
       });
 

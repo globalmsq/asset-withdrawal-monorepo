@@ -225,6 +225,8 @@ describe('TransactionSigner', () => {
         value: '0', // ERC-20 transfers have value 0
         data: '0xa9059cbb000000000000000000000000742d35cc6634c0532925a3b844bc9e7595f7faed00000000000000000000000000000000000000000000000000000000000f4240',
         chainId: 80002,
+        chain: 'polygon',
+        network: 'testnet',
       });
 
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -263,6 +265,8 @@ describe('TransactionSigner', () => {
         value: '1000000000000000000', // Native transfer has the amount as value
         data: undefined, // No data for native transfers
         chainId: 80002,
+        chain: 'polygon',
+        network: 'testnet',
       });
 
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -509,6 +513,8 @@ describe('TransactionSigner', () => {
         value: '0',
         data: '0xbatchencoded',
         chainId: 80002,
+        chain: 'polygon',
+        network: 'testnet',
       });
 
       expect(mockLogger.info).toHaveBeenCalledWith(

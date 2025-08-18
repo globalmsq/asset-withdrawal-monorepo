@@ -1,6 +1,13 @@
 import { LoggerService } from '@asset-withdrawal/shared';
 import { getRedisClient, NonceRedisService } from './redis-client';
 import type { Redis } from 'ioredis';
+import { ethers } from 'ethers';
+import {
+  getChainConfigService,
+  ChainConfigService,
+} from './chain-config.service';
+import { QueueService } from './queue-client';
+import type { AppConfig } from '../config';
 
 /**
  * Queued transaction interface for nonce management
@@ -33,6 +40,7 @@ export interface QueueStatus {
  * NonceManager - Manages transaction queues per address to ensure nonce ordering
  *
  * Features:
+ * - Memory buffer for out-of-order transactions
  * - Address-based transaction queueing
  * - Sequential processing for same address
  * - Parallel processing for different addresses
@@ -41,11 +49,49 @@ export interface QueueStatus {
 export class NonceManager {
   private redis!: Redis;
   private nonceRedisService!: NonceRedisService;
+  private chainConfigService: ChainConfigService;
+  private queueService?: QueueService;
+  private config?: AppConfig;
   private processingTimeout = 60000; // 60 seconds timeout for processing
   private logger: LoggerService;
 
-  constructor() {
+  // Memory buffers for managing out-of-order transactions
+  private buffers: Map<string, Map<number, QueuedTransaction>>;
+  private lastBroadcastedNonces: Map<string, number>;
+  private waitingForNonces: Map<string, { nonce: number; since: Date }>;
+
+  // Timers for dummy transaction sending
+  private dummyTxTimers: Map<string, NodeJS.Timeout>;
+
+  // Individual address timers for NONCE_TOO_HIGH handling
+  private addressTimers: Map<string, NodeJS.Timeout>;
+  private addressTimerStartTimes: Map<string, number>;
+
+  // Buffer size limits
+  private readonly MAX_BUFFER_SIZE_PER_ADDRESS = 100;
+  private readonly MAX_BUFFER_AGE_MS = 5 * 60 * 1000; // 5 minutes
+  private readonly DUMMY_TX_WAIT_TIME = 60 * 1000; // 1 minute before sending dummy tx
+  private readonly NONCE_CHECK_INTERVAL = 10 * 1000; // Check blockchain nonce every 10 seconds
+
+  constructor(chainId?: number, config?: AppConfig) {
     this.logger = new LoggerService({ service: 'NonceManager' });
+    this.chainConfigService = getChainConfigService();
+    this.config = config;
+
+    if (config) {
+      this.queueService = new QueueService(config);
+    }
+
+    // Initialize memory buffers
+    this.buffers = new Map();
+    this.lastBroadcastedNonces = new Map();
+    this.waitingForNonces = new Map();
+    this.dummyTxTimers = new Map();
+
+    // Initialize address-specific timers
+    this.addressTimers = new Map();
+    this.addressTimerStartTimes = new Map();
+
     this.initializeRedis();
   }
 
@@ -63,8 +109,332 @@ export class NonceManager {
   }
 
   /**
+   * Process a transaction with memory buffer logic
+   * Returns true if transaction was processed immediately, false if buffered
+   */
+  async processTransaction(
+    transaction: QueuedTransaction,
+    chainId: number
+  ): Promise<boolean> {
+    const { fromAddress, nonce, txHash } = transaction;
+
+    // Get expected nonce
+    const expectedNonce = await this.getExpectedNonce(fromAddress, chainId);
+
+    this.logger.debug('Processing transaction', {
+      metadata: {
+        fromAddress,
+        nonce,
+        expectedNonce,
+        txHash,
+      },
+    });
+
+    if (nonce === expectedNonce) {
+      // Perfect match - process immediately
+      this.logger.info('Processing transaction immediately', {
+        metadata: { fromAddress, nonce, txHash },
+      });
+
+      // Clear waiting status
+      if (this.waitingForNonces.has(fromAddress)) {
+        this.waitingForNonces.delete(fromAddress);
+      }
+
+      return true; // Ready to broadcast
+    } else if (nonce > expectedNonce) {
+      // Future nonce - add to buffer
+      this.addToBuffer(fromAddress, nonce, transaction);
+
+      // Mark that we're waiting for a nonce
+      if (!this.waitingForNonces.has(fromAddress)) {
+        this.waitingForNonces.set(fromAddress, {
+          nonce: expectedNonce,
+          since: new Date(),
+        });
+
+        this.logger.warn('Nonce gap detected, buffering transaction', {
+          metadata: {
+            fromAddress,
+            expectedNonce,
+            receivedNonce: nonce,
+            gap: nonce - expectedNonce,
+          },
+        });
+      }
+
+      return false; // Buffered for later
+    } else {
+      // Old nonce - should not happen normally
+      this.logger.warn('Received old nonce, skipping', {
+        metadata: {
+          fromAddress,
+          expectedNonce,
+          receivedNonce: nonce,
+        },
+      });
+
+      return false; // Skip old nonce
+    }
+  }
+
+  /**
+   * Add transaction to memory buffer
+   */
+  private addToBuffer(
+    address: string,
+    nonce: number,
+    transaction: QueuedTransaction
+  ): void {
+    if (!this.buffers.has(address)) {
+      this.buffers.set(address, new Map());
+    }
+
+    const addressBuffer = this.buffers.get(address)!;
+
+    // Check buffer size limit
+    if (addressBuffer.size >= this.MAX_BUFFER_SIZE_PER_ADDRESS) {
+      this.logger.error('Buffer size limit reached', {
+        metadata: {
+          address,
+          bufferSize: addressBuffer.size,
+          limit: this.MAX_BUFFER_SIZE_PER_ADDRESS,
+        },
+      });
+      // Could implement buffer cleanup here if needed
+      return;
+    }
+
+    addressBuffer.set(nonce, transaction);
+
+    this.logger.debug('Transaction added to buffer', {
+      metadata: {
+        address,
+        nonce,
+        bufferSize: addressBuffer.size,
+      },
+    });
+  }
+
+  /**
+   * Process buffered transactions in sequence after a successful broadcast
+   */
+  async processBufferedSequence(
+    address: string,
+    chainId: number
+  ): Promise<QueuedTransaction[]> {
+    const buffer = this.buffers.get(address);
+    if (!buffer || buffer.size === 0) {
+      return [];
+    }
+
+    const processed: QueuedTransaction[] = [];
+    let currentNonce = await this.getExpectedNonce(address, chainId);
+
+    // Process consecutive nonces from buffer
+    while (buffer.has(currentNonce)) {
+      const transaction = buffer.get(currentNonce)!;
+      processed.push(transaction);
+      buffer.delete(currentNonce);
+
+      this.logger.info('Processing buffered transaction', {
+        metadata: {
+          address,
+          nonce: currentNonce,
+          remainingInBuffer: buffer.size,
+        },
+      });
+
+      // Update last nonce (will be persisted by caller)
+      this.lastBroadcastedNonces.set(address, currentNonce);
+      currentNonce++;
+    }
+
+    // Check if gap is resolved
+    if (this.waitingForNonces.has(address)) {
+      const waiting = this.waitingForNonces.get(address)!;
+      if (waiting.nonce < currentNonce) {
+        this.waitingForNonces.delete(address);
+        this.logger.info('Nonce gap resolved', {
+          metadata: {
+            address,
+            resolvedNonce: waiting.nonce,
+            currentNonce: currentNonce - 1,
+          },
+        });
+      }
+    }
+
+    // Clean up empty buffer
+    if (buffer.size === 0) {
+      this.buffers.delete(address);
+    }
+
+    return processed;
+  }
+
+  /**
+   * Get the expected next nonce for an address
+   */
+  private async getExpectedNonce(
+    address: string,
+    chainId: number
+  ): Promise<number> {
+    // Check memory cache first
+    if (this.lastBroadcastedNonces.has(address)) {
+      return this.lastBroadcastedNonces.get(address)! + 1;
+    }
+
+    // Fall back to Redis
+    const lastNonce =
+      await this.nonceRedisService.getLastBroadcastedNonce(address);
+    if (lastNonce !== null) {
+      this.lastBroadcastedNonces.set(address, lastNonce);
+      return lastNonce + 1;
+    }
+
+    // No previous transactions in memory or Redis - fetch from blockchain
+    try {
+      const blockchainNonce = await this.getBlockchainNonce(address, chainId);
+
+      // Cache the blockchain nonce as the "last broadcasted" nonce
+      // This handles the case where transactions were sent outside this service
+      if (blockchainNonce > 0) {
+        // Blockchain nonce is the next nonce to use, so last broadcasted is nonce - 1
+        const lastBroadcasted = blockchainNonce - 1;
+        this.lastBroadcastedNonces.set(address, lastBroadcasted);
+        await this.nonceRedisService.setLastBroadcastedNonce(
+          address,
+          lastBroadcasted
+        );
+
+        this.logger.info('Initialized nonce from blockchain', {
+          metadata: {
+            address,
+            blockchainNonce,
+            lastBroadcasted,
+          },
+        });
+      }
+
+      return blockchainNonce;
+    } catch (error) {
+      this.logger.error(
+        'Failed to fetch blockchain nonce, defaulting to 0',
+        error,
+        {
+          metadata: { address },
+        }
+      );
+      // If blockchain fetch fails, default to 0
+      return 0;
+    }
+  }
+
+  /**
+   * Get blockchain nonce for an address
+   */
+  async getBlockchainNonce(address: string, chainId: number): Promise<number> {
+    try {
+      const provider = this.chainConfigService.getProvider(chainId);
+      if (!provider) {
+        throw new Error(`No provider available for chain ${chainId}`);
+      }
+
+      const nonce = await provider.getTransactionCount(address, 'latest');
+
+      this.logger.debug('Retrieved blockchain nonce', {
+        metadata: { address, chainId, nonce },
+      });
+
+      return nonce;
+    } catch (error) {
+      this.logger.error('Failed to get blockchain nonce', error, {
+        metadata: { address, chainId },
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Update last broadcasted nonce (both memory and Redis)
+   */
+  async updateLastBroadcastedNonce(
+    address: string,
+    nonce: number
+  ): Promise<void> {
+    this.lastBroadcastedNonces.set(address, nonce);
+    await this.nonceRedisService.setLastBroadcastedNonce(address, nonce);
+
+    this.logger.debug('Updated last broadcasted nonce', {
+      metadata: { address, nonce },
+    });
+  }
+
+  /**
+   * Get nonce gap status for monitoring
+   */
+  getGapStatus(): Map<
+    string,
+    {
+      waitingFor: number;
+      waitingSince: Date;
+      bufferedNonces: number[];
+      bufferSize: number;
+    }
+  > {
+    const status = new Map();
+
+    for (const [address, waiting] of this.waitingForNonces.entries()) {
+      const buffer = this.buffers.get(address);
+      const bufferedNonces = buffer
+        ? Array.from(buffer.keys()).sort((a, b) => a - b)
+        : [];
+
+      status.set(address, {
+        waitingFor: waiting.nonce,
+        waitingSince: waiting.since,
+        bufferedNonces,
+        bufferSize: buffer?.size || 0,
+      });
+    }
+
+    return status;
+  }
+
+  /**
+   * Clean up old buffered transactions
+   */
+  cleanupOldBuffers(): void {
+    const now = Date.now();
+
+    for (const [address, buffer] of this.buffers.entries()) {
+      for (const [nonce, transaction] of buffer.entries()) {
+        const age = now - transaction.timestamp.getTime();
+        if (age > this.MAX_BUFFER_AGE_MS) {
+          buffer.delete(nonce);
+          this.logger.warn('Removed old buffered transaction', {
+            metadata: {
+              address,
+              nonce,
+              age: Math.floor(age / 1000) + 's',
+            },
+          });
+        }
+      }
+
+      // Remove empty buffers
+      if (buffer.size === 0) {
+        this.buffers.delete(address);
+      }
+    }
+  }
+
+  /**
    * Add a transaction to the address-specific queue
    * Maintains nonce ordering within the queue
+   *
+   * @deprecated Use processTransaction() for memory buffer approach
    */
   async addTransaction(transaction: QueuedTransaction): Promise<void> {
     await this.ensureRedisInitialized();
@@ -323,6 +693,12 @@ export class NonceManager {
         address,
         updatedQueue
       );
+
+      // Clear address timer if buffer is empty
+      const buffer = this.buffers.get(address);
+      if (!buffer || buffer.size === 0) {
+        this.clearAddressTimer(address);
+      }
     }
 
     // Clear processing flag and timing
@@ -491,6 +867,465 @@ export class NonceManager {
     }
 
     return { hasGap: false };
+  }
+
+  /**
+   * Handle NONCE_TOO_HIGH error by buffering and setting up dummy tx timer
+   */
+  async handleNonceTooHigh(
+    transaction: QueuedTransaction,
+    chainId: number
+  ): Promise<void> {
+    const { fromAddress, nonce } = transaction;
+
+    try {
+      // Get current blockchain nonce
+      const blockchainNonce = await this.getBlockchainNonce(
+        fromAddress,
+        chainId
+      );
+
+      this.logger.warn('NONCE_TOO_HIGH detected, buffering transaction', {
+        metadata: {
+          fromAddress,
+          expectedNonce: nonce,
+          blockchainNonce,
+          gap: nonce - blockchainNonce,
+        },
+      });
+
+      // Add to buffer
+      this.addToBuffer(fromAddress, nonce, transaction);
+
+      // Start address-specific timer if not already running
+      this.startAddressTimer(fromAddress, chainId);
+    } catch (error) {
+      this.logger.error('Error handling NONCE_TOO_HIGH', error, {
+        metadata: { fromAddress, nonce },
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Start or restart timer for a specific address
+   */
+  private startAddressTimer(address: string, chainId: number): void {
+    // Clear existing timer if any
+    this.clearAddressTimer(address);
+
+    // Record start time
+    this.addressTimerStartTimes.set(address, Date.now());
+
+    // Set up periodic check
+    const timer = setInterval(async () => {
+      try {
+        // Check how long we've been waiting
+        const startTime = this.addressTimerStartTimes.get(address);
+        if (!startTime) {
+          this.clearAddressTimer(address);
+          return;
+        }
+
+        const waitTime = Date.now() - startTime;
+
+        // Get current blockchain nonce
+        const blockchainNonce = await this.getBlockchainNonce(address, chainId);
+
+        // Check if any buffered transaction can now be processed
+        const buffer = this.buffers.get(address);
+        if (!buffer || buffer.size === 0) {
+          // No more buffered transactions, clear timer
+          this.clearAddressTimer(address);
+          return;
+        }
+
+        // Check if we have a transaction ready to process
+        if (buffer.has(blockchainNonce)) {
+          this.logger.info('Buffered transaction now ready to process', {
+            metadata: {
+              address,
+              nonce: blockchainNonce,
+              waitTime: Math.floor(waitTime / 1000) + 's',
+            },
+          });
+
+          // Clear timer as transaction is now ready
+          this.clearAddressTimer(address);
+          return;
+        }
+
+        // Check if we've waited too long (1 minute)
+        if (waitTime >= this.DUMMY_TX_WAIT_TIME) {
+          // Find the lowest buffered nonce
+          const bufferedNonces = Array.from(buffer.keys()).sort(
+            (a, b) => a - b
+          );
+          const lowestBufferedNonce = bufferedNonces[0];
+
+          this.logger.warn('Timeout reached, preparing dummy transactions', {
+            metadata: {
+              address,
+              fromNonce: blockchainNonce,
+              toNonce: lowestBufferedNonce,
+              waitTime: Math.floor(waitTime / 1000) + 's',
+            },
+          });
+
+          // Send dummy transactions to fill the gap
+          await this.sendDummyTransactions(
+            address,
+            blockchainNonce,
+            lowestBufferedNonce,
+            chainId
+          );
+
+          // Clear timer after sending dummy transactions
+          this.clearAddressTimer(address);
+        }
+      } catch (error) {
+        this.logger.error('Error in address timer', error, {
+          metadata: { address },
+        });
+      }
+    }, this.NONCE_CHECK_INTERVAL);
+
+    this.addressTimers.set(address, timer);
+
+    this.logger.info('Started address timer for NONCE_TOO_HIGH handling', {
+      metadata: {
+        address,
+        chainId,
+        checkInterval: this.NONCE_CHECK_INTERVAL / 1000 + 's',
+        timeout: this.DUMMY_TX_WAIT_TIME / 1000 + 's',
+      },
+    });
+  }
+
+  /**
+   * Clear timer for a specific address
+   */
+  private clearAddressTimer(address: string): void {
+    const timer = this.addressTimers.get(address);
+    if (timer) {
+      clearInterval(timer);
+      this.addressTimers.delete(address);
+      this.addressTimerStartTimes.delete(address);
+
+      this.logger.debug('Cleared address timer', {
+        metadata: { address },
+      });
+    }
+  }
+
+  /**
+   * Send dummy transactions to fill nonce gaps
+   */
+  private async sendDummyTransactions(
+    fromAddress: string,
+    startNonce: number,
+    endNonce: number,
+    chainId: number
+  ): Promise<void> {
+    try {
+      const provider = this.chainConfigService.getProvider(chainId);
+      if (!provider) {
+        throw new Error(`No provider available for chain ${chainId}`);
+      }
+
+      // Get wallet/signer - this needs to be implemented based on your setup
+      // For now, we'll just log what would be done
+      this.logger.warn('Dummy transaction sending not fully implemented', {
+        metadata: {
+          fromAddress,
+          startNonce,
+          endNonce,
+          chainId,
+          gapSize: endNonce - startNonce,
+        },
+      });
+
+      // TODO: Implement actual dummy transaction sending
+      // This would require:
+      // 1. Access to the private key or signer for fromAddress
+      // 2. Creating minimal value transactions (e.g., 0 ETH to self)
+      // 3. Sending them with the missing nonces
+
+      // For now, we'll simulate by removing the buffered transaction
+      // In a real implementation, this would send actual transactions
+      const buffer = this.buffers.get(fromAddress);
+      if (buffer && buffer.has(endNonce)) {
+        this.logger.info(
+          'Removing buffered transaction after dummy tx timeout',
+          {
+            metadata: {
+              fromAddress,
+              nonce: endNonce,
+              reason: 'dummy_tx_timeout',
+            },
+          }
+        );
+
+        // Remove the buffered transaction that couldn't be processed
+        buffer.delete(endNonce);
+
+        // Clean up empty buffer
+        if (buffer.size === 0) {
+          this.buffers.delete(fromAddress);
+        }
+
+        // Clear waiting status
+        if (this.waitingForNonces.has(fromAddress)) {
+          this.waitingForNonces.delete(fromAddress);
+        }
+      }
+    } catch (error) {
+      this.logger.error('Failed to send dummy transactions', error, {
+        metadata: { fromAddress, startNonce, endNonce, chainId },
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Search SQS for missing nonces
+   * Returns found transactions that match the missing nonces
+   */
+  async searchSQSForMissingNonces(
+    address: string,
+    missingNonces: number[],
+    chainId: number
+  ): Promise<QueuedTransaction[]> {
+    if (!this.queueService || !this.config) {
+      this.logger.warn('QueueService not initialized, cannot search SQS');
+      return [];
+    }
+
+    this.logger.info('Searching SQS for missing nonces', {
+      metadata: {
+        address,
+        missingNonces,
+        chainId,
+      },
+    });
+
+    try {
+      // Receive messages from SQS with visibility timeout 0 to peek without consuming
+      const messages = await this.queueService.receiveMessages(
+        this.config.SIGNED_TX_QUEUE_URL,
+        10, // Max messages to check
+        0 // Don't wait, just check immediately
+      );
+
+      const foundTransactions: QueuedTransaction[] = [];
+
+      for (const message of messages) {
+        // Cast message body to any to handle type issues
+        const txData = message.body as any;
+
+        // Parse the transaction to get nonce and from address
+        try {
+          // Use ethers v6 syntax: Transaction.from()
+          const tx = ethers.Transaction.from(txData.signedTransaction);
+
+          // Check if this is a missing nonce for our address
+          if (
+            tx.from?.toLowerCase() === address.toLowerCase() &&
+            tx.chainId === BigInt(chainId) &&
+            tx.nonce !== undefined &&
+            missingNonces.includes(Number(tx.nonce))
+          ) {
+            this.logger.info('Found missing nonce in SQS', {
+              metadata: {
+                address,
+                nonce: Number(tx.nonce),
+                txHash: tx.hash,
+                messageId: message.id,
+              },
+            });
+
+            // Convert to QueuedTransaction format
+            const queuedTx: QueuedTransaction = {
+              txHash: tx.hash || '',
+              nonce: Number(tx.nonce),
+              signedTx: txData.signedTransaction,
+              requestId: txData.withdrawalId || txData.id,
+              fromAddress: address,
+              timestamp: new Date(txData.createdAt || Date.now()),
+              transactionType: txData.transactionType,
+              batchId: txData.batchId,
+            };
+
+            foundTransactions.push(queuedTx);
+
+            // Delete the message from SQS since we're processing it
+            await this.queueService.deleteMessage(
+              this.config.SIGNED_TX_QUEUE_URL,
+              message.receiptHandle
+            );
+          }
+        } catch (parseError) {
+          this.logger.warn('Failed to parse transaction from SQS message', {
+            metadata: {
+              messageId: message.id,
+              parseError: String(parseError),
+            },
+          });
+        }
+      }
+
+      if (foundTransactions.length > 0) {
+        this.logger.info('Found transactions in SQS', {
+          metadata: {
+            address,
+            foundNonces: foundTransactions.map(tx => tx.nonce),
+            totalFound: foundTransactions.length,
+          },
+        });
+      } else {
+        this.logger.info('No missing nonces found in SQS', {
+          metadata: {
+            address,
+            searchedFor: missingNonces,
+          },
+        });
+      }
+
+      return foundTransactions;
+    } catch (error) {
+      this.logger.error('Failed to search SQS for missing nonces', {
+        metadata: {
+          address,
+          missingNonces,
+          errorMessage: String(error),
+        },
+      });
+      return [];
+    }
+  }
+
+  /**
+   * Process transaction with SQS search for missing nonces
+   */
+  async processTransactionWithSQSSearch(
+    transaction: QueuedTransaction,
+    chainId: number
+  ): Promise<boolean> {
+    const { fromAddress, nonce, txHash } = transaction;
+
+    // Get expected nonce
+    const expectedNonce = await this.getExpectedNonce(fromAddress, chainId);
+
+    this.logger.debug('Processing transaction with SQS search', {
+      metadata: {
+        fromAddress,
+        nonce,
+        expectedNonce,
+        txHash,
+      },
+    });
+
+    if (nonce === expectedNonce) {
+      // Perfect match - process immediately
+      this.logger.info('Processing transaction immediately', {
+        metadata: { fromAddress, nonce, txHash },
+      });
+
+      // Clear waiting status
+      if (this.waitingForNonces.has(fromAddress)) {
+        this.waitingForNonces.delete(fromAddress);
+      }
+
+      return true; // Ready to broadcast
+    } else if (nonce > expectedNonce) {
+      // Future nonce - check SQS for missing nonces first
+      const gap = nonce - expectedNonce;
+      const missingNonces: number[] = [];
+
+      for (let n = expectedNonce; n < nonce; n++) {
+        missingNonces.push(n);
+      }
+
+      this.logger.info('Nonce gap detected, searching SQS for missing nonces', {
+        metadata: {
+          fromAddress,
+          expectedNonce,
+          receivedNonce: nonce,
+          gap,
+          missingNonces,
+        },
+      });
+
+      // Search SQS for missing nonces
+      const foundTransactions = await this.searchSQSForMissingNonces(
+        fromAddress,
+        missingNonces,
+        chainId
+      );
+
+      // Add found transactions to buffer
+      for (const foundTx of foundTransactions) {
+        this.addToBuffer(fromAddress, foundTx.nonce, foundTx);
+      }
+
+      // Add current transaction to buffer
+      this.addToBuffer(fromAddress, nonce, transaction);
+
+      // Check if we can now process some buffered transactions
+      const buffer = this.buffers.get(fromAddress);
+      if (buffer && buffer.has(expectedNonce)) {
+        this.logger.info(
+          'Found expected nonce after SQS search, can process now',
+          {
+            metadata: {
+              fromAddress,
+              expectedNonce,
+              bufferedNonces: Array.from(buffer.keys()).sort((a, b) => a - b),
+            },
+          }
+        );
+
+        // Clear waiting status since we found what we need
+        if (this.waitingForNonces.has(fromAddress)) {
+          this.waitingForNonces.delete(fromAddress);
+        }
+
+        // Return false here since the caller should get the transaction from buffer
+        return false;
+      }
+
+      // Still have gaps after SQS search
+      if (!this.waitingForNonces.has(fromAddress)) {
+        this.waitingForNonces.set(fromAddress, {
+          nonce: expectedNonce,
+          since: new Date(),
+        });
+
+        this.logger.warn('Still have nonce gap after SQS search', {
+          metadata: {
+            fromAddress,
+            expectedNonce,
+            receivedNonce: nonce,
+            remainingGap: missingNonces.filter(
+              n => !foundTransactions.some(tx => tx.nonce === n)
+            ),
+          },
+        });
+      }
+
+      return false; // Buffered for later
+    } else {
+      // Old nonce - should not happen normally
+      this.logger.warn('Received old nonce, skipping', {
+        metadata: {
+          fromAddress,
+          expectedNonce,
+          receivedNonce: nonce,
+        },
+      });
+
+      return false; // Skip old nonce
+    }
   }
 
   /**

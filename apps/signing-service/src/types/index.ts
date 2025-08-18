@@ -13,4 +13,6 @@ export interface SignedTransaction {
   value: string;
   data?: string;
   chainId: number;
+  chain: string; // Chain identifier (e.g., 'polygon', 'ethereum')
+  network: string; // Network type (e.g., 'mainnet', 'testnet')
 }

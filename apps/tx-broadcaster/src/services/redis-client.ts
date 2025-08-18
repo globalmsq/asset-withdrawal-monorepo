@@ -201,7 +201,8 @@ export class NonceRedisService {
     pipeline.del(key);
     if (transactions.length > 0) {
       const serialized = transactions.map(tx => JSON.stringify(tx));
-      pipeline.lpush(key, ...serialized);
+      // Use rpush to maintain order (lpush would reverse the order)
+      pipeline.rpush(key, ...serialized);
     }
 
     await pipeline.exec();

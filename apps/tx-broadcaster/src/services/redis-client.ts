@@ -179,7 +179,14 @@ export class NonceRedisService {
       0,
       -1
     );
-    return data.map(item => JSON.parse(item));
+    return data.map(item => {
+      const tx = JSON.parse(item);
+      // Convert timestamp string back to Date object
+      if (tx.timestamp) {
+        tx.timestamp = new Date(tx.timestamp);
+      }
+      return tx;
+    });
   }
 
   // Set pending transactions for an address (replaces entire list)

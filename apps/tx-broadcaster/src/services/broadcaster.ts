@@ -21,10 +21,8 @@ export class TransactionBroadcaster {
   constructor() {
     this.logger = new LoggerService({ service: 'tx-broadcaster:Broadcaster' });
     this.chainConfigService = getChainConfigService();
-    // 트랜잭션 상태 관리 서비스
     this.transactionService = new TransactionService();
 
-    // 지원되는 체인 정보 로깅
     this.chainConfigService.logSupportedChains();
   }
 
@@ -39,7 +37,6 @@ export class TransactionBroadcaster {
       const parsedTx = ethers.Transaction.from(signedTransaction);
       txChainId = chainId || Number(parsedTx.chainId);
 
-      // 체인 ID에 맞는 프로바이더 선택
       const provider = this.getProviderForChain(txChainId);
       if (!provider) {
         return {
@@ -182,7 +179,7 @@ export class TransactionBroadcaster {
         };
       }
 
-      // 체인 ID 검증 (동적)
+      // Validate chain ID
       if (expectedChainId && txChainId !== expectedChainId) {
         return {
           isValid: false,
@@ -190,7 +187,7 @@ export class TransactionBroadcaster {
         };
       }
 
-      // 지원되는 체인인지 확인
+      // Check if chain is supported
       if (!this.chainConfigService.isChainSupported(txChainId)) {
         return {
           isValid: false,
@@ -312,11 +309,10 @@ export class TransactionBroadcaster {
   }
 
   /**
-   * 체인 ID에 해당하는 프로바이더를 가져옵니다
-   * chains.config.json에서 설정을 가져옵니다
+   * Get provider for the specified chain ID
+   * Fetches configuration from chains.config.json
    */
   private getProviderForChain(chainId: number): ethers.JsonRpcProvider | null {
-    // chains.config.json에서 프로바이더 가져오기
     return this.chainConfigService.getProvider(chainId);
   }
 

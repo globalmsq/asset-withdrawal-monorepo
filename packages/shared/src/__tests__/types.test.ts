@@ -14,7 +14,7 @@ describe('Types', () => {
       expect(TransactionStatus.VALIDATING).toBe('VALIDATING');
       expect(TransactionStatus.SIGNED).toBe('SIGNED');
       expect(TransactionStatus.BROADCASTING).toBe('BROADCASTING');
-      expect(TransactionStatus.COMPLETED).toBe('COMPLETED');
+      expect(TransactionStatus.CONFIRMED).toBe('CONFIRMED');
       expect(TransactionStatus.FAILED).toBe('FAILED');
     });
 
@@ -80,7 +80,7 @@ describe('Types', () => {
     it('should support optional fields', () => {
       const mockResponse: WithdrawalResponse = {
         id: 'test-id',
-        status: TransactionStatus.COMPLETED,
+        status: TransactionStatus.CONFIRMED,
         transactionHash: '0x123abc',
         error: 'Some error message',
         createdAt: new Date(),

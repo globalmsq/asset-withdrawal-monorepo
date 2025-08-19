@@ -92,7 +92,8 @@ CREATE TABLE IF NOT EXISTS `signed_single_transactions` (
     `amount` VARCHAR(50) NOT NULL,
     `symbol` VARCHAR(10) NOT NULL,
     `data` TEXT NULL,
-    `chainId` INT UNSIGNED NOT NULL,
+    `chain` VARCHAR(20) NOT NULL,
+    `network` VARCHAR(50) NOT NULL,
     `tryCount` INT NOT NULL DEFAULT 0,
     `status` VARCHAR(20) NOT NULL DEFAULT 'SIGNED',
     `gasUsed` VARCHAR(50) NULL,
@@ -106,6 +107,7 @@ CREATE TABLE IF NOT EXISTS `signed_single_transactions` (
     INDEX `signed_single_transactions_txHash_idx`(`txHash`),
     INDEX `signed_single_transactions_createdAt_idx`(`createdAt`),
     INDEX `signed_single_transactions_status_idx`(`status`),
+    INDEX `signed_single_transactions_chain_network_idx`(`chain`, `network`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -117,7 +119,8 @@ CREATE TABLE IF NOT EXISTS `signed_batch_transactions` (
     `totalRequests` INT UNSIGNED NOT NULL,
     `totalAmount` VARCHAR(50) NOT NULL,
     `symbol` VARCHAR(10) NOT NULL,
-    `chainId` INT UNSIGNED NOT NULL,
+    `chain` VARCHAR(20) NOT NULL,
+    `network` VARCHAR(50) NOT NULL,
     `nonce` INT UNSIGNED NOT NULL,
     `gasLimit` VARCHAR(50) NOT NULL,
     `maxFeePerGas` VARCHAR(50) NULL,
@@ -135,6 +138,37 @@ CREATE TABLE IF NOT EXISTS `signed_batch_transactions` (
     INDEX `signed_batch_transactions_txHash_idx`(`txHash`),
     INDEX `signed_batch_transactions_status_idx`(`status`),
     INDEX `signed_batch_transactions_createdAt_idx`(`createdAt`),
+    INDEX `signed_batch_transactions_chain_network_idx`(`chain`, `network`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Create sent_transactions table (fully matches Prisma schema)
+CREATE TABLE IF NOT EXISTS `sent_transactions` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `requestId` VARCHAR(36) NULL,
+    `batchId` VARCHAR(36) NULL,
+    `transactionType` VARCHAR(10) NOT NULL,
+    `originalTxHash` VARCHAR(66) NOT NULL,
+    `sentTxHash` VARCHAR(66) NOT NULL,
+    `chain` VARCHAR(20) NOT NULL,
+    `network` VARCHAR(50) NOT NULL,
+    `nonce` INT UNSIGNED NOT NULL,
+    `blockNumber` BIGINT UNSIGNED NULL,
+    `gasUsed` VARCHAR(50) NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'SENT',
+    `error` TEXT NULL,
+    `sentAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `confirmedAt` DATETIME(3) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `sent_transactions_sentTxHash_key`(`sentTxHash`),
+    INDEX `sent_transactions_requestId_idx`(`requestId`),
+    INDEX `sent_transactions_batchId_idx`(`batchId`),
+    INDEX `sent_transactions_originalTxHash_idx`(`originalTxHash`),
+    INDEX `sent_transactions_status_idx`(`status`),
+    INDEX `sent_transactions_nonce_idx`(`nonce`),
+    INDEX `sent_transactions_chain_network_idx`(`chain`, `network`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

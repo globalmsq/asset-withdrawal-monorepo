@@ -1,6 +1,15 @@
-import { IQueue, Message, QueueFactory } from '@asset-withdrawal/shared';
+import {
+  IQueue,
+  Message,
+  QueueFactory,
+  DLQMessage,
+  DLQErrorType,
+  ErrorClassifier,
+  isPermanentFailure,
+} from '@asset-withdrawal/shared';
 import { Logger } from '../utils/logger';
 import { SQSClientConfig } from '@aws-sdk/client-sqs';
+import Redis from 'ioredis';
 
 export abstract class BaseWorker<TInput, TOutput = void> {
   public readonly name: string;
@@ -16,15 +25,22 @@ export abstract class BaseWorker<TInput, TOutput = void> {
   protected intervalId?: NodeJS.Timeout;
   protected inputQueue: IQueue<TInput>;
   protected outputQueue?: IQueue<TOutput>;
+  protected inputDlqQueue?: IQueue<DLQMessage<TInput>>;
+  protected outputDlqQueue?: IQueue<DLQMessage<TOutput>>;
   protected processingMessages: Set<string> = new Set();
   protected isProcessingBatch: boolean = false;
+  protected maxRetries: number = 5;
+  protected messageRetryCount: Map<string, number> = new Map(); // Fallback for when Redis is unavailable
+  protected redisClient?: Redis;
 
   constructor(
     name: string,
     inputQueueUrl: string,
     outputQueueUrl: string | undefined,
     sqsConfig: SQSClientConfig,
-    logger?: Logger
+    logger?: Logger,
+    dlqUrls?: { inputDlqUrl?: string; outputDlqUrl?: string },
+    redisConfig?: { host: string; port: number; password?: string }
   ) {
     this.name = name;
     this.logger =
@@ -76,6 +92,141 @@ export abstract class BaseWorker<TInput, TOutput = void> {
         secretAccessKey,
       });
     }
+
+    // Initialize DLQ queues if URLs are provided
+    if (dlqUrls?.inputDlqUrl) {
+      const inputDlqName =
+        dlqUrls.inputDlqUrl.split('/').pop() || dlqUrls.inputDlqUrl;
+      this.inputDlqQueue = QueueFactory.create<DLQMessage<TInput>>({
+        queueName: inputDlqName,
+        region,
+        endpoint,
+        accessKeyId,
+        secretAccessKey,
+      });
+    }
+
+    if (dlqUrls?.outputDlqUrl) {
+      const outputDlqName =
+        dlqUrls.outputDlqUrl.split('/').pop() || dlqUrls.outputDlqUrl;
+      this.outputDlqQueue = QueueFactory.create<DLQMessage<TOutput>>({
+        queueName: outputDlqName,
+        region,
+        endpoint,
+        accessKeyId,
+        secretAccessKey,
+      });
+    }
+
+    // Initialize Redis client if config provided
+    if (redisConfig) {
+      this.initializeRedis(redisConfig);
+    }
+  }
+
+  /**
+   * Initialize Redis client for retry count persistence
+   */
+  private async initializeRedis(config: {
+    host: string;
+    port: number;
+    password?: string;
+  }): Promise<void> {
+    try {
+      this.redisClient = new Redis({
+        host: config.host,
+        port: config.port,
+        password: config.password,
+        enableReadyCheck: true,
+        maxRetriesPerRequest: 3,
+        lazyConnect: true,
+      });
+
+      this.redisClient.on('error', (error: Error) => {
+        this.logger.error('Redis error in BaseWorker', {
+          error: error.message,
+        });
+        // Continue operating with in-memory fallback
+      });
+
+      await this.redisClient.connect();
+      this.logger.info('Redis connected for retry count management');
+    } catch (error) {
+      this.logger.warn(
+        'Failed to connect to Redis, using in-memory retry counts',
+        {
+          error: error instanceof Error ? error.message : String(error),
+        }
+      );
+      // Continue without Redis - use in-memory Map as fallback
+    }
+  }
+
+  /**
+   * Get retry count for a message - uses Redis if available, falls back to in-memory Map
+   */
+  protected async getRetryCount(messageId: string): Promise<number> {
+    if (this.redisClient) {
+      try {
+        const count = await this.redisClient.get(`retry:${messageId}`);
+        return count ? parseInt(count, 10) : 0;
+      } catch (error) {
+        this.logger.warn(
+          'Failed to get retry count from Redis, using in-memory',
+          {
+            messageId,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
+      }
+    }
+    // Fallback to in-memory Map
+    return this.messageRetryCount.get(messageId) || 0;
+  }
+
+  /**
+   * Increment retry count for a message - uses Redis if available, falls back to in-memory Map
+   */
+  protected async incrementRetryCount(messageId: string): Promise<number> {
+    if (this.redisClient) {
+      try {
+        // Set expiry to 1 hour to auto-cleanup old retry counts
+        const newCount = await this.redisClient.incr(`retry:${messageId}`);
+        await this.redisClient.expire(`retry:${messageId}`, 3600);
+        return newCount;
+      } catch (error) {
+        this.logger.warn(
+          'Failed to increment retry count in Redis, using in-memory',
+          {
+            messageId,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
+      }
+    }
+    // Fallback to in-memory Map
+    const currentCount = this.messageRetryCount.get(messageId) || 0;
+    const newCount = currentCount + 1;
+    this.messageRetryCount.set(messageId, newCount);
+    return newCount;
+  }
+
+  /**
+   * Clear retry count for a message - uses Redis if available, falls back to in-memory Map
+   */
+  protected async clearRetryCount(messageId: string): Promise<void> {
+    if (this.redisClient) {
+      try {
+        await this.redisClient.del(`retry:${messageId}`);
+      } catch (error) {
+        this.logger.warn('Failed to clear retry count in Redis', {
+          messageId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+    // Also clear from in-memory Map
+    this.messageRetryCount.delete(messageId);
   }
 
   async initialize(): Promise<void> {
@@ -133,6 +284,18 @@ export abstract class BaseWorker<TInput, TOutput = void> {
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
+    // Close Redis connection if exists
+    if (this.redisClient) {
+      try {
+        await this.redisClient.quit();
+        this.logger.info('Redis connection closed');
+      } catch (error) {
+        this.logger.warn('Failed to close Redis connection', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     this.logger.info('Worker stopped gracefully');
   }
 
@@ -187,7 +350,9 @@ export abstract class BaseWorker<TInput, TOutput = void> {
           this.lastError =
             error instanceof Error ? error.message : 'Unknown error';
           this.errorCount++;
-          // Message will be returned to queue after visibility timeout
+
+          // Handle DLQ for failed messages
+          await this.handleMessageFailure(message, error);
         } finally {
           this.processingMessages.delete(messageId);
         }
@@ -205,4 +370,106 @@ export abstract class BaseWorker<TInput, TOutput = void> {
   }
 
   protected abstract processMessage(data: TInput): Promise<TOutput | null>;
+
+  protected async handleMessageFailure(
+    message: Message<TInput>,
+    error: any
+  ): Promise<void> {
+    const messageId = message.id || message.receiptHandle;
+
+    // Track retry count using Redis or in-memory fallback
+    const retryCount = await this.incrementRetryCount(messageId);
+
+    // Classify the error
+    const errorInfo = ErrorClassifier.classifyError(error);
+
+    // Check if it's a permanent failure or max retries exceeded
+    if (isPermanentFailure(errorInfo.type) || retryCount >= this.maxRetries) {
+      this.logger.warn(`Sending message to DLQ`, {
+        messageId,
+        errorType: errorInfo.type,
+        retryCount,
+        isPermanent: isPermanentFailure(errorInfo.type),
+      });
+
+      try {
+        // Send to DLQ
+        await this.sendToDLQ(message, error, retryCount);
+
+        // Only delete message if DLQ send succeeded
+        await this.inputQueue.deleteMessage(message.receiptHandle);
+
+        // Clear retry count
+        await this.clearRetryCount(messageId);
+
+        this.logger.info(
+          'Message successfully moved to DLQ and deleted from main queue',
+          {
+            messageId,
+          }
+        );
+      } catch (dlqError) {
+        // Failed to send to DLQ - DO NOT delete the message
+        this.logger.error(
+          'Failed to move message to DLQ, will retry via SQS visibility timeout',
+          {
+            messageId,
+            error:
+              dlqError instanceof Error ? dlqError.message : String(dlqError),
+          }
+        );
+        // Message will be retried when visibility timeout expires
+        // Do NOT delete from main queue to prevent message loss
+      }
+    }
+    // Otherwise, message will be returned to queue after visibility timeout
+  }
+
+  protected async sendToDLQ(
+    message: Message<TInput>,
+    error: any,
+    attemptCount: number
+  ): Promise<void> {
+    if (!this.inputDlqQueue) {
+      this.logger.error('DLQ not configured, dropping message', {
+        messageId: message.id || message.receiptHandle,
+      });
+      return;
+    }
+
+    try {
+      const errorInfo = ErrorClassifier.classifyError(error);
+
+      const dlqMessage: DLQMessage<TInput> = {
+        originalMessage: message.body,
+        error: {
+          type: errorInfo.type,
+          code: errorInfo.code,
+          message:
+            typeof error === 'string'
+              ? error
+              : error?.message || error?.toString() || 'Unknown error',
+          details: errorInfo.details,
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          attemptCount,
+        },
+      };
+
+      await this.inputDlqQueue.sendMessage(dlqMessage);
+
+      this.logger.info('Message sent to DLQ', {
+        messageId: message.id || message.receiptHandle,
+        errorType: errorInfo.type,
+      });
+    } catch (dlqError) {
+      this.logger.error('Failed to send message to DLQ', dlqError, {
+        messageId: message.id || message.receiptHandle,
+      });
+      // Re-throw error to prevent message loss
+      // Caller must handle this error and avoid deleting the message
+      throw dlqError;
+    }
+  }
 }

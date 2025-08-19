@@ -6,23 +6,23 @@ RUN apk add --no-cache python3 make g++ && \
     npm install -g pnpm@8.15.9
 
 # Set working directory
-WORKDIR /app
+WORKDIR /apps
 
-# Copy package files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Copy package files to root for pnpm workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /
 # In Nx monorepo, apps might not have individual package.json files
 # Only copy if they exist
-COPY apps/api-server/package.json* ./apps/api-server/
-COPY apps/signing-service/package.json* ./apps/signing-service/
-COPY apps/tx-processor/package.json* ./apps/tx-processor/
-COPY apps/tx-monitor/package.json* ./apps/tx-monitor/
-COPY packages/shared/package.json* ./packages/shared/
-COPY packages/database/package.json* ./packages/database/
+COPY apps/api-server/package.json* /apps/api-server/
+COPY apps/signing-service/package.json* /apps/signing-service/
+COPY apps/tx-broadcaster/package.json* /apps/tx-broadcaster/
+COPY packages/shared/package.json* /packages/shared/
+COPY packages/database/package.json* /packages/database/
 
 # Copy Prisma schema before installing dependencies
-COPY prisma/ ./prisma/
+COPY prisma/ /prisma/
 
-# Install all dependencies
+# Install all dependencies from root
+WORKDIR /
 RUN pnpm install --frozen-lockfile
 
 # Copy source files
@@ -33,61 +33,32 @@ COPY packages/ ./packages/
 # Generate Prisma client
 RUN npx prisma generate
 
-# Production stage for api-server
-FROM base AS api-server
-
-WORKDIR /app
-
-# Copy source files and dependencies from base stage
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=base /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=base /app/nx.json ./nx.json
-COPY --from=base /app/tsconfig.json ./tsconfig.json
-COPY --from=base /app/apps ./apps
-COPY --from=base /app/packages ./packages
-COPY --from=base /app/prisma ./prisma
-COPY --from=base /app/node_modules ./node_modules
-
+# Generic service stage with common configuration
+FROM base AS apps
+ARG APP_PORT
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PORT=8080
+ENV PORT=${APP_PORT}
 ENV DOCKER=true
 
-# Expose port
-EXPOSE 8080
+# Expose the application port
+EXPOSE ${APP_PORT}
 
-# Change to api-server directory and start the application
-WORKDIR /app/apps/api-server
-CMD ["npm", "start"]
+# Production stage for api-server
+FROM apps AS api-server
+ARG APP_PORT=8080
+WORKDIR /apps/api-server
+CMD ["npm", "run", "start"]
 
 # Production stage for signing-service
-FROM base AS signing-service
+FROM apps AS signing-service
+ARG APP_PORT=3005
+WORKDIR /apps/signing-service
+CMD ["npm", "run", "start"]
 
-WORKDIR /app
-
-# Copy source files and dependencies from base stage
-COPY --from=base /app/package.json ./package.json
-COPY --from=base /app/pnpm-lock.yaml ./pnpm-lock.yaml
-COPY --from=base /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-COPY --from=base /app/nx.json ./nx.json
-COPY --from=base /app/tsconfig.json ./tsconfig.json
-COPY --from=base /app/apps ./apps
-COPY --from=base /app/packages ./packages
-COPY --from=base /app/prisma ./prisma
-COPY --from=base /app/node_modules ./node_modules
-
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3005
-ENV DOCKER=true
-
-# Expose port
-EXPOSE 3005
-
-# Change to signing-service directory and start the application
-WORKDIR /app/apps/signing-service
-CMD ["npm", "start"]
-
+# Production stage for tx-broadcaster
+FROM apps AS tx-broadcaster
+ARG APP_PORT=3001
+WORKDIR /apps/tx-broadcaster
+CMD ["npm", "run", "start"]

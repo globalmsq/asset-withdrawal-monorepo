@@ -1,0 +1,119 @@
+export interface AppConfig {
+  // Server Configuration
+  NODE_ENV: string;
+  HOST: string;
+  PORT: number;
+  LOG_LEVEL: string;
+
+  // Database Configuration
+  MYSQL_HOST: string;
+  MYSQL_PORT: number;
+  MYSQL_DATABASE: string;
+  MYSQL_USER: string;
+  MYSQL_PASSWORD: string;
+
+  // AWS SQS Configuration
+  AWS_REGION: string;
+  AWS_ACCESS_KEY_ID: string;
+  AWS_SECRET_ACCESS_KEY: string;
+  AWS_ENDPOINT?: string;
+
+  // Queue URLs
+  SIGNED_TX_QUEUE_URL: string;
+  BROADCAST_TX_QUEUE_URL: string;
+
+  // DLQ URLs (optional)
+  SIGNED_TX_DLQ_URL?: string;
+  BROADCAST_TX_DLQ_URL?: string;
+
+  // Blockchain Configuration (Optional - will use chains.config.json)
+  RPC_URL?: string;
+  CHAIN_ID?: number;
+
+  // Redis Configuration
+  REDIS_HOST: string;
+  REDIS_PORT: number;
+  REDIS_PASSWORD?: string;
+}
+
+function getRequiredEnv(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Required environment variable ${key} is not set`);
+  }
+  return value;
+}
+
+function getOptionalEnv(
+  key: string,
+  defaultValue?: string
+): string | undefined {
+  return process.env[key] || defaultValue;
+}
+
+function getNumberEnv(key: string, defaultValue: number): number {
+  const value = process.env[key];
+  if (!value) return defaultValue;
+  const parsed = parseInt(value, 10);
+  if (isNaN(parsed)) {
+    throw new Error(`Environment variable ${key} must be a valid number`);
+  }
+  return parsed;
+}
+
+export function loadConfig(): AppConfig {
+  return {
+    // Server Configuration
+    NODE_ENV: getOptionalEnv('NODE_ENV', 'development')!,
+    HOST: getOptionalEnv('HOST', 'localhost')!,
+    PORT: getNumberEnv('PORT', 3003),
+    LOG_LEVEL: getOptionalEnv('LOG_LEVEL', 'info')!,
+
+    // Database Configuration
+    MYSQL_HOST: getOptionalEnv('MYSQL_HOST', 'localhost')!,
+    MYSQL_PORT: getNumberEnv('MYSQL_PORT', 3306),
+    MYSQL_DATABASE: getOptionalEnv('MYSQL_DATABASE', 'withdrawal_system')!,
+    MYSQL_USER: getOptionalEnv('MYSQL_USER', 'root')!,
+    MYSQL_PASSWORD: getOptionalEnv('MYSQL_PASSWORD', 'pass')!,
+
+    // AWS SQS Configuration
+    AWS_REGION: getOptionalEnv('AWS_REGION', 'ap-northeast-2')!,
+    AWS_ACCESS_KEY_ID: getOptionalEnv('AWS_ACCESS_KEY_ID', 'test')!,
+    AWS_SECRET_ACCESS_KEY: getOptionalEnv('AWS_SECRET_ACCESS_KEY', 'test')!,
+    AWS_ENDPOINT: getOptionalEnv('AWS_ENDPOINT'),
+
+    // Queue URLs
+    SIGNED_TX_QUEUE_URL: getRequiredEnv('SIGNED_TX_QUEUE_URL'),
+    BROADCAST_TX_QUEUE_URL: getRequiredEnv('BROADCAST_TX_QUEUE_URL'),
+
+    // DLQ URLs (optional)
+    SIGNED_TX_DLQ_URL: getOptionalEnv('SIGNED_TX_DLQ_URL'),
+    BROADCAST_TX_DLQ_URL: getOptionalEnv('BROADCAST_TX_DLQ_URL'),
+
+    // Blockchain Configuration (Optional - will use chains.config.json)
+    RPC_URL: getOptionalEnv('RPC_URL'),
+    CHAIN_ID: process.env.CHAIN_ID ? getNumberEnv('CHAIN_ID', 0) : undefined,
+
+    // Redis Configuration
+    REDIS_HOST: getOptionalEnv('REDIS_HOST', 'localhost')!,
+    REDIS_PORT: getNumberEnv('REDIS_PORT', 6379),
+    REDIS_PASSWORD: getOptionalEnv('REDIS_PASSWORD'),
+  };
+}
+
+// Validate configuration on startup
+export function validateConfig(config: AppConfig): void {
+  // Check required URLs
+  if (!config.SIGNED_TX_QUEUE_URL) {
+    throw new Error('SIGNED_TX_QUEUE_URL is required');
+  }
+  if (!config.BROADCAST_TX_QUEUE_URL) {
+    throw new Error('BROADCAST_TX_QUEUE_URL is required');
+  }
+
+  // Blockchain configuration is now optional (will use chains.config.json)
+
+  // Configuration validation successful
+  // Note: Logger can't be used here due to circular dependency
+  // These logs are only shown during startup for debugging purposes
+}

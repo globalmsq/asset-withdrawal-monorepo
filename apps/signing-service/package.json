@@ -14,7 +14,7 @@
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.840.0",
     "@aws-sdk/client-sqs": "^3.859.0",
-    "database": "workspace:*",
+    "@asset-withdrawal/database": "workspace:*",
     "dotenv": "^16.0.0",
     "ethers": "^6.0.0",
     "redis": "^5.6.0",

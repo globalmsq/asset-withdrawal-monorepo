@@ -7,11 +7,11 @@ import {
   LoginResponse,
 } from '@asset-withdrawal/shared';
 import { AuthRequest, authenticate } from '../middleware/auth.middleware';
-import { Logger } from '../utils/logger';
+import { LoggerService } from '@asset-withdrawal/shared';
 import { getUserService } from '../services/user.service';
 
 const router = Router();
-const logger = new Logger('AuthRoute');
+const logger = new LoggerService({ service: 'api-server:auth' });
 
 router.post('/register', async (req: Request, res: Response) => {
   try {
@@ -66,7 +66,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
     res.status(201).json(response);
   } catch (error) {
-    logger.error('Registration error:', error);
+    logger.error('Registration error', error);
     res.status(500).json({
       success: false,
       error: 'Registration failed',
@@ -134,7 +134,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
     res.json(response);
   } catch (error) {
-    logger.error('Login error:', error);
+    logger.error('Login error', error);
     res.status(500).json({
       success: false,
       error: 'Login failed',
@@ -177,7 +177,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
       timestamp: new Date(),
     } as ApiResponse);
   } catch (error) {
-    logger.error('Get user error:', error);
+    logger.error('Get user error', error);
     res.status(500).json({
       success: false,
       error: 'Failed to get user info',

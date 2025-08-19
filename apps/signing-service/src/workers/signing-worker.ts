@@ -49,7 +49,7 @@ export class SigningWorker extends BaseWorker<
   ) {
     super(
       'SigningWorker',
-      config.queue.txRequestQueueUrl,
+      config.queue.requestQueueUrl,
       config.queue.signedTxQueueUrl,
       {
         region: config.aws.region,
@@ -61,7 +61,12 @@ export class SigningWorker extends BaseWorker<
             }
           : undefined,
       },
-      logger
+      logger,
+      {
+        inputDlqUrl: config.queue.requestDlqUrl,
+        outputDlqUrl: config.queue.signedTxDlqUrl,
+      },
+      config.redis // Pass Redis config to BaseWorker
     );
 
     this.auditLogger = logger;
@@ -770,7 +775,8 @@ export class SigningWorker extends BaseWorker<
           totalRequests: messages.length,
           totalAmount: totalAmount,
           symbol: symbol,
-          chainId: chainProvider.getChainId(),
+          chain: chain,
+          network: network,
           nonce: actualNonce, // Store the actual nonce that will be used
           gasLimit: '0', // Will be updated when signed
           tryCount: 0,
@@ -1130,7 +1136,8 @@ export class SigningWorker extends BaseWorker<
           amount: amount,
           symbol: symbol || 'UNKNOWN',
           data: signedTx.data,
-          chainId: signedTx.chainId,
+          chain: chain,
+          network: network,
           tryCount,
           status: 'SIGNED',
         });

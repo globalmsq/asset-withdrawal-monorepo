@@ -49,83 +49,31 @@ docker-compose -f docker/docker-compose.yaml down
 
 ### Environment Configuration
 
-```env
-# Database
-DATABASE_URL="mysql://root:root@localhost:3306/withdrawal_db"
-
-# AWS Services (LocalStack for development)
-AWS_ENDPOINT=http://localhost:4566
-AWS_REGION=ap-northeast-2
-AWS_ACCESS_KEY_ID=test
-AWS_SECRET_ACCESS_KEY=test
-
-# Blockchain Configuration
-# Chain and network must be specified in API requests
-# No default values - all requests must include explicit parameters
-
-# Application Ports
-API_SERVER_PORT=3000
-SIGNING_SERVICE_PORT=3002
-TX_BROADCASTER_PORT=3004
-TX_MONITOR_PORT=3003
-ACCOUNT_MANAGER_PORT=3005
-ADMIN_UI_PORT=3006
-
-# Security
-JWT_SECRET=your-secret-key
-ENCRYPTION_KEY=your-32-byte-encryption-key
-
-# Batch Processing
-ENABLE_BATCH_PROCESSING=true                 # High-volume processing
-MIN_BATCH_SIZE=5                            # Minimum transactions to batch
-BATCH_THRESHOLD=3                           # Min per token for batching
-MIN_GAS_SAVINGS_PERCENT=20                  # Cost efficiency threshold
-SINGLE_TX_GAS_ESTIMATE=65000               # Gas per single transaction
-BATCH_BASE_GAS=100000                      # Base gas for batch
-BATCH_PER_TX_GAS=25000                     # Additional gas per tx in batch
-
-# Account Manager Configuration
-BALANCE_CHECK_INTERVAL=300000               # 5 minutes (milliseconds)
-MIN_BALANCE_THRESHOLD=0.1                   # ETH minimum balance
-TARGET_BALANCE=0.5                          # ETH target balance for refill
-BATCH_TRANSFER_ENABLED=true                 # Enable batch transfers
-MAX_BATCH_SIZE=10                           # Max accounts per batch transfer
-```
+Create a `.env` file in the root directory. See [Setup Guide](./docs/SETUP.md#environment-variables) for detailed configuration.
 
 ## 📍 Service Endpoints
 
 - **API Server**: http://localhost:3000
-- **Swagger Docs**: http://localhost:8080/api-docs
+- **Swagger Docs**: http://localhost:3000/api-docs
 - **Admin UI**: http://localhost:3006
 - **SQS Admin UI**: http://localhost:3999
 - **LocalStack**: http://localhost:4566
 
-## 📋 Commands
+## 📋 Quick Commands
 
 ```bash
 # Development
 npm run dev                     # Start all services
-npm run dev:[service-name]      # Start specific service
 npm run build                   # Build all services
-npm run serve                   # Production mode
+npm run lint                    # Check code style
+npm run typecheck               # TypeScript check
 
 # Database
 npm run db:migrate              # Run migrations
 npm run db:seed                 # Seed data
-npm run db:reset                # Reset database
-
-# Code Quality
-npm run lint                    # Check code style
-npm run lint:fix                # Auto-fix issues
-npm run typecheck               # TypeScript check
-npm run test                    # Run tests
-npm run test:coverage           # Coverage report
-
-# Local Blockchain (Hardhat)
-npx hardhat node                # Start local blockchain
-npx hardhat compile             # Compile smart contracts
-npx hardhat run scripts/deploy.js --network localhost  # Deploy contracts
 ```
+
+For detailed commands and setup, see [Setup Guide](./docs/SETUP.md)
 
 ## 🏗️ Architecture
 
@@ -149,7 +97,9 @@ graph TB
         SQS3[tx-monitor-queue]
         SQS4[balance-check-queue]
         SQS5[balance-transfer-queue]
-        DLQ[Dead Letter Queue]
+        DLQ1[request-dlq]
+        DLQ2[signed-tx-dlq]
+        DLQ3[broadcast-tx-dlq]
     end
 
     subgraph "Processing Services"
@@ -195,11 +145,11 @@ graph TB
     AcctMgr --> Polygon
     SQS5 --> Signer
 
-    SQS1 -.->|on failure| DLQ
-    SQS2 -.->|on failure| DLQ
-    SQS3 -.->|on failure| DLQ
-    SQS4 -.->|on failure| DLQ
-    SQS5 -.->|on failure| DLQ
+    SQS1 -.->|5 retries| DLQ1
+    SQS2 -.->|5 retries| DLQ2
+    SQS3 -.->|5 retries| DLQ3
+    SQS4 -.->|on failure| DLQ1
+    SQS5 -.->|on failure| DLQ1
 ```
 
 ### Core Services
@@ -237,6 +187,8 @@ graph TB
 - **Multi-Chain Support**: Polygon, Ethereum, BSC, and localhost (Hardhat) chains
 - **Local Development**: Hardhat node with 1-second mining for fast testing
 - **Automated Balance Management**: Account Manager maintains optimal sub-account balances
+- **DLQ Error Recovery**: Automatic error classification and recovery strategies
+- **Smart Error Handling**: Distinguishes permanent failures from retryable errors
 
 ## 🔧 API Reference
 
@@ -255,67 +207,9 @@ graph TB
 
 Full API documentation available at http://localhost:8080/api-docs
 
-## 🏗️ Local Development with Hardhat
+## 🏗️ Local Development
 
-### Overview
-
-The system includes a fully integrated Hardhat localhost blockchain for development and testing. This provides:
-
-- Fast 1-second block times for rapid testing
-- Pre-deployed mock tokens (mUSDC, mUSDT, mDAI)
-- Automatic contract deployment on startup
-- Full integration with all services
-
-### Starting Local Development
-
-```bash
-# Everything starts automatically with docker-compose
-docker-compose -f docker/docker-compose.yaml up -d
-
-# The following happens automatically:
-# 1. Hardhat node starts on port 8545
-# 2. Mock tokens are deployed
-# 3. Deployment info is saved to shared volume
-# 4. All services connect to localhost blockchain
-```
-
-### Accessing Services
-
-- **Hardhat RPC**: http://localhost:8545
-- **API Server**: http://localhost:8080
-- **SQS Admin UI**: http://localhost:3999
-- **Redis Insight**: http://localhost:8001
-
-### Making Localhost Withdrawals
-
-```bash
-# Example withdrawal request for localhost chain
-curl -X POST http://localhost:8080/api/v1/withdrawal/request \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{
-    "amount": "100",
-    "toAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd",
-    "tokenAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "chain": "localhost",
-    "network": "testnet"
-  }'
-```
-
-### Pre-deployed Token Addresses
-
-| Token | Address                                    | Decimals |
-| ----- | ------------------------------------------ | -------- |
-| mUSDC | 0x5FbDB2315678afecb367f032d93F642f64180aa3 | 6        |
-| mUSDT | 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 | 6        |
-| mDAI  | 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC | 18       |
-
-### Development Tips
-
-1. **Fast Mining**: Blocks are mined every second for quick transaction confirmations
-2. **Test Accounts**: Use the default Hardhat accounts for testing
-3. **Contract Redeployment**: Contracts are automatically deployed on container restart
-4. **Shared Volume**: Deployment info is shared between services via Docker volume
+For Hardhat blockchain setup and testing, see [Setup Guide](./docs/SETUP.md#hardhat-local-blockchain)
 
 ## 🛡️ Security
 
@@ -327,11 +221,7 @@ curl -X POST http://localhost:8080/api/v1/withdrawal/request \
 
 ## 🧪 Testing
 
-```bash
-npm test                        # Run all tests
-npm run test:[service-name]     # Test specific service
-npm run test:coverage           # Coverage report
-```
+See [Setup Guide](./docs/SETUP.md#testing) for testing commands and strategies.
 
 ## 🛠️ Tech Stack
 
@@ -345,8 +235,12 @@ npm run test:coverage           # Coverage report
 
 ## 📚 Documentation
 
-- [Architecture Overview](./ARCHITECTURE.md)
-- [API Documentation](http://localhost:8080/api-docs)
+- [Architecture Overview](./docs/ARCHITECTURE.md)
+- [Technical Design](./docs/TECHNICAL_DESIGN.md)
+- [Setup Guide](./docs/SETUP.md)
+- [Transaction Lifecycle](./docs/TRANSACTION_LIFECYCLE.md)
+- [API Documentation](./docs/api/README.md)
+- [All Documentation](./docs/README.md)
 
 ## 📄 License
 

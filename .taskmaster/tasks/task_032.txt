@@ -1,0 +1,155 @@
+# Task ID: 32
+# Title: signing-service에 고급 트랜잭션 검증 기능 추가
+# Status: pending
+# Dependencies: 15, 28, 11
+# Priority: medium
+# Description: 트랜잭션 서명 전에 요청 자체의 유효성과 안전성을 종합적으로 검증하는 고급 검증 시스템을 구현하여 악의적인 트랜잭션 사전 차단 및 보안 강화를 달성합니다.
+# Details:
+**구현 목표**
+- 트랜잭션 서명 전 포괄적인 보안 검증을 통한 리스크 최소화
+- 단계별 검증 시스템으로 유연하고 확장 가능한 보안 아키텍처 구축
+- 환경 변수 기반 검증 규칙 관리로 운영 환경에 맞는 커스터마이징 지원
+
+**1. TransactionValidator 서비스 구현**
+- `apps/signing-service/src/services/transaction-validator.service.ts` 생성
+- ValidationResult 인터페이스 정의 (valid, warnings, errors, riskLevel)
+- 단계별 검증 체인 구현 (Chain of Responsibility 패턴)
+```typescript
+interface ValidationRule {
+  name: string;
+  validate(request: WithdrawalRequest): Promise<ValidationResult>;
+  isEnabled: boolean;
+  priority: number;
+}
+```
+
+**2. Phase 1 - 핵심 검증 기능**
+- **금액 범위 검증**: 토큰별 최소/최대 금액, 일일 한도 체크
+- **주소 유효성 강화**: Checksum 검증, 컨트랙트/EOA 구분, 0x00 주소 차단
+- **잔액 확인 통합**: 기존 BalanceService와 연동하여 실시간 잔액 검증
+- **가스비 검증**: EIP-1559 기준 가스 계산 및 네이티브 토큰 잔액 확인
+
+**3. Phase 2 - 보안 검증 기능**
+- **블랙리스트 시스템**: BlacklistedAddress 테이블 기반 주소 차단
+- **거래 내역 분석**: 첫 거래 주소에 대한 추가 검증 및 경고
+- **패턴 분석**: 연속 동일 주소 출금, 비정상 금액 패턴 감지
+- **검증 로그**: ValidationLog 테이블에 모든 검증 결과 기록
+
+**4. 데이터베이스 스키마 확장**
+```prisma
+model BlacklistedAddress {
+  id        String   @id @default(cuid())
+  address   String   @unique
+  reason    String
+  severity  String   // HIGH, MEDIUM, LOW
+  addedBy   String
+  createdAt DateTime @default(now())
+}
+
+model WhitelistedAddress {
+  id        String   @id @default(cuid())
+  address   String   @unique
+  label     String?
+  createdAt DateTime @default(now())
+}
+
+model ValidationLog {
+  id           String   @id @default(cuid())
+  requestId    String
+  validationRules String // JSON array
+  result       String   // PASSED, FAILED, WARNING
+  riskLevel    String   // LOW, MEDIUM, HIGH
+  warnings     String?  // JSON array
+  errors       String?  // JSON array
+  createdAt    DateTime @default(now())
+}
+```
+
+**5. 환경 변수 기반 설정**
+```env
+# 검증 기능 on/off
+VALIDATION_ENABLED=true
+VALIDATION_STRICT_MODE=false
+
+# 금액 제한 (USD 기준)
+MIN_WITHDRAWAL_AMOUNT=1
+MAX_WITHDRAWAL_AMOUNT_MATIC=1000
+MAX_WITHDRAWAL_AMOUNT_USDC=5000
+MAX_WITHDRAWAL_AMOUNT_USDT=5000
+
+# 보안 설정
+BLACKLIST_CHECK_ENABLED=true
+FIRST_TIME_ADDRESS_WARNING=true
+CONSECUTIVE_WITHDRAWAL_LIMIT=5
+DAILY_LIMIT_ENABLED=false
+```
+
+**6. signing-worker.ts 통합**
+- `processMessage` 메서드에 검증 단계 추가 (잔액 확인 이후)
+- 검증 실패 시 트랜잭션 거부 및 적절한 에러 메시지 반환
+- 경고 수준의 검증 결과는 로깅 후 처리 계속
+- 검증 결과를 SQS 응답에 포함하여 상위 서비스에 정보 제공
+
+# Test Strategy:
+**1. 단위 테스트**
+- TransactionValidator 서비스의 각 검증 규칙별 단위 테스트
+- ValidationRule 인터페이스 구현체들의 개별 동작 테스트
+- 금액 범위 검증: 최소/최대 금액 경계값 테스트, 토큰별 설정 적용 테스트
+- 주소 유효성 검증: 유효/무효 주소 형식, checksum 검증, 컨트랙트/EOA 구분 테스트
+- 블랙리스트 검증: 블랙리스트 주소 차단, 화이트리스트 우선 처리 테스트
+
+**2. 통합 테스트**
+- signing-worker와 TransactionValidator의 전체 플로우 테스트
+- 검증 실패 시나리오별 에러 처리 및 응답 형식 검증
+- 데이터베이스 트랜잭션 롤백 및 로그 저장 정확성 테스트
+- 환경 변수 변경에 따른 검증 규칙 동적 적용 테스트
+
+**3. 보안 테스트**
+- 악의적인 주소로의 출금 시도 차단 테스트
+- 비정상적인 금액 패턴 감지 능력 테스트
+- 연속 출금 제한 기능 동작 검증
+- 검증 우회 시도에 대한 방어 테스트
+
+**4. 성능 테스트**
+- 대량 트랜잭션 처리 시 검증 성능 측정 (목표: 평균 100ms 이내)
+- Redis 캐싱을 통한 블랙리스트 조회 성능 테스트
+- 검증 로그 저장이 메인 트랜잭션 처리에 미치는 영향 측정
+- 메모리 사용량 모니터링 및 최적화 검증
+
+**5. 설정 테스트**
+- 다양한 환경 변수 조합에서의 검증 동작 테스트
+- Strict 모드 vs Normal 모드 차이점 검증
+- 토큰별 개별 설정 적용 정확성 테스트
+- 검증 기능 비활성화 시 성능 개선 측정
+
+# Subtasks:
+## 1. TransactionValidator 서비스 인터페이스 및 기본 구조 구현 [pending]
+### Dependencies: None
+### Description: 트랜잭션 검증을 위한 핵심 서비스 구조와 ValidationRule 인터페이스를 구현하고, Chain of Responsibility 패턴을 적용하여 확장 가능한 검증 체인을 구축합니다.
+### Details:
+apps/signing-service/src/services/transaction-validator.service.ts 파일을 생성하고 ValidationResult, ValidationRule 인터페이스를 정의합니다. 검증 규칙들을 우선순위에 따라 체인으로 연결하여 순차적으로 실행할 수 있는 구조를 만들고, 각 규칙의 활성화 여부를 환경 변수로 제어할 수 있도록 구현합니다. ValidationContext를 통해 검증 과정에서 수집된 정보를 다음 검증 단계로 전달할 수 있도록 합니다.
+
+## 2. Phase 1 핵심 검증 기능 구현 (금액, 주소, 잔액, 가스비) [pending]
+### Dependencies: 32.1
+### Description: 트랜잭션의 기본적인 유효성을 검증하는 핵심 검증 규칙들을 구현합니다. 금액 범위, 주소 유효성, 잔액 확인, 가스비 검증 등의 필수 검증 기능을 포함합니다.
+### Details:
+AmountRangeValidator: 토큰별 최소/최대 금액 검증 및 일일 한도 체크 구현. AddressValidator: Ethereum 주소 checksum 검증, 컨트랙트/EOA 구분, 0x00 주소 차단 기능 구현. BalanceValidator: 기존 BalanceService와 연동하여 실시간 토큰 잔액 및 네이티브 토큰 잔액 검증. GasFeeValidator: EIP-1559 기준으로 예상 가스비를 계산하고 네이티브 토큰 잔액이 충분한지 확인. 각 검증기는 ValidationRule 인터페이스를 구현하며 환경 변수로 설정된 임계값을 사용합니다.
+
+## 3. Phase 2 보안 검증 기능 구현 (블랙리스트, 패턴 분석) [pending]
+### Dependencies: 32.1, 32.2
+### Description: 악의적인 트랜잭션을 사전에 차단하기 위한 고급 보안 검증 기능을 구현합니다. 블랙리스트 시스템과 거래 패턴 분석을 통해 의심스러운 트랜잭션을 감지합니다.
+### Details:
+BlacklistValidator: BlacklistedAddress 테이블을 조회하여 차단된 주소로의 출금 방지, WhitelistedAddress는 블랙리스트 검증 우회 허용. TransactionHistoryValidator: 첫 거래 주소에 대한 추가 검증, 최근 거래 내역 분석을 통한 위험도 평가. PatternAnalysisValidator: 연속 동일 주소 출금 감지, 비정상적인 금액 패턴 (예: 급격한 금액 증가), 짧은 시간 내 반복 출금 시도 감지. 각 검증 결과는 riskLevel (LOW, MEDIUM, HIGH)로 분류되어 종합 평가에 반영됩니다.
+
+## 4. 데이터베이스 스키마 확장 및 검증 로그 시스템 구축 [pending]
+### Dependencies: None
+### Description: 검증 시스템에 필요한 데이터베이스 테이블을 추가하고, 모든 검증 결과를 기록하는 로깅 시스템을 구축합니다.
+### Details:
+Prisma 스키마에 BlacklistedAddress, WhitelistedAddress, ValidationLog 모델을 추가합니다. BlacklistedAddress는 차단할 주소와 사유, 심각도를 저장하고, WhitelistedAddress는 신뢰할 수 있는 주소를 관리합니다. ValidationLog는 모든 검증 과정의 상세 결과를 JSON 형태로 저장하여 추후 분석 및 감사에 활용합니다. 마이그레이션 파일을 생성하고 초기 시드 데이터를 준비합니다.
+
+## 5. signing-worker 통합 및 환경 변수 기반 설정 시스템 구현 [pending]
+### Dependencies: 32.1, 32.2, 32.3, 32.4
+### Description: TransactionValidator를 signing-worker에 통합하고, 환경 변수를 통해 검증 규칙을 유연하게 관리할 수 있는 설정 시스템을 구현합니다.
+### Details:
+signing-worker.ts의 processMessage 메서드에 TransactionValidator를 통합하여 잔액 확인 이후 검증 단계를 추가합니다. 검증 실패 시 트랜잭션을 거부하고 적절한 에러 메시지를 SQS 응답에 포함시킵니다. 경고 수준의 검증 결과는 로깅 후 처리를 계속하되, 상위 서비스에 정보를 전달합니다. .env 파일에 VALIDATION_ENABLED, VALIDATION_STRICT_MODE, 토큰별 금액 제한, 보안 설정 등의 환경 변수를 정의하고, ConfigService를 통해 런타임에 설정을 로드합니다.
+

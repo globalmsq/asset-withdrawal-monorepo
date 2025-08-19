@@ -11,10 +11,10 @@ import {
   readinessCheck,
   readinessHandler,
 } from './middleware/readiness.middleware';
-import { Logger } from './utils/logger';
+import { LoggerService } from '@asset-withdrawal/shared';
 
 const app = express();
-const logger = new Logger('ApiServer');
+const logger = new LoggerService({ service: 'api-server:app' });
 
 // Security middleware with exceptions for Swagger UI
 app.use(
@@ -43,7 +43,7 @@ const morganStream = {
   write: (message: string) => {
     // Remove trailing newline and log as info level
     // Using info level since http level might not be visible in current log configuration
-    logger.info(message.trim(), { type: 'http-access' });
+    logger.info(message.trim(), { metadata: { type: 'http-access' } });
   },
 };
 
@@ -172,7 +172,7 @@ app.use(
     res: express.Response,
     next: express.NextFunction
   ) => {
-    logger.error('Error:', err);
+    logger.error('Error', err);
 
     // Handle AppError instances
     if (err instanceof AppError) {

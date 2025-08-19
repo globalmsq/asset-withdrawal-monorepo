@@ -18,7 +18,7 @@
     "@types/morgan": "^1.9.10",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
-    "database": "workspace:*",
+    "@asset-withdrawal/database": "workspace:*",
     "express": "^4.18.2",
     "helmet": "^7.0.0",
     "jsonwebtoken": "^9.0.2",

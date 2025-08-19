@@ -16,7 +16,7 @@
         "main": "apps/signing-service/src/main.ts",
         "tsConfig": "apps/signing-service/tsconfig.json",
         "assets": [],
-        "generatePackageJson": false,
+        "generatePackageJson": true,
         "esbuildOptions": {
           "sourcemap": true,
           "outExtension": {

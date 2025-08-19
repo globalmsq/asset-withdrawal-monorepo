@@ -244,6 +244,8 @@ export class TransactionSigner {
         value: tokenAddress ? '0' : amount, // ERC-20 transfers have value 0, native transfers have the amount
         data: transaction.data?.toString(),
         chainId: this.chainProvider.getChainId(),
+        chain: this.chainProvider.chain,
+        network: this.chainProvider.network,
       };
 
       this.logger.info('Transaction signed successfully', {
@@ -485,6 +487,8 @@ export class TransactionSigner {
         value: '0', // Multicall3 transactions have no value
         data: data,
         chainId: this.chainProvider.getChainId(),
+        chain: this.chainProvider.chain,
+        network: this.chainProvider.network,
       };
 
       this.logger.info('Batch transaction signed successfully', {
@@ -696,6 +700,8 @@ export class TransactionSigner {
             value: '0',
             data: data,
             chainId: this.chainProvider.getChainId(),
+            chain: this.chainProvider.chain,
+            network: this.chainProvider.network,
           };
 
           signedTransactions.push(result);

@@ -105,7 +105,8 @@ async function bootstrap() {
 
 // Start the application
 bootstrap().catch(error => {
-  // Can't create logger without config, use console.error
+  // Fatal error during bootstrap - can't use logger without config
+  // This is the only acceptable use of console.error for fatal startup errors
   console.error('Failed to start signing service:', error);
   process.exit(1);
 });

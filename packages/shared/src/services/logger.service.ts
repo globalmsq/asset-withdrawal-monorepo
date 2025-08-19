@@ -66,14 +66,7 @@ export class LoggerService {
       formats.push(
         winston.format.printf(({ timestamp, level, message, ...meta }) => {
           const contextStr = this.formatContext(meta);
-          const output = `${timestamp} [${level.toUpperCase()}] [${this.config.service}] ${message}${contextStr}`;
-
-          // Remove all ANSI color codes if NO_COLOR is set
-          if (process.env.NO_COLOR === 'true') {
-            return output.replace(/\x1b\[[0-9;]*m/g, '');
-          }
-
-          return output;
+          return `${timestamp} [${level.toUpperCase()}] [${this.config.service}] ${message}${contextStr}`;
         })
       );
     }
@@ -82,19 +75,9 @@ export class LoggerService {
 
     // Console transport
     if (this.config.enableConsole) {
-      // Check if running in Docker or if NO_COLOR env var is set
-      const isDocker =
-        process.env.DOCKER === 'true' || fs.existsSync('/.dockerenv');
-      const noColor =
-        process.env.NO_COLOR === 'true' ||
-        process.env.NODE_ENV === 'production';
-
       transports.push(
         new winston.transports.Console({
-          format:
-            this.config.format === 'simple' && !isDocker && !noColor
-              ? winston.format.combine(winston.format.colorize(), ...formats)
-              : winston.format.combine(...formats),
+          format: winston.format.combine(...formats),
         })
       );
     }

@@ -21,8 +21,11 @@ const configSchema = z.object({
 
   // Queue
   queue: z.object({
-    txRequestQueueUrl: z.string(),
+    requestQueueUrl: z.string(),
     signedTxQueueUrl: z.string(),
+    // DLQ URLs (optional)
+    requestDlqUrl: z.string().optional(),
+    signedTxDlqUrl: z.string().optional(),
   }),
 
   // Chain configuration (should be provided by queue messages)
@@ -87,12 +90,15 @@ export function loadConfig(): Config {
     },
 
     queue: {
-      txRequestQueueUrl:
-        process.env.TX_REQUEST_QUEUE_URL ||
+      requestQueueUrl:
+        process.env.REQUEST_QUEUE_URL ||
+        process.env.TX_REQUEST_QUEUE_URL || // Fallback for backward compatibility
         'http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/tx-request-queue',
       signedTxQueueUrl:
         process.env.SIGNED_TX_QUEUE_URL ||
         'http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue',
+      requestDlqUrl: process.env.REQUEST_DLQ_URL,
+      signedTxDlqUrl: process.env.SIGNED_TX_DLQ_URL,
     },
 
     // Chain configuration will be provided by queue messages

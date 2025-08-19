@@ -4,7 +4,7 @@ export enum TransactionStatus {
   SIGNING = 'SIGNING',
   SIGNED = 'SIGNED',
   BROADCASTING = 'BROADCASTING',
-  COMPLETED = 'COMPLETED',
+  CONFIRMED = 'CONFIRMED',
   FAILED = 'FAILED',
 }
 

@@ -9,7 +9,8 @@ export interface SignedBatchTransaction {
   totalRequests: number;
   totalAmount: string;
   symbol: string;
-  chainId: number;
+  chain: string;
+  network: string;
   nonce: number;
   gasLimit: string;
   maxFeePerGas: string | null;
@@ -43,7 +44,6 @@ export class SignedBatchTransactionService {
       ...prismaBatch,
       id: prismaBatch.id.toString(), // Convert BigInt to string
       totalRequests: Number(prismaBatch.totalRequests),
-      chainId: Number(prismaBatch.chainId),
       nonce: Number(prismaBatch.nonce),
       tryCount: Number(prismaBatch.tryCount),
     };
@@ -54,7 +54,8 @@ export class SignedBatchTransactionService {
     totalRequests: number;
     totalAmount: string;
     symbol: string;
-    chainId: number;
+    chain: string;
+    network: string;
     nonce: number;
     gasLimit: string;
     status?: string;
@@ -150,5 +151,53 @@ export class SignedBatchTransactionService {
     return prismaBatches.map(batch =>
       this.convertToSignedBatchTransaction(batch)
     );
+  }
+
+  /**
+   * Find a batch transaction by its transaction hash
+   * @param txHash The transaction hash to search for
+   * @returns The batch transaction if found, null otherwise
+   */
+  async getBatchTransactionByTxHash(
+    txHash: string
+  ): Promise<SignedBatchTransaction | null> {
+    const prismaBatch = await this.prisma.signedBatchTransaction.findFirst({
+      where: { txHash },
+    });
+    return prismaBatch
+      ? this.convertToSignedBatchTransaction(prismaBatch)
+      : null;
+  }
+
+  /**
+   * Update batch transaction status by transaction hash
+   * Used to update status after broadcasting
+   * @param txHash The transaction hash
+   * @param status The new status
+   * @param broadcastedAt Optional broadcast timestamp
+   * @returns The updated batch transaction
+   */
+  async updateBatchStatusByTxHash(
+    txHash: string,
+    status: string,
+    broadcastedAt?: Date
+  ): Promise<SignedBatchTransaction | null> {
+    const prismaBatch = await this.prisma.signedBatchTransaction.findFirst({
+      where: { txHash },
+    });
+
+    if (!prismaBatch) {
+      return null;
+    }
+
+    const updatedBatch = await this.prisma.signedBatchTransaction.update({
+      where: { id: prismaBatch.id },
+      data: {
+        status,
+        ...(broadcastedAt && { broadcastedAt }),
+      },
+    });
+
+    return this.convertToSignedBatchTransaction(updatedBatch);
   }
 }

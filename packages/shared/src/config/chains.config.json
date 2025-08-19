@@ -3,7 +3,9 @@
     "mainnet": {
       "chainId": 137,
       "name": "Polygon Mainnet",
-      "rpcUrl": "https://polygon.llamarpc.com",
+      "rpcUrl": "https://polygon-rpc.com",
+      "requiredConfirmations": 30,
+      "blockTime": 2,
       "nativeCurrency": {
         "name": "MATIC",
         "symbol": "MATIC",
@@ -16,6 +18,8 @@
       "chainId": 80002,
       "name": "Polygon Amoy",
       "rpcUrl": "https://rpc-amoy.polygon.technology",
+      "requiredConfirmations": 10,
+      "blockTime": 2,
       "nativeCurrency": {
         "name": "MATIC",
         "symbol": "MATIC",
@@ -30,6 +34,8 @@
       "chainId": 1,
       "name": "Ethereum Mainnet",
       "rpcUrl": "https://ethereum.publicnode.com",
+      "requiredConfirmations": 12,
+      "blockTime": 12,
       "nativeCurrency": {
         "name": "Ether",
         "symbol": "ETH",
@@ -42,6 +48,8 @@
       "chainId": 11155111,
       "name": "Sepolia",
       "rpcUrl": "https://ethereum-sepolia.publicnode.com",
+      "requiredConfirmations": 6,
+      "blockTime": 12,
       "nativeCurrency": {
         "name": "Ether",
         "symbol": "ETH",
@@ -55,7 +63,9 @@
     "mainnet": {
       "chainId": 56,
       "name": "BSC Mainnet",
-      "rpcUrl": "https://bsc-dataseed.binance.org",
+      "rpcUrl": "https://bsc-dataseed.bnbchain.org",
+      "requiredConfirmations": 15,
+      "blockTime": 3,
       "nativeCurrency": {
         "name": "BNB",
         "symbol": "BNB",
@@ -67,7 +77,9 @@
     "testnet": {
       "chainId": 97,
       "name": "BSC Testnet",
-      "rpcUrl": "https://data-seed-prebsc-1-s1.binance.org:8545",
+      "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
+      "requiredConfirmations": 10,
+      "blockTime": 3,
       "nativeCurrency": {
         "name": "BNB",
         "symbol": "tBNB",
@@ -82,6 +94,8 @@
       "chainId": 31337,
       "name": "Localhost",
       "rpcUrl": "http://hardhat-node:8545",
+      "requiredConfirmations": 1,
+      "blockTime": 1,
       "nativeCurrency": {
         "name": "Ether",
         "symbol": "ETH",

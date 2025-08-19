@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "files": [],
+  "include": ["src/**/*.ts", "jest.config.ts"],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    }
+  ],
+  "compilerOptions": {
+    "esModuleInterop": true
+  }
+}

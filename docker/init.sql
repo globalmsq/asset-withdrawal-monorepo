@@ -154,6 +154,7 @@ CREATE TABLE IF NOT EXISTS `sent_transactions` (
     `network` VARCHAR(50) NOT NULL,
     `nonce` INT UNSIGNED NOT NULL,
     `blockNumber` BIGINT UNSIGNED NULL,
+    `confirmations` INT UNSIGNED NOT NULL DEFAULT 0,
     `gasUsed` VARCHAR(50) NULL,
     `status` VARCHAR(20) NOT NULL DEFAULT 'SENT',
     `error` TEXT NULL,

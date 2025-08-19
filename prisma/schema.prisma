@@ -146,8 +146,9 @@ model SentTransaction {
   network               String              @db.VarChar(50) // Network type (e.g., 'mainnet', 'testnet')
   nonce                 Int                 @db.UnsignedInt // Transaction nonce
   blockNumber           BigInt?             @db.UnsignedBigInt
+  confirmations         Int                 @default(0) @db.UnsignedInt // Number of confirmations
   gasUsed               String?             @db.VarChar(50)
-  status                String              @default("SENT") @db.VarChar(20) // SENT, CONFIRMED, FAILED
+  status                String              @default("SENT") @db.VarChar(20) // SENT, CONFIRMING, CONFIRMED, FAILED, CANCELED
   error                 String?             @db.Text
   sentAt                DateTime            @default(now())
   confirmedAt           DateTime?

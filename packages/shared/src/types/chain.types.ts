@@ -5,6 +5,8 @@ export interface ChainConfig {
   chainId: number;
   name: string;
   rpcUrl: string;
+  requiredConfirmations?: number;
+  blockTime?: number;
   nativeCurrency: {
     name: string;
     symbol: string;

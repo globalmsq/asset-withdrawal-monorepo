@@ -1163,6 +1163,75 @@ export class NonceManager {
   }
 
   /**
+   * Add a transaction to the queue for processing
+   * This method adds transactions to Redis queue for later processing
+   */
+  async addTransaction(transaction: QueuedTransaction): Promise<void> {
+    await this.ensureRedisInitialized();
+
+    const { fromAddress, nonce } = transaction;
+
+    // Get current queue for this address
+    const queue =
+      await this.nonceRedisService.getPendingTransactions(fromAddress);
+
+    // Check if transaction with this nonce already exists
+    const existingIndex = queue.findIndex(tx => tx.nonce === nonce);
+
+    if (existingIndex >= 0) {
+      // Replace existing transaction if priority is higher
+      const existingTx = queue[existingIndex];
+      if ((transaction.priority || 0) > (existingTx.priority || 0)) {
+        queue[existingIndex] = transaction;
+        this.logger.info('Replaced existing transaction with higher priority', {
+          metadata: {
+            fromAddress,
+            nonce,
+            oldPriority: existingTx.priority || 0,
+            newPriority: transaction.priority || 0,
+          },
+        });
+      } else {
+        this.logger.debug(
+          'Transaction with same or lower priority already exists',
+          {
+            metadata: {
+              fromAddress,
+              nonce,
+              existingPriority: existingTx.priority || 0,
+              newPriority: transaction.priority || 0,
+            },
+          }
+        );
+        return;
+      }
+    } else {
+      // Add new transaction to queue
+      queue.push(transaction);
+      this.logger.info('Added transaction to queue', {
+        metadata: {
+          fromAddress,
+          nonce,
+          queueLength: queue.length,
+        },
+      });
+    }
+
+    // Sort queue by nonce
+    queue.sort((a, b) => {
+      // Sort by nonce first
+      if (a.nonce !== b.nonce) {
+        return a.nonce - b.nonce;
+      }
+      // If same nonce, sort by priority (higher priority first)
+      return (b.priority || 0) - (a.priority || 0);
+    });
+
+    // Save updated queue to Redis
+    await this.nonceRedisService.setPendingTransactions(fromAddress, queue);
+  }
+
+  /**
    * Process transaction with SQS search for missing nonces
    */
   async processTransactionWithSQSSearch(

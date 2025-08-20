@@ -33,7 +33,7 @@ awslocal sqs create-queue \
 
 # Create DLQ queues with 4-day retention
 awslocal sqs create-queue \
-  --queue-name request-dlq \
+  --queue-name tx-request-dlq \
   --region $REGION \
   --attributes MessageRetentionPeriod=345600
 
@@ -49,7 +49,7 @@ awslocal sqs create-queue \
 
 # Get queue ARNs
 REQUEST_DLQ_ARN=$(awslocal sqs get-queue-attributes \
-  --queue-url http://localhost:4566/000000000000/request-dlq \
+  --queue-url http://localhost:4566/000000000000/tx-request-dlq \
   --region $REGION \
   --attribute-names QueueArn \
   --query 'Attributes.QueueArn' \
@@ -87,10 +87,10 @@ awslocal sqs set-queue-attributes \
   --attributes "{\"RedrivePolicy\":\"{\\\"deadLetterTargetArn\\\":\\\"${BROADCAST_TX_DLQ_ARN}\\\",\\\"maxReceiveCount\\\":\\\"1000\\\"}\"}"
 
 echo "SQS queues created successfully:"
-echo "- tx-request-queue (DLQ: request-dlq)"
+echo "- tx-request-queue (DLQ: tx-request-dlq)"
 echo "- signed-tx-queue (DLQ: signed-tx-dlq)"
 echo "- broadcast-tx-queue (DLQ: broadcast-tx-dlq)"
-echo "- request-dlq"
+echo "- tx-request-dlq"
 echo "- signed-tx-dlq"
 echo "- broadcast-tx-dlq"
 

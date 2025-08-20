@@ -132,7 +132,7 @@ docker-compose -f docker/docker-compose.yaml up -d mysql redis localstack
 
 **DLQ (Dead Letter Queue):**
 
-- `request-dlq`: tx-request-queue의 DLQ (5회 실패 시)
+- `tx-request-dlq`: tx-request-queue의 DLQ (5회 실패 시)
 - `signed-tx-dlq`: signed-tx-queue의 DLQ (5회 실패 시)
 - `broadcast-tx-dlq`: broadcast-tx-queue의 DLQ (5회 실패 시)
 
@@ -225,7 +225,7 @@ pnpm run test:coverage
 
 ```bash
 # Signing Service DLQ
-REQUEST_DLQ_URL=http://localhost:4566/000000000000/request-dlq
+REQUEST_DLQ_URL=http://localhost:4566/000000000000/tx-request-dlq
 SIGNED_TX_DLQ_URL=http://localhost:4566/000000000000/signed-tx-dlq
 
 # TX Broadcaster DLQ
@@ -241,12 +241,12 @@ aws --endpoint-url=http://localhost:4566 sqs list-queues
 
 # 특정 큐의 메시지 수 확인
 aws --endpoint-url=http://localhost:4566 sqs get-queue-attributes \
-  --queue-url http://localhost:4566/000000000000/request-dlq \
+  --queue-url http://localhost:4566/000000000000/tx-request-dlq \
   --attribute-names ApproximateNumberOfMessages
 
 # DLQ 메시지 조회 (디버깅용)
 aws --endpoint-url=http://localhost:4566 sqs receive-message \
-  --queue-url http://localhost:4566/000000000000/request-dlq \
+  --queue-url http://localhost:4566/000000000000/tx-request-dlq \
   --max-number-of-messages 1
 ```
 

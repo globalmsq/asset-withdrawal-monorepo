@@ -1,6 +1,5 @@
 import { DatabaseService } from '@asset-withdrawal/database';
 import { ethers } from 'ethers';
-import Redis from 'ioredis';
 import { logger } from '@asset-withdrawal/shared';
 import { MonitoredTransaction, TransactionStatus } from '../types';
 import { config } from '../config';
@@ -14,17 +13,12 @@ interface StuckTransactionCriteria {
 
 export class GasRetryService {
   private prisma: any;
-  private redis: Redis;
   private chainService: ChainService;
 
-  constructor() {
+  constructor(chainService?: ChainService) {
     this.prisma = DatabaseService.getInstance().getClient();
-    this.redis = new Redis({
-      host: config.redis.host,
-      port: config.redis.port,
-      password: config.redis.password,
-    });
-    this.chainService = new ChainService();
+    // Use injected ChainService or create new one (for backward compatibility)
+    this.chainService = chainService || new ChainService();
   }
 
   /**
@@ -167,15 +161,10 @@ export class GasRetryService {
         `[gas-retry] Would create replacement transaction with gas price ${newGasPrice.toString()}`
       );
 
-      // Publish gas retry attempt to Redis
-      const retryMessage = {
-        originalTxHash: transaction.txHash,
-        action: 'gas_retry_attempted',
-        newGasPrice: newGasPrice.toString(),
-        timestamp: new Date().toISOString(),
-      };
-
-      await this.redis.publish('tx-gas-retry', JSON.stringify(retryMessage));
+      // Log gas retry attempt
+      logger.info(
+        `[gas-retry] Gas retry attempted for ${transaction.txHash} with new gas price ${newGasPrice.toString()}`
+      );
 
       // Return a mock hash for demonstration
       return `0x${Array(64)
@@ -226,15 +215,10 @@ export class GasRetryService {
         },
       });
 
-      // Publish cancellation message
-      const cancelMessage = {
-        originalTxHash: transaction.txHash,
-        action: 'transaction_canceled',
-        reason: 'stuck_in_mempool',
-        timestamp: new Date().toISOString(),
-      };
-
-      await this.redis.publish('tx-gas-retry', JSON.stringify(cancelMessage));
+      // Log cancellation
+      logger.info(
+        `[gas-retry] Transaction ${transaction.txHash} canceled due to being stuck in mempool`
+      );
 
       return 'canceled';
     } catch (error) {
@@ -293,12 +277,12 @@ export class GasRetryService {
           status: {
             in: ['SENT', 'CONFIRMING'],
           },
-          sentAt: {
+          createdAt: {
             lte: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
           },
         },
         orderBy: {
-          sentAt: 'asc',
+          createdAt: 'asc',
         },
         take: 50, // Limit to 50 transactions per batch
       });
@@ -312,7 +296,7 @@ export class GasRetryService {
           network: tx.network,
           status: tx.status as TransactionStatus,
           blockNumber: tx.blockNumber ? Number(tx.blockNumber) : undefined,
-          confirmations: 0, // tx.confirmations, // TODO: Fix Prisma schema sync
+          confirmations: 0,
           lastChecked: tx.updatedAt,
           retryCount: 0,
           nonce: tx.nonce,
@@ -341,6 +325,5 @@ export class GasRetryService {
 
   async shutdown(): Promise<void> {
     await this.prisma.$disconnect();
-    this.redis.disconnect();
   }
 }

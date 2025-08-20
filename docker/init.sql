@@ -23,27 +23,6 @@ CREATE TABLE IF NOT EXISTS `users` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- Create transactions table (fully matches Prisma schema)
-CREATE TABLE IF NOT EXISTS `transactions` (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    `requestId` VARCHAR(36) NULL,
-    `amount` DECIMAL(18, 8) NOT NULL,
-    `symbol` VARCHAR(10) NOT NULL,
-    `tokenAddress` VARCHAR(42) NULL,
-    `toAddress` VARCHAR(42) NULL,
-    `network` VARCHAR(20) NULL,
-    `status` VARCHAR(20) NOT NULL,
-    `txHash` VARCHAR(66) NULL,
-    `blockNumber` INTEGER NULL,
-    `confirmations` INTEGER NOT NULL DEFAULT 0,
-    `fee` DECIMAL(18, 8) NULL,
-    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
-    `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-
-    INDEX `transactions_requestId_idx`(`requestId`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
 -- Create withdrawal_requests table (fully matches Prisma schema)
 CREATE TABLE IF NOT EXISTS `withdrawal_requests` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -154,11 +133,9 @@ CREATE TABLE IF NOT EXISTS `sent_transactions` (
     `network` VARCHAR(50) NOT NULL,
     `nonce` INT UNSIGNED NOT NULL,
     `blockNumber` BIGINT UNSIGNED NULL,
-    `confirmations` INT UNSIGNED NOT NULL DEFAULT 0,
     `gasUsed` VARCHAR(50) NULL,
     `status` VARCHAR(20) NOT NULL DEFAULT 'SENT',
     `error` TEXT NULL,
-    `sentAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `confirmedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -170,6 +147,7 @@ CREATE TABLE IF NOT EXISTS `sent_transactions` (
     INDEX `sent_transactions_status_idx`(`status`),
     INDEX `sent_transactions_nonce_idx`(`nonce`),
     INDEX `sent_transactions_chain_network_idx`(`chain`, `network`),
+    INDEX `sent_transactions_createdAt_idx`(`createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 

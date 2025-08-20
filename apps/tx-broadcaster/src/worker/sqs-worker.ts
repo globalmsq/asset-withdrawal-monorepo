@@ -81,6 +81,9 @@ export class SQSWorker {
       this.redisService = new BroadcastRedisService(redis);
       this.logger.info('Redis connection established');
 
+      // Verify blockchain connectivity through NonceManager
+      await this.nonceManager.verifyBlockchainConnectivity();
+
       // Test blockchain connection
       await this.testConnections();
 

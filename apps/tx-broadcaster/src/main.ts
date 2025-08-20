@@ -25,6 +25,16 @@ async function bootstrap() {
       },
     });
 
+    // Environment variable verification logging for debugging
+    logger.info('Environment variable verification:', {
+      metadata: {
+        RPC_URL_override: config.RPC_URL ? 'SET' : 'NOT_SET',
+        RPC_URL_value: config.RPC_URL ? config.RPC_URL : 'using_chains_config',
+        CHAIN_ID_override: config.CHAIN_ID ? config.CHAIN_ID : 'NOT_SET',
+        AWS_ENDPOINT: config.AWS_ENDPOINT ? config.AWS_ENDPOINT : 'NOT_SET',
+      },
+    });
+
     // Initialize database first
     logger.info('Initializing database connection...', {
       metadata: {

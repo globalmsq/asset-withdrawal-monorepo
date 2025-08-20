@@ -1,35 +1,23 @@
 import { DatabaseService } from '@asset-withdrawal/database';
 import { ethers } from 'ethers';
-import Redis from 'ioredis';
 import { logger } from '@asset-withdrawal/shared';
-import {
-  MonitoredTransaction,
-  TransactionStatus,
-  TransactionReceipt,
-  StatusUpdateMessage,
-} from '../types';
+import { MonitoredTransaction, TransactionStatus } from '../types';
 import { config } from '../config';
 import { ChainService } from './chain.service';
 import { GasRetryService } from './gas-retry.service';
 
 export class MonitorService {
   private prisma: any;
-  private redis: Redis;
   private chainService: ChainService;
   private gasRetryService: GasRetryService;
   private activeTransactions: Map<string, MonitoredTransaction>;
   private isMonitoring: boolean = false;
-  private monitoringIntervals: NodeJS.Timeout[] = [];
 
-  constructor() {
+  constructor(chainService?: ChainService) {
     this.prisma = DatabaseService.getInstance().getClient();
-    this.redis = new Redis({
-      host: config.redis.host,
-      port: config.redis.port,
-      password: config.redis.password,
-    });
-    this.chainService = new ChainService();
-    this.gasRetryService = new GasRetryService();
+    // Use injected ChainService or create new one (for backward compatibility)
+    this.chainService = chainService || new ChainService();
+    this.gasRetryService = new GasRetryService(this.chainService);
     this.activeTransactions = new Map();
   }
 
@@ -57,11 +45,11 @@ export class MonitorService {
       const pendingTransactions = await this.prisma.sentTransaction.findMany({
         where: {
           status: {
-            in: ['SENT', 'CONFIRMING'],
+            in: ['BROADCASTED', 'SENT', 'CONFIRMING'],
           },
         },
         orderBy: {
-          sentAt: 'asc',
+          createdAt: 'asc',
         },
       });
 
@@ -74,7 +62,7 @@ export class MonitorService {
           network: tx.network,
           status: tx.status as TransactionStatus,
           blockNumber: tx.blockNumber ? Number(tx.blockNumber) : undefined,
-          confirmations: 0, // tx.confirmations, // TODO: Fix Prisma schema sync
+          confirmations: 0,
           lastChecked: new Date(),
           retryCount: 0,
           nonce: tx.nonce,
@@ -113,13 +101,16 @@ export class MonitorService {
       nonce: transaction.nonce || 0,
     };
 
+    // Only add to activeTransactions Map, no DB operations
     this.activeTransactions.set(transaction.txHash, monitoredTx);
     logger.info(
-      `[tx-monitor] Added transaction ${transaction.txHash} for monitoring`
+      `[tx-monitor] Added transaction ${transaction.txHash} to active monitoring`
     );
   }
 
   async checkTransaction(txHash: string): Promise<MonitoredTransaction | null> {
+    logger.info(`[tx-monitor] checkTransaction called for ${txHash}`);
+
     const monitoredTx = this.activeTransactions.get(txHash);
     if (!monitoredTx) {
       logger.warn(
@@ -128,19 +119,52 @@ export class MonitorService {
       return null;
     }
 
+    logger.info(
+      `[tx-monitor] Found transaction in memory: ${txHash}, status: ${monitoredTx.status}`
+    );
+
     try {
       const provider = await this.chainService.getProvider(
         monitoredTx.chain,
         monitoredTx.network
       );
+
+      // First try to get receipt
       const receipt = await provider.getTransactionReceipt(txHash);
 
       if (!receipt) {
+        // Receipt not yet available, but check if transaction is in a block
+        const tx = await provider.getTransaction(txHash);
+
+        if (tx && tx.blockNumber) {
+          // Transaction is in a block but receipt not yet available
+          logger.info(
+            `[tx-monitor] Transaction ${txHash} is in block ${tx.blockNumber} but receipt not yet available`
+          );
+
+          // Update status to CONFIRMING since it's in a block
+          const previousStatus = monitoredTx.status;
+          monitoredTx.status = 'CONFIRMING';
+          monitoredTx.blockNumber = tx.blockNumber;
+          monitoredTx.confirmations = 0;
+          monitoredTx.lastChecked = new Date();
+
+          // Update DB if status changed
+          if (previousStatus !== monitoredTx.status) {
+            await this.updateTransactionStatus(monitoredTx, null);
+          }
+
+          return monitoredTx;
+        }
+
         // Transaction not yet mined
         monitoredTx.lastChecked = new Date();
         monitoredTx.retryCount++;
         return monitoredTx;
       }
+
+      // Wait for tx-broadcaster to save to DB
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Get current block number for confirmation calculation
       const currentBlock = await provider.getBlockNumber();
@@ -217,11 +241,16 @@ export class MonitorService {
     }
   }
 
-  private async updateTransactionStatus(
+  // Made public so WebSocket can call directly
+  public async updateTransactionStatus(
     transaction: MonitoredTransaction,
     receipt: ethers.TransactionReceipt | null
   ): Promise<void> {
     try {
+      logger.info(
+        `[tx-monitor] Updating DB status for ${transaction.txHash} to ${transaction.status}`
+      );
+
       // Update database
       await this.prisma.sentTransaction.update({
         where: { sentTxHash: transaction.txHash },
@@ -230,7 +259,6 @@ export class MonitorService {
           blockNumber: transaction.blockNumber
             ? BigInt(transaction.blockNumber)
             : null,
-          // confirmations: transaction.confirmations, // TODO: Fix Prisma schema sync
           gasUsed: receipt ? receipt.gasUsed.toString() : null,
           confirmedAt: transaction.status === 'CONFIRMED' ? new Date() : null,
           error:
@@ -240,33 +268,21 @@ export class MonitorService {
         },
       });
 
-      // Publish status update to Redis
-      const statusUpdate: StatusUpdateMessage = {
-        txHash: transaction.txHash,
-        requestId: transaction.requestId,
-        batchId: transaction.batchId,
-        status: transaction.status,
-        blockNumber: transaction.blockNumber,
-        confirmations: transaction.confirmations,
-        gasUsed: receipt ? receipt.gasUsed.toString() : undefined,
-        error:
-          transaction.status === 'FAILED'
-            ? 'Transaction failed on chain'
-            : undefined,
-        timestamp: new Date().toISOString(),
-      };
-
-      await this.redis.publish(
-        'tx-status-updates',
-        JSON.stringify(statusUpdate)
-      );
-
       logger.info(
-        `[tx-monitor] Updated transaction ${transaction.txHash} status to ${transaction.status}`
+        `[tx-monitor] Successfully updated ${transaction.txHash} status to ${transaction.status}`
       );
     } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes('Record to update not found')
+      ) {
+        logger.warn(
+          `[tx-monitor] Record not found for ${transaction.txHash}, will retry in next polling cycle`
+        );
+        return; // Don't throw, let polling handle it
+      }
       logger.error(`[tx-monitor] Failed to update transaction status:`, error);
-      throw error;
+      // Don't throw - let monitoring continue
     }
   }
 
@@ -312,13 +328,8 @@ export class MonitorService {
 
     this.isMonitoring = false;
 
-    // Clear all intervals
-    this.monitoringIntervals.forEach(interval => clearInterval(interval));
-    this.monitoringIntervals = [];
-
     // Close connections
     await this.prisma.$disconnect();
-    this.redis.disconnect();
     await this.gasRetryService.shutdown();
 
     logger.info('[tx-monitor] Monitor service shut down');

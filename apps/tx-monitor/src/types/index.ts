@@ -27,6 +27,7 @@ export interface PollingTier {
 }
 
 export interface ChainConfig {
+  enabled?: boolean;
   chainId: number;
   name: string;
   rpcUrl: string;

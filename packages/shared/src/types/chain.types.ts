@@ -2,9 +2,11 @@ export type ChainNetwork = 'mainnet' | 'testnet' | 'localhost';
 export type ChainName = 'polygon' | 'ethereum' | 'bsc' | 'localhost';
 
 export interface ChainConfig {
+  enabled?: boolean;
   chainId: number;
   name: string;
   rpcUrl: string;
+  wsUrl?: string;
   requiredConfirmations?: number;
   blockTime?: number;
   nativeCurrency: {

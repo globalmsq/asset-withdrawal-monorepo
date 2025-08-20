@@ -4,6 +4,7 @@ import {
   getChainConfig,
   getChainRpcUrl,
   getRequiredConfirmations,
+  loadChainConfig,
 } from '@asset-withdrawal/shared';
 import { ChainConfig } from '../types';
 
@@ -21,27 +22,44 @@ export class ChainService {
   }
 
   private loadConfigurations(): void {
-    const chains = ['polygon', 'ethereum', 'bsc', 'localhost'];
-    const networks = ['mainnet', 'testnet'];
+    // Load all chains from config file dynamically
+    const chainsConfig = loadChainConfig();
 
-    for (const chain of chains) {
-      for (const network of networks) {
-        try {
-          const rpcUrl = getChainRpcUrl(chain, network);
-          if (rpcUrl) {
-            const key = `${chain}-${network}`;
-            const config = getChainConfig(chain)?.[network];
-            if (config) {
-              this.chainConfigs.set(key, config);
-              logger.info(`[ChainService] Loaded config for ${key}`);
-            }
-          }
-        } catch (error) {
-          // Some combinations may not exist (e.g., localhost-mainnet)
+    if (!chainsConfig || typeof chainsConfig !== 'object') {
+      logger.error('[ChainService] Failed to load chains configuration');
+      return;
+    }
+
+    // Iterate through all chains and networks in the config
+    for (const [chainName, networks] of Object.entries(chainsConfig)) {
+      if (!networks || typeof networks !== 'object') {
+        continue;
+      }
+
+      for (const [networkName, config] of Object.entries(networks)) {
+        if (!config || typeof config !== 'object') {
           continue;
         }
+
+        // Skip disabled chains
+        if ((config as any).enabled === false) {
+          logger.info(
+            `[ChainService] Skipping disabled chain: ${chainName}-${networkName}`
+          );
+          continue;
+        }
+
+        const key = `${chainName}-${networkName}`;
+        this.chainConfigs.set(key, config as ChainConfig);
+        logger.info(
+          `[ChainService] Loaded config for ${key} (enabled: ${(config as any).enabled !== false})`
+        );
       }
     }
+
+    logger.info(
+      `[ChainService] Total loaded configurations: ${this.chainConfigs.size}`
+    );
   }
 
   async getProvider(
@@ -65,11 +83,26 @@ export class ChainService {
       throw new Error(`No configuration found for ${chain}-${network}`);
     }
 
-    // Create new JSON-RPC provider
-    const provider = new ethers.JsonRpcProvider(config.rpcUrl);
+    // Support RPC_URL environment variable override (for Docker environments)
+    const rpcUrl = process.env.RPC_URL || config.rpcUrl;
+    const chainId = process.env.CHAIN_ID
+      ? parseInt(process.env.CHAIN_ID)
+      : config.chainId;
+
+    // Create new JSON-RPC provider with explicit chainId to prevent auto-detection issues
+    const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
     this.providers.set(key, provider);
 
-    logger.info(`[ChainService] Created JSON-RPC provider for ${key}`);
+    logger.info(`[ChainService] Created JSON-RPC provider for ${key}`, {
+      metadata: {
+        rpcUrl: rpcUrl.substring(0, 20) + '...',
+        chainId,
+        envOverride: {
+          rpcUrl: !!process.env.RPC_URL,
+          chainId: !!process.env.CHAIN_ID,
+        },
+      },
+    });
     return provider;
   }
 
@@ -90,7 +123,11 @@ export class ChainService {
 
     // Get chain config
     const config = this.chainConfigs.get(`${chain}-${network}`);
-    if (!config || !config.wsUrl) {
+
+    // Check for WebSocket URL (environment variable overrides config)
+    const wsUrl = process.env.WS_URL || config?.wsUrl;
+
+    if (!wsUrl) {
       logger.warn(
         `[ChainService] No WebSocket URL configured for ${chain}-${network}`
       );
@@ -98,8 +135,28 @@ export class ChainService {
     }
 
     try {
-      // Create new WebSocket provider
-      const provider = new ethers.WebSocketProvider(config.wsUrl);
+      // Get chainId from environment or config
+      const chainId = process.env.CHAIN_ID
+        ? parseInt(process.env.CHAIN_ID)
+        : config?.chainId;
+
+      // Log WebSocket provider creation with environment override info
+      logger.info(
+        `[ChainService] Creating WebSocket provider for ${chain}-${network}`,
+        {
+          metadata: {
+            wsUrl: wsUrl.substring(0, 20) + '...',
+            chainId,
+            envOverride: {
+              wsUrl: !!process.env.WS_URL,
+              chainId: !!process.env.CHAIN_ID,
+            },
+          },
+        }
+      );
+
+      // Create new WebSocket provider with explicit chainId
+      const provider = new ethers.WebSocketProvider(wsUrl, chainId);
 
       // Set up reconnection logic (skip type checking for ethers WebSocket)
       (provider.websocket as any).on('close', () => {
@@ -221,5 +278,10 @@ export class ChainService {
 
     this.providers.clear();
     logger.info('[ChainService] All providers disconnected');
+  }
+
+  // Helper method to get all loaded configurations
+  getLoadedConfigurations(): Map<string, ChainConfig> {
+    return this.chainConfigs;
   }
 }

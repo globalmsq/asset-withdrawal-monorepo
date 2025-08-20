@@ -173,7 +173,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-pass}
 
       # RPC URL Override for Docker environment
-      # RPC_URL: http://hardhat-node:8545
+      RPC_URL: http://hardhat-node:8545
     networks:
       - withdrawal-network
     volumes:
@@ -228,11 +228,11 @@ services:
       SIGNED_TX_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue
 
       # DLQ Configuration
-      REQUEST_DLQ_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/request-dlq
+      REQUEST_DLQ_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/tx-request-dlq
       SIGNED_TX_DLQ_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-dlq
 
       # RPC URL Override for Docker environment
-      # RPC_URL: http://hardhat-node:8545
+      RPC_URL: http://hardhat-node:8545
 
       # Logging
       SIGNING_SERVICE_LOG_LEVEL: info
@@ -313,7 +313,7 @@ services:
       BROADCAST_TX_DLQ_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/broadcast-tx-dlq
 
       # RPC URL Override for Docker environment
-      # RPC_URL: http://hardhat-node:8545
+      RPC_URL: http://hardhat-node:8545
 
     networks:
       - withdrawal-network
@@ -342,6 +342,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      localstack:
+        condition: service_healthy
       tx-broadcaster:
         condition: service_healthy
       hardhat-deploy:
@@ -354,6 +356,7 @@ services:
     ports:
       - 3003:3003
     environment:
+      <<: *localstack-account
       NODE_ENV: development
       PORT: 3003
       LOG_FORMAT: simple
@@ -370,6 +373,9 @@ services:
       REDIS_PORT: 6379
       REDIS_URL: redis://redis:6379
 
+      # SQS Queue Configuration
+      BROADCAST_TX_QUEUE_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/broadcast-tx-queue
+
       # Monitoring Configuration
       MONITORING_ENABLED: 'true'
       WEBSOCKET_ENABLED: 'true'
@@ -381,7 +387,10 @@ services:
       CACHE_SIZE: 10000
 
       # RPC URL Override for Docker environment
-      # RPC_URL: http://hardhat-node:8545
+      RPC_URL: http://hardhat-node:8545
+
+      # WebSocket URL Override for Docker environment (optional)
+      WS_URL: ws://hardhat-node:8545
 
       # Logging
       LOG_LEVEL: info

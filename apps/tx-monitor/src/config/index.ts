@@ -19,6 +19,21 @@ export const config = {
     url: process.env.REDIS_URL,
   },
 
+  // AWS Configuration for SQS
+  aws: {
+    region: process.env.AWS_REGION || 'ap-northeast-2',
+    endpoint: process.env.AWS_ENDPOINT, // LocalStack endpoint for development
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || 'test',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'test',
+  },
+
+  // SQS Queue URLs
+  sqs: {
+    broadcastTxQueueUrl:
+      process.env.BROADCAST_TX_QUEUE_URL ||
+      'http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/broadcast-tx-queue',
+  },
+
   // Monitoring Configuration
   monitoring: {
     enabled: process.env.MONITORING_ENABLED !== 'false',

@@ -202,10 +202,30 @@ export class ChainConfigService {
     }
 
     try {
-      const provider = new ethers.JsonRpcProvider(chainConfig.rpcUrl);
+      // 환경변수로 오버라이드 지원 (Docker 환경에서 중요)
+      // localhost chain의 경우 Docker에서는 hardhat-node:8545를 사용해야 함
+      const rpcUrl = process.env.RPC_URL || chainConfig.rpcUrl;
+      const actualChainId = process.env.CHAIN_ID
+        ? parseInt(process.env.CHAIN_ID)
+        : chainId;
+
+      // IMPORTANT: Always pass chainId explicitly to avoid auto-detection issues
+      // This is especially important for localhost/hardhat chains
+      const provider = new ethers.JsonRpcProvider(rpcUrl, actualChainId);
       this.providerCache.set(chainId, provider);
 
-      // Provider created successfully
+      this.logger.info(`Provider created for chain ${chainId}`, {
+        metadata: {
+          chainId: actualChainId,
+          chainName: chainConfig.name,
+          rpcUrl: rpcUrl.substring(0, 20) + '...', // 로깅용으로 축약
+          envOverride: {
+            rpcUrl: !!process.env.RPC_URL,
+            chainId: !!process.env.CHAIN_ID,
+          },
+        },
+      });
+
       return provider;
     } catch (error) {
       this.logger.error(

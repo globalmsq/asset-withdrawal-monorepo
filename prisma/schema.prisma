@@ -52,26 +52,6 @@ model WithdrawalRequest {
   @@map("withdrawal_requests")
 }
 
-model Transaction {
-  id                 BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
-  requestId          String?             @db.VarChar(36) // Link to withdrawal request (UUID format)
-  amount             Decimal             @db.Decimal(18, 8)
-  symbol             String              @db.VarChar(10) // Token symbol
-  tokenAddress       String?             @db.VarChar(42) // Ethereum address
-  toAddress          String?             @db.VarChar(42) // Recipient address
-  network            String?             @db.VarChar(20) // ethereum, polygon, etc.
-  status             String              @db.VarChar(20) // pending, completed, failed
-  txHash             String?             @db.VarChar(66)
-  blockNumber        Int?
-  confirmations      Int                 @default(0)
-  fee                Decimal?            @db.Decimal(18, 8)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-
-  @@index([requestId])
-  @@map("transactions")
-}
-
 model SignedSingleTransaction {
   id                    BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
   requestId             String              @db.VarChar(36) // UUID from withdrawal_requests
@@ -146,11 +126,9 @@ model SentTransaction {
   network               String              @db.VarChar(50) // Network type (e.g., 'mainnet', 'testnet')
   nonce                 Int                 @db.UnsignedInt // Transaction nonce
   blockNumber           BigInt?             @db.UnsignedBigInt
-  confirmations         Int                 @default(0) @db.UnsignedInt // Number of confirmations
   gasUsed               String?             @db.VarChar(50)
   status                String              @default("SENT") @db.VarChar(20) // SENT, CONFIRMING, CONFIRMED, FAILED, CANCELED
   error                 String?             @db.Text
-  sentAt                DateTime            @default(now())
   confirmedAt           DateTime?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
@@ -162,5 +140,6 @@ model SentTransaction {
   @@index([status])
   @@index([nonce])
   @@index([chain, network])
+  @@index([createdAt])
   @@map("sent_transactions")
 }

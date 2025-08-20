@@ -25,7 +25,7 @@ graph TB
         SQS4[balance-check-queue<br/>잔액 확인 큐]
         SQS5[balance-transfer-queue<br/>잔액 전송 큐]
 
-        DLQ1[request-dlq<br/>요청 DLQ]
+        DLQ1[tx-request-dlq<br/>요청 DLQ]
         DLQ2[signed-tx-dlq<br/>서명 DLQ]
         DLQ3[broadcast-tx-dlq<br/>브로드캐스트 DLQ]
     end

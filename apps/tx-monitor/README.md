@@ -314,7 +314,6 @@ model SentTransaction {
   gasUsed               String?             @db.VarChar(50)
   status                String              @default("SENT") // SENT, CONFIRMING, CONFIRMED, FAILED, CANCELED
   error                 String?             @db.Text
-  sentAt                DateTime            @default(now())
   confirmedAt           DateTime?
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt

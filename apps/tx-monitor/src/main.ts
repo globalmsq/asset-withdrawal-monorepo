@@ -4,53 +4,39 @@ import * as path from 'path';
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 import express from 'express';
-import Redis from 'ioredis';
 import { logger } from '@asset-withdrawal/shared';
 import { DatabaseService } from '@asset-withdrawal/database';
 import { MonitorService } from './services/monitor.service';
 import { ChainService } from './services/chain.service';
 import { WebSocketService } from './services/websocket.service';
 import { PollingService } from './services/polling.service';
+import { SQSWorker } from './worker/sqs-worker';
 import { config } from './config';
 
 export class TxMonitorApp {
   private app: express.Application;
-  private redis: Redis;
-  private pubClient: Redis;
   private monitorService: MonitorService;
   private chainService: ChainService;
   private webSocketService: WebSocketService;
   private pollingService: PollingService;
+  private sqsWorker: SQSWorker;
   private isRunning: boolean = false;
 
   constructor() {
     this.app = express();
     this.app.use(express.json());
 
-    // Initialize Redis clients
-    this.redis = new Redis({
-      host: config.redis.host,
-      port: config.redis.port,
-      password: config.redis.password,
-    });
-
-    this.pubClient = new Redis({
-      host: config.redis.host,
-      port: config.redis.port,
-      password: config.redis.password,
-    });
-
-    // Initialize services
-    this.monitorService = new MonitorService();
+    // Initialize services - share ChainService instance
     this.chainService = new ChainService();
+    this.monitorService = new MonitorService(this.chainService);
     this.webSocketService = new WebSocketService(
       this.chainService,
       this.monitorService
     );
     this.pollingService = new PollingService(this.monitorService);
+    this.sqsWorker = new SQSWorker(this.monitorService, this.webSocketService);
 
     this.setupRoutes();
-    this.setupRedisSubscriptions();
   }
 
   private setupRoutes(): void {
@@ -135,76 +121,6 @@ export class TxMonitorApp {
     });
   }
 
-  private setupRedisSubscriptions(): void {
-    // Subscribe to new transaction notifications
-    this.redis.subscribe('new-transactions', err => {
-      if (err) {
-        logger.error('[Redis] Failed to subscribe to new-transactions:', err);
-      } else {
-        logger.info('[Redis] Subscribed to new-transactions channel');
-      }
-    });
-
-    // Handle incoming messages
-    this.redis.on('message', async (channel: string, message: string) => {
-      try {
-        if (channel === 'new-transactions') {
-          const data = JSON.parse(message);
-          await this.handleNewTransaction(data);
-        }
-      } catch (error) {
-        logger.error('[Redis] Error handling message:', error);
-      }
-    });
-
-    logger.info('[Redis] Set up Redis subscriptions');
-  }
-
-  private async handleNewTransaction(data: {
-    txHash: string;
-    requestId?: string;
-    batchId?: string;
-    chain: string;
-    network: string;
-    nonce: number;
-  }): Promise<void> {
-    try {
-      logger.info(
-        `[Redis] Received new transaction for monitoring: ${data.txHash}`
-      );
-
-      // Add to monitoring
-      await this.monitorService.addTransaction({
-        txHash: data.txHash,
-        requestId: data.requestId,
-        batchId: data.batchId,
-        chain: data.chain,
-        network: data.network,
-        status: 'SENT',
-        nonce: data.nonce,
-      });
-
-      // Set up WebSocket watch if available
-      await this.webSocketService.addTransactionWatch(
-        data.txHash,
-        data.chain,
-        data.network
-      );
-
-      // Publish acknowledgment
-      await this.pubClient.publish(
-        'tx-monitor-ack',
-        JSON.stringify({
-          txHash: data.txHash,
-          status: 'monitoring_started',
-          timestamp: new Date().toISOString(),
-        })
-      );
-    } catch (error) {
-      logger.error('[Redis] Error handling new transaction:', error);
-    }
-  }
-
   async start(): Promise<void> {
     try {
       logger.info('[tx-monitor] Starting transaction monitor service...');
@@ -235,6 +151,9 @@ export class TxMonitorApp {
       // Start polling service
       await this.pollingService.startPolling();
 
+      // Start SQS worker for broadcast-tx-queue
+      await this.sqsWorker.start();
+
       // Start Express server
       const port = config.port;
       this.app.listen(port, () => {
@@ -259,11 +178,8 @@ export class TxMonitorApp {
     // Stop services
     await this.webSocketService.stopListening();
     await this.pollingService.stopPolling();
+    await this.sqsWorker.stop();
     await this.monitorService.shutdown();
-
-    // Disconnect Redis
-    this.redis.disconnect();
-    this.pubClient.disconnect();
 
     // Disconnect blockchain providers
     this.chainService.disconnectAll();

@@ -2,7 +2,6 @@ import { ethers } from 'ethers';
 import { logger } from '@asset-withdrawal/shared';
 import { ChainService } from './chain.service';
 import { MonitorService } from './monitor.service';
-import { BlockEvent } from '../types';
 
 export class WebSocketService {
   private chainService: ChainService;
@@ -24,17 +23,12 @@ export class WebSocketService {
 
     this.isListening = true;
 
-    // Start WebSocket listeners for each chain
-    const chains = [
-      { chain: 'polygon', network: 'mainnet' },
-      { chain: 'polygon', network: 'testnet' },
-      { chain: 'ethereum', network: 'mainnet' },
-      { chain: 'ethereum', network: 'testnet' },
-      { chain: 'bsc', network: 'mainnet' },
-      { chain: 'bsc', network: 'testnet' },
-    ];
+    // Get all loaded configurations from ChainService
+    const loadedConfigs = this.chainService.getLoadedConfigurations();
 
-    for (const { chain, network } of chains) {
+    // Start WebSocket listeners for all enabled chains
+    for (const [key, config] of loadedConfigs) {
+      const [chain, network] = key.split('-');
       await this.setupChainListener(chain, network);
     }
 
@@ -132,6 +126,8 @@ export class WebSocketService {
         logger.info(
           `[WebSocketService] Transaction ${tx.txHash} found in block ${blockNumber}`
         );
+
+        // No delay needed here - block event already implies time has passed
         await this.monitorService.checkTransaction(tx.txHash);
       }
 
@@ -169,12 +165,56 @@ export class WebSocketService {
       logger.info(
         `[WebSocketService] Transaction ${txHash} confirmed via WebSocket`
       );
-      await this.monitorService.checkTransaction(txHash);
 
-      // Continue watching for more confirmations
+      // Wait for tx-broadcaster to save to DB
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Get transaction from activeTransactions
+      const monitoredTx = this.monitorService
+        .getActiveTransactions()
+        .get(txHash);
+      if (!monitoredTx) {
+        logger.warn(
+          `[WebSocketService] Transaction ${txHash} not found in monitoring`
+        );
+        return;
+      }
+
+      // Calculate confirmations using the receipt we already have
+      const currentBlock = await provider.getBlockNumber();
+      const confirmations = currentBlock - receipt.blockNumber;
       const requiredConfirmations =
         await this.chainService.getRequiredConfirmations(chain, network);
-      if (receipt && receipt.confirmations < requiredConfirmations) {
+
+      // Update transaction status
+      const previousStatus = monitoredTx.status;
+      monitoredTx.blockNumber = receipt.blockNumber;
+      monitoredTx.confirmations = confirmations;
+      monitoredTx.lastChecked = new Date();
+
+      if (receipt.status === 0) {
+        monitoredTx.status = 'FAILED';
+      } else if (confirmations >= requiredConfirmations) {
+        monitoredTx.status = 'CONFIRMED';
+      } else {
+        monitoredTx.status = 'CONFIRMING';
+      }
+
+      // Update DB directly (no need to call checkTransaction)
+      if (previousStatus !== monitoredTx.status) {
+        await this.monitorService.updateTransactionStatus(monitoredTx, receipt);
+      }
+
+      // Remove from active monitoring if finalized
+      if (
+        monitoredTx.status === 'CONFIRMED' ||
+        monitoredTx.status === 'FAILED'
+      ) {
+        this.monitorService.getActiveTransactions().delete(txHash);
+        logger.info(
+          `[WebSocketService] Transaction ${txHash} finalized: ${monitoredTx.status}`
+        );
+      } else if (confirmations < requiredConfirmations) {
         // Keep watching for more confirmations
         this.watchTransactionConfirmations(
           provider,
@@ -272,14 +312,13 @@ export class WebSocketService {
 
   getConnectionStatus(): Map<string, boolean> {
     const status = new Map<string, boolean>();
-    const chains = ['polygon', 'ethereum', 'bsc'];
-    const networks = ['mainnet', 'testnet'];
 
-    for (const chain of chains) {
-      for (const network of networks) {
-        const key = `${chain}-${network}`;
-        status.set(key, this.blockListeners.has(key));
-      }
+    // Get all loaded configurations from ChainService
+    const loadedConfigs = this.chainService.getLoadedConfigurations();
+
+    // Check connection status for all loaded chains
+    for (const key of loadedConfigs.keys()) {
+      status.set(key, this.blockListeners.has(key));
     }
 
     return status;

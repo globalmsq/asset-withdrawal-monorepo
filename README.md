@@ -97,7 +97,7 @@ graph TB
         SQS3[tx-monitor-queue]
         SQS4[balance-check-queue]
         SQS5[balance-transfer-queue]
-        DLQ1[request-dlq]
+        DLQ1[tx-request-dlq]
         DLQ2[signed-tx-dlq]
         DLQ3[broadcast-tx-dlq]
     end

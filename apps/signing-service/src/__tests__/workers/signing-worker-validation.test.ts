@@ -82,7 +82,7 @@ describe('SigningWorker Validation', () => {
       queue: {
         requestQueueUrl: 'http://localhost:4566/queue/tx-request',
         signedTxQueueUrl: 'http://localhost:4566/queue/signed-tx',
-        requestDlqUrl: 'http://localhost:4566/queue/request-dlq',
+        requestDlqUrl: 'http://localhost:4566/queue/tx-request-dlq',
         signedTxDlqUrl: 'http://localhost:4566/queue/signed-tx-dlq',
       },
       polygon: {

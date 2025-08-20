@@ -179,7 +179,15 @@ services:
     volumes:
       - deployment-data:/deployment:ro
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8080/health']
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:8080/health',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -246,7 +254,15 @@ services:
       - signing-service-logs:/app/logs
       - deployment-data:/deployment:ro
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3005/api/health']
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:3005/api/health',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -304,7 +320,86 @@ services:
     volumes:
       - deployment-data:/deployment:ro
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:3001/health',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Transaction Monitor
+  tx-monitor:
+    container_name: withdrawal-tx-monitor
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      tx-broadcaster:
+        condition: service_healthy
+      hardhat-deploy:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    build:
+      context: ..
+      dockerfile: docker/dockerfile.packages
+      target: tx-monitor
+    ports:
+      - 3003:3003
+    environment:
+      NODE_ENV: development
+      PORT: 3003
+      LOG_FORMAT: simple
+
+      # Database
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: withdrawal_system
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-pass}
+
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+
+      # Monitoring Configuration
+      MONITORING_ENABLED: 'true'
+      WEBSOCKET_ENABLED: 'true'
+      POLLING_ENABLED: 'true'
+
+      # Performance
+      MAX_CONCURRENT_RPC_CALLS: 10
+      BATCH_SIZE: 30
+      CACHE_SIZE: 10000
+
+      # RPC URL Override for Docker environment
+      # RPC_URL: http://hardhat-node:8545
+
+      # Logging
+      LOG_LEVEL: info
+
+    networks:
+      - withdrawal-network
+    volumes:
+      - deployment-data:/deployment:ro
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://localhost:3003/health',
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

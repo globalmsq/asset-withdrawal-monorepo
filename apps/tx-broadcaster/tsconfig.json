@@ -1,16 +1,22 @@
 {
   "extends": "../../tsconfig.json",
-  "files": [],
-  "include": [],
-  "references": [
-    {
-      "path": "./tsconfig.app.json"
-    },
-    {
-      "path": "./tsconfig.spec.json"
-    }
-  ],
   "compilerOptions": {
-    "esModuleInterop": true
-  }
+    "outDir": "./dist",
+    "noEmit": false,
+    "composite": false,
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "baseUrl": ".",
+    "paths": {
+      "shared": ["../../packages/shared/src"],
+      "shared/*": ["../../packages/shared/src/*"],
+      "@asset-withdrawal/shared": ["../../packages/shared/src"],
+      "@asset-withdrawal/shared/*": ["../../packages/shared/src/*"],
+      "@asset-withdrawal/database": ["../../packages/database/src"],
+      "@asset-withdrawal/database/*": ["../../packages/database/src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"]
 }

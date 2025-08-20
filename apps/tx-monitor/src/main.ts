@@ -1,6 +1,12 @@
+// Load environment variables first
+import * as dotenv from 'dotenv';
+import * as path from 'path';
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
 import express from 'express';
 import Redis from 'ioredis';
 import { logger } from '@asset-withdrawal/shared';
+import { DatabaseService } from '@asset-withdrawal/database';
 import { MonitorService } from './services/monitor.service';
 import { ChainService } from './services/chain.service';
 import { WebSocketService } from './services/websocket.service';
@@ -202,6 +208,23 @@ export class TxMonitorApp {
   async start(): Promise<void> {
     try {
       logger.info('[tx-monitor] Starting transaction monitor service...');
+
+      // Initialize database connection
+      logger.info('[tx-monitor] Initializing database connection...');
+
+      const dbService = DatabaseService.getInstance({
+        host: config.database.host,
+        port: config.database.port,
+        database: config.database.database,
+        user: config.database.user,
+        password: config.database.password,
+      });
+
+      const dbHealthy = await dbService.healthCheck();
+      if (!dbHealthy) {
+        throw new Error('Database health check failed');
+      }
+      logger.info('[tx-monitor] Database connection established successfully');
 
       // Initialize monitor service
       await this.monitorService.initialize();

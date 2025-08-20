@@ -4,6 +4,7 @@ import * as path from 'path';
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
+import { createApp } from './app';
 import { loadConfig } from './config';
 import { Logger } from './utils/logger';
 import { SecureSecretsManager } from './services/secrets-manager';
@@ -45,6 +46,19 @@ async function bootstrap() {
   const signingWorker = new SigningWorker(config, secretsManager, logger);
   await signingWorker.initialize();
 
+  // Start HTTP server for health checks
+  const port = process.env.PORT ? Number(process.env.PORT) : 3005;
+  const host = process.env.HOST ?? 'localhost';
+
+  const app = await createApp();
+  const server = app.listen(port, host, () => {
+    logger.info('Health server started', {
+      host,
+      port,
+      url: `http://${host}:${port}`,
+    });
+  });
+
   // Add a small delay to ensure all services are fully initialized
   logger.info('Waiting for all services to be ready...');
   await new Promise(resolve => setTimeout(resolve, 5000));
@@ -61,6 +75,11 @@ async function bootstrap() {
       // Stop accepting new work immediately
       logger.info('Stopping signing worker...');
       await signingWorker.stop();
+
+      // Close HTTP server
+      server.close(() => {
+        logger.info('HTTP server closed');
+      });
 
       // Give a final grace period for any remaining operations
       logger.info('Waiting for final cleanup...');

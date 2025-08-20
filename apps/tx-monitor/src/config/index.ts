@@ -3,9 +3,13 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || 'development',
 
   // Database
-  databaseUrl:
-    process.env.DATABASE_URL ||
-    'mysql://root:root@localhost:3306/withdrawal_db',
+  database: {
+    host: process.env.MYSQL_HOST || 'localhost',
+    port: parseInt(process.env.MYSQL_PORT || '3306', 10),
+    database: process.env.MYSQL_DATABASE || 'withdrawal_system',
+    user: process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQL_PASSWORD || 'pass',
+  },
 
   // Redis
   redis: {

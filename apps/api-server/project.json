@@ -14,7 +14,7 @@
         "bundle": false,
         "main": "apps/api-server/src/main.ts",
         "tsConfig": "apps/api-server/tsconfig.json",
-        "generatePackageJson": true,
+        "generatePackageJson": false,
         "skipTypeCheck": true
       }
     },

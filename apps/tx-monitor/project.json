@@ -14,9 +14,9 @@
         "format": ["cjs"],
         "bundle": false,
         "main": "apps/tx-monitor/src/main.ts",
-        "tsConfig": "apps/tx-monitor/tsconfig.app.json",
+        "tsConfig": "apps/tx-monitor/tsconfig.json",
         "assets": ["apps/tx-monitor/src/assets"],
-        "generatePackageJson": true,
+        "generatePackageJson": false,
         "esbuildOptions": {
           "sourcemap": true,
           "outExtension": {
@@ -64,7 +64,7 @@
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "tsc --noEmit -p apps/tx-monitor/tsconfig.app.json"
+        "command": "tsc --noEmit -p apps/tx-monitor/tsconfig.json"
       }
     }
   },

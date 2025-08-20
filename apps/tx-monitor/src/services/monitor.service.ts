@@ -1,4 +1,4 @@
-import { PrismaClient } from '@asset-withdrawal/database';
+import { DatabaseService } from '@asset-withdrawal/database';
 import { ethers } from 'ethers';
 import Redis from 'ioredis';
 import { logger } from '@asset-withdrawal/shared';
@@ -13,7 +13,7 @@ import { ChainService } from './chain.service';
 import { GasRetryService } from './gas-retry.service';
 
 export class MonitorService {
-  private prisma: PrismaClient;
+  private prisma: any;
   private redis: Redis;
   private chainService: ChainService;
   private gasRetryService: GasRetryService;
@@ -22,7 +22,7 @@ export class MonitorService {
   private monitoringIntervals: NodeJS.Timeout[] = [];
 
   constructor() {
-    this.prisma = new PrismaClient();
+    this.prisma = DatabaseService.getInstance().getClient();
     this.redis = new Redis({
       host: config.redis.host,
       port: config.redis.port,

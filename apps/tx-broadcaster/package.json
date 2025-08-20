@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
-    "build": "cd ../.. && pnpm nx run tx-broadcaster:build",
-    "test": "cd ../.. && pnpm nx run tx-broadcaster:test",
-    "lint": "cd ../.. && pnpm nx run tx-broadcaster:lint",
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

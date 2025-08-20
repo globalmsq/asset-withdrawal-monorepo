@@ -3,14 +3,20 @@ import { MonitoredTransaction } from '../../types';
 
 // Mock dependencies with proper implementations
 jest.mock('@asset-withdrawal/database', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
-    $disconnect: jest.fn().mockResolvedValue(undefined),
-    sentTransaction: {
-      findMany: jest.fn().mockResolvedValue([]),
-      update: jest.fn().mockResolvedValue({}),
-      findFirst: jest.fn().mockResolvedValue(null),
-    },
-  })),
+  DatabaseService: {
+    getInstance: jest.fn().mockReturnValue({
+      getClient: jest.fn().mockReturnValue({
+        $disconnect: jest.fn().mockResolvedValue(undefined),
+        sentTransaction: {
+          findMany: jest.fn().mockResolvedValue([]),
+          update: jest.fn().mockResolvedValue({}),
+          findFirst: jest.fn().mockResolvedValue(null),
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
+      }),
+      healthCheck: jest.fn().mockResolvedValue(true),
+    }),
+  },
 }));
 
 jest.mock('ioredis', () => {

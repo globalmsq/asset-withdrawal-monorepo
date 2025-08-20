@@ -1,21 +1,5 @@
 import { LoggerService } from '@asset-withdrawal/shared';
 
-// Import PrismaClient
-let PrismaClient: any;
-try {
-  // Try to import from root node_modules first
-  PrismaClient = require('../../../node_modules/@prisma/client').PrismaClient;
-} catch (error) {
-  try {
-    // Fallback to regular import
-    PrismaClient = require('@prisma/client').PrismaClient;
-  } catch (error2) {
-    throw new Error(
-      'Prisma client not found. Please run "pnpm install" and "pnpm run db:generate" to set up the database client.'
-    );
-  }
-}
-
 export interface DatabaseConfig {
   host: string;
   port: number;
@@ -36,9 +20,25 @@ export class DatabaseService {
       // Set DATABASE_URL environment variable for Prisma
       const databaseUrl = `mysql://${config.user}:${config.password}@${config.host}:${config.port}/${config.database}`;
       process.env.DATABASE_URL = databaseUrl;
+      this.logger.info('DATABASE_URL set for Prisma connection');
     }
-    // Always create PrismaClient after setting DATABASE_URL
-    this.prisma = new PrismaClient();
+
+    // Dynamically import PrismaClient after setting DATABASE_URL
+    try {
+      const { PrismaClient } = require('@prisma/client');
+      this.prisma = new PrismaClient();
+      this.logger.info('PrismaClient initialized successfully');
+    } catch (error: any) {
+      this.logger.error('Failed to load PrismaClient:', {
+        error: error?.message || error,
+        stack: error?.stack,
+        cwd: process.cwd(),
+        nodeModulesPath: require.resolve.paths('@prisma/client'),
+      });
+      throw new Error(
+        'Prisma client not found. Please run "pnpm install" and "pnpm run db:generate" to set up the database client.'
+      );
+    }
   }
 
   public static getInstance(config?: DatabaseConfig): DatabaseService {
@@ -64,8 +64,13 @@ export class DatabaseService {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       return true;
-    } catch (error) {
-      this.logger.error('Database health check failed:', error);
+    } catch (error: any) {
+      this.logger.error('Database health check failed:', {
+        error: error,
+        message: error?.message,
+        stack: error?.stack,
+        databaseUrl: process.env.DATABASE_URL ? 'Set' : 'Not set',
+      });
       return false;
     }
   }

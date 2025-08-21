@@ -163,8 +163,8 @@ export class MonitorService {
         return monitoredTx;
       }
 
-      // Wait for tx-broadcaster to save to DB
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // The updateTransactionStatus method already handles the case where
+      // tx-broadcaster hasn't saved the record yet through error handling
 
       // Get current block number for confirmation calculation
       const currentBlock = await provider.getBlockNumber();

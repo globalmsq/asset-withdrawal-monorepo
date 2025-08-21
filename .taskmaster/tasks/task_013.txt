@@ -1,6 +1,6 @@
 # Task ID: 13
 # Title: [BFS-6] tx-monitor 서비스 구현
-# Status: pending
+# Status: done
 # Dependencies: 12
 # Priority: high
 # Description: 브로드캐스트된 트랜잭션의 상태를 추적하고 확인하는 모니터링 서비스 개발
@@ -11,25 +11,25 @@ Nx를 사용하여 tx-monitor 앱 생성, tx-monitor-queue에서 브로드캐스
 트랜잭션 확인 수 추적 테스트, 성공/실패 트랜잭션 상태 업데이트 테스트, 장기간 pending 트랜잭션 감지 테스트, 가스비 인상 재시도 로직 테스트, 배치 트랜잭션 모니터링 테스트
 
 # Subtasks:
-## 1. Nx를 사용하여 tx-monitor 애플리케이션 구조 생성 [pending]
+## 1. Nx를 사용하여 tx-monitor 애플리케이션 구조 생성 [done]
 ### Dependencies: None
 ### Description: Nx 프레임워크를 사용하여 트랜잭션 모니터링 서비스의 기본 구조와 설정 파일 생성
 ### Details:
 nx generate @nx/node:application tx-monitor 명령으로 앱 생성, Express 기반 HTTP 서버 구성, 환경 변수 설정 (PORT, REDIS_URL, POLYGON_RPC_URL 등), TypeScript 설정 및 빌드 구성, Docker 설정 파일 생성, 모니터링 서비스의 기본 엔드포인트 구현 (/health, /status)
 
-## 2. 트랜잭션 상태 추적 및 확인 로직 구현 [pending]
+## 2. 트랜잭션 상태 추적 및 확인 로직 구현 [done]
 ### Dependencies: 13.1
 ### Description: 블록체인에서 트랜잭션 상태를 추적하고 confirmation 수를 모니터링하는 핵심 로직 개발
 ### Details:
 TransactionMonitor 클래스 구현, ethers.js를 사용한 블록체인 연결 및 트랜잭션 조회, getTransactionReceipt()로 트랜잭션 영수증 확인, confirmations 수 계산 로직 (currentBlock - txBlock), 12 confirmations 달성 시 상태 업데이트, 트랜잭션 실패/성공 감지 로직, 배치 트랜잭션의 개별 전송 확인 로직
 
-## 3. SQS 큐 통합 및 메시지 처리 구현 [pending]
+## 3. SQS 큐 통합 및 메시지 처리 구현 [done]
 ### Dependencies: 13.2
 ### Description: tx-monitor-queue에서 메시지를 수신하고 처리하는 큐 통합 로직 구현
 ### Details:
 QueueService를 사용한 tx-monitor-queue 연결, 브로드캐스트된 트랜잭션 메시지 수신 및 파싱, 메시지 처리 로직 (트랜잭션 해시, withdrawalId 추출), 장기간 pending 트랜잭션 감지 시 tx-processor-queue로 재시도 메시지 전송, 메시지 처리 완료 후 큐에서 삭제, 에러 처리 및 DLQ 전송 로직
 
-## 4. Redis 캐싱 시스템 구현 및 성능 최적화 [pending]
+## 4. Redis 캐싱 시스템 구현 및 성능 최적화 [done]
 ### Dependencies: 13.3
 ### Description: 트랜잭션 모니터링 상태를 Redis에 캐싱하여 성능을 최적화하는 시스템 구현
 ### Details:

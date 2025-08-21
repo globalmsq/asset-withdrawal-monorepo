@@ -377,7 +377,7 @@
         "dependencies": [
           12
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -385,7 +385,7 @@
             "description": "Nx 프레임워크를 사용하여 트랜잭션 모니터링 서비스의 기본 구조와 설정 파일 생성",
             "dependencies": [],
             "details": "nx generate @nx/node:application tx-monitor 명령으로 앱 생성, Express 기반 HTTP 서버 구성, 환경 변수 설정 (PORT, REDIS_URL, POLYGON_RPC_URL 등), TypeScript 설정 및 빌드 구성, Docker 설정 파일 생성, 모니터링 서비스의 기본 엔드포인트 구현 (/health, /status)",
-            "status": "pending",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -396,7 +396,7 @@
               "13.1"
             ],
             "details": "TransactionMonitor 클래스 구현, ethers.js를 사용한 블록체인 연결 및 트랜잭션 조회, getTransactionReceipt()로 트랜잭션 영수증 확인, confirmations 수 계산 로직 (currentBlock - txBlock), 12 confirmations 달성 시 상태 업데이트, 트랜잭션 실패/성공 감지 로직, 배치 트랜잭션의 개별 전송 확인 로직",
-            "status": "pending",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -407,7 +407,7 @@
               "13.2"
             ],
             "details": "QueueService를 사용한 tx-monitor-queue 연결, 브로드캐스트된 트랜잭션 메시지 수신 및 파싱, 메시지 처리 로직 (트랜잭션 해시, withdrawalId 추출), 장기간 pending 트랜잭션 감지 시 tx-processor-queue로 재시도 메시지 전송, 메시지 처리 완료 후 큐에서 삭제, 에러 처리 및 DLQ 전송 로직",
-            "status": "pending",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -418,7 +418,7 @@
               "13.3"
             ],
             "details": "Redis 클라이언트 설정 및 연결 관리, 트랜잭션별 모니터링 상태 캐싱 (lastBlock, confirmations, status), TTL 설정으로 메모리 효율적 관리, 캐시 히트/미스 로직 구현, 블록체인 조회 빈도 최적화 (캐시된 데이터 우선 사용), 배치 작업을 위한 Redis pipeline 사용, 모니터링 대시보드용 집계 데이터 캐싱",
-            "status": "pending",
+            "status": "done",
             "testStrategy": ""
           }
         ]
@@ -1379,7 +1379,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-08-20T17:53:06.920Z",
+      "updated": "2025-08-21T12:14:42.204Z",
       "description": "Tasks for master context"
     }
   }

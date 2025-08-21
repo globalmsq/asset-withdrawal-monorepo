@@ -10,13 +10,20 @@ export function loadChainConfig(): ChainConfigs {
 }
 
 /**
- * Get configuration for a specific chain
+ * Get configuration for a specific chain and network
  * @param chain Chain name (e.g., 'polygon', 'ethereum')
- * @returns Chain-specific configuration or undefined
+ * @param network Network type (e.g., 'mainnet', 'testnet')
+ * @returns Chain and network specific configuration or undefined
  */
-export function getChainConfig(chain: string): any {
+export function getChainConfig(
+  chain: string,
+  network: string
+): ChainConfig | undefined {
   const config = loadChainConfig();
-  return config[chain];
+  const chainData = config[chain];
+  if (!chainData) return undefined;
+
+  return chainData[network as keyof typeof chainData];
 }
 
 /**
@@ -29,25 +36,21 @@ export function getChainRpcUrl(
   chain: string,
   network: string
 ): string | undefined {
-  const chainConfig = getChainConfig(chain);
-  if (!chainConfig) return undefined;
-
-  // Handle different network formats
-  if (chainConfig.networks?.[network]) {
-    return chainConfig.networks[network].rpcUrl;
-  }
-
-  // Fallback to direct RPC URL if available
-  return chainConfig.rpcUrl;
+  const chainConfig = getChainConfig(chain, network);
+  return chainConfig?.rpcUrl;
 }
 
 /**
  * Get required confirmations for a chain
  * @param chain Chain name
+ * @param network Network type (default: 'mainnet')
  * @returns Number of required confirmations
  */
-export function getRequiredConfirmations(chain: string): number {
-  const chainConfig = getChainConfig(chain);
+export function getRequiredConfirmations(
+  chain: string,
+  network: string = 'mainnet'
+): number {
+  const chainConfig = getChainConfig(chain, network);
   return chainConfig?.requiredConfirmations || 12; // Default to 12 if not specified
 }
 
@@ -58,14 +61,6 @@ export function getRequiredConfirmations(chain: string): number {
  * @returns Chain ID or undefined
  */
 export function getChainId(chain: string, network: string): number | undefined {
-  const chainConfig = getChainConfig(chain);
-  if (!chainConfig) return undefined;
-
-  // Handle different network formats
-  if (chainConfig.networks?.[network]) {
-    return chainConfig.networks[network].chainId;
-  }
-
-  // Fallback to direct chain ID if available
-  return chainConfig.chainId;
+  const chainConfig = getChainConfig(chain, network);
+  return chainConfig?.chainId;
 }

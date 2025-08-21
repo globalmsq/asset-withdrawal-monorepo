@@ -68,7 +68,11 @@ export class GasRetryService {
       }
 
       // Check if current gas price is significantly higher (indicating congestion)
-      const originalGasPrice = BigInt(dbTransaction.gasUsed || '0');
+      // Use the original gas price from when the transaction was signed
+      // For EIP-1559 transactions, use maxFeePerGas; for legacy, use gasPrice
+      const originalGasPrice = BigInt(
+        dbTransaction.maxFeePerGas || dbTransaction.gasPrice || '0'
+      );
       const gasIncreaseFactor =
         currentGasPrice.gasPrice / (originalGasPrice || BigInt(1));
 

@@ -14,7 +14,6 @@ export interface CreateSentTransactionInput {
   gasUsed?: string;
   status?: string;
   error?: string;
-  sentAt?: Date;
   confirmedAt?: Date;
 }
 
@@ -42,7 +41,6 @@ export class SentTransactionService {
       data: {
         ...data,
         status: data.status || 'SENT',
-        sentAt: data.sentAt || new Date(),
       },
     });
   }
@@ -181,7 +179,7 @@ export class SentTransactionService {
     return await this.prisma.sentTransaction.findMany({
       take,
       skip,
-      orderBy: { sentAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

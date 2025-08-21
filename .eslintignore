@@ -8,3 +8,8 @@ build/
 out/
 .next/
 .cache/
+env.example
+.env*
+deployment-data/
+docker/
+hardhat/

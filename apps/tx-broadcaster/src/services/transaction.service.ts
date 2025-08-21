@@ -296,7 +296,6 @@ export class TransactionService {
         ...data,
         blockNumber: data.blockNumber ? BigInt(data.blockNumber) : undefined,
         status: 'SENT',
-        sentAt: new Date(),
       });
 
       this.logger.info('Sent transaction saved successfully', {

@@ -15,6 +15,7 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /
 COPY apps/api-server/package.json* /apps/api-server/
 COPY apps/signing-service/package.json* /apps/signing-service/
 COPY apps/tx-broadcaster/package.json* /apps/tx-broadcaster/
+COPY apps/tx-monitor/package.json* /apps/tx-monitor/
 COPY packages/shared/package.json* /packages/shared/
 COPY packages/database/package.json* /packages/database/
 
@@ -61,4 +62,14 @@ CMD ["npm", "run", "start"]
 FROM apps AS tx-broadcaster
 ARG APP_PORT=3001
 WORKDIR /apps/tx-broadcaster
+CMD ["npm", "run", "start"]
+
+# Production stage for tx-monitor
+FROM apps AS tx-monitor
+ARG APP_PORT=3003
+# Copy Prisma schema to expected location
+COPY --from=base /prisma /prisma
+# Set DATABASE_URL for Prisma
+ENV DATABASE_URL="mysql://root:pass@mysql:3306/withdrawal_system"
+WORKDIR /apps/tx-monitor
 CMD ["npm", "run", "start"]

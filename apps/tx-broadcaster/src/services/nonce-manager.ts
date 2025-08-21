@@ -1,4 +1,4 @@
-import { LoggerService } from '@asset-withdrawal/shared';
+import { LoggerService, BlockchainError } from '@asset-withdrawal/shared';
 import { getRedisClient, NonceRedisService } from './redis-client';
 import type { Redis } from 'ioredis';
 import { ethers } from 'ethers';
@@ -106,6 +106,96 @@ export class NonceManager {
       this.logger.error('Failed to connect to Redis for NonceManager', error);
       throw new Error(
         'NonceManager requires Redis connection. Service cannot start.'
+      );
+    }
+  }
+
+  /**
+   * Verify blockchain connectivity during service startup
+   * This helps catch connection issues early before processing transactions
+   */
+  async verifyBlockchainConnectivity(): Promise<void> {
+    this.logger.info('Verifying blockchain connectivity...');
+
+    // Get all supported chain IDs and test connectivity
+    const supportedChainIds = this.chainConfigService.getSupportedChainIds();
+    const verificationResults: Array<{
+      chainId: number;
+      success: boolean;
+      error?: string;
+    }> = [];
+
+    for (const chainId of supportedChainIds) {
+      try {
+        const provider = this.chainConfigService.getProvider(chainId);
+
+        if (!provider) {
+          throw new Error(`No provider available for chainId: ${chainId}`);
+        }
+
+        // Test basic connectivity by getting the latest block number
+        const blockNumber = await Promise.race([
+          provider.getBlockNumber(),
+          new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Connection timeout')), 5000);
+          }),
+        ]);
+
+        verificationResults.push({
+          chainId,
+          success: true,
+        });
+
+        this.logger.info('Blockchain connectivity verified', {
+          metadata: {
+            chainId,
+            currentBlock: blockNumber,
+          },
+        });
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        verificationResults.push({
+          chainId,
+          success: false,
+          error: errorMessage,
+        });
+
+        this.logger.warn('Blockchain connectivity check failed', {
+          metadata: {
+            chainId,
+            error: errorMessage,
+          },
+        });
+      }
+    }
+
+    // Summary logging
+    const successful = verificationResults.filter(r => r.success);
+    const failed = verificationResults.filter(r => !r.success);
+
+    this.logger.info('Blockchain connectivity verification completed', {
+      metadata: {
+        totalChecked: verificationResults.length,
+        successful: successful.length,
+        failed: failed.length,
+        successfulChainIds: successful.map(r => r.chainId),
+        failedChainIds: failed.map(r => r.chainId),
+      },
+    });
+
+    // Log warning if any chains failed (but don't throw - allow service to start)
+    if (failed.length > 0) {
+      this.logger.warn(
+        'Some blockchain connections failed during verification',
+        {
+          metadata: {
+            failedChains: failed.map(r => ({
+              chainId: r.chainId,
+              error: r.error,
+            })),
+          },
+        }
       );
     }
   }
@@ -322,54 +412,110 @@ export class NonceManager {
       return blockchainNonce;
     } catch (error) {
       this.logger.error(
-        'Failed to fetch blockchain nonce, defaulting to 0',
+        'Failed to fetch blockchain nonce - cannot proceed with nonce assignment',
         error,
         {
           metadata: { address },
         }
       );
-      // If blockchain fetch fails, default to 0
-      return 0;
+      // CRITICAL: Never default to 0 - this causes nonce collisions
+      // Instead, throw an error to prevent invalid nonce assignment
+      throw new BlockchainError(
+        `Cannot determine nonce for address ${address}: blockchain connection failed`,
+        context.toString(),
+        error
+      );
     }
   }
 
   /**
-   * Get blockchain nonce for an address
+   * Get blockchain nonce for an address with retry logic and exponential backoff
    */
   async getBlockchainNonce(
     address: string,
-    context: ChainContext
+    context: ChainContext,
+    maxRetries: number = 3
   ): Promise<number> {
-    try {
-      const provider = context.getProvider();
-      if (!provider) {
-        throw new Error(`No provider available for ${context.toString()}`);
+    const maxAttempts = maxRetries + 1;
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const provider = context.getProvider();
+        if (!provider) {
+          throw new Error(`No provider available for ${context.toString()}`);
+        }
+
+        // Add timeout to prevent indefinite hanging
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error('Blockchain nonce fetch timeout')),
+            10000
+          );
+        });
+
+        const noncePromise = provider.getTransactionCount(address, 'latest');
+        const nonce = await Promise.race([noncePromise, timeoutPromise]);
+
+        this.logger.debug('Retrieved blockchain nonce', {
+          metadata: {
+            address,
+            chain: context.chain,
+            network: context.network,
+            chainId: context.chainId,
+            nonce,
+            attempt,
+          },
+        });
+
+        return nonce;
+      } catch (error) {
+        lastError = error;
+        const isLastAttempt = attempt === maxAttempts;
+
+        if (isLastAttempt) {
+          this.logger.error(
+            'Failed to get blockchain nonce after all retries',
+            error,
+            {
+              metadata: {
+                address,
+                chain: context.chain,
+                network: context.network,
+                chainId: context.chainId,
+                totalAttempts: attempt,
+                maxRetries,
+              },
+            }
+          );
+          break;
+        } else {
+          // Calculate exponential backoff delay: 1s, 2s, 4s, 8s, etc.
+          const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+          this.logger.warn(
+            `Blockchain nonce fetch failed (attempt ${attempt}/${maxAttempts}), retrying in ${backoffDelay}ms`,
+            {
+              metadata: {
+                address,
+                chain: context.chain,
+                network: context.network,
+                error: errorMessage,
+                nextRetryIn: backoffDelay,
+              },
+            }
+          );
+
+          // Wait before retry with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        }
       }
-
-      const nonce = await provider.getTransactionCount(address, 'latest');
-
-      this.logger.debug('Retrieved blockchain nonce', {
-        metadata: {
-          address,
-          chain: context.chain,
-          network: context.network,
-          chainId: context.chainId,
-          nonce,
-        },
-      });
-
-      return nonce;
-    } catch (error) {
-      this.logger.error('Failed to get blockchain nonce', error, {
-        metadata: {
-          address,
-          chain: context.chain,
-          network: context.network,
-          chainId: context.chainId,
-        },
-      });
-      throw error;
     }
+
+    // All retries failed, throw the last error
+    throw lastError;
   }
 
   /**

@@ -17,3 +17,10 @@ export * from './config/logger.config';
 export * from './constants/error-types';
 export * from './constants/error-messages';
 export { default as chainsConfig } from './config/chains.config.json';
+
+// Export logger singleton instance
+import { LoggerService } from './services/logger.service';
+export const logger = new LoggerService({ service: 'default' });
+
+// Export chain helpers
+export * from './utils/chain-helpers';

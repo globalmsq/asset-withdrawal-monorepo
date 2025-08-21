@@ -467,7 +467,7 @@ API → tx-request-queue → Signing Service
 
 각 큐는 대응하는 DLQ를 가지고 있습니다:
 
-- **request-dlq**: tx-request-queue의 DLQ
+- **tx-request-dlq**: tx-request-queue의 DLQ
 - **signed-tx-dlq**: signed-tx-queue의 DLQ
 - **broadcast-tx-dlq**: broadcast-tx-queue의 DLQ
 

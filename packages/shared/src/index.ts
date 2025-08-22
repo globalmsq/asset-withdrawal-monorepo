@@ -24,3 +24,12 @@ export const logger = new LoggerService({ service: 'default' });
 
 // Export chain helpers
 export * from './utils/chain-helpers';
+
+// Export Redis services
+export * from './redis/nonce-pool.service';
+
+// Export network error utilities
+export * from './utils/network-errors';
+
+// Export retry utilities
+export * from './utils/retry';

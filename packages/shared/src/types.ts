@@ -6,6 +6,7 @@ export enum TransactionStatus {
   BROADCASTING = 'BROADCASTING',
   CONFIRMED = 'CONFIRMED',
   FAILED = 'FAILED',
+  RETRYING = 'RETRYING', // DLQ로 이동된 상태 (나중에 재처리 예정)
 }
 
 export enum WithdrawalType {

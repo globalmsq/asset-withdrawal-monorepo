@@ -1422,7 +1422,7 @@
               "36.1",
               "36.2"
             ],
-            "details": "prisma/schema.prisma의 WithdrawalStatus enum에 RETRYING 상태를 추가하고 마이그레이션을 실행합니다. packages/shared/src/errors/network-error-detector.ts를 생성하여 NetworkErrorDetector 인터페이스를 구현합니다. isNetworkError 메서드로 ECONNREFUSED, ETIMEDOUT 등의 네트워크 관련 에러를 식별하고, isRetryableError로 재시도 가능 여부를 판단합니다. getRetryDelay 메서드로 exponential backoff 전략에 따른 재시도 지연 시간을 계산합니다. 네트워크 에러 발생 시 트랜잭션 상태를 RETRYING으로 변경하고, nonce를 풀로 반환한 후 DLQ로 메시지를 전송하는 로직을 구현합니다.",
+            "details": "prisma/schema.prisma의 WithdrawalStatus enum에 RETRYING 상태를 추가하고 마이그레이션을 실행합니다. packages/shared/src/errors/network-error-detector.ts를 생성하여 NetworkErrorDetector 인터페이스를 구현합니다. isNetworkError 메서드로 ECONNREFUSED, ETIMEDOUT 등의 네트워크 관련 에러를 식별하고, isRetryableError로 재시도 가능 여부를 판단합니다. getRetryDelay 메서드로 exponential backoff 전략에 따른 재시도 지연 시간을 계산합니다. 네트워크 에러 발생 시 트랜잭션 상태를 RETRYING으로 변경하고, nonce를 풀로 반환한 후 DLQ로 메시지를 전송하는 로직을 구현합니다.\n<info added on 2025-08-22T06:37:35.117Z>\n**중요 변경사항 반영**\n\nRETRYING 상태의 의미를 기존 \"즉시 재시도\" 대신 \"DLQ로 이동된 상태\"로 명확히 정의합니다. nonce 할당 후 실패한 모든 경우(에러 종류 무관)에 대해 무조건 nonce를 풀로 반환하도록 로직을 수정합니다.\n\n에러 분류 및 처리 전략을 세분화하여 네트워크 에러(ECONNREFUSED, ETIMEDOUT 등)일 때만 RETRYING 상태로 변경하고 DLQ로 메시지를 이동시키며, 네트워크 에러가 아닌 경우는 FAILED 상태로 처리합니다.\n\nGas estimation 및 gas price 조회 단계에서만 3회 재시도를 적용하여 불필요한 nonce 할당을 방지하고, nonce 할당 후 발생하는 실패에는 즉시 nonce 반환 후 상태 변경만 수행합니다.\n\nDLQ 처리 서비스는 현재 task 범위에서 제외하고 메시지 이동까지만 구현하며, 실제 DLQ 메시지 처리는 별도 task에서 다루도록 명확히 범위를 제한합니다.\n</info added on 2025-08-22T06:37:35.117Z>",
             "status": "pending",
             "testStrategy": "다양한 네트워크 에러 타입에 대한 감지 정확성을 테스트하고, RETRYING 상태 전환이 올바르게 동작하는지 검증합니다. DLQ 전송 및 nonce 반환이 원자적으로 실행되는지 확인하고, exponential backoff 계산이 정확한지 테스트합니다.",
             "jiraKey": "BFS-86"

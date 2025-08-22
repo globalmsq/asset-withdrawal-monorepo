@@ -1,5 +1,9 @@
 import { ethers } from 'ethers';
-import { ChainProvider, tokenService } from '@asset-withdrawal/shared';
+import {
+  ChainProvider,
+  tokenService,
+  NoncePoolService,
+} from '@asset-withdrawal/shared';
 import { SignedTransaction } from '../types';
 import { SecureSecretsManager } from './secrets-manager';
 import { NonceCacheService } from './nonce-cache.service';
@@ -29,6 +33,7 @@ export interface BatchSigningRequest {
 export class TransactionSigner {
   private wallet: ethers.Wallet | null = null;
   private provider: ethers.Provider | null = null;
+  private noncePoolService: NoncePoolService | null = null;
 
   constructor(
     private chainProvider: ChainProvider,
@@ -37,8 +42,11 @@ export class TransactionSigner {
     private gasPriceCache: GasPriceCache,
     private multicallService: MulticallService,
     private logger: Logger,
-    private config: Config
-  ) {}
+    private config: Config,
+    noncePoolService?: NoncePoolService
+  ) {
+    this.noncePoolService = noncePoolService || null;
+  }
 
   async initialize(): Promise<void> {
     try {
@@ -96,23 +104,11 @@ export class TransactionSigner {
     }
 
     const { to, amount, tokenAddress, transactionId } = request;
+    let nonce: number | undefined;
 
     try {
-      // Get nonce from Redis (atomic increment)
-      const nonce = await this.nonceCache.getAndIncrement(
-        this.wallet.address,
-        this.chainProvider.chain,
-        this.chainProvider.network
-      );
-
-      this.logger.debug('Using nonce for transaction', {
-        address: this.wallet.address,
-        nonce,
-        transactionId,
-      });
-
-      // Build transaction
-      let transaction: ethers.TransactionRequest;
+      // Build transaction WITHOUT nonce first (for gas estimation)
+      let transactionForGasEstimate: ethers.TransactionRequest;
 
       if (tokenAddress) {
         // ERC-20 token transfer
@@ -150,24 +146,67 @@ export class TransactionSigner {
           amount,
         ]);
 
-        transaction = {
+        transactionForGasEstimate = {
           to: tokenAddress,
           data,
-          nonce,
           chainId: this.chainProvider.getChainId(),
         };
       } else {
         // Native token transfer
-        transaction = {
+        transactionForGasEstimate = {
           to,
           value: amount,
-          nonce,
           chainId: this.chainProvider.getChainId(),
         };
       }
 
-      // Estimate gas
-      const gasEstimate = await this.wallet.estimateGas(transaction);
+      // Estimate gas BEFORE getting nonce
+      let gasEstimate: bigint;
+      try {
+        gasEstimate = await this.wallet.estimateGas(transactionForGasEstimate);
+        this.logger.debug('Gas estimation successful', {
+          transactionId,
+          gasEstimate: gasEstimate.toString(),
+        });
+      } catch (gasError) {
+        // Gas estimation failed - DO NOT allocate nonce
+        this.logger.error(
+          'Gas estimation failed - nonce not allocated',
+          gasError,
+          {
+            transactionId,
+            to,
+            amount,
+            tokenAddress,
+          }
+        );
+
+        // Throw a specific error for gas estimation failure
+        if (gasError instanceof Error) {
+          throw new Error(`Gas estimation failed: ${gasError.message}`);
+        } else {
+          throw new Error('Gas estimation failed: Unknown error');
+        }
+      }
+
+      // Only get nonce if gas estimation succeeded
+      nonce = await this.nonceCache.getAndIncrement(
+        this.wallet.address,
+        this.chainProvider.chain,
+        this.chainProvider.network
+      );
+
+      this.logger.debug('Using nonce for transaction', {
+        address: this.wallet.address,
+        nonce,
+        transactionId,
+      });
+
+      // Build final transaction with nonce
+      let transaction: ethers.TransactionRequest = {
+        ...transactionForGasEstimate,
+        nonce,
+      };
       const gasLimit = (gasEstimate * 120n) / 100n; // Add 20% buffer
 
       // Get gas price from cache or fetch new one
@@ -258,6 +297,11 @@ export class TransactionSigner {
     } catch (error) {
       this.logger.error('Failed to sign transaction', error, { transactionId });
 
+      // If nonce was allocated but transaction failed, return it to pool
+      if (nonce !== undefined) {
+        await this.returnNonceToPool(nonce);
+      }
+
       // If it's a Redis connection error, throw to trigger SQS retry
       if (error instanceof Error && error.message.includes('Redis')) {
         this.logger.error('Redis connection error - will retry', {
@@ -278,6 +322,7 @@ export class TransactionSigner {
     }
 
     const { transfers, batchId } = request;
+    let nonce: number | undefined;
 
     try {
       // Sync nonce with network at the beginning to avoid conflicts
@@ -370,21 +415,34 @@ export class TransactionSigner {
         );
       }
 
+      // IMPORTANT: Estimate gas BEFORE allocating nonce to prevent gaps
       // Prepare batch transfers with gas estimation
-      const preparedBatch = await this.multicallService.prepareBatchTransfer(
-        transfers,
-        this.wallet.address,
-        false
-      );
+      let preparedBatch;
+      try {
+        preparedBatch = await this.multicallService.prepareBatchTransfer(
+          transfers,
+          this.wallet.address,
+          false
+        );
 
-      this.logger.info('Batch prepared with gas estimation', {
-        batchId,
-        estimatedGas: preparedBatch.totalEstimatedGas.toString(),
-        transferCount: transfers.length,
-      });
+        this.logger.info('Batch prepared with gas estimation', {
+          batchId,
+          estimatedGas: preparedBatch.totalEstimatedGas.toString(),
+          transferCount: transfers.length,
+        });
+      } catch (gasError) {
+        // Gas estimation failed - DO NOT allocate nonce
+        this.logger.error('Gas estimation failed for batch', gasError, {
+          batchId,
+          transferCount: transfers.length,
+        });
+        throw new Error(
+          `Gas estimation failed: ${gasError instanceof Error ? gasError.message : 'Unknown error'}`
+        );
+      }
 
-      // Get nonce from Redis (atomic increment)
-      const nonce = await this.nonceCache.getAndIncrement(
+      // Only get nonce AFTER successful gas estimation
+      nonce = await this.nonceCache.getAndIncrement(
         this.wallet.address,
         this.chainProvider.chain,
         this.chainProvider.network
@@ -503,6 +561,11 @@ export class TransactionSigner {
     } catch (error) {
       this.logger.error('Failed to sign batch transaction', error, { batchId });
 
+      // If nonce was allocated but transaction failed, return it to pool
+      if (nonce !== undefined) {
+        await this.returnNonceToPool(nonce);
+      }
+
       // If it's a Redis connection error, throw to trigger SQS retry
       if (error instanceof Error && error.message.includes('Redis')) {
         this.logger.error('Redis connection error - will retry', {
@@ -615,12 +678,29 @@ export class TransactionSigner {
         );
       }
 
+      // IMPORTANT: Estimate gas BEFORE allocating nonce to prevent gaps
       // Prepare batch transfers with potential splitting and gas estimation
-      const preparedBatch = await this.multicallService.prepareBatchTransfer(
-        transfers,
-        this.wallet.address,
-        false
-      );
+      let preparedBatch;
+      try {
+        preparedBatch = await this.multicallService.prepareBatchTransfer(
+          transfers,
+          this.wallet.address,
+          false
+        );
+      } catch (gasError) {
+        // Gas estimation failed - DO NOT allocate nonce
+        this.logger.error(
+          'Gas estimation failed for batch with splitting',
+          gasError,
+          {
+            batchId,
+            transferCount: transfers.length,
+          }
+        );
+        throw new Error(
+          `Gas estimation failed: ${gasError instanceof Error ? gasError.message : 'Unknown error'}`
+        );
+      }
 
       // Check if batch was split into groups
       if (preparedBatch.batchGroups && preparedBatch.batchGroups.length > 1) {
@@ -648,7 +728,7 @@ export class TransactionSigner {
             estimatedGas: group.estimatedGas.toString(),
           });
 
-          // Get nonce for this transaction
+          // Only get nonce AFTER gas estimation succeeded for this group
           const nonce = await this.nonceCache.getAndIncrement(
             this.wallet.address,
             this.chainProvider.chain,
@@ -783,6 +863,43 @@ export class TransactionSigner {
     maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
 
     return { maxFeePerGas, maxPriorityFeePerGas };
+  }
+
+  /**
+   * Return nonce to pool for reuse when transaction fails after nonce allocation
+   */
+  async returnNonceToPool(nonce: number): Promise<void> {
+    if (!this.noncePoolService) {
+      this.logger.warn(
+        'NoncePoolService not available, cannot return nonce to pool',
+        {
+          nonce,
+        }
+      );
+      return;
+    }
+
+    try {
+      const chainId = this.chainProvider.getChainId();
+      const address = await this.getAddress();
+
+      await this.noncePoolService.returnNonce(chainId, address, nonce);
+
+      this.logger.info('Nonce returned to pool for reuse', {
+        nonce,
+        chainId,
+        address,
+        chain: this.chainProvider.chain,
+        network: this.chainProvider.network,
+      });
+    } catch (error) {
+      this.logger.error('Failed to return nonce to pool', error, {
+        nonce,
+        chain: this.chainProvider.chain,
+        network: this.chainProvider.network,
+      });
+      // Don't throw - nonce return is best effort
+    }
   }
 
   async cleanup(): Promise<void> {

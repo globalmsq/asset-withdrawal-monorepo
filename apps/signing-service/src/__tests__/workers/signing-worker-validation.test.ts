@@ -16,6 +16,23 @@ import {
 
 // Mock dependencies
 jest.mock('@asset-withdrawal/database');
+jest.mock('ioredis', () => {
+  return jest.fn().mockImplementation(() => ({
+    connect: jest.fn().mockResolvedValue(undefined),
+    quit: jest.fn().mockResolvedValue(undefined),
+    on: jest.fn(),
+    zadd: jest.fn().mockResolvedValue(1),
+    zpopmin: jest.fn().mockResolvedValue([]),
+    zcard: jest.fn().mockResolvedValue(0),
+    zrange: jest.fn().mockResolvedValue([]),
+    zremrangebyscore: jest.fn().mockResolvedValue(0),
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue('OK'),
+    incr: jest.fn().mockResolvedValue(1),
+    expire: jest.fn().mockResolvedValue(1),
+    del: jest.fn().mockResolvedValue(1),
+  }));
+});
 jest.mock('@asset-withdrawal/shared', () => ({
   ...jest.requireActual('@asset-withdrawal/shared'),
   ChainProviderFactory: {
@@ -100,6 +117,11 @@ describe('SigningWorker Validation', () => {
         database: 'test',
         user: 'root',
         password: 'pass',
+      },
+      redis: {
+        host: 'localhost',
+        port: 6379,
+        password: undefined,
       },
       batchProcessing: {
         enabled: true, // Enable batch processing to test validation logic

@@ -1,4 +1,8 @@
-import { LoggerService, BlockchainError } from '@asset-withdrawal/shared';
+import {
+  LoggerService,
+  BlockchainError,
+  NoncePoolService,
+} from '@asset-withdrawal/shared';
 import { getRedisClient, NonceRedisService } from './redis-client';
 import type { Redis } from 'ioredis';
 import { ethers } from 'ethers';
@@ -51,6 +55,7 @@ export interface QueueStatus {
 export class NonceManager {
   private redis!: Redis;
   private nonceRedisService!: NonceRedisService;
+  private noncePoolService!: NoncePoolService;
   private chainConfigService: ChainConfigService;
   private queueService?: QueueService;
   private config?: AppConfig;
@@ -101,7 +106,10 @@ export class NonceManager {
     try {
       this.redis = await getRedisClient();
       this.nonceRedisService = new NonceRedisService(this.redis);
-      this.logger.info('NonceManager initialized with Redis storage');
+      this.noncePoolService = new NoncePoolService(this.redis);
+      this.logger.info(
+        'NonceManager initialized with Redis storage and Nonce Pool'
+      );
     } catch (error) {
       this.logger.error('Failed to connect to Redis for NonceManager', error);
       throw new Error(
@@ -372,7 +380,25 @@ export class NonceManager {
     address: string,
     context: ChainContext
   ): Promise<number> {
-    // Check memory cache first
+    // First, check if there are any reusable nonces in the pool
+    const chainId = context.getChainId();
+    const pooledNonce = await this.noncePoolService.getAvailableNonce(
+      chainId,
+      address
+    );
+
+    if (pooledNonce !== null) {
+      this.logger.info('Using nonce from pool', {
+        metadata: {
+          address,
+          chainId,
+          nonce: pooledNonce,
+        },
+      });
+      return pooledNonce;
+    }
+
+    // Check memory cache
     if (this.lastBroadcastedNonces.has(address)) {
       return this.lastBroadcastedNonces.get(address)! + 1;
     }
@@ -994,6 +1020,64 @@ export class NonceManager {
       });
       throw error;
     }
+  }
+
+  /**
+   * Return a failed transaction's nonce to the pool for reuse
+   * This prevents nonce gaps when transactions fail
+   */
+  async returnNonceToPool(
+    address: string,
+    nonce: number,
+    context: ChainContext
+  ): Promise<void> {
+    const chainId = context.getChainId();
+
+    try {
+      await this.noncePoolService.returnNonce(chainId, address, nonce);
+
+      this.logger.info('Returned failed nonce to pool', {
+        metadata: {
+          address,
+          chainId,
+          nonce,
+          poolSize: await this.noncePoolService.getPoolSize(chainId, address),
+        },
+      });
+    } catch (error) {
+      this.logger.error('Failed to return nonce to pool', error, {
+        metadata: {
+          address,
+          chainId,
+          nonce,
+        },
+      });
+      // Don't throw - this is a best-effort operation
+    }
+  }
+
+  /**
+   * Handle permanent transaction failure by returning nonce to pool
+   */
+  async handleTransactionFailure(
+    transaction: QueuedTransaction,
+    error: any
+  ): Promise<void> {
+    const { fromAddress, nonce, chainContext } = transaction;
+
+    // Return the nonce to pool for reuse
+    await this.returnNonceToPool(fromAddress, nonce, chainContext);
+
+    // Remove from queue
+    await this.removeTransaction(fromAddress, nonce);
+
+    this.logger.warn('Transaction permanently failed, nonce returned to pool', {
+      metadata: {
+        fromAddress,
+        nonce,
+        error: error?.message || 'Unknown error',
+      },
+    });
   }
 
   /**

@@ -17,6 +17,7 @@ enum TransactionStatus {
   CONFIRMED = 'CONFIRMED', // 블록체인 확인 완료
   FAILED = 'FAILED', // 실패
   CANCELED = 'CANCELED', // 취소됨
+  RETRYING = 'RETRYING', // DLQ로 이동되어 재시도 대기 중
 }
 ```
 
@@ -280,18 +281,35 @@ sequenceDiagram
 1. tx-request-queue에서 메시지 수신
 2. DB 상태 업데이트: PENDING → SIGNING
 3. 트랜잭션 데이터 구성
-   - nonce 관리
-   - 가스비 추정
-   - 트랜잭션 서명
+   - **가스비 추정 (Gas-before-nonce 패턴)**:
+     - 트랜잭션 데이터 준비 (nonce 제외)
+     - estimateGas로 가스 한도 계산
+     - getFeeData로 현재 가스 가격 조회
+     - 가스 계산 실패 시 nonce 할당 전 처리 중단
+   - **Nonce 관리**:
+     - Redis Nonce Pool 확인 (재사용 가능한 nonce)
+     - Pool 비어있으면 순차 nonce 할당
+     - 실패한 트랜잭션의 nonce는 Pool로 반환
+   - **트랜잭션 서명**:
+     - 할당된 nonce로 트랜잭션 구성
+     - 개인키로 서명
 4. DB 상태 업데이트: SIGNING → SIGNED
 5. signed-tx-queue에 서명된 트랜잭션 전송
 
 **실패 시나리오**:
 
-- nonce 충돌: DLQ로 이동 (Recovery Service에서 처리)
-- 가스비 추정 실패: DLQ로 이동
-- 잔액 부족: 즉시 FAILED 처리 (영구 실패)
-- 서명 실패: status → FAILED
+- **네트워크 에러**: 
+  - ECONNREFUSED, ETIMEDOUT 등 감지
+  - status → RETRYING
+  - DLQ로 이동 후 nonce Pool 반환
+  - 지수 백오프 재시도 (1s → 2s → 4s)
+- **가스비 추정 실패**: 
+  - Nonce 할당 전 실패 (nonce 낭비 방지)
+  - 네트워크 에러인 경우 재시도
+- **영구 실패**:
+  - 잔액 부족: 즉시 FAILED 처리
+  - 서명 키 없음: status → FAILED
+  - 실패 시 nonce를 Pool로 반환
 
 ### 3. 트랜잭션 브로드캐스트 (BROADCASTING → BROADCASTED)
 

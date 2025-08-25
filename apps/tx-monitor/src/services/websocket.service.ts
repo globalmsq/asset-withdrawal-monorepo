@@ -84,12 +84,30 @@ export class WebSocketService {
 
         // Check for missed blocks
         if (currentBlock > lastBlock) {
-          await this.checkMissedBlocks(
-            chain,
-            network,
-            lastBlock + 1,
-            currentBlock
-          );
+          // Safety check: prevent checking too many blocks (e.g., on initial connection)
+          const MAX_BLOCKS_TO_CHECK = 1000;
+          const blocksToCheck = currentBlock - lastBlock;
+
+          if (blocksToCheck > MAX_BLOCKS_TO_CHECK) {
+            logger.warn(
+              `[WebSocketService] Too many blocks to check for ${chain}-${network} (${blocksToCheck} blocks). ` +
+                `Limiting to last ${MAX_BLOCKS_TO_CHECK} blocks to prevent performance issues.`
+            );
+            // Only check the most recent blocks
+            await this.checkMissedBlocks(
+              chain,
+              network,
+              currentBlock - MAX_BLOCKS_TO_CHECK + 1,
+              currentBlock
+            );
+          } else {
+            await this.checkMissedBlocks(
+              chain,
+              network,
+              lastBlock + 1,
+              currentBlock
+            );
+          }
         }
       }
     );

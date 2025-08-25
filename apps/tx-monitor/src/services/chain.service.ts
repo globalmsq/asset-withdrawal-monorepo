@@ -436,7 +436,7 @@ export class ChainService extends EventEmitter {
         this.emit('websocket-reconnected', {
           chain,
           network,
-          lastBlock: lastBlock || 0,
+          lastBlock: lastBlock === undefined ? currentBlock : lastBlock,
           currentBlock,
         });
       } else {

@@ -3,6 +3,7 @@ import {
   ChainProvider,
   tokenService,
   NoncePoolService,
+  GasEstimationError,
 } from '@asset-withdrawal/shared';
 import { SignedTransaction } from '../types';
 import { SecureSecretsManager } from './secrets-manager';
@@ -182,11 +183,18 @@ export class TransactionSigner {
         );
 
         // Throw a specific error for gas estimation failure
-        if (gasError instanceof Error) {
-          throw new Error(`Gas estimation failed: ${gasError.message}`);
-        } else {
-          throw new Error('Gas estimation failed: Unknown error');
-        }
+        throw new GasEstimationError(
+          gasError instanceof Error
+            ? gasError.message
+            : 'Unknown gas estimation error',
+          {
+            transactionId,
+            to,
+            amount,
+            tokenAddress,
+          },
+          gasError
+        );
       }
 
       // Only get nonce if gas estimation succeeded

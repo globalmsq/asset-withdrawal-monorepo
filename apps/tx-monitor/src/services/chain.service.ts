@@ -420,8 +420,9 @@ export class ChainService extends EventEmitter {
 
         // Check for missed blocks
         const lastBlock = this.lastBlockNumbers.get(`${key}-ws`);
+        const currentBlock = await provider.getBlockNumber();
+
         if (lastBlock) {
-          const currentBlock = await provider.getBlockNumber();
           const missedBlocks = currentBlock - lastBlock;
 
           if (missedBlocks > 1) {
@@ -436,7 +437,7 @@ export class ChainService extends EventEmitter {
           chain,
           network,
           lastBlock: lastBlock || 0,
-          currentBlock: await provider.getBlockNumber(),
+          currentBlock,
         });
       } else {
         // Failed to reconnect

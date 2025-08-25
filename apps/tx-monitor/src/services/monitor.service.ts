@@ -168,7 +168,7 @@ export class MonitorService {
 
       // Get current block number for confirmation calculation
       const currentBlock = await provider.getBlockNumber();
-      const confirmations = currentBlock - receipt.blockNumber;
+      const confirmations = currentBlock - receipt.blockNumber + 1;
 
       // Get required confirmations for this chain
       const requiredConfirmations =

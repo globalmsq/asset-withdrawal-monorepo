@@ -18,6 +18,7 @@ export enum ErrorCode {
   // Server errors (500)
   DATABASE_ERROR = 'DATABASE_ERROR',
   BLOCKCHAIN_ERROR = 'BLOCKCHAIN_ERROR',
+  GAS_ESTIMATION_ERROR = 'GAS_ESTIMATION_ERROR',
   QUEUE_ERROR = 'QUEUE_ERROR',
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
@@ -65,5 +66,14 @@ export class DatabaseError extends AppError {
 export class BlockchainError extends AppError {
   constructor(message: string, network?: string, originalError?: any) {
     super(ErrorCode.BLOCKCHAIN_ERROR, message, 500, { network, originalError });
+  }
+}
+
+export class GasEstimationError extends AppError {
+  constructor(message: string, transactionData?: any, originalError?: any) {
+    super(ErrorCode.GAS_ESTIMATION_ERROR, message, 500, {
+      transactionData,
+      originalError,
+    });
   }
 }

@@ -19,6 +19,7 @@ export enum ErrorCode {
   DATABASE_ERROR = 'DATABASE_ERROR',
   BLOCKCHAIN_ERROR = 'BLOCKCHAIN_ERROR',
   GAS_ESTIMATION_ERROR = 'GAS_ESTIMATION_ERROR',
+  NONCE_ALLOCATION_ERROR = 'NONCE_ALLOCATION_ERROR',
   QUEUE_ERROR = 'QUEUE_ERROR',
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
@@ -73,6 +74,15 @@ export class GasEstimationError extends AppError {
   constructor(message: string, transactionData?: any, originalError?: any) {
     super(ErrorCode.GAS_ESTIMATION_ERROR, message, 500, {
       transactionData,
+      originalError,
+    });
+  }
+}
+
+export class NonceAllocationError extends AppError {
+  constructor(message: string, details?: any, originalError?: any) {
+    super(ErrorCode.NONCE_ALLOCATION_ERROR, message, 500, {
+      ...details,
       originalError,
     });
   }

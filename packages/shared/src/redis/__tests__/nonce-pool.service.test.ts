@@ -14,6 +14,7 @@ jest.mock('ioredis', () => {
     del: jest.fn(),
     expire: jest.fn(),
     keys: jest.fn(),
+    scan: jest.fn(),
     pipeline: jest.fn().mockReturnThis(),
     exec: jest.fn(),
   };
@@ -245,7 +246,8 @@ describe('NoncePoolService', () => {
   describe('getPoolStatistics', () => {
     it('should return statistics for all pools', async () => {
       const keys = ['nonce_pool:137:0xabc', 'nonce_pool:137:0xdef'];
-      mockRedis.keys.mockResolvedValue(keys);
+      // Mock SCAN instead of KEYS (production safety change)
+      mockRedis.scan.mockResolvedValue(['0', keys]);
       mockRedis.zcard.mockResolvedValueOnce(5).mockResolvedValueOnce(3);
 
       const stats = await service.getPoolStatistics(TEST_CHAIN_ID);
@@ -259,7 +261,8 @@ describe('NoncePoolService', () => {
     });
 
     it('should return empty statistics when no pools exist', async () => {
-      mockRedis.keys.mockResolvedValue([]);
+      // Mock SCAN instead of KEYS (production safety change)
+      mockRedis.scan.mockResolvedValue(['0', []]);
 
       const stats = await service.getPoolStatistics(TEST_CHAIN_ID);
 
@@ -272,7 +275,8 @@ describe('NoncePoolService', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      mockRedis.keys.mockRejectedValue(new Error('Redis error'));
+      // Mock SCAN instead of KEYS (production safety change)
+      mockRedis.scan.mockRejectedValue(new Error('Redis error'));
 
       const stats = await service.getPoolStatistics(TEST_CHAIN_ID);
 

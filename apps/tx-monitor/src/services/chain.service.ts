@@ -535,7 +535,7 @@ export class ChainService extends EventEmitter {
 
   // Get last known block number for a chain
   getLastBlockNumber(chain: string, network: string): number | undefined {
-    const key = `${chain}-${network}`;
+    const key = `${chain}-${network}-ws`;
     return this.lastBlockNumbers.get(key);
   }
 

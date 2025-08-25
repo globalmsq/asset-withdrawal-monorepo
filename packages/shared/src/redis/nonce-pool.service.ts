@@ -310,7 +310,23 @@ export class NoncePoolService {
   }> {
     try {
       const pattern = `${this.POOL_KEY_PREFIX}:${chainId}:*`;
-      const keys = await this.redis.keys(pattern);
+
+      // Use SCAN instead of KEYS for production safety
+      // SCAN is non-blocking and won't cause Redis to freeze
+      const keys: string[] = [];
+      let cursor = '0';
+
+      do {
+        const [newCursor, foundKeys] = await this.redis.scan(
+          cursor,
+          'MATCH',
+          pattern,
+          'COUNT',
+          100
+        );
+        cursor = newCursor;
+        keys.push(...foundKeys);
+      } while (cursor !== '0');
 
       if (keys.length === 0) {
         return {

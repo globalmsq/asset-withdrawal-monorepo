@@ -4,6 +4,7 @@ import {
   tokenService,
   NoncePoolService,
   GasEstimationError,
+  NonceAllocationError,
 } from '@asset-withdrawal/shared';
 import { SignedTransaction } from '../types';
 import { SecureSecretsManager } from './secrets-manager';
@@ -242,7 +243,13 @@ export class TransactionSigner {
         const feeData = await this.provider.getFeeData();
 
         if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
-          throw new Error('Failed to fetch gas price from provider');
+          throw new GasEstimationError(
+            'Failed to fetch gas price from provider',
+            {
+              chain: this.chainProvider.chain,
+              network: this.chainProvider.network,
+            }
+          );
         }
 
         // Update cache for next use
@@ -507,7 +514,13 @@ export class TransactionSigner {
         const feeData = await this.provider.getFeeData();
 
         if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
-          throw new Error('Failed to fetch gas price from provider');
+          throw new GasEstimationError(
+            'Failed to fetch gas price from provider',
+            {
+              chain: this.chainProvider.chain,
+              network: this.chainProvider.network,
+            }
+          );
         }
 
         // Update cache for next use
@@ -848,7 +861,13 @@ export class TransactionSigner {
       const feeData = await this.provider.getFeeData();
 
       if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
-        throw new Error('Failed to fetch gas price from provider');
+        throw new GasEstimationError(
+          'Failed to fetch gas price from provider',
+          {
+            chain: this.chainProvider.chain,
+            network: this.chainProvider.network,
+          }
+        );
       }
 
       // Update cache for next use

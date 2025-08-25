@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { SignedSingleTransactionService } from '../services/signed-single-transaction.service';
-import { CreateSignedTransactionDto } from '../services/signed-single-transaction.service';
+import {
+  SignedSingleTransactionService,
+  CreateSignedTransactionDto,
+} from '../services/signed-single-transaction.service';
 
 describe('SignedSingleTransactionService', () => {
   let service: SignedSingleTransactionService;

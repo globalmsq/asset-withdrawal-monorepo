@@ -248,8 +248,10 @@ export class WebSocketService {
       }
 
       // Calculate confirmations using the receipt we already have
+      // WebSocket event means transaction is included in a block - at least 1 confirmation
       const currentBlock = await provider.getBlockNumber();
-      const confirmations = currentBlock - receipt.blockNumber + 1;
+      // Ensure we have at least 1 confirmation since the receipt exists
+      const confirmations = Math.max(1, currentBlock - receipt.blockNumber + 1);
       const requiredConfirmations =
         await this.chainService.getRequiredConfirmations(chain, network);
 

@@ -92,19 +92,14 @@ export class NoncePoolService {
     const key = this.getPoolKey(chainId, address);
 
     try {
-      // Use Lua script to atomically get and remove the smallest nonce
-      const script = `
-        local nonce = redis.call('zrange', KEYS[1], 0, 0)
-        if #nonce > 0 then
-          redis.call('zrem', KEYS[1], nonce[1])
-          return nonce[1]
-        end
-        return nil
-      `;
+      // Use Redis ZPOPMIN to atomically get and remove the smallest nonce
+      // ZPOPMIN returns an array of [member, score] pairs
+      const result = (await this.redis.zpopmin(key, 1)) as string[];
 
-      const nonce = (await this.redis.eval(script, 1, key)) as string | null;
-
-      if (nonce !== null) {
+      // ZPOPMIN returns empty array if no elements exist
+      if (result && result.length > 0) {
+        // Result format: [member, score] - we only need the member (nonce)
+        const nonce = result[0];
         const nonceNumber = parseInt(nonce, 10);
 
         this.logger.info('Retrieved nonce from pool', {

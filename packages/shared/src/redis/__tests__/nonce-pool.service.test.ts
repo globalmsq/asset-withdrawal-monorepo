@@ -9,6 +9,7 @@ jest.mock('ioredis', () => {
     zcard: jest.fn(),
     zrange: jest.fn(),
     zrem: jest.fn(),
+    zpopmin: jest.fn(),
     zscore: jest.fn(),
     del: jest.fn(),
     expire: jest.fn(),
@@ -63,8 +64,9 @@ describe('NoncePoolService', () => {
 
   describe('getAvailableNonce', () => {
     it('should retrieve and remove the smallest nonce from pool', async () => {
-      const expectedNonce = '10';
-      mockRedis.eval.mockResolvedValue(expectedNonce);
+      // ZPOPMIN returns [member, score] array
+      const expectedNonce = ['10', '10'];
+      mockRedis.zpopmin.mockResolvedValue(expectedNonce);
       mockRedis.zcard.mockResolvedValue(2);
 
       const result = await service.getAvailableNonce(
@@ -73,15 +75,15 @@ describe('NoncePoolService', () => {
       );
 
       expect(result).toBe(10);
-      expect(mockRedis.eval).toHaveBeenCalledWith(
-        expect.stringContaining('zrange'),
-        1,
-        `nonce_pool:${TEST_CHAIN_ID}:${TEST_ADDRESS.toLowerCase()}`
+      expect(mockRedis.zpopmin).toHaveBeenCalledWith(
+        `nonce_pool:${TEST_CHAIN_ID}:${TEST_ADDRESS.toLowerCase()}`,
+        1
       );
     });
 
     it('should return null when pool is empty', async () => {
-      mockRedis.eval.mockResolvedValue(null);
+      // ZPOPMIN returns empty array when no elements
+      mockRedis.zpopmin.mockResolvedValue([]);
 
       const result = await service.getAvailableNonce(
         TEST_CHAIN_ID,
@@ -92,7 +94,7 @@ describe('NoncePoolService', () => {
     });
 
     it('should handle errors when getting nonce', async () => {
-      mockRedis.eval.mockRejectedValue(new Error('Redis error'));
+      mockRedis.zpopmin.mockRejectedValue(new Error('Redis error'));
 
       await expect(
         service.getAvailableNonce(TEST_CHAIN_ID, TEST_ADDRESS)
@@ -302,10 +304,11 @@ describe('NoncePoolService', () => {
     });
 
     it('should handle concurrent nonce retrievals atomically', async () => {
-      mockRedis.eval
-        .mockResolvedValueOnce('10')
-        .mockResolvedValueOnce('11')
-        .mockResolvedValueOnce(null);
+      // ZPOPMIN returns [member, score] arrays or empty array
+      mockRedis.zpopmin
+        .mockResolvedValueOnce(['10', '10'])
+        .mockResolvedValueOnce(['11', '11'])
+        .mockResolvedValueOnce([]);
       mockRedis.zcard.mockResolvedValue(0);
 
       // Simulate concurrent calls
@@ -319,7 +322,7 @@ describe('NoncePoolService', () => {
 
       // Each call should get a different nonce or null
       expect(results).toEqual([10, 11, null]);
-      expect(mockRedis.eval).toHaveBeenCalledTimes(3);
+      expect(mockRedis.zpopmin).toHaveBeenCalledTimes(3);
     });
   });
 });

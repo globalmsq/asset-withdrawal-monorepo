@@ -169,3 +169,7 @@ docker/hardhat/deployment.json
 # Task files
 # tasks.json
 # tasks/ 
+
+# Serena cache files
+.serena/cache/
+*.pkl

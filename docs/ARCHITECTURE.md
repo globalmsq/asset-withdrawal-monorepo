@@ -108,11 +108,15 @@ graph TB
   - 안전한 키 관리 (AWS Secrets Manager)
   - 트랜잭션 서명 (단일/배치)
   - 가스 가격 최적화 및 캐싱
-  - nonce 관리 (Redis 기반)
+  - **개선된 nonce 관리**:
+    - Nonce Pool Service를 통한 실패 nonce 재사용
+    - Gas-before-nonce 패턴으로 nonce 낭비 방지
+    - Redis 기반 순차 nonce 및 재사용 풀 관리
   - 동적 배치 처리 결정
   - Multicall3를 통한 배치 최적화
   - 서명된 트랜잭션 큐잉
-- **기술 스택**: Ethers.js, AWS Secrets Manager, Multicall3, Redis
+  - **네트워크 오류 처리**: Exponential backoff 재시도
+- **기술 스택**: Ethers.js, AWS Secrets Manager, Multicall3, Redis, Nonce Pool Service
 
 ### 3. Transaction Broadcaster (tx-broadcaster) - 개발 예정
 
@@ -215,8 +219,13 @@ interface DLQMessage<T = any> {
 3. API Server → tx-request-queue: 메시지 큐잉
 4. Signing Service → tx-request-queue: 메시지 소비
 5. Signing Service → MySQL: 상태 업데이트 (상태: SIGNING)
-6. Signing Service: 트랜잭션 서명 (단일/배치)
+6. Signing Service: 개선된 트랜잭션 서명 프로세스
+   a. Gas estimation 수행 (실패 시 nonce 할당하지 않음)
+   b. Nonce Pool 확인 → 재사용 가능한 nonce 있으면 사용
+   c. 없으면 순차 nonce 할당
+   d. 트랜잭션 서명 (단일/배치)
 7. Signing Service → signed-tx-queue: 서명된 트랜잭션 큐잉
+   - 네트워크 오류 시: RETRYING 상태로 DLQ 전송, nonce를 pool에 반환
 8. TX Broadcaster → signed-tx-queue: 메시지 소비
 9. TX Broadcaster → Polygon: 트랜잭션 브로드캐스트
 10. TX Broadcaster → MySQL: 상태 업데이트 (상태: BROADCASTED)

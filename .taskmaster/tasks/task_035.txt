@@ -1,0 +1,77 @@
+# Task ID: 35
+# Title: TX Monitor - Nonce 순서 역전 시 Broadcasting 지연 문제 해결
+# Status: pending
+# Dependencies: 13, 12
+# Priority: medium
+# Description: TX Monitor에서 nonce 순서가 뒤바뀐 경우 발생하는 transaction broadcasting 지연 문제를 해결하고, out-of-order nonce 감지 및 자동 정렬 메커니즘을 구현합니다.
+# Details:
+**구현 목표**
+- TX Monitor에서 nonce 순서 역전으로 인한 broadcasting 지연 문제 근본 해결
+- Out-of-order nonce 자동 감지 및 정렬 시스템 구축
+- Gas retry 시 nonce 재할당 로직 최적화
+
+**1. Nonce 순서 검증 로직 강화**
+- `apps/tx-monitor/src/services/monitor.service.ts`에 NonceOrderValidator 구현
+- 현재 계정 nonce와 pending transaction nonce 순서 검증
+- 순서 위반 감지 시 경고 로그 및 메트릭 수집
+```typescript
+interface NonceOrderValidator {
+  validateNonceSequence(transactions: PendingTransaction[]): ValidationResult;
+  detectOutOfOrderNonce(accountAddress: string, expectedNonce: number): boolean;
+  suggestNonceCorrection(transactions: PendingTransaction[]): NonceCorrection[];
+}
+```
+
+**2. Out-of-order Nonce 자동 정렬 메커니즘**
+- PendingTransactionQueue 클래스로 nonce 기반 우선순위 큐 구현
+- 낮은 nonce부터 순차적으로 처리하는 정렬 알고리즘
+- 누락된 nonce 감지 시 해당 transaction 대기 로직
+- 타임아웃 설정으로 무한 대기 방지 (기본 10분)
+
+**3. Gas Retry 시 Nonce 재할당 최적화**
+- `apps/tx-monitor/src/services/gas-retry.service.ts` 개선
+- Gas retry 전 현재 네트워크 nonce 재확인
+- Replacement transaction 생성 시 원본 nonce 보존
+- 동일 nonce의 multiple transaction 감지 및 처리
+
+**4. TX Broadcaster와의 Nonce 동기화**
+- `apps/tx-broadcaster/src/services/nonce-manager.ts`와 연동 강화
+- Redis를 통한 실시간 nonce 상태 공유
+- Broadcasting 실패 시 nonce 롤백 메커니즘
+- Concurrent transaction 처리 시 nonce lock 구현
+
+**5. 모니터링 및 알림 시스템**
+- Nonce 순서 위반 감지 시 Slack/이메일 알림
+- 지연된 transaction에 대한 대시보드 메트릭
+- 자동 복구 성공/실패 통계 수집
+
+# Test Strategy:
+**1. Nonce 순서 위반 시나리오 테스트**
+- 의도적으로 높은 nonce transaction을 먼저 전송하여 순서 위반 상황 재현
+- NonceOrderValidator가 순서 위반을 정확히 감지하는지 확인
+- Out-of-order 감지 후 자동 정렬 메커니즘 동작 검증
+- 누락된 nonce transaction 도착 시 대기열 해제 테스트
+
+**2. Gas Retry 중 Nonce 관리 테스트**
+- 동일 nonce로 multiple transaction 생성 시나리오 테스트
+- Gas retry 후 원본 transaction과 replacement transaction 충돌 방지 확인
+- Network congestion 상황에서 gas retry 로직 검증
+- Nonce gap 발생 시 자동 복구 메커니즘 테스트
+
+**3. 동시성 처리 테스트**
+- 여러 계정에서 동시 transaction 전송 시 nonce 충돌 방지 확인
+- Redis lock 메커니즘의 race condition 방지 능력 검증
+- TX Broadcaster와 TX Monitor 간 nonce 동기화 정확성 테스트
+- 고부하 상황에서 nonce 순서 보장 성능 측정
+
+**4. 복구 시나리오 테스트**
+- 장기간 pending 상태 transaction의 자동 복구 테스트
+- Network partition 후 nonce 상태 복원 검증
+- 서비스 재시작 후 pending transaction queue 복구 확인
+- 타임아웃 후 stuck transaction 처리 로직 테스트
+
+**5. 통합 테스트**
+- 실제 Polygon testnet 환경에서 end-to-end 시나리오 검증
+- 100개 이상의 연속 transaction에서 nonce 순서 정확성 확인
+- 시스템 부하 테스트 시 broadcasting 지연 최소화 측정
+- 알림 시스템 및 메트릭 수집 정확성 검증

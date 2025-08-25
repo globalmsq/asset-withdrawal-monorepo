@@ -1,0 +1,131 @@
+# Task ID: 34
+# Title: Redis 공통 코드를 shared 패키지로 통합
+# Status: pending
+# Dependencies: 12, 15, 29
+# Priority: medium
+# Description: 현재 tx-broadcaster와 signing-service에서 각각 구현된 Redis 관련 코드(BroadcastRedisService, NonceRedisService, NonceCacheService 등)를 shared 패키지로 이동하여 코드 중복을 제거하고 일관된 Redis 처리 패턴을 구축합니다.
+# Details:
+**구현 목표**
+- tx-broadcaster와 signing-service에 분산된 Redis 관련 코드를 shared 패키지로 통합
+- 코드 중복 제거 및 일관된 Redis 처리 패턴 구축
+- 향후 다른 서비스에서도 재사용 가능한 Redis 유틸리티 제공
+
+**1. 공통 Redis 클래스 식별 및 분석**
+- tx-broadcaster의 BroadcastRedisService 분석
+- signing-service의 NonceRedisService, NonceCacheService 분석
+- 각 클래스의 공통 기능과 차이점 도출
+
+**2. shared 패키지로 Redis 서비스 통합**
+- `packages/shared/src/redis/` 디렉토리 생성
+- BaseRedisService 추상 클래스 구현 (공통 Redis 연결 및 기본 기능)
+- NonceRedisService를 공통 서비스로 이전 및 개선
+- BroadcastRedisService의 핵심 기능을 공통 클래스로 추상화
+- Redis 설정 및 연결 관리 클래스 통합
+
+**3. 의존성 주입 패턴 개선**
+- Logger 의존성을 생성자에서 명시적으로 주입받도록 개선
+- 환경 변수 기반 Redis 설정 관리
+- 커넥션 풀링 및 재연결 로직 공통화
+
+**4. 기존 서비스에서 공통 클래스 사용**
+- tx-broadcaster에서 새로운 공통 Redis 서비스 사용
+- signing-service에서 기존 Redis 코드를 공통 서비스로 교체
+- 각 서비스별 특화 기능은 상속 또는 컴포지션으로 구현
+
+**5. 인터페이스 및 타입 정의**
+- Redis 키 네이밍 컨벤션 표준화
+- TTL 정책 및 캐시 전략 공통 인터페이스 정의
+- 에러 처리 및 로깅 패턴 통일
+
+# Test Strategy:
+**1. 코드 통합 검증 테스트**
+- shared 패키지의 Redis 서비스들이 올바르게 구현되었는지 단위 테스트
+- 기존 Redis 기능들이 공통 서비스에서 정상 작동하는지 확인
+- NonceRedisService의 nonce 관리 기능 정확성 검증
+
+**2. 서비스별 호환성 테스트**
+- tx-broadcaster에서 공통 Redis 서비스 사용 시 기존 기능 유지 확인
+- signing-service에서 공통 Redis 서비스로 교체 후 동작 검증
+- 각 서비스의 Redis 관련 기능이 이전과 동일하게 작동하는지 통합 테스트
+
+**3. 성능 및 안정성 테스트**
+- Redis 연결 풀링 및 재연결 로직 스트레스 테스트
+- 동시성 환경에서 nonce 충돌 방지 기능 검증
+- 메모리 사용량 및 성능 최적화 효과 측정
+
+**4. 코드 품질 검증**
+- ESLint 및 TypeScript 컴파일 오류 없음 확인
+- 의존성 주입 패턴이 올바르게 적용되었는지 검증
+- 기존 테스트 케이스들이 모두 통과하는지 확인
+
+# Subtasks:
+## 1. shared 패키지에 Redis 기본 구조 및 추상 클래스 구현 [pending]
+### Dependencies: None
+### Description: packages/shared/src/redis 디렉토리를 생성하고 BaseRedisService 추상 클래스와 공통 Redis 연결 관리 로직을 구현합니다. 현재 tx-broadcaster와 signing-service에서 각각 다른 Redis 라이브러리(ioredis vs redis)를 사용하고 있으므로 이를 통일하고 공통 연결 관리 패턴을 구축합니다.
+### Details:
+- packages/shared/src/redis/ 디렉토리 구조 생성
+- BaseRedisService 추상 클래스 구현 (공통 연결, 에러 처리, 로깅)
+- RedisConnectionManager 클래스로 연결 풀링 및 재연결 로직 통합
+- 환경 변수 기반 Redis 설정 관리 (REDIS_HOST, REDIS_PORT, REDIS_PASSWORD)
+- LoggerService 의존성 주입 패턴 적용
+- Redis 클라이언트 라이브러리를 ioredis로 통일
+- 타입스크립트 인터페이스 및 타입 정의
+- packages/shared/src/index.ts에 Redis 관련 export 추가
+
+## 2. 공통 NonceRedisService 클래스 구현 및 키 네이밍 표준화 [pending]
+### Dependencies: 34.1
+### Description: tx-broadcaster의 NonceRedisService와 signing-service의 NonceCacheService를 분석하여 공통 기능을 추출하고, 표준화된 nonce 관리 서비스를 shared 패키지에 구현합니다. Redis 키 네이밍 컨벤션을 통일하고 TTL 정책을 표준화합니다.
+### Details:
+- 기존 NonceRedisService와 NonceCacheService 기능 분석 및 통합
+- 공통 NonceRedisService 클래스 구현 (BaseRedisService 상속)
+- Redis 키 네이밍 표준화: nonce:{chain}:{network}:{address}, used_nonce:{chain}:{network}:{address}:{nonce}
+- TTL 정책 표준화 (nonce: 24시간, used_nonce: 5분, processing: 60초)
+- 멀티체인/네트워크 지원 (chain, network 매개변수 지원)
+- nonce 증분, 조회, 설정, 중복 검사 메소드 구현
+- 처리 중인 주소 락 관리 기능
+- 타임아웃된 락 해제 기능
+- 통계 및 모니터링 메소드
+
+## 3. 공통 BroadcastRedisService 클래스 구현 및 트랜잭션 상태 관리 [pending]
+### Dependencies: 34.1
+### Description: tx-broadcaster의 BroadcastRedisService 기능을 분석하여 공통 트랜잭션 브로드캐스트 상태 관리 서비스를 shared 패키지에 구현합니다. 트랜잭션 처리 상태, 재시도 카운트, 브로드캐스트 완료 상태를 관리하는 표준화된 서비스를 제공합니다.
+### Details:
+- 기존 BroadcastRedisService 분석 및 공통 기능 추출
+- 공통 BroadcastRedisService 클래스 구현 (BaseRedisService 상속)
+- Redis 키 네이밍 표준화: tx:processing:{txHash}, tx:broadcast:completed:{txHash}, tx:retry:{messageId}
+- 트랜잭션 처리 상태 관리 (processing, completed)
+- 재시도 카운트 관리 및 TTL 설정 (24시간)
+- 브로드캐스트 완료 상태 추적 (TTL: 1시간)
+- 중복 처리 방지 로직
+- 배치 트랜잭션 지원을 위한 batchId 처리
+- 만료된 키 정리 메소드
+- 통계 및 모니터링 기능
+
+## 4. tx-broadcaster 서비스에서 공통 Redis 서비스 적용 [pending]
+### Dependencies: 34.2, 34.3
+### Description: tx-broadcaster의 기존 Redis 관련 코드를 새로 구현된 shared 패키지의 공통 Redis 서비스로 교체합니다. NonceManager와 SQS Worker에서 새로운 공통 서비스를 사용하도록 리팩토링하고, 기존 기능이 정상 동작하는지 확인합니다.
+### Details:
+- tx-broadcaster/src/services/redis-client.ts 제거 또는 최소화
+- NonceManager에서 shared NonceRedisService 사용
+- SQS Worker에서 shared BroadcastRedisService 사용
+- 의존성 주입 패턴으로 LoggerService 전달
+- 환경 변수 설정 검증 및 업데이트
+- 기존 Redis 키 마이그레이션 계획 수립
+- 패키지 의존성 업데이트 (shared 패키지 추가)
+- 타입스크립트 import 문 수정
+- 기존 테스트 코드 업데이트
+
+## 5. signing-service에서 공통 Redis 서비스 적용 및 최종 검증 [pending]
+### Dependencies: 34.2, 34.4
+### Description: signing-service의 NonceCacheService를 새로 구현된 shared 패키지의 NonceRedisService로 교체합니다. 기존 서명 워커와 트랜잭션 서명 로직에서 새로운 공통 서비스를 사용하도록 리팩토링하고, 전체 시스템의 Redis 통합이 완료되었는지 최종 검증합니다.
+### Details:
+- signing-service/src/services/nonce-cache.service.ts 제거
+- SigningWorker에서 shared NonceRedisService 사용
+- TransactionSigner에서 새로운 nonce 관리 패턴 적용
+- Redis 클라이언트 라이브러리를 ioredis로 통일
+- 멀티체인 지원 검증 (polygon, ethereum 등)
+- 의존성 주입 및 환경 변수 설정 검증
+- 패키지 의존성 정리 및 업데이트
+- 기존 테스트 코드 업데이트 및 새 공통 서비스 테스트
+- 전체 시스템 통합 테스트 실행
+

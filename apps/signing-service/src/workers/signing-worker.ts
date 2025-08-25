@@ -5,6 +5,9 @@ import {
   ChainProvider,
   TransactionStatus,
   Message,
+  NoncePoolService,
+  isNetworkError,
+  retryWithBackoff,
 } from '@asset-withdrawal/shared';
 import {
   WithdrawalRequestService,
@@ -34,6 +37,7 @@ export class SigningWorker extends BaseWorker<
   private withdrawalRequestService: WithdrawalRequestService;
   private signedTransactionService: SignedTransactionService;
   private nonceCache: NonceCacheService;
+  private noncePoolService: NoncePoolService;
   private gasPriceCache: GasPriceCache;
   private multicallServices: Map<string, MulticallService>;
   private signers: Map<string, TransactionSigner>;
@@ -92,6 +96,13 @@ export class SigningWorker extends BaseWorker<
 
     // Create queue recovery service
     this.queueRecoveryService = new QueueRecoveryService(this.nonceCache);
+
+    // Create nonce pool service using the Redis connection from BaseWorker
+    if (this.redisClient) {
+      this.noncePoolService = new NoncePoolService(this.redisClient);
+    } else {
+      throw new Error('Redis connection is required for NoncePoolService');
+    }
   }
 
   async initialize(): Promise<void> {
@@ -187,7 +198,7 @@ export class SigningWorker extends BaseWorker<
       );
       this.multicallServices.set(key, multicallService);
 
-      // Create transaction signer
+      // Create transaction signer with nonce pool service
       const signer = new TransactionSigner(
         chainProvider,
         this.secretsManager,
@@ -195,7 +206,8 @@ export class SigningWorker extends BaseWorker<
         this.gasPriceCache,
         multicallService,
         this.auditLogger,
-        this.config
+        this.config,
+        this.noncePoolService
       );
 
       // Initialize the signer
@@ -289,12 +301,22 @@ export class SigningWorker extends BaseWorker<
   }
 
   protected async processBatch(): Promise<void> {
-    // Check gas price before processing messages
+    // Check gas price before processing messages with retry logic
     try {
-      await this.updateGasPriceCache();
+      await retryWithBackoff(async () => this.updateGasPriceCache(), {
+        maxRetries: 3,
+        initialDelay: 1000,
+        maxDelay: 4000,
+        onRetry: (attempt, error) => {
+          this.auditLogger.info('Retrying gas price update', {
+            attempt,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        },
+      });
     } catch (error) {
       this.auditLogger.warn(
-        'Failed to fetch gas price, skipping message processing',
+        'Failed to fetch gas price after retries, skipping message processing',
         error
       );
       return; // Skip this batch
@@ -1193,7 +1215,27 @@ export class SigningWorker extends BaseWorker<
         }
       );
 
-      // Check if error is recoverable
+      // Check if it's a network error - move to DLQ (RETRYING status)
+      if (isNetworkError(error)) {
+        this.auditLogger.info(
+          'Network error detected, moving to DLQ for later retry',
+          {
+            requestId,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
+
+        // Update status to RETRYING - indicates moved to DLQ
+        await this.withdrawalRequestService.updateStatusWithError(
+          requestId,
+          TransactionStatus.RETRYING,
+          `Network error: ${error instanceof Error ? error.message : String(error)}`
+        );
+
+        throw error; // Let the caller handle DLQ movement
+      }
+
+      // Check if error is recoverable (other than network errors)
       const errorMessage =
         error instanceof Error
           ? error.message.toLowerCase()

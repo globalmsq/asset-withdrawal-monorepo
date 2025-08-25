@@ -42,13 +42,42 @@ export class TxMonitorApp {
   private setupRoutes(): void {
     // Health check endpoint
     this.app.get('/health', (req, res) => {
+      // Get WebSocket connection status with reconnection stats
+      const wsConnectionStatus = this.webSocketService.getConnectionStatus();
+      const wsDetailedStatus: any = {};
+
+      // Add reconnection statistics for each chain
+      for (const [key, isConnected] of wsConnectionStatus.entries()) {
+        const [chain, network] = key.split('-');
+        const stats = this.chainService.getReconnectionStats(chain, network);
+
+        wsDetailedStatus[key] = {
+          connected: isConnected,
+          reconnectStats: stats || {
+            success: 0,
+            failure: 0,
+            circuitState: 'closed',
+          },
+        };
+      }
+
       const status = {
         status: this.isRunning ? 'healthy' : 'starting',
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
         services: {
           monitor: this.isRunning,
-          websocket: this.webSocketService.getConnectionStatus(),
+          websocket: {
+            connections: wsDetailedStatus,
+            summary: {
+              total: wsConnectionStatus.size,
+              connected: Array.from(wsConnectionStatus.values()).filter(v => v)
+                .length,
+              disconnected: Array.from(wsConnectionStatus.values()).filter(
+                v => !v
+              ).length,
+            },
+          },
           polling: this.pollingService.getPollingStatus(),
         },
       };

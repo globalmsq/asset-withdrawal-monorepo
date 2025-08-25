@@ -1375,11 +1375,91 @@
         ],
         "priority": "medium",
         "subtasks": []
+      },
+      {
+        "id": 36,
+        "title": "[BFS-83] Nonce 관리 개선 - 네트워크 에러 복구 및 Gap 방지 시스템",
+        "jiraKey": "BFS-83",
+        "description": "signing-service의 nonce 관리 시스템을 개선하여 네트워크 에러 시 발생하는 nonce gap 문제를 해결하고, 실패한 nonce의 재사용 메커니즘과 RETRYING 상태를 도입합니다.",
+        "details": "**구현 목표**\n- Nonce gap 문제를 근본적으로 해결하는 견고한 nonce 관리 시스템 구축\n- 네트워크 에러 시 빠른 복구와 nonce 재사용을 통한 효율성 향상\n- Gas 계산 순서 최적화로 불필요한 nonce 할당 방지\n\n**1. Nonce 반환 풀 시스템 구현**\n- `packages/shared/src/redis/nonce-pool.service.ts` 생성\n- 실패한 트랜잭션의 nonce를 재사용 가능한 풀로 반환\n```typescript\ninterface NoncePool {\n  returnNonce(chainId: string, address: string, nonce: number): Promise<void>;\n  getAvailableNonce(chainId: string, address: string): Promise<number | null>;\n  clearPool(chainId: string, address: string): Promise<void>;\n}\n```\n- Redis Sorted Set 활용: `nonce_pool:${chainId}:${address}`\n- 반환된 nonce를 오름차순으로 정렬하여 저장\n- 새 nonce 할당 시 풀에서 먼저 확인 후 없으면 카운터 증가\n\n**2. Gas 계산 시점 변경**\n- `apps/signing-service/src/workers/signing-worker.ts` 수정\n- Nonce 할당 전에 gas estimation 수행\n```typescript\n// Before\nconst nonce = await this.nonceService.getNextNonce(chainId, address);\nconst gasLimit = await this.estimateGas(transaction);\n\n// After\nconst gasLimit = await this.estimateGas(transaction);\nif (!gasLimit) {\n  throw new GasEstimationError('Failed to estimate gas');\n}\nconst nonce = await this.nonceService.getNextNonce(chainId, address);\n```\n- Gas 계산 실패 시 nonce 할당하지 않음\n- 불필요한 nonce 소비 방지\n\n**3. RETRYING 상태 도입 및 DLQ 처리**\n- Prisma 스키마에 RETRYING 상태 추가\n```prisma\nenum WithdrawalStatus {\n  PENDING\n  SIGNED\n  BROADCASTING\n  RETRYING      // 새로운 상태\n  COMPLETED\n  FAILED\n}\n```\n- 네트워크 에러 감지 로직 구현\n```typescript\ninterface NetworkErrorDetector {\n  isNetworkError(error: Error): boolean;\n  isRetryableError(error: Error): boolean;\n  getRetryDelay(attemptNumber: number): number;\n}\n```\n- 네트워크 에러 시 즉시 DLQ로 전송하고 상태를 RETRYING으로 변경\n- Nonce를 풀로 반환하여 재사용 가능하게 함\n\n**4. 블록체인 초기화 재시도 로직**\n- `apps/signing-service/src/services/blockchain.service.ts` 개선\n- Provider 초기화 실패 시 exponential backoff 재시도\n```typescript\nclass BlockchainService {\n  private async initializeWithRetry(\n    maxAttempts = 5,\n    baseDelay = 1000\n  ): Promise<void> {\n    for (let attempt = 1; attempt <= maxAttempts; attempt++) {\n      try {\n        await this.initialize();\n        return;\n      } catch (error) {\n        if (attempt === maxAttempts) throw error;\n        const delay = baseDelay * Math.pow(2, attempt - 1);\n        await sleep(delay);\n      }\n    }\n  }\n}\n```\n\n**5. Nonce Gap 감지 및 자동 복구**\n- 주기적으로 nonce gap 확인하는 모니터링 작업 추가\n- Gap 발견 시 누락된 nonce를 풀에 추가\n```typescript\nclass NonceGapMonitor {\n  async detectGaps(chainId: string, address: string): Promise<number[]> {\n    const currentNonce = await this.getCurrentNonce(chainId, address);\n    const pendingNonces = await this.getPendingNonces(chainId, address);\n    const gaps = [];\n    \n    for (let i = currentNonce; i < Math.max(...pendingNonces); i++) {\n      if (!pendingNonces.includes(i)) {\n        gaps.push(i);\n      }\n    }\n    return gaps;\n  }\n}\n```\n\n**6. 메트릭 및 모니터링**\n- Nonce 풀 크기 추적\n- Gap 발생 빈도 모니터링\n- 재시도 성공률 측정\n- 평균 복구 시간 추적",
+        "testStrategy": "**1. Nonce 풀 시스템 테스트**\n- 트랜잭션 실패 시 nonce가 풀로 정상 반환되는지 확인\n- 풀에서 nonce 재사용 시 오름차순으로 할당되는지 검증\n- 동시 요청 시 nonce 중복 할당 방지 테스트\n- 풀 클리어 기능 정상 동작 확인\n\n**2. Gas 계산 순서 테스트**\n- Gas estimation 실패 시 nonce가 할당되지 않는지 확인\n- Gas 계산 성공 후에만 nonce 증가하는지 검증\n- 다양한 트랜잭션 타입에 대한 gas 계산 정확성 테스트\n\n**3. RETRYING 상태 및 DLQ 처리 테스트**\n- 네트워크 에러 시뮬레이션 (ECONNREFUSED, ETIMEDOUT)\n- 에러 발생 시 상태가 RETRYING으로 변경되는지 확인\n- DLQ로 메시지가 전송되고 nonce가 풀로 반환되는지 검증\n- 재시도 가능한 에러와 영구 실패 구분 테스트\n\n**4. 블록체인 초기화 재시도 테스트**\n- Provider 연결 실패 시나리오 재현\n- Exponential backoff 지연 시간 정확성 검증\n- 최대 재시도 횟수 도달 시 적절한 에러 처리 확인\n- 재시도 중 연결 복구 시 정상 초기화 확인\n\n**5. Nonce Gap 감지 및 복구 테스트**\n- 의도적으로 nonce gap 생성 (예: 1, 2, 5 사용 시 3, 4 gap)\n- NonceGapMonitor가 gap을 정확히 감지하는지 확인\n- 감지된 gap nonce가 풀에 추가되는지 검증\n- Gap 복구 후 순차적 nonce 할당 재개 확인\n\n**6. 통합 시나리오 테스트**\n- 대량 트랜잭션 처리 중 간헐적 네트워크 에러 발생 시나리오\n- Nonce gap 없이 모든 트랜잭션이 최종 처리되는지 확인\n- 재시도 메커니즘과 풀 시스템의 조화로운 동작 검증\n- 성능 벤치마크: 개선 전후 처리 속도 및 성공률 비교",
+        "status": "in-progress",
+        "dependencies": [
+          34,
+          35,
+          11,
+          15
+        ],
+        "priority": "medium",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "[BFS-84] Nonce Pool 시스템 구현 및 Redis 연동",
+            "description": "실패한 트랜잭션의 nonce를 재사용 가능한 풀로 관리하는 시스템을 구현하고 Redis Sorted Set을 활용하여 효율적인 nonce 재사용 메커니즘을 구축합니다.",
+            "dependencies": [],
+            "details": "packages/shared/src/redis/nonce-pool.service.ts 파일을 생성하여 NoncePool 인터페이스를 구현합니다. returnNonce 메서드로 실패한 nonce를 풀에 반환하고, getAvailableNonce로 재사용 가능한 가장 작은 nonce를 반환합니다. Redis Sorted Set을 사용하여 nonce_pool:${chainId}:${address} 키로 nonce를 오름차순 정렬하여 저장합니다. clearPool 메서드로 특정 주소의 풀을 초기화하는 기능도 포함합니다. 동시성 제어를 위해 Redis 트랜잭션과 Lua 스크립트를 활용하여 원자적 연산을 보장합니다.",
+            "status": "pending",
+            "testStrategy": "단위 테스트로 nonce 반환 및 할당 로직을 검증하고, 동시 요청 시나리오에서 중복 할당이 발생하지 않는지 확인합니다. Redis Mock을 사용하여 Sorted Set 동작을 시뮬레이션하고, 풀 클리어 기능이 정상 작동하는지 테스트합니다.",
+            "jiraKey": "BFS-84"
+          },
+          {
+            "id": 2,
+            "title": "[BFS-85] Gas 계산 우선 실행 및 Nonce 할당 최적화",
+            "description": "트랜잭션 처리 순서를 변경하여 gas estimation을 nonce 할당 이전에 수행하도록 하고, gas 계산 실패 시 불필요한 nonce 소비를 방지합니다.",
+            "dependencies": [
+              "36.1"
+            ],
+            "details": "apps/signing-service/src/workers/signing-worker.ts를 수정하여 processSigningTask 메서드의 실행 순서를 변경합니다. estimateGas 함수를 먼저 호출하여 gas limit을 계산하고, 성공한 경우에만 nonceService.getNextNonce를 호출합니다. GasEstimationError 클래스를 정의하여 gas 계산 실패를 명확하게 처리하고, 실패 시 즉시 에러를 throw하여 nonce 할당을 방지합니다. 또한 gas 계산 재시도 로직을 구현하여 일시적인 네트워크 문제에 대응합니다.",
+            "status": "pending",
+            "testStrategy": "gas estimation 실패 시나리오를 Mock으로 구현하여 nonce가 증가하지 않는지 검증합니다. 정상적인 gas 계산 후 nonce 할당이 올바르게 동작하는지 확인하고, 다양한 트랜잭션 타입에 대한 gas 계산 정확성을 테스트합니다.",
+            "jiraKey": "BFS-85"
+          },
+          {
+            "id": 3,
+            "title": "[BFS-86] RETRYING 상태 추가 및 네트워크 에러 감지 시스템",
+            "description": "Prisma 스키마에 RETRYING 상태를 추가하고, 네트워크 에러를 감지하여 자동으로 재시도 가능한 트랜잭션을 식별하고 처리하는 시스템을 구현합니다.",
+            "dependencies": [
+              "36.1",
+              "36.2"
+            ],
+            "details": "prisma/schema.prisma의 WithdrawalStatus enum에 RETRYING 상태를 추가하고 마이그레이션을 실행합니다. packages/shared/src/errors/network-error-detector.ts를 생성하여 NetworkErrorDetector 인터페이스를 구현합니다. isNetworkError 메서드로 ECONNREFUSED, ETIMEDOUT 등의 네트워크 관련 에러를 식별하고, isRetryableError로 재시도 가능 여부를 판단합니다. getRetryDelay 메서드로 exponential backoff 전략에 따른 재시도 지연 시간을 계산합니다. 네트워크 에러 발생 시 트랜잭션 상태를 RETRYING으로 변경하고, nonce를 풀로 반환한 후 DLQ로 메시지를 전송하는 로직을 구현합니다.\n<info added on 2025-08-22T06:37:35.117Z>\n**중요 변경사항 반영**\n\nRETRYING 상태의 의미를 기존 \"즉시 재시도\" 대신 \"DLQ로 이동된 상태\"로 명확히 정의합니다. nonce 할당 후 실패한 모든 경우(에러 종류 무관)에 대해 무조건 nonce를 풀로 반환하도록 로직을 수정합니다.\n\n에러 분류 및 처리 전략을 세분화하여 네트워크 에러(ECONNREFUSED, ETIMEDOUT 등)일 때만 RETRYING 상태로 변경하고 DLQ로 메시지를 이동시키며, 네트워크 에러가 아닌 경우는 FAILED 상태로 처리합니다.\n\nGas estimation 및 gas price 조회 단계에서만 3회 재시도를 적용하여 불필요한 nonce 할당을 방지하고, nonce 할당 후 발생하는 실패에는 즉시 nonce 반환 후 상태 변경만 수행합니다.\n\nDLQ 처리 서비스는 현재 task 범위에서 제외하고 메시지 이동까지만 구현하며, 실제 DLQ 메시지 처리는 별도 task에서 다루도록 명확히 범위를 제한합니다.\n</info added on 2025-08-22T06:37:35.117Z>",
+            "status": "pending",
+            "testStrategy": "다양한 네트워크 에러 타입에 대한 감지 정확성을 테스트하고, RETRYING 상태 전환이 올바르게 동작하는지 검증합니다. DLQ 전송 및 nonce 반환이 원자적으로 실행되는지 확인하고, exponential backoff 계산이 정확한지 테스트합니다.",
+            "jiraKey": "BFS-86"
+          },
+          {
+            "id": 4,
+            "title": "[BFS-87] 블록체인 서비스 초기화 재시도 및 복구 메커니즘",
+            "description": "블록체인 Provider 초기화 실패 시 exponential backoff를 적용한 재시도 로직을 구현하고, 연결 복구를 자동화합니다.",
+            "dependencies": [
+              "36.3"
+            ],
+            "details": "apps/signing-service/src/services/blockchain.service.ts를 개선하여 initializeWithRetry 메서드를 추가합니다. 최대 5회까지 재시도하며, 각 시도마다 2의 제곱수로 지연 시간을 증가시킵니다 (1초, 2초, 4초, 8초, 16초). Provider 연결 상태를 주기적으로 확인하는 health check 메커니즘을 구현하고, 연결이 끊어진 경우 자동으로 재연결을 시도합니다. Circuit Breaker 패턴을 적용하여 연속된 실패 시 일정 시간 동안 요청을 차단하고, 복구 후 점진적으로 트래픽을 증가시킵니다.",
+            "status": "pending",
+            "testStrategy": "Provider 초기화 실패 시나리오를 시뮬레이션하여 재시도 로직이 정상 동작하는지 확인합니다. exponential backoff 지연 시간이 올바르게 계산되는지 검증하고, Circuit Breaker의 상태 전환이 정확한지 테스트합니다.",
+            "jiraKey": "BFS-87"
+          },
+          {
+            "id": 5,
+            "title": "[BFS-88] Nonce Gap 자동 감지 및 복구 시스템",
+            "description": "주기적으로 nonce gap을 모니터링하여 감지하고, 발견된 gap을 자동으로 복구하는 시스템을 구현합니다.",
+            "dependencies": [
+              "36.1",
+              "36.2",
+              "36.3",
+              "36.4"
+            ],
+            "details": "packages/shared/src/monitoring/nonce-gap-monitor.ts를 생성하여 NonceGapMonitor 클래스를 구현합니다. detectGaps 메서드로 현재 온체인 nonce와 pending 트랜잭션의 nonce를 비교하여 gap을 식별합니다. 발견된 gap의 nonce들을 자동으로 재사용 풀에 추가하는 recoverGaps 메서드를 구현합니다. Cron job으로 1분마다 gap 감지를 실행하고, gap 발생 시 알림을 전송합니다. Prometheus 메트릭으로 nonce 풀 크기, gap 발생 빈도, 재시도 성공률, 평균 복구 시간을 추적합니다. Grafana 대시보드를 구성하여 nonce 관리 상태를 실시간으로 모니터링할 수 있도록 합니다.",
+            "status": "pending",
+            "testStrategy": "인위적으로 nonce gap을 생성하여 감지 알고리즘이 정확하게 식별하는지 테스트합니다. gap 복구 프로세스가 올바르게 동작하여 풀에 nonce가 추가되는지 확인하고, 메트릭 수집 및 알림 전송이 정상적으로 이루어지는지 검증합니다.",
+            "jiraKey": "BFS-88"
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-08-21T12:14:42.204Z",
+      "updated": "2025-08-22T01:29:39.754Z",
       "description": "Tasks for master context"
     }
   }

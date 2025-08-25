@@ -73,6 +73,40 @@ export const config = {
     },
   },
 
+  // WebSocket Reconnection Configuration
+  reconnection: {
+    // Short-term reconnection settings (exponential backoff)
+    maxAttempts: parseInt(process.env.WS_RECONNECT_MAX_ATTEMPTS || '5', 10),
+    initialDelay: parseInt(
+      process.env.WS_RECONNECT_INITIAL_DELAY || '5000',
+      10
+    ), // 5 seconds
+    backoffMultiplier: parseFloat(
+      process.env.WS_RECONNECT_BACKOFF_MULTIPLIER || '2'
+    ),
+    maxBackoffDelay: parseInt(
+      process.env.WS_RECONNECT_MAX_BACKOFF || '80000',
+      10
+    ), // 80 seconds
+
+    // Long-term reconnection settings (after max attempts)
+    longTermInterval: parseInt(
+      process.env.WS_RECONNECT_LONG_TERM_INTERVAL || '300000',
+      10
+    ), // 5 minutes
+    maxLongTermAttempts: parseInt(
+      process.env.WS_RECONNECT_MAX_LONG_TERM_ATTEMPTS || '0',
+      10
+    ), // 0 = unlimited
+
+    // Circuit breaker settings
+    enableCircuitBreaker: process.env.WS_CIRCUIT_BREAKER_ENABLED !== 'false',
+    circuitBreakerResetTime: parseInt(
+      process.env.WS_CIRCUIT_BREAKER_RESET_TIME || '600000',
+      10
+    ), // 10 minutes
+  },
+
   // Timeouts
   timeouts: {
     mempoolDropTimeout: parseInt(
@@ -82,7 +116,7 @@ export const config = {
     websocketReconnectDelay: parseInt(
       process.env.WEBSOCKET_RECONNECT_DELAY || '5000',
       10
-    ), // 5 seconds
+    ), // 5 seconds (deprecated - use reconnection.initialDelay)
   },
 
   // Logging

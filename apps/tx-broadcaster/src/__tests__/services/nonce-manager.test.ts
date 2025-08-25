@@ -1,13 +1,82 @@
 import { NonceManager, QueuedTransaction } from '../../services/nonce-manager';
 import { LoggerService } from '@asset-withdrawal/shared';
 
-// Mock LoggerService
+// Mock Redis
+jest.mock('ioredis', () => {
+  return jest.fn().mockImplementation(() => ({
+    connect: jest.fn().mockResolvedValue(undefined),
+    quit: jest.fn().mockResolvedValue(undefined),
+    on: jest.fn(),
+    hset: jest.fn().mockResolvedValue(1),
+    hget: jest.fn().mockResolvedValue(null),
+    hdel: jest.fn().mockResolvedValue(1),
+    hkeys: jest.fn().mockResolvedValue([]),
+    hvals: jest.fn().mockResolvedValue([]),
+    del: jest.fn().mockResolvedValue(1),
+    exists: jest.fn().mockResolvedValue(0),
+    sadd: jest.fn().mockResolvedValue(1),
+    smembers: jest.fn().mockResolvedValue([]),
+    srem: jest.fn().mockResolvedValue(1),
+  }));
+});
+
+// Mock LoggerService and NoncePoolService from shared
 jest.mock('@asset-withdrawal/shared', () => ({
   LoggerService: jest.fn().mockImplementation(() => ({
     info: jest.fn(),
     debug: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+  })),
+  NoncePoolService: jest.fn().mockImplementation(() => ({
+    addNonce: jest.fn().mockResolvedValue(undefined),
+    getNextNonce: jest.fn().mockResolvedValue(null),
+    removeNonce: jest.fn().mockResolvedValue(undefined),
+    getPoolStats: jest
+      .fn()
+      .mockResolvedValue({ totalNonces: 0, availableNonces: 0 }),
+    clearPool: jest.fn().mockResolvedValue(undefined),
+    hasNonce: jest.fn().mockResolvedValue(false),
+  })),
+  BlockchainError: class BlockchainError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'BlockchainError';
+    }
+  },
+}));
+
+// Mock the complete redis-client module
+const mockRedisClient = {
+  connect: jest.fn().mockResolvedValue(undefined),
+  quit: jest.fn().mockResolvedValue(undefined),
+  on: jest.fn(),
+  hset: jest.fn().mockResolvedValue(1),
+  hget: jest.fn().mockResolvedValue(null),
+  hdel: jest.fn().mockResolvedValue(1),
+  hkeys: jest.fn().mockResolvedValue([]),
+  hvals: jest.fn().mockResolvedValue([]),
+  del: jest.fn().mockResolvedValue(1),
+  exists: jest.fn().mockResolvedValue(0),
+  sadd: jest.fn().mockResolvedValue(1),
+  smembers: jest.fn().mockResolvedValue([]),
+  srem: jest.fn().mockResolvedValue(1),
+  zadd: jest.fn().mockResolvedValue(1),
+  zpopmin: jest.fn().mockResolvedValue([]),
+  zcard: jest.fn().mockResolvedValue(0),
+  zrange: jest.fn().mockResolvedValue([]),
+  zremrangebyscore: jest.fn().mockResolvedValue(0),
+};
+
+jest.mock('../../services/redis-client', () => ({
+  getRedisClient: jest.fn().mockResolvedValue(mockRedisClient),
+  NonceRedisService: jest.fn().mockImplementation(() => ({
+    getPendingTransactions: jest.fn().mockResolvedValue([]),
+    addPendingTransaction: jest.fn().mockResolvedValue(undefined),
+    removePendingTransaction: jest.fn().mockResolvedValue(undefined),
+    updateTransactionNonce: jest.fn().mockResolvedValue(undefined),
+    clearPendingTransactions: jest.fn().mockResolvedValue(undefined),
+    getTransactionsByAddress: jest.fn().mockResolvedValue([]),
   })),
 }));
 

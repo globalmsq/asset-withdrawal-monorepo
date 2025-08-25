@@ -1,5 +1,5 @@
 import { TransactionSigner } from '../../services/transaction-signer';
-import { ChainProvider } from '@asset-withdrawal/shared';
+import { ChainProvider, GasEstimationError } from '@asset-withdrawal/shared';
 import { SecureSecretsManager } from '../../services/secrets-manager';
 import { NonceCacheService } from '../../services/nonce-cache.service';
 import { GasPriceCache } from '../../services/gas-price-cache';
@@ -452,7 +452,7 @@ describe('TransactionSigner', () => {
 
       await expect(
         transactionSigner.signTransaction(transactionData)
-      ).rejects.toThrow('Failed to fetch gas price from provider');
+      ).rejects.toThrow(GasEstimationError);
     });
   });
 
@@ -723,7 +723,7 @@ describe('TransactionSigner', () => {
 
       await expect(
         transactionSigner.signBatchTransaction(batchRequest)
-      ).rejects.toThrow('Failed to fetch gas price from provider');
+      ).rejects.toThrow(GasEstimationError);
     });
   });
 
@@ -923,7 +923,7 @@ describe('TransactionSigner', () => {
 
       await expect(
         transactionSigner.signBatchTransactionWithSplitting(batchRequest)
-      ).rejects.toThrow('Failed to fetch gas price from provider');
+      ).rejects.toThrow(GasEstimationError);
     });
   });
 

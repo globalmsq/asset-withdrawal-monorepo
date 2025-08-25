@@ -1,6 +1,6 @@
 # Task ID: 12
 # Title: [BFS-5] tx-broadcaster 서비스 구현
-# Status: in-progress
+# Status: done
 # Dependencies: 11
 # Priority: high
 # Description: 서명된 트랜잭션을 Polygon 네트워크에 브로드캐스트하고 database 패키지를 통해 트랜잭션 상태를 직접 관리하는 서비스 개발
@@ -128,9 +128,9 @@ RetryService 구현 (지수 백오프 알고리즘), nonce 충돌 감지 및 처
 ### Details:
 
 
-## 10. Nonce 순서 보장 시스템 구현 [pending]
+## 10. Nonce 순서 보장 시스템 구현 [done]
 ### Dependencies: 12.12
-### Description: NonceManager 서비스를 생성하여 주소별 nonce 추적 및 관리, Redis 기반 상태 관리, nonce 갭 감지 및 복구 메커니즘을 구현합니다.
+### Description: NonceManager 서비스를 생성하여 주소별 nonce 추적 및 관리, Redis 기반 상태 관리, nonce 갭 감지 및 복구 메커니즘을 구현합니다. [Updated: 2025. 8. 7.]
 ### Details:
 **구현 목표**
 - 블록체인 트랜잭션의 nonce 순서를 보장하는 중앙화된 관리 시스템 구축
@@ -193,10 +193,64 @@ interface NonceGap {
 - Redis 분산 락을 사용한 주소별 nonce 할당 동시성 제어
 - Lock timeout 설정을 통한 데드락 방지
 - Lock 획득 실패 시 재시도 로직 구현
+<info added on 2025-08-07T12:45:39.158Z>
+**수정된 구현 목표**
+- tx-broadcaster 서비스 내부에 NonceManager 클래스를 구현하여 주소별 트랜잭션 순차 처리
+- 메모리 기반 주소별 큐 관리로 nonce 순서 보장
+- Redis 대신 인메모리 데이터 구조를 사용한 경량화된 nonce 관리
 
-## 11. 트랜잭션 큐 순서 보장 구현 [pending]
+**1. 내부 NonceManager 클래스 구현**
+- `apps/tx-broadcaster/src/services/nonce-manager.ts` 파일에 구현
+- 주소별 트랜잭션 큐 관리를 위한 인터페이스 및 클래스
+```typescript
+interface QueuedTransaction {
+  txHash: string;
+  nonce: number;
+  signedTx: string;
+  timestamp: Date;
+}
+
+class NonceManager {
+  private pendingTransactions = new Map<string, QueuedTransaction[]>(); // 주소별 트랜잭션 큐
+  private lastBroadcastedNonce = new Map<string, number>(); // 주소별 마지막 브로드캐스트된 nonce
+  private processingAddresses = new Set<string>(); // 현재 처리 중인 주소들
+
+  async queueTransaction(address: string, transaction: QueuedTransaction): Promise<void>;
+  async processNextTransaction(address: string): Promise<QueuedTransaction | null>;
+  isAddressProcessing(address: string): boolean;
+  setAddressProcessing(address: string, processing: boolean): void;
+}
+```
+
+**2. 메모리 기반 주소별 큐 관리**
+- pendingTransactions Map: 주소별로 대기 중인 트랜잭션들을 nonce 순서대로 저장
+- 트랜잭션 추가 시 nonce 순서에 따라 큐에 삽입
+- 트랜잭션 처리 시 FIFO 순서로 dequeue 처리
+
+**3. 순차 처리 보장 메커니즘**
+- processingAddresses Set으로 동일 주소의 동시 처리 방지
+- 주소별로 한 번에 하나의 트랜잭션만 브로드캐스트 처리
+- 트랜잭션 완료 후 다음 대기 중인 트랜잭션 자동 처리
+
+**4. Nonce 추적 및 검증**
+- lastBroadcastedNonce Map으로 주소별 마지막 성공 nonce 추적
+- 새 트랜잭션의 nonce가 예상 값(lastNonce + 1)과 일치하는지 검증
+- nonce 순서가 맞지 않는 트랜잭션은 큐에서 대기
+
+**5. tx-broadcaster와의 통합**
+- SQS 메시지 처리 시 NonceManager를 통해 트랜잭션 큐잉
+- 브로드캐스트 성공/실패 시 lastBroadcastedNonce 업데이트
+- 주소별 순차 처리를 통한 nonce 충돌 원천 방지
+</info added on 2025-08-07T12:45:39.158Z>
+<info added on 2025-08-07T12:52:57.762Z>
+**Jira 연동 정보**
+- Jira 키: BFS-74
+- 상위 작업: BFS-5 (tx-broadcaster 서비스 구현)
+</info added on 2025-08-07T12:52:57.762Z>
+
+## 11. 트랜잭션 큐 순서 보장 구현 [done]
 ### Dependencies: 12.12
-### Description: 같은 주소의 트랜잭션은 nonce 순서로 순차 처리하고, 다른 주소의 트랜잭션은 병렬 처리할 수 있는 TransactionQueue 서비스를 구현하여 트랜잭션 처리 효율성과 블록체인 규칙 준수를 보장합니다.
+### Description: 같은 주소의 트랜잭션은 nonce 순서로 순차 처리하고, 다른 주소의 트랜잭션은 병렬 처리할 수 있는 TransactionQueue 서비스를 구현하여 트랜잭션 처리 효율성과 블록체인 규칙 준수를 보장합니다. [Updated: 2025. 8. 7.]
 ### Details:
 **구현 목표**
 - 주소별 트랜잭션 큐를 분리하여 동일 주소 내 순차 처리와 주소간 병렬 처리 구현
@@ -241,10 +295,54 @@ class TransactionQueue {
 - tx-broadcaster에서 큐로부터 순차적으로 트랜잭션 가져와 브로드캐스트
 - 처리 완료 시 해당 주소 락 해제 및 다음 트랜잭션 활성화
 - 실패한 트랜잭션의 재시도 및 DLQ 처리
+<info added on 2025-08-07T12:46:34.680Z>
+**NonceManager와 SQS 메시지 처리 통합 설계**
 
-## 12. Nonce 갭 복구 전략 구현 [pending]
+**1. SQS 메시지 수신 및 NonceManager 통합**
+- tx-broadcaster에서 signed-tx-queue SQS 메시지 폴링 시 NonceManager 초기화
+- 메시지 수신 시 fromAddress를 키로 NonceManager.getQueue() 호출하여 주소별 큐 접근
+- NonceManager 인터페이스에 addTransaction(address, transaction) 메서드 추가
+- SQS 메시지 파싱 후 즉시 NonceManager에 트랜잭션 추가하여 주소별 큐잉 구현
+
+**2. NonceManager 기반 순차/병렬 처리 로직**
+- NonceManager.getNextTransaction() 메서드로 처리 가능한 트랜잭션 선택
+- 동일 주소 내에서는 nonce 순서 보장을 위해 이전 트랜잭션 완료 대기
+- 다른 주소의 트랜잭션은 독립적으로 병렬 처리 가능하도록 주소별 처리 상태 분리
+- Worker 풀 패턴 적용하여 여러 주소의 트랜잭션을 동시 브로드캐스트
+
+**3. 통합 포인트 및 메시지 처리 흐름**
+```typescript
+// SQS 메시지 처리 통합점
+async processSignedTransaction(sqsMessage) {
+  const transaction = JSON.parse(sqsMessage.body);
+  await nonceManager.addTransaction(transaction.fromAddress, transaction);
+  
+  // 처리 가능한 트랜잭션 즉시 브로드캐스트 시작
+  this.triggerProcessing();
+}
+
+// NonceManager를 통한 순차 처리
+async processNextTransactions() {
+  const availableTransactions = await nonceManager.getReadyTransactions();
+  await Promise.all(availableTransactions.map(tx => this.broadcastTransaction(tx)));
+}
+```
+
+**4. NonceManager와 기존 코드 연결점**
+- SQS Consumer에서 메시지 수신 즉시 NonceManager.addTransaction() 호출
+- 브로드캐스트 성공/실패 시 NonceManager.completeTransaction()으로 다음 트랜잭션 활성화
+- nonce 갭 발생 시 NonceManager의 재정렬 및 복구 메커니즘 활용
+- DLQ 처리 시에도 NonceManager를 통해 해당 주소의 다음 트랜잭션 처리 재개
+</info added on 2025-08-07T12:46:34.680Z>
+<info added on 2025-08-07T12:53:16.844Z>
+**Jira Issue 연결**
+- Jira Key: BFS-75
+- 해당 기능 구현을 위한 Jira 이슈가 생성되어 프로젝트 추적 시스템과 연동됨
+</info added on 2025-08-07T12:53:16.844Z>
+
+## 12. Nonce 갭 복구 전략 구현 [done]
 ### Dependencies: None
-### Description: 트랜잭션 nonce 갭 발생 시 자동 복구를 위한 실패 재시도, 더미 트랜잭션 갭 채우기, 복구 불가 시 관리자 알림, 모니터링 메트릭 시스템을 구현합니다.
+### Description: 트랜잭션 nonce 갭 발생 시 자동 복구를 위한 실패 재시도, 더미 트랜잭션 갭 채우기, 복구 불가 시 관리자 알림, 모니터링 메트릭 시스템을 구현합니다. [Updated: 2025. 8. 7.]
 ### Details:
 **구현 목표**
 - Nonce 갭 발생 시 자동 감지 및 복구 메커니즘 구현
@@ -278,4 +376,45 @@ interface RecoveryStrategy {
 - NonceManager에 갭 복구 로직 통합
 - 브로드캐스트 실패 시 자동 갭 복구 시도
 - 복구 진행 상황 로깅 및 상태 추적
+<info added on 2025-08-07T12:47:17.991Z>
+**수정된 구현 목표**
+- NONCE_TOO_HIGH 에러 발생 시 DLQ 전송에 집중
+- tx-broadcaster에서 nonce 충돌 감지 및 DLQ 전송 로직 구현
+- 실제 nonce gap 복구는 Recovery Service(Task 33)에서 담당
+
+**1. DLQ 전송 로직 구현**
+- `packages/tx-broadcaster/src/services/dlq-handler.service.ts` 생성
+- NONCE_TOO_HIGH 에러 감지 시 자동으로 DLQ로 메시지 전송
+- DLQ 메시지 포맷 정의:
+```typescript
+interface DLQMessage {
+  originalTransaction: SignedTransaction;
+  errorType: 'NONCE_TOO_HIGH';
+  nonceConflict: {
+    expectedNonce: number;
+    actualNonce: number;
+    conflictedAt: Date;
+  };
+  retryCount: number;
+  timestamp: Date;
+}
+```
+
+**2. tx-broadcaster 통합**
+- 브로드캐스트 실패 시 에러 타입 검사
+- NONCE_TOO_HIGH 감지 시 즉시 DLQ로 전송
+- 원본 트랜잭션 정보, nonce 충돌 상세 정보 포함
+- DLQ 전송 후 트랜잭션 상태를 FAILED_NONCE_CONFLICT로 업데이트
+
+**3. 에러 처리 및 로깅**
+- nonce 충돌 감지 시 상세 로그 기록
+- DLQ 전송 성공/실패 상태 추적
+- CloudWatch 메트릭: nonce_conflict_detected, dlq_messages_sent
+- 모니터링 알림: DLQ 전송 실패 시 즉시 알림
+</info added on 2025-08-07T12:47:17.991Z>
+<info added on 2025-08-07T12:53:37.319Z>
+**Jira 연결**
+- Jira Issue Key: BFS-76
+- 이 서브태스크는 Jira 이슈 BFS-76과 연결되어 추적됩니다.
+</info added on 2025-08-07T12:53:37.319Z>
 

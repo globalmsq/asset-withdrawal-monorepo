@@ -6,7 +6,7 @@
 # Description: DLQ(Dead Letter Queue) 메시지를 모니터링하고 에러 타입별로 자동 복구를 수행하는 중앙화된 Recovery Service를 구현하여 시스템 복원력을 향상시킵니다.
 # Details:
 **구현 목표**
-- 모든 DLQ(request-dlq, signed-tx-dlq, broadcast-tx-dlq)를 모니터링하는 중앙화된 서비스 구현
+- 모든 DLQ(tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq)를 모니터링하는 중앙화된 서비스 구현
 - 에러 타입별 자동 복구 전략으로 시스템 안정성 극대화
 - 복구 불가능한 메시지에 대한 영구 실패 처리 및 알림 시스템
 
@@ -16,7 +16,7 @@
 - 환경 변수 기반 DLQ 설정 및 복구 정책 관리
 
 **2. DLQ 모니터링 시스템**
-- DLQMonitor 클래스로 request-dlq, signed-tx-dlq, broadcast-tx-dlq 동시 모니터링
+- DLQMonitor 클래스로 tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq 동시 모니터링
 - 폴링 기반 메시지 수신 (기본 30초 간격, 설정 가능)
 - 메시지 분석을 위한 ErrorAnalyzer 구현
 ```typescript
@@ -51,7 +51,7 @@ interface RecoveryStrategy {
 
 # Test Strategy:
 **1. DLQ 모니터링 테스트**
-- 각 DLQ(request-dlq, signed-tx-dlq, broadcast-tx-dlq)에 테스트 메시지 전송
+- 각 DLQ(tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq)에 테스트 메시지 전송
 - DLQMonitor가 모든 큐에서 메시지를 정상 수신하는지 확인
 - 폴링 간격 설정 및 동시 처리 능력 테스트
 - 큐 연결 실패 시 재연결 로직 검증
@@ -86,10 +86,45 @@ interface RecoveryStrategy {
 ### Description: apps/recovery-service 디렉토리를 생성하고 Express 기반 웹 서버와 워커 프로세스의 기본 구조를 구축합니다.
 ### Details:
 apps/recovery-service 디렉토리 생성, package.json 및 tsconfig.json 설정, 환경 변수 설정 파일(.env 템플릿), Docker 설정 파일 작성, Express 기반 HTTP 서버 및 워커 프로세스 분리 구조 구현, 기본 미들웨어(cors, helmet, express.json) 설정, 헬스 체크 엔드포인트(/health) 구현, 로깅 시스템 초기화
+<info added on 2025-08-07T11:47:57.864Z>
+## Recovery Service Nonce Gap 처리 설계
+
+**Dummy TX 생성 및 서명 아키텍처**
+
+핵심 기능
+- Nonce Gap 감지 시 Dummy TX 자동 생성 기능 추가
+- Just-In-Time Private Key Loading을 통한 보안 강화된 Private Key 관리
+- TX-Broadcaster와의 실시간 상태 동기화 메커니즘
+
+보안 설계
+- 서명 시에만 AWS Secrets Manager에서 Private Key 로드하는 JIT 방식 구현
+- 서명 완료 후 즉시 메모리에서 Private Key 완전 제거
+- Value=0인 dummy TX만 서명 허용하는 보안 제약 적용
+- 분당 최대 10개 dummy TX 생성으로 Rate limiting 구현
+
+Dummy TX 처리 플로우
+1. DLQ에서 'nonce too high' 오류 메시지 감지
+2. Expected nonce와 actual nonce 간 차이 계산
+3. Gap 수만큼 value=0, from=to 설정의 dummy TX 생성
+4. AWS Secrets Manager에서 Private Key 임시 로드
+5. Dummy TX 서명 후 Polygon 네트워크에 즉시 브로드캐스트
+6. 메모리에서 Private Key 완전 제거
+7. TX-Broadcaster에 nonce 동기화 상태 알림 전송
+
+가스비 최적화
+- 네이티브 전송 최소 가스 limit인 21000으로 고정 설정
+- 네트워크 혼잡도에 따른 가스 가격 상한선 설정
+- 실시간 네트워크 상태 기반 가스 가격 동적 조정
+
+감사 및 모니터링
+- 모든 dummy TX 생성 및 서명 과정 CloudWatch 로깅
+- 가스비 소모량 추적 및 비용 모니터링
+- 비정상적인 dummy TX 생성 패턴 감지 알림
+</info added on 2025-08-07T11:47:57.864Z>
 
 ## 2. [BFS-55] DLQ 모니터링 시스템 구현 [pending]
 ### Dependencies: 33.1
-### Description: 모든 DLQ(request-dlq, signed-tx-dlq, broadcast-tx-dlq)를 동시에 모니터링하는 DLQMonitor 클래스를 구현합니다.
+### Description: 모든 DLQ(tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq)를 동시에 모니터링하는 DLQMonitor 클래스를 구현합니다.
 ### Details:
 DLQMonitor 클래스 구현으로 3개 DLQ 동시 폴링, SQS 메시지 수신 및 파싱 로직, 폴링 인터벌 30초 기본값으로 설정(환경변수로 조정 가능), 메시지 배치 처리 및 병렬 처리 지원, 연결 실패 시 재연결 로직, 메시지 수신 실패 로그 및 메트릭 기록, graceful shutdown 지원
 
@@ -113,7 +148,7 @@ REST API 엔드포인트 구현(/api/recovery/status, /api/recovery/trigger, /ap
 
 ## 6. [BFS-59] DLQMonitor 클래스 구현 - 다중 DLQ 동시 모니터링 시스템 [pending]
 ### Dependencies: None
-### Description: request-dlq, signed-tx-dlq, broadcast-tx-dlq 세 개의 DLQ를 동시에 모니터링하는 DLQMonitor 클래스를 구현합니다.
+### Description: tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq 세 개의 DLQ를 동시에 모니터링하는 DLQMonitor 클래스를 구현합니다.
 ### Details:
 src/services/dlq-monitor.service.ts 파일 생성, AWS SQS SDK를 사용한 다중 큐 폴링 구현, 폴링 간격 환경변수 설정(기본 30초), 메시지 수신 실패 시 재연결 로직, 각 DLQ별 독립적인 폴링 워커 스레드 생성, Promise.all을 사용한 병렬 처리 구현, 메시지 파싱 및 DLQMessage 인터페이스 정의
 
@@ -143,7 +178,7 @@ src/controllers/recovery.controller.ts 생성, GET /api/recovery/status (전체 
 
 ## 11. [BFS-64] DLQMonitor 클래스 및 기본 SQS 연결 구현 [pending]
 ### Dependencies: None
-### Description: 3개의 DLQ(request-dlq, signed-tx-dlq, broadcast-tx-dlq)를 동시에 모니터링할 수 있는 DLQMonitor 클래스의 기본 구조와 SQS 연결을 구현합니다.
+### Description: 3개의 DLQ(tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq)를 동시에 모니터링할 수 있는 DLQMonitor 클래스의 기본 구조와 SQS 연결을 구현합니다.
 ### Details:
 DLQMonitor 클래스 생성, 환경변수에서 DLQ URL 목록 읽기, AWS SQS Client 초기화, 각 큐별 연결 상태 관리, 연결 실패 시 재연결 로직 구현. SQSClient 인스턴스를 클래스 속성으로 관리하고, 큐 URL 배열을 통해 다중 큐 관리 구조 설계.
 
@@ -200,4 +235,15 @@ NonceErrorRecovery: withdrawal_requests 테이블에서 해당 요청의 상태�
 ### Description: 가스 관련 에러와 분류되지 않은 에러에 대한 복구 전략을 구현합니다. 가스 에러는 가스비 재계산 후 재시도하고, 알 수 없는 에러는 기본 재시도 로직을 적용합니다.
 ### Details:
 GasErrorRecovery: 현재 네트워크 상태 기반 가스비 재계산, Gas Price Oracle 연동으로 적정 가스비 산출, 재계산된 가스비로 트랜잭션 재생성 후 재시도, 최대 3회 가스비 조정 시도, UnknownErrorRecovery: 기본 선형 백오프로 재시도 (5초 간격), 최대 3회 재시도 후 수동 검토를 위한 별도 큐로 이동, 에러 상세 정보 로깅 및 관리자 알림
+
+## 21. [BFS-74] Dummy Transaction 생성 및 전송 시스템 구현 [pending]
+### Dependencies: None
+### Description: Recovery Service에서 NONCE_TOO_HIGH 에러 발생 시 nonce gap을 감지하고, dummy transaction을 생성하여 블록체인에 전송합니다. Dummy transaction은 from=to, value=0으로 설정하고, 누락된 nonce로 전송합니다. 전송 후 sent_transactions 테이블에만 기록하며, requestId=null, transactionSource='SYSTEM'으로 저장합니다. AWS Secrets Manager에서 Just-in-time으로 키를 로드하여 서명합니다. [Updated: 2025. 8. 7.] [Updated: 2025. 8. 7.]
+### Details:
+<info added on 2025-08-07T12:53:53.084Z>
+Jira 키 BFS-77이 해당 subtask에 연결되었습니다.
+</info added on 2025-08-07T12:53:53.084Z>
+<info added on 2025-08-07T12:54:13.959Z>
+제목이 '[BFS-74] Dummy Transaction 생성 및 전송 시스템 구현'에서 '[BFS-77] Dummy Transaction 생성 및 전송 시스템 구현'으로 변경되었습니다. Jira 키가 BFS-74에서 BFS-77로 업데이트되어 제목에 반영되었습니다.
+</info added on 2025-08-07T12:54:13.959Z>
 

@@ -23,6 +23,9 @@ export class WebSocketService {
 
     this.isListening = true;
 
+    // Set up event listeners for reconnection
+    this.setupReconnectionHandlers();
+
     // Get all loaded configurations from ChainService
     const loadedConfigs = this.chainService.getLoadedConfigurations();
 
@@ -33,6 +36,81 @@ export class WebSocketService {
     }
 
     logger.info('[WebSocketService] Started listening for blockchain events');
+  }
+
+  private setupReconnectionHandlers(): void {
+    // Handle WebSocket disconnection - trigger immediate polling
+    this.chainService.on(
+      'websocket-disconnected',
+      async ({ chain, network }) => {
+        logger.info(
+          `[WebSocketService] WebSocket disconnected for ${chain}-${network}, triggering immediate poll`
+        );
+
+        // Remove the listener for this chain
+        const key = `${chain}-${network}`;
+        const listener = this.blockListeners.get(key);
+        if (listener) {
+          this.blockListeners.delete(key);
+        }
+
+        // Trigger immediate polling for affected transactions
+        const activeTransactions = this.monitorService.getActiveTransactions();
+        const affectedTxs = Array.from(activeTransactions.values()).filter(
+          tx => tx.chain === chain && tx.network === network
+        );
+
+        if (affectedTxs.length > 0) {
+          logger.info(
+            `[WebSocketService] Checking ${affectedTxs.length} transactions via polling due to disconnection`
+          );
+          for (const tx of affectedTxs) {
+            await this.monitorService.checkTransaction(tx.txHash);
+          }
+        }
+      }
+    );
+
+    // Handle WebSocket reconnection - re-setup listeners and check missed blocks
+    this.chainService.on(
+      'websocket-reconnected',
+      async ({ chain, network, lastBlock, currentBlock }) => {
+        logger.info(
+          `[WebSocketService] WebSocket reconnected for ${chain}-${network}, checking blocks ${lastBlock + 1} to ${currentBlock}`
+        );
+
+        // Re-setup the chain listener
+        await this.setupChainListener(chain, network);
+
+        // Check for missed blocks
+        if (currentBlock > lastBlock) {
+          // Safety check: prevent checking too many blocks (e.g., on initial connection)
+          const MAX_BLOCKS_TO_CHECK = 1000;
+          const blocksToCheck = currentBlock - lastBlock;
+
+          if (blocksToCheck > MAX_BLOCKS_TO_CHECK) {
+            logger.warn(
+              `[WebSocketService] Too many blocks to check for ${chain}-${network} (${blocksToCheck} blocks). ` +
+                `Limiting to last ${MAX_BLOCKS_TO_CHECK} blocks to prevent performance issues.`
+            );
+            // Only check the most recent blocks
+            await this.checkMissedBlocks(
+              chain,
+              network,
+              currentBlock - MAX_BLOCKS_TO_CHECK + 1,
+              currentBlock
+            );
+          } else {
+            await this.checkMissedBlocks(
+              chain,
+              network,
+              lastBlock + 1,
+              currentBlock
+            );
+          }
+        }
+      }
+    );
   }
 
   private async setupChainListener(
@@ -64,14 +142,21 @@ export class WebSocketService {
 
       // Also set up pending transaction filter for our transactions
       const activeTransactions = this.monitorService.getActiveTransactions();
-      const chainTransactions = Array.from(activeTransactions.values())
-        .filter(tx => tx.chain === chain && tx.network === network)
-        .map(tx => tx.txHash);
+      const chainTransactions = Array.from(activeTransactions.values()).filter(
+        tx =>
+          tx.chain === chain &&
+          tx.network === network &&
+          (tx.status === 'SENT' || tx.status === 'CONFIRMING')
+      );
 
       if (chainTransactions.length > 0) {
+        logger.info(
+          `[WebSocketService] Setting up watchers for ${chainTransactions.length} active transactions on ${chain}-${network}`
+        );
+
         // Watch for specific transaction confirmations
-        for (const txHash of chainTransactions) {
-          this.watchTransaction(provider, txHash, chain, network);
+        for (const tx of chainTransactions) {
+          this.watchTransaction(provider, tx.txHash, chain, network);
         }
       }
 
@@ -181,8 +266,10 @@ export class WebSocketService {
       }
 
       // Calculate confirmations using the receipt we already have
+      // WebSocket event means transaction is included in a block - at least 1 confirmation
       const currentBlock = await provider.getBlockNumber();
-      const confirmations = currentBlock - receipt.blockNumber;
+      // Ensure we have at least 1 confirmation since the receipt exists
+      const confirmations = Math.max(1, currentBlock - receipt.blockNumber + 1);
       const requiredConfirmations =
         await this.chainService.getRequiredConfirmations(chain, network);
 
@@ -235,11 +322,11 @@ export class WebSocketService {
     blockNumber: number
   ): void {
     const confirmationListener = async (currentBlock: number) => {
-      const confirmations = currentBlock - blockNumber;
+      const confirmations = currentBlock - blockNumber + 1;
       const requiredConfirmations =
         await this.chainService.getRequiredConfirmations(chain, network);
 
-      logger.debug(
+      logger.info(
         `[WebSocketService] Transaction ${txHash} has ${confirmations}/${requiredConfirmations} confirmations`
       );
 
@@ -322,5 +409,61 @@ export class WebSocketService {
     }
 
     return status;
+  }
+
+  // Check missed blocks during disconnection
+  private async checkMissedBlocks(
+    chain: string,
+    network: string,
+    fromBlock: number,
+    toBlock: number
+  ): Promise<void> {
+    try {
+      logger.info(
+        `[WebSocketService] Re-checking active transactions for ${chain}-${network} after reconnection (blocks ${fromBlock} to ${toBlock})`
+      );
+
+      const activeTransactions = this.monitorService.getActiveTransactions();
+      const chainTransactions = Array.from(activeTransactions.values()).filter(
+        tx =>
+          tx.chain === chain &&
+          tx.network === network &&
+          (tx.status === 'SENT' || tx.status === 'CONFIRMING')
+      );
+
+      if (chainTransactions.length === 0) {
+        logger.info(
+          `[WebSocketService] No active transactions to check for ${chain}-${network}`
+        );
+        return;
+      }
+
+      logger.info(
+        `[WebSocketService] Checking ${chainTransactions.length} active transaction(s) for ${chain}-${network}`
+      );
+
+      // Concurrently check all potentially affected transactions.
+      // The monitorService.checkTransaction is idempotent and will handle fetching receipts
+      // and updating status and confirmations correctly.
+      const checkPromises = chainTransactions.map(tx =>
+        this.monitorService.checkTransaction(tx.txHash).catch(error => {
+          logger.error(
+            `[WebSocketService] Error checking transaction ${tx.txHash} during missed block recovery:`,
+            error
+          );
+        })
+      );
+
+      await Promise.all(checkPromises);
+
+      logger.info(
+        `[WebSocketService] Completed checking transactions for ${chain}-${network} after reconnection`
+      );
+    } catch (error) {
+      logger.error(
+        `[WebSocketService] Error during missed block recovery for ${chain}-${network}:`,
+        error
+      );
+    }
   }
 }

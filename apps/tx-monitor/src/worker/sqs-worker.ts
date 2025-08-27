@@ -59,8 +59,12 @@ export class SQSWorker {
     logger.info('[SQSWorker] Starting SQS worker for broadcast-tx-queue');
     this.isProcessing = true;
 
-    // Start polling for messages
-    await this.pollMessages();
+    // Start polling for messages asynchronously (don't await)
+    this.pollMessages().catch(error => {
+      logger.error('[SQSWorker] Fatal error in message polling:', error);
+    });
+
+    logger.info('[SQSWorker] SQS worker started successfully');
   }
 
   private async pollMessages(): Promise<void> {
@@ -150,7 +154,7 @@ export class SQSWorker {
 
         // Add WebSocket watch for real-time monitoring
         try {
-          await this.webSocketService.addTransactionWatch(
+          this.webSocketService.addTransactionToWatch(
             broadcastResult.broadcastTransactionHash,
             broadcastResult.chain,
             broadcastResult.network

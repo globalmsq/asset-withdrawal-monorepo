@@ -37,15 +37,29 @@ export class PollingService {
     // Immediate first poll
     this.pollTier(tierName);
 
-    // Set up interval
-    const interval = setInterval(async () => {
-      await this.pollTier(tierName);
-    }, tier.interval);
+    // For fast tier, use dual-speed polling
+    if (tierName === 'fast') {
+      // Poll every minute for new transactions, even though config says 5 minutes
+      const fastInterval = 60000; // 1 minute for fast checks
+      const interval = setInterval(async () => {
+        await this.pollTier(tierName);
+      }, fastInterval);
 
-    this.pollingIntervals.set(tierName, interval);
-    logger.info(
-      `[PollingService] Started ${tierName} tier polling (interval: ${tier.interval}ms)`
-    );
+      this.pollingIntervals.set(tierName, interval);
+      logger.info(
+        `[PollingService] Started ${tierName} tier polling with enhanced speed (interval: ${fastInterval}ms for new tx, config: ${tier.interval}ms)`
+      );
+    } else {
+      // Set up normal interval for medium and full tiers
+      const interval = setInterval(async () => {
+        await this.pollTier(tierName);
+      }, tier.interval);
+
+      this.pollingIntervals.set(tierName, interval);
+      logger.info(
+        `[PollingService] Started ${tierName} tier polling (interval: ${tier.interval}ms)`
+      );
+    }
   }
 
   private async pollTier(tierName: 'fast' | 'medium' | 'full'): Promise<void> {

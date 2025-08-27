@@ -54,20 +54,21 @@ export const config = {
     cacheSize: parseInt(process.env.CACHE_SIZE || '10000', 10),
   },
 
-  // Polling Tiers Configuration
+  // Polling Tiers Configuration - Now serves as backup for WebSocket
+  // Increased intervals since WebSocket handles real-time monitoring
   pollingTiers: {
     fast: {
-      interval: parseInt(process.env.FAST_POLLING_INTERVAL || '60000', 10), // 1 minute
-      maxAge: parseInt(process.env.FAST_POLLING_MAX_AGE || '300000', 10), // 5 minutes
+      interval: parseInt(process.env.FAST_POLLING_INTERVAL || '300000', 10), // 5 minutes (was 1 minute)
+      maxAge: parseInt(process.env.FAST_POLLING_MAX_AGE || '900000', 10), // 15 minutes (was 5 minutes)
       batchSize: parseInt(process.env.FAST_POLLING_BATCH_SIZE || '30', 10),
     },
     medium: {
-      interval: parseInt(process.env.MEDIUM_POLLING_INTERVAL || '600000', 10), // 10 minutes
-      maxAge: parseInt(process.env.MEDIUM_POLLING_MAX_AGE || '3600000', 10), // 1 hour
+      interval: parseInt(process.env.MEDIUM_POLLING_INTERVAL || '1800000', 10), // 30 minutes (was 10 minutes)
+      maxAge: parseInt(process.env.MEDIUM_POLLING_MAX_AGE || '7200000', 10), // 2 hours (was 1 hour)
       batchSize: parseInt(process.env.MEDIUM_POLLING_BATCH_SIZE || '50', 10),
     },
     full: {
-      interval: parseInt(process.env.FULL_POLLING_INTERVAL || '3600000', 10), // 1 hour
+      interval: parseInt(process.env.FULL_POLLING_INTERVAL || '7200000', 10), // 2 hours (was 1 hour)
       maxAge: Infinity,
       batchSize: parseInt(process.env.FULL_POLLING_BATCH_SIZE || '100', 10),
     },

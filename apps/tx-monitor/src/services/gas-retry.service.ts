@@ -43,6 +43,13 @@ export class GasRetryService {
         transaction.network
       );
 
+      if (!provider) {
+        logger.error(
+          `[gas-retry] No provider available for ${transaction.chain}-${transaction.network}`
+        );
+        return false;
+      }
+
       // Get stuck transaction criteria for this chain
       const criteria = this.getStuckTransactionCriteria(transaction.chain);
 
@@ -130,6 +137,13 @@ export class GasRetryService {
         transaction.chain,
         transaction.network
       );
+
+      if (!provider) {
+        logger.error(
+          `[gas-retry] No provider available for ${transaction.chain}-${transaction.network}`
+        );
+        return null;
+      }
 
       // Get current gas price
       const currentFeeData = await provider.getFeeData();

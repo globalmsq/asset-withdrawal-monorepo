@@ -51,9 +51,9 @@ const morganStream = {
 const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
 app.use(morgan(morganFormat, { stream: morganStream }));
 
-// Routes
-app.use('/auth', authRoutes);
-app.use('/withdrawal', withdrawalRoutes);
+// Routes - all API routes under /api prefix
+app.use('/api/auth', authRoutes);
+app.use('/api/withdrawal', withdrawalRoutes);
 
 /**
  * @swagger

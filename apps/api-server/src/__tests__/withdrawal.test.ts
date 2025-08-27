@@ -137,7 +137,7 @@ describe('Withdrawal API', () => {
       };
 
       const response = await request(app)
-        .post('/withdrawal/request')
+        .post('/api/withdrawal/request')
         .send(withdrawalData)
         .expect(201);
 
@@ -153,7 +153,7 @@ describe('Withdrawal API', () => {
       };
 
       const response = await request(app)
-        .post('/withdrawal/request')
+        .post('/api/withdrawal/request')
         .send(withdrawalData)
         .expect(400);
 
@@ -171,7 +171,7 @@ describe('Withdrawal API', () => {
       };
 
       const response = await request(app)
-        .post('/withdrawal/request')
+        .post('/api/withdrawal/request')
         .send(invalidData)
         .expect(400);
 
@@ -189,7 +189,7 @@ describe('Withdrawal API', () => {
       };
 
       const response = await request(app)
-        .post('/withdrawal/request')
+        .post('/api/withdrawal/request')
         .send(invalidData)
         .expect(400);
 
@@ -208,7 +208,7 @@ describe('Withdrawal API', () => {
       };
 
       const response = await request(app)
-        .post('/withdrawal/request')
+        .post('/api/withdrawal/request')
         .send(invalidData)
         .expect(400);
 
@@ -226,7 +226,7 @@ describe('Withdrawal API', () => {
       };
 
       const response = await request(app)
-        .post('/withdrawal/request')
+        .post('/api/withdrawal/request')
         .send(withdrawalData)
         .expect(201);
 
@@ -245,7 +245,7 @@ describe('Withdrawal API', () => {
       };
 
       const response = await request(app)
-        .post('/withdrawal/request')
+        .post('/api/withdrawal/request')
         .send(nativeTokenData)
         .expect(400);
 
@@ -265,7 +265,7 @@ describe('Withdrawal API', () => {
       const requestId = '41d4-e29b-550e8400-a716-446655440000';
 
       const response = await request(app)
-        .get(`/withdrawal/status/${requestId}`)
+        .get(`/api/withdrawal/status/${requestId}`)
         .expect(200);
 
       expect(response.body.success).toBe(true);
@@ -280,7 +280,7 @@ describe('Withdrawal API', () => {
         .withdrawalRequest.findUnique.mockResolvedValueOnce(null);
 
       const response = await request(app)
-        .get('/withdrawal/status/non-existent-id')
+        .get('/api/withdrawal/status/non-existent-id')
         .expect(404);
 
       expect(response.body.success).toBe(false);
@@ -291,7 +291,7 @@ describe('Withdrawal API', () => {
   describe('GET /withdrawal/request-queue/status', () => {
     it('should return request queue status', async () => {
       const response = await request(app)
-        .get('/withdrawal/request-queue/status')
+        .get('/api/withdrawal/request-queue/status')
         .expect(200);
 
       expect(response.body.success).toBe(true);
@@ -304,7 +304,7 @@ describe('Withdrawal API', () => {
   describe('GET /withdrawal/tx-queue/status', () => {
     it('should return transaction queue status', async () => {
       const response = await request(app)
-        .get('/withdrawal/tx-queue/status')
+        .get('/api/withdrawal/tx-queue/status')
         .expect(200);
 
       expect(response.body.success).toBe(true);

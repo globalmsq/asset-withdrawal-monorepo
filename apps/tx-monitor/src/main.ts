@@ -33,6 +33,8 @@ export class TxMonitorApp {
       this.chainService,
       this.monitorService
     );
+    // Set WebSocketService reference in MonitorService (to avoid circular dependency)
+    this.monitorService.setWebSocketService(this.webSocketService);
     this.pollingService = new PollingService(this.monitorService);
     this.sqsWorker = new SQSWorker(this.monitorService, this.webSocketService);
 
@@ -42,22 +44,14 @@ export class TxMonitorApp {
   private setupRoutes(): void {
     // Health check endpoint
     this.app.get('/health', (req, res) => {
-      // Get WebSocket connection status with reconnection stats
+      // Get WebSocket connection status
       const wsConnectionStatus = this.webSocketService.getConnectionStatus();
       const wsDetailedStatus: any = {};
 
-      // Add reconnection statistics for each chain
+      // Simple connection status
       for (const [key, isConnected] of wsConnectionStatus.entries()) {
-        const [chain, network] = key.split('-');
-        const stats = this.chainService.getReconnectionStats(chain, network);
-
         wsDetailedStatus[key] = {
           connected: isConnected,
-          reconnectStats: stats || {
-            success: 0,
-            failure: 0,
-            circuitState: 'closed',
-          },
         };
       }
 

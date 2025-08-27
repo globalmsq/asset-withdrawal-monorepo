@@ -1,0 +1,75 @@
+{
+  "name": "test-console",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/test-console/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "platform": "node",
+        "outputPath": "dist/apps/test-console",
+        "format": ["cjs"],
+        "bundle": false,
+        "main": "apps/test-console/src/main.ts",
+        "tsConfig": "apps/test-console/tsconfig.app.json",
+        "assets": ["apps/test-console/src/assets"],
+        "generatePackageJson": false,
+        "esbuildOptions": {
+          "sourcemap": true,
+          "outExtension": {
+            ".js": ".js"
+          }
+        }
+      },
+      "configurations": {
+        "development": {},
+        "production": {
+          "esbuildOptions": {
+            "sourcemap": false,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        }
+      }
+    },
+    "serve": {
+      "continuous": true,
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "dependsOn": ["build"],
+      "options": {
+        "buildTarget": "test-console:build",
+        "runBuildTargetDependencies": false
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "test-console:build:development"
+        },
+        "production": {
+          "buildTarget": "test-console:build:production"
+        }
+      }
+    },
+    "format": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "prettier --check 'apps/test-console/**/*.{ts,js,json,md}'"
+        ]
+      }
+    },
+    "format:fix": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "prettier --write 'apps/test-console/**/*.{ts,js,json,md}'"
+        ]
+      }
+    }
+  },
+  "tags": ["scope:test"]
+}

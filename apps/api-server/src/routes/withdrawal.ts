@@ -96,7 +96,7 @@ function getSymbolFromTokenAddress(
 
 /**
  * @swagger
- * /withdrawal/request:
+ * /api/withdrawal/request:
  *   post:
  *     tags:
  *       - withdrawal
@@ -491,7 +491,7 @@ router.post('/request', async (req: Request, res: Response) => {
 
 /**
  * @swagger
- * /withdrawal/status/{id}:
+ * /api/withdrawal/status/{id}:
  *   get:
  *     tags:
  *       - withdrawal
@@ -634,7 +634,7 @@ router.get('/status/:id', async (req: Request, res: Response) => {
 
 /**
  * @swagger
- * /withdrawal/request-queue/status:
+ * /api/withdrawal/request-queue/status:
  *   get:
  *     tags:
  *       - withdrawal
@@ -737,7 +737,7 @@ router.get('/request-queue/status', async (_req: Request, res: Response) => {
 
 /**
  * @swagger
- * /withdrawal/tx-queue/status:
+ * /api/withdrawal/tx-queue/status:
  *   get:
  *     tags:
  *       - withdrawal

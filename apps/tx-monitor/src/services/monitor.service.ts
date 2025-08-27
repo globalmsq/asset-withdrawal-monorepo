@@ -12,6 +12,7 @@ export class MonitorService {
   private gasRetryService: GasRetryService;
   private activeTransactions: Map<string, MonitoredTransaction>;
   private isMonitoring: boolean = false;
+  private webSocketService: any; // Will be set after initialization
 
   constructor(chainService?: ChainService) {
     this.prisma = DatabaseService.getInstance().getClient();
@@ -19,6 +20,11 @@ export class MonitorService {
     this.chainService = chainService || new ChainService();
     this.gasRetryService = new GasRetryService(this.chainService);
     this.activeTransactions = new Map();
+  }
+
+  // Setter for WebSocketService (to avoid circular dependency)
+  setWebSocketService(webSocketService: any): void {
+    this.webSocketService = webSocketService;
   }
 
   async initialize(): Promise<void> {
@@ -106,6 +112,35 @@ export class MonitorService {
     logger.info(
       `[tx-monitor] Added transaction ${transaction.txHash} to active monitoring`
     );
+
+    // Notify WebSocketService to start monitoring if needed
+    if (this.webSocketService) {
+      await this.webSocketService.addTransactionToWatch(
+        transaction.txHash,
+        monitoredTx.chain,
+        monitoredTx.network
+      );
+    }
+
+    // Perform immediate check for new transaction
+    logger.info(
+      `[tx-monitor] Performing immediate check for new transaction ${transaction.txHash}`
+    );
+
+    // Small delay to allow transaction to propagate
+    const txHash = transaction.txHash; // Capture the value to avoid closure issues
+    setTimeout(async () => {
+      try {
+        await this.checkTransaction(txHash);
+        logger.info(`[tx-monitor] Initial check completed for ${txHash}`);
+      } catch (error) {
+        logger.warn(
+          `[tx-monitor] Initial check failed for ${txHash}: ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        );
+      }
+    }, 2000); // 2 second delay for propagation
   }
 
   async checkTransaction(txHash: string): Promise<MonitoredTransaction | null> {
@@ -128,6 +163,13 @@ export class MonitorService {
         monitoredTx.chain,
         monitoredTx.network
       );
+
+      if (!provider) {
+        logger.error(
+          `[tx-monitor] No provider available for ${monitoredTx.chain}-${monitoredTx.network}`
+        );
+        return monitoredTx;
+      }
 
       // First try to get receipt
       const receipt = await provider.getTransactionReceipt(txHash);
@@ -171,11 +213,10 @@ export class MonitorService {
       const confirmations = currentBlock - receipt.blockNumber + 1;
 
       // Get required confirmations for this chain
-      const requiredConfirmations =
-        await this.chainService.getRequiredConfirmations(
-          monitoredTx.chain,
-          monitoredTx.network
-        );
+      const requiredConfirmations = this.chainService.getRequiredConfirmations(
+        monitoredTx.chain,
+        monitoredTx.network
+      );
 
       // Update transaction status based on confirmations
       const previousStatus = monitoredTx.status;
@@ -223,6 +264,15 @@ export class MonitorService {
         logger.info(
           `[tx-monitor] Transaction ${txHash} finalized with status: ${monitoredTx.status}`
         );
+
+        // Notify WebSocketService to stop monitoring
+        if (this.webSocketService) {
+          await this.webSocketService.removeTransactionFromWatch(
+            txHash,
+            monitoredTx.chain,
+            monitoredTx.network
+          );
+        }
       }
 
       return monitoredTx;
@@ -235,6 +285,15 @@ export class MonitorService {
         monitoredTx.status = 'FAILED';
         await this.updateTransactionStatus(monitoredTx, null);
         this.activeTransactions.delete(txHash);
+
+        // Notify WebSocketService to stop monitoring
+        if (this.webSocketService) {
+          await this.webSocketService.removeTransactionFromWatch(
+            txHash,
+            monitoredTx.chain,
+            monitoredTx.network
+          );
+        }
       }
 
       return monitoredTx;
@@ -318,6 +377,15 @@ export class MonitorService {
     return Array.from(this.activeTransactions.entries())
       .filter(([_, tx]) => {
         const age = now - tx.lastChecked.getTime();
+
+        // For fast tier, check immediately and frequently for new transactions
+        if (tier === 'fast') {
+          // Check all transactions that haven't been checked in the last minute
+          // This ensures new transactions get checked immediately
+          return age >= 60000; // 1 minute
+        }
+
+        // For medium and full tiers, use normal interval checking
         return age >= tierConfig.interval && age <= tierConfig.maxAge;
       })
       .map(([txHash, _]) => txHash);

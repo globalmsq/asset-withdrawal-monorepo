@@ -1,0 +1,37 @@
+{
+  "name": "test-console",
+  "version": "1.0.0",
+  "description": "CLI test tool for Asset Withdrawal System",
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "build": "tsc",
+    "dev": "tsx watch src/main.ts",
+    "test:normal": "tsx src/main.ts batch --scenario normal-flow",
+    "test:stress": "tsx src/main.ts batch --scenario stress-test",
+    "test:errors": "tsx src/main.ts batch --scenario error-recovery"
+  },
+  "keywords": [
+    "cli",
+    "test",
+    "withdrawal"
+  ],
+  "dependencies": {
+    "commander": "^11.0.0",
+    "axios": "^1.6.2",
+    "chalk": "^5.3.0",
+    "ora": "^7.0.1",
+    "inquirer": "^9.2.11",
+    "dotenv": "^16.3.1",
+    "cli-table3": "^0.6.3",
+    "lodash": "^4.17.21",
+    "shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.0",
+    "@types/inquirer": "^9.0.7",
+    "@types/lodash": "^4.14.200",
+    "typescript": "^5.2.2",
+    "tsx": "^4.6.0"
+  }
+}

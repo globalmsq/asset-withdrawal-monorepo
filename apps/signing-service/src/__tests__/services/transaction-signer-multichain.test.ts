@@ -33,6 +33,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
         maxFeePerGas: BigInt(30000000000),
         maxPriorityFeePerGas: BigInt(1500000000),
       }),
+      send: jest.fn().mockResolvedValue(`0x${chainId.toString(16)}`), // chainId in hex
     };
 
     return {

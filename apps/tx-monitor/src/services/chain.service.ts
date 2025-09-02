@@ -86,6 +86,14 @@ export class ChainService {
     }
   }
 
+  // Alias for getProvider to maintain compatibility with WebSocketService
+  async getWebSocketProvider(
+    chain: string,
+    network: string
+  ): Promise<ethers.WebSocketProvider | null> {
+    return this.getProvider(chain, network);
+  }
+
   removeProvider(chain: string, network: string): void {
     const key = `${chain}-${network}`;
     const provider = this.providers.get(key);

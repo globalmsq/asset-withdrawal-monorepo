@@ -7,7 +7,7 @@
     "build": "tsc",
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
-    "test": "jest",
+    "test": "jest --forceExit --detectOpenHandles --no-cache",
     "typecheck": "tsc --noEmit",
     "lint": "cd ../.. && pnpm nx run signing-service:lint"
   },

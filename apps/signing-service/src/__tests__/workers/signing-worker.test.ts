@@ -334,12 +334,16 @@ describe('SigningWorker', () => {
         'test-tx-123',
         TransactionStatus.SIGNED
       );
-      expect(mockTransactionSigner.signTransaction).toHaveBeenCalledWith({
-        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000',
-        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-        transactionId: 'test-tx-123',
-      });
+      expect(mockTransactionSigner.signTransaction).toHaveBeenCalledWith(
+        {
+          to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+          amount: '1000000',
+          tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+          transactionId: 'test-tx-123',
+        },
+        undefined, // preAllocatedNonce
+        undefined // preEstimatedGas
+      );
       expect(result).toMatchObject({
         transactionId: 'test-tx-123',
         rawTransaction: '0xf86c0a85...',

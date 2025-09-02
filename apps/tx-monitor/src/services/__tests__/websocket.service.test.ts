@@ -44,6 +44,9 @@ describe('WebSocketService', () => {
 
     // Mock ChainService methods
     mockChainService.getProvider = jest.fn().mockResolvedValue(mockProvider);
+    mockChainService.getWebSocketProvider = jest
+      .fn()
+      .mockResolvedValue(mockProvider);
     mockChainService.getLoadedConfigurations = jest.fn().mockReturnValue(
       new Map([
         ['polygon-mainnet', { url: 'wss://test' }],

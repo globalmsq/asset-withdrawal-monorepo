@@ -459,7 +459,10 @@ export class MulticallService {
         chain
       );
       if (tokenInfo && tokenInfo.maxTransferAmount) {
-        const maxAmount = BigInt(tokenInfo.maxTransferAmount);
+        // Convert maxTransferAmount from token units to smallest units (wei equivalent)
+        const maxAmount =
+          BigInt(tokenInfo.maxTransferAmount) *
+          BigInt(10 ** tokenInfo.decimals);
         if (amount > maxAmount) {
           errors.push(
             `Total amount for ${symbol} (${amount.toString()}) exceeds maximum transfer amount (${tokenInfo.maxTransferAmount})`

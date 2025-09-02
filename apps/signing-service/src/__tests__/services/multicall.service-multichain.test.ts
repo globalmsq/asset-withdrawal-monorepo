@@ -324,13 +324,13 @@ describe('MulticallService - Multi-chain Support', () => {
         {
           tokenAddress: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', // USDC on Polygon
           to: TEST_RECIPIENT,
-          amount: '1000000',
+          amount: '5000000', // 5 USDC (under 10000 limit)
           transactionId: 'tx1',
         },
         {
           tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', // USDT on Polygon
           to: TEST_RECIPIENT,
-          amount: '2000000',
+          amount: '3000000', // 3 USDT (under 10000 limit)
           transactionId: 'tx2',
         },
       ];

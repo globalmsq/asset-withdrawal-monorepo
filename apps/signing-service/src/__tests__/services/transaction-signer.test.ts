@@ -33,6 +33,7 @@ describe('TransactionSigner', () => {
         maxFeePerGas: BigInt(30000000000),
         maxPriorityFeePerGas: BigInt(1500000000),
       }),
+      send: jest.fn().mockResolvedValue('0x13882'), // 80002 in hex
     };
 
     mockChainProvider = {

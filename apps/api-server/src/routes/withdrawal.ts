@@ -9,35 +9,11 @@ import {
   QueueFactory,
   IQueue,
   tokenService,
+  chainsConfig,
+  LoggerService,
 } from '@asset-withdrawal/shared';
 import { getDatabase } from '../services/database';
 import { config } from '../config';
-import { LoggerService } from '@asset-withdrawal/shared';
-// Import chains config for validation
-let chainsConfig: any;
-try {
-  // Try to import chains config - will be mocked in tests
-  chainsConfig = require('../../../packages/shared/src/config/chains.config.json');
-} catch (e) {
-  // Fallback for test environment - should match the mock in test file
-  chainsConfig = {
-    polygon: {
-      mainnet: { enabled: true, chainId: 137 },
-      testnet: { enabled: true, chainId: 80002 },
-    },
-    ethereum: {
-      mainnet: { enabled: false, chainId: 1 },
-      testnet: { enabled: false, chainId: 11155111 },
-    },
-    bsc: {
-      mainnet: { enabled: false, chainId: 56 },
-      testnet: { enabled: false, chainId: 97 },
-    },
-    localhost: {
-      testnet: { enabled: true, chainId: 31337 },
-    },
-  };
-}
 
 const router = Router();
 const logger = new LoggerService({ service: 'api-server:withdrawal' });

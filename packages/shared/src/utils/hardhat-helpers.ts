@@ -8,7 +8,7 @@ export interface HardhatAccount {
 }
 
 export class HardhatHelpers {
-  private provider: ethers.JsonRpcProvider;
+  private provider: ethers.WebSocketProvider;
   private chainProvider: ChainProvider;
 
   constructor(chainProvider?: ChainProvider) {
@@ -16,7 +16,7 @@ export class HardhatHelpers {
     this.chainProvider =
       chainProvider ||
       new ChainProvider({ chain: 'localhost', network: 'testnet' });
-    this.provider = this.chainProvider.getProvider() as ethers.JsonRpcProvider;
+    this.provider = this.chainProvider.getProvider();
   }
 
   /**

@@ -241,6 +241,14 @@ describe('SigningWorker Validation', () => {
     (signingWorker as any).batchSize = 10;
   });
 
+  afterEach(async () => {
+    // Stop the worker to prevent processLoop from continuing
+    if (signingWorker) {
+      await signingWorker.stop();
+    }
+    jest.clearAllMocks();
+  });
+
   describe('validateWithdrawalRequest', () => {
     it('should return null for valid request', () => {
       const validRequest: WithdrawalRequest = {
@@ -412,6 +420,13 @@ describe('SigningWorker Validation', () => {
       await signingWorker.initialize();
 
       // Mock transaction signer initialization
+      const mockChainProvider = {
+        isConnected: jest.fn().mockReturnValue(true),
+        getProvider: jest.fn(),
+        chain: 'polygon',
+        network: 'mainnet',
+      } as any;
+
       const mockTransactionSigner = {
         initialize: jest.fn(),
         signTransaction: jest.fn().mockResolvedValue({
@@ -426,8 +441,10 @@ describe('SigningWorker Validation', () => {
           data: '0x',
           chainId: 80002,
         }),
+        getChainProvider: jest.fn().mockReturnValue(mockChainProvider),
       };
       (signingWorker as any).transactionSigner = mockTransactionSigner;
+      (signingWorker as any).canProcess = jest.fn().mockResolvedValue(true);
 
       // Mock gas price cache
       const mockGasPriceCache = {

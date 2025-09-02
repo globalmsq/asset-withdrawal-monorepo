@@ -100,6 +100,10 @@ export class TransactionSigner {
     return this.wallet.address;
   }
 
+  getChainProvider(): ChainProvider {
+    return this.chainProvider;
+  }
+
   async signTransaction(request: SigningRequest): Promise<SignedTransaction> {
     if (!this.wallet) {
       throw new Error('Wallet not initialized');

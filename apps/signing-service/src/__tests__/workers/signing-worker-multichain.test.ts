@@ -207,6 +207,14 @@ describe('SigningWorker - Multi-chain Support', () => {
       deleteMessage: jest.fn(),
     } as any;
 
+    // Create mock ChainProvider
+    const mockChainProvider = {
+      isConnected: jest.fn().mockReturnValue(true),
+      getProvider: jest.fn(),
+      chain: 'polygon',
+      network: 'mainnet',
+    } as any;
+
     mockTransactionSigner = {
       initialize: jest.fn(),
       signTransaction: jest.fn().mockResolvedValue({
@@ -228,6 +236,7 @@ describe('SigningWorker - Multi-chain Support', () => {
       getAddress: jest
         .fn()
         .mockReturnValue('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'),
+      getChainProvider: jest.fn().mockReturnValue(mockChainProvider),
     } as any;
 
     (TransactionSigner as jest.Mock).mockImplementation(
@@ -277,13 +286,26 @@ describe('SigningWorker - Multi-chain Support', () => {
       // Get database client
       dbClient = (DatabaseService.getInstance as jest.Mock)().getClient();
 
-      // Mock getOrCreateSigner to also log
+      // Mock getOrCreateSigner to also log and add to signers Map
       (signingWorker as any).getOrCreateSigner = jest
         .fn()
         .mockImplementation(async (chain: string, network: string) => {
           mockLogger.info('Creating new TransactionSigner', { chain, network });
+          const key = `${chain}_${network}`;
+          (signingWorker as any).signers.set(key, mockTransactionSigner);
           return mockTransactionSigner;
         });
+
+      // Mock canProcess to always return true (bypass connection check)
+      (signingWorker as any).canProcess = jest.fn().mockResolvedValue(true);
+    });
+
+    afterEach(async () => {
+      // Stop the worker to prevent the processLoop from continuing
+      if (signingWorker) {
+        (signingWorker as any).isRunning = false;
+        await signingWorker.stop();
+      }
     });
 
     const setupClaimAndProcessMocks = (requestId: string) => {

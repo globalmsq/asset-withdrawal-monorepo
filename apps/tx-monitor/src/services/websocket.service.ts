@@ -64,10 +64,7 @@ export class WebSocketService {
     this.connectionStates.set(key, 'connecting');
 
     try {
-      const provider = await this.chainService.getWebSocketProvider(
-        chain,
-        network
-      );
+      const provider = await this.chainService.getProvider(chain, network);
       if (!provider) {
         logger.warn(
           `[WebSocketService] No WebSocket provider available for ${chain}-${network}`
@@ -124,7 +121,7 @@ export class WebSocketService {
     this.blockListeners.delete(key);
 
     // Remove the provider from ChainService
-    this.chainService.removeWebSocketProvider(chain, network);
+    this.chainService.removeProvider(chain, network);
 
     // Clear transaction listeners for this chain
     for (const [txKey, listener] of this.transactionListeners) {
@@ -186,10 +183,7 @@ export class WebSocketService {
     network: string
   ): Promise<void> {
     const key = `${chain}-${network}`;
-    const provider = await this.chainService.getWebSocketProvider(
-      chain,
-      network
-    );
+    const provider = await this.chainService.getProvider(chain, network);
 
     if (!provider) {
       logger.warn(
@@ -220,10 +214,7 @@ export class WebSocketService {
     const listener = this.blockListeners.get(key);
 
     if (listener) {
-      const provider = await this.chainService.getWebSocketProvider(
-        chain,
-        network
-      );
+      const provider = await this.chainService.getProvider(chain, network);
       if (provider) {
         provider.removeListener('block', listener);
       }
@@ -409,10 +400,7 @@ export class WebSocketService {
     // Clear all block listeners
     for (const [key, listener] of this.blockListeners) {
       const [chain, network] = key.split('-');
-      const provider = await this.chainService.getWebSocketProvider(
-        chain,
-        network
-      );
+      const provider = await this.chainService.getProvider(chain, network);
       if (provider) {
         provider.removeListener('block', listener);
       }
@@ -424,10 +412,7 @@ export class WebSocketService {
       const parts = key.split('-');
       const chain = parts[0];
       const network = parts[1];
-      const provider = await this.chainService.getWebSocketProvider(
-        chain,
-        network
-      );
+      const provider = await this.chainService.getProvider(chain, network);
       if (provider) {
         provider.removeListener(parts[2], listener);
       }
@@ -481,10 +466,7 @@ export class WebSocketService {
     // Remove individual transaction listener if exists
     const listener = this.transactionListeners.get(key);
     if (listener) {
-      const provider = await this.chainService.getWebSocketProvider(
-        chain,
-        network
-      );
+      const provider = await this.chainService.getProvider(chain, network);
       if (provider) {
         provider.removeListener(txHash, listener);
       }

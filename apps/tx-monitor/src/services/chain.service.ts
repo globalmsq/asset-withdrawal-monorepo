@@ -2,10 +2,7 @@ import { ethers } from 'ethers';
 import { logger } from '@asset-withdrawal/shared';
 
 export class ChainService {
-  private providers: Map<
-    string,
-    ethers.JsonRpcProvider | ethers.WebSocketProvider
-  >;
+  private providers: Map<string, ethers.WebSocketProvider>;
   private chainConfigs: Map<string, any>;
 
   constructor() {
@@ -20,8 +17,7 @@ export class ChainService {
       chainId: 31337,
       name: 'localhost',
       network: 'testnet',
-      rpcUrl: process.env.RPC_URL || 'http://localhost:8545',
-      wsUrl: process.env.WS_URL || 'ws://localhost:8545',
+      rpcUrl: process.env.RPC_URL || 'ws://localhost:8545',
       confirmations: 3,
       gasLimit: '3000000',
       maxFeePerGas: '2000000000', // 2 Gwei
@@ -39,51 +35,12 @@ export class ChainService {
   async getProvider(
     chain: string,
     network: string
-  ): Promise<ethers.JsonRpcProvider | ethers.WebSocketProvider | null> {
-    const key = `${chain}-${network}`;
-
-    // Return cached provider if available
-    if (this.providers.has(key)) {
-      return this.providers.get(key) || null;
-    }
-
-    // Create new JSON-RPC provider
-    const config = this.chainConfigs.get(key);
-    if (!config) {
-      logger.error(
-        `[ChainService] No configuration found for ${chain}-${network}`
-      );
-      return null;
-    }
-
-    try {
-      const provider = new ethers.JsonRpcProvider(config.rpcUrl);
-      this.providers.set(key, provider);
-      logger.info(
-        `[ChainService] Created JSON-RPC provider for ${chain}-${network}`
-      );
-      return provider;
-    } catch (error) {
-      logger.error(
-        `[ChainService] Failed to create provider for ${chain}-${network}:`,
-        error
-      );
-      return null;
-    }
-  }
-
-  async getWebSocketProvider(
-    chain: string,
-    network: string
   ): Promise<ethers.WebSocketProvider | null> {
-    const key = `${chain}-${network}-ws`;
+    const key = `${chain}-${network}`;
 
     // Return existing WebSocket provider if available and connected
     const existingProvider = this.providers.get(key);
-    if (
-      existingProvider &&
-      existingProvider instanceof ethers.WebSocketProvider
-    ) {
+    if (existingProvider) {
       const websocket = (existingProvider as any).websocket;
       if (websocket && websocket.readyState === websocket.OPEN) {
         return existingProvider;
@@ -97,10 +54,10 @@ export class ChainService {
     }
 
     // Create new WebSocket provider
-    const config = this.chainConfigs.get(`${chain}-${network}`);
-    if (!config || !config.wsUrl) {
+    const config = this.chainConfigs.get(key);
+    if (!config || !config.rpcUrl) {
       logger.error(
-        `[ChainService] No WebSocket configuration found for ${chain}-${network}`
+        `[ChainService] No configuration found for ${chain}-${network}`
       );
       return null;
     }
@@ -109,7 +66,7 @@ export class ChainService {
       logger.info(
         `[ChainService] Creating WebSocket provider for ${chain}-${network}`
       );
-      const provider = new ethers.WebSocketProvider(config.wsUrl);
+      const provider = new ethers.WebSocketProvider(config.rpcUrl);
 
       // Wait for connection to be established
       await provider._waitUntilReady();
@@ -129,11 +86,11 @@ export class ChainService {
     }
   }
 
-  removeWebSocketProvider(chain: string, network: string): void {
-    const key = `${chain}-${network}-ws`;
+  removeProvider(chain: string, network: string): void {
+    const key = `${chain}-${network}`;
     const provider = this.providers.get(key);
 
-    if (provider && provider instanceof ethers.WebSocketProvider) {
+    if (provider) {
       try {
         provider.destroy();
       } catch (error) {
@@ -225,9 +182,7 @@ export class ChainService {
   disconnectAll(): void {
     for (const [key, provider] of this.providers) {
       try {
-        if (provider instanceof ethers.WebSocketProvider) {
-          provider.destroy();
-        }
+        provider.destroy();
       } catch (error) {
         logger.debug(`[ChainService] Error disconnecting provider ${key}`);
       }

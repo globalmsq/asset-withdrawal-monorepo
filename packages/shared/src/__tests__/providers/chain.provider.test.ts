@@ -5,7 +5,8 @@ import { ChainProviderFactory } from '../../providers/chain-provider.factory';
 // Mock ethers
 jest.mock('ethers', () => ({
   ethers: {
-    JsonRpcProvider: jest.fn().mockImplementation((url, config) => ({
+    WebSocketProvider: jest.fn().mockImplementation((url, config) => ({
+      websocket: { readyState: 1 }, // Mock WebSocket in OPEN state
       getBlockNumber: jest.fn().mockResolvedValue(12345678),
       getBalance: jest.fn().mockResolvedValue(BigInt('1000000000000000000')),
       getTransactionReceipt: jest.fn().mockResolvedValue({
@@ -21,8 +22,8 @@ jest.mock('ethers', () => ({
       getFeeData: jest.fn().mockResolvedValue({
         maxFeePerGas: BigInt('50000000000'),
         maxPriorityFeePerGas: BigInt('30000000000'),
+        gasPrice: BigInt('40000000000'),
       }),
-      getGasPrice: jest.fn().mockResolvedValue(BigInt('40000000000')),
       broadcastTransaction: jest.fn().mockResolvedValue({
         hash: '0x123',
         wait: jest.fn(),
@@ -87,14 +88,14 @@ describe('ChainProvider', () => {
     });
 
     it('should use custom RPC URL if provided', () => {
-      const customRpcUrl = 'https://custom-rpc.example.com';
+      const customRpcUrl = 'wss://custom-rpc.example.com';
       const provider = new ChainProvider({
         chain: 'polygon',
         network: 'mainnet',
         rpcUrl: customRpcUrl,
       });
 
-      expect(ethers.JsonRpcProvider).toHaveBeenCalledWith(customRpcUrl, 137);
+      expect(ethers.WebSocketProvider).toHaveBeenCalledWith(customRpcUrl, 137);
     });
 
     it('should throw error for unsupported chain', () => {
@@ -205,6 +206,25 @@ describe('ChainProvider', () => {
       expect(bscProvider.getMulticall3Address()).toBe(
         '0xcA11bde05977b3631167028862bE2a173976CA11'
       );
+    });
+
+    it('should check WebSocket connection status', () => {
+      const provider = new ChainProvider({
+        chain: 'polygon',
+        network: 'mainnet',
+      });
+
+      // WebSocket is mocked to be connected (readyState = 1)
+      expect(provider.isConnected()).toBe(true);
+
+      // Modify mock to simulate disconnected state
+      const mockProvider = provider.getProvider() as any;
+      mockProvider.websocket.readyState = 3; // WebSocket.CLOSED
+      expect(provider.isConnected()).toBe(false);
+
+      // Test without websocket
+      mockProvider.websocket = null;
+      expect(provider.isConnected()).toBe(false);
     });
   });
 });

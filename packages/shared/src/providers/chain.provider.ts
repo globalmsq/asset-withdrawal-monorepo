@@ -8,7 +8,7 @@ import {
 } from '../types/chain.types';
 
 export class ChainProvider {
-  private provider: ethers.JsonRpcProvider;
+  private provider: ethers.WebSocketProvider;
   public readonly chain: ChainName;
   public readonly network: ChainNetwork;
   public readonly config: ChainConfig;
@@ -30,20 +30,35 @@ export class ChainProvider {
       );
     }
 
-    // Allow RPC URL override from environment variable
-    const rpcUrl = process.env.RPC_URL || options.rpcUrl || this.config.rpcUrl;
+    // Priority: 1. RPC_URL env var, 2. custom rpcUrl, 3. config rpcUrl
+    const wsUrl = process.env.RPC_URL || options.rpcUrl || this.config.rpcUrl;
+    if (!wsUrl) {
+      throw new Error(
+        `No WebSocket URL configured for ${options.chain}/${options.network}`
+      );
+    }
 
     // Allow Chain ID override from environment variable
     const chainId = process.env.CHAIN_ID
       ? parseInt(process.env.CHAIN_ID)
       : this.config.chainId;
 
-    // Use simplified constructor to avoid network detection issues
-    this.provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+    // Use WebSocketProvider only
+    this.provider = new ethers.WebSocketProvider(wsUrl, chainId);
+
+    console.log(
+      `✅ WebSocket connecting: ${this.chain}/${this.network} - ${wsUrl}`
+    );
   }
 
-  getProvider(): ethers.JsonRpcProvider {
+  getProvider(): ethers.WebSocketProvider {
     return this.provider;
+  }
+
+  // Check WebSocket connection status
+  isConnected(): boolean {
+    const ws = (this.provider as any).websocket;
+    return !!(ws && ws.readyState === 1); // WebSocket.OPEN
   }
 
   getChainId(): number {

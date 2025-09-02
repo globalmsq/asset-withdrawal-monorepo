@@ -29,6 +29,7 @@ import { Config } from '../config';
 import { ethers } from 'ethers';
 import * as crypto from 'crypto';
 import * as os from 'os';
+import Redis from 'ioredis';
 
 export class SigningWorker extends BaseWorker<
   WithdrawalRequest,
@@ -37,7 +38,7 @@ export class SigningWorker extends BaseWorker<
   private withdrawalRequestService: WithdrawalRequestService;
   private signedTransactionService: SignedTransactionService;
   private nonceCache: NonceCacheService;
-  private noncePoolService: NoncePoolService;
+  private noncePoolService!: NoncePoolService; // Initialized in initialize()
   private gasPriceCache: GasPriceCache;
   private multicallServices: Map<string, MulticallService>;
   private signers: Map<string, TransactionSigner>;
@@ -69,8 +70,7 @@ export class SigningWorker extends BaseWorker<
       {
         inputDlqUrl: config.queue.requestDlqUrl,
         outputDlqUrl: config.queue.signedTxDlqUrl,
-      },
-      config.redis // Pass Redis config to BaseWorker
+      }
     );
 
     this.auditLogger = logger;
@@ -97,12 +97,7 @@ export class SigningWorker extends BaseWorker<
     // Create queue recovery service
     this.queueRecoveryService = new QueueRecoveryService(this.nonceCache);
 
-    // Create nonce pool service using the Redis connection from BaseWorker
-    if (this.redisClient) {
-      this.noncePoolService = new NoncePoolService(this.redisClient);
-    } else {
-      throw new Error('Redis connection is required for NoncePoolService');
-    }
+    // NoncePoolService will be initialized in initialize() method
   }
 
   async initialize(): Promise<void> {
@@ -119,6 +114,17 @@ export class SigningWorker extends BaseWorker<
 
     // Connect to Redis for nonce management
     await this.nonceCache.connect();
+
+    // Initialize NoncePoolService with Redis
+    if (this.config.redis) {
+      const redisClient = new Redis({
+        host: this.config.redis.host,
+        port: this.config.redis.port,
+      });
+      this.noncePoolService = new NoncePoolService(redisClient);
+    } else {
+      throw new Error('Redis configuration is required for NoncePoolService');
+    }
 
     // Skip pre-initialization to avoid network connection issues at startup
     // Signers will be created on-demand when first message is received
@@ -217,6 +223,61 @@ export class SigningWorker extends BaseWorker<
     }
 
     return this.signers.get(key)!;
+  }
+
+  /**
+   * Override canProcess to check blockchain connections
+   * Messages are processed only if at least one blockchain is connected
+   */
+  protected async canProcess(): Promise<boolean> {
+    try {
+      // Get all currently configured signers/providers
+      const availableChains: string[] = [];
+      const disconnectedChains: string[] = [];
+
+      // Check all configured chains
+      for (const [key, signer] of this.signers) {
+        const chainProvider = signer.getChainProvider();
+        const isConnected = chainProvider.isConnected();
+
+        if (isConnected) {
+          availableChains.push(key);
+        } else {
+          disconnectedChains.push(key);
+        }
+      }
+
+      // If no signers are initialized yet, allow processing (they'll be created on demand)
+      if (this.signers.size === 0) {
+        return true;
+      }
+
+      // If ALL chains are disconnected, stop processing
+      if (availableChains.length === 0 && disconnectedChains.length > 0) {
+        this.auditLogger.warn(
+          'All blockchain connections are down, stopping SQS processing',
+          {
+            disconnectedChains,
+          }
+        );
+        return false;
+      }
+
+      // If some chains are disconnected, log warning but continue
+      if (disconnectedChains.length > 0) {
+        this.auditLogger.warn('Some blockchain connections are down', {
+          availableChains,
+          disconnectedChains,
+        });
+      }
+
+      // At least one chain is connected, continue processing
+      return true;
+    } catch (error) {
+      this.auditLogger.error('Error checking blockchain connections', error);
+      // On error, allow processing to continue
+      return true;
+    }
   }
 
   /**
@@ -1129,6 +1190,13 @@ export class SigningWorker extends BaseWorker<
       // Get appropriate signer for this chain
       const chain = message.chain || 'polygon';
       const signer = await this.getOrCreateSigner(chain, network);
+
+      // Check if the chain is connected
+      const chainProvider = signer.getChainProvider();
+      if (!chainProvider.isConnected()) {
+        // Chain is disconnected - throw error to send to DLQ
+        throw new Error(`Blockchain connection lost for ${chain}/${network}`);
+      }
 
       // Build and sign transaction
       const signedTx = await signer.signTransaction({

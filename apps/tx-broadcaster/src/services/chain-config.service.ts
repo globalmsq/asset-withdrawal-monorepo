@@ -145,7 +145,16 @@ export class ChainConfigService {
     }
 
     // 환경변수로 오버라이드 (다른 앱들과 통일성 유지)
-    const rpcUrl = process.env.RPC_URL || chainConfig.rpcUrl;
+    let rpcUrl = process.env.RPC_URL || chainConfig.rpcUrl;
+
+    // Convert ws:// or wss:// to http:// or https:// for JsonRpcProvider
+    // tx-broadcaster doesn't need WebSocket, only HTTP for broadcasting
+    if (rpcUrl.startsWith('ws://')) {
+      rpcUrl = rpcUrl.replace('ws://', 'http://');
+    } else if (rpcUrl.startsWith('wss://')) {
+      rpcUrl = rpcUrl.replace('wss://', 'https://');
+    }
+
     const chainId = process.env.CHAIN_ID
       ? parseInt(process.env.CHAIN_ID)
       : chainConfig.chainId;
@@ -204,7 +213,16 @@ export class ChainConfigService {
     try {
       // 환경변수로 오버라이드 지원 (Docker 환경에서 중요)
       // localhost chain의 경우 Docker에서는 hardhat-node:8545를 사용해야 함
-      const rpcUrl = process.env.RPC_URL || chainConfig.rpcUrl;
+      let rpcUrl = process.env.RPC_URL || chainConfig.rpcUrl;
+
+      // Convert ws:// or wss:// to http:// or https:// for JsonRpcProvider
+      // tx-broadcaster doesn't need WebSocket, only HTTP for broadcasting
+      if (rpcUrl.startsWith('ws://')) {
+        rpcUrl = rpcUrl.replace('ws://', 'http://');
+      } else if (rpcUrl.startsWith('wss://')) {
+        rpcUrl = rpcUrl.replace('wss://', 'https://');
+      }
+
       const actualChainId = process.env.CHAIN_ID
         ? parseInt(process.env.CHAIN_ID)
         : chainId;

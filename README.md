@@ -115,7 +115,7 @@ graph TB
     end
 
     subgraph "Blockchain"
-        Polygon[Polygon Network]
+        Blockchain[Blockchain Networks]
     end
 
     Client --> ALB
@@ -131,18 +131,18 @@ graph TB
     Signer --> MySQL
 
     SQS2 --> Broadcaster
-    Broadcaster --> Polygon
+    Broadcaster --> Blockchain
     Broadcaster --> SQS3
     Broadcaster --> MySQL
 
     SQS3 --> Monitor
-    Monitor --> Polygon
+    Monitor --> Blockchain
     Monitor --> MySQL
 
     AcctMgr --> SQS4
     AcctMgr --> SQS5
     AcctMgr --> MySQL
-    AcctMgr --> Polygon
+    AcctMgr --> Blockchain
     SQS5 --> Signer
 
     SQS1 -.->|5 retries| DLQ1

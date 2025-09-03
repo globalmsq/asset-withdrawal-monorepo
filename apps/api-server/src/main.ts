@@ -11,9 +11,9 @@ import {
   QueueFactory,
   IQueue,
   WithdrawalRequest,
+  LoggerService,
 } from '@asset-withdrawal/shared';
 import { setReadiness } from './middleware/readiness.middleware';
-import { LoggerService } from '@asset-withdrawal/shared';
 
 const logger = new LoggerService({ service: 'api-server:main' });
 

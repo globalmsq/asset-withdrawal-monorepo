@@ -3,7 +3,6 @@ export * from './types/token.types';
 export * from './types/chain.types';
 export * from './types/logger.types';
 export * from './types/dlq.types';
-export * from './queue';
 export * from './validators';
 export * from './errors';
 export * from './queue/index';

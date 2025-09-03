@@ -5,9 +5,9 @@ import {
   UserRole,
   ApiResponse,
   LoginResponse,
+  LoggerService,
 } from '@asset-withdrawal/shared';
 import { AuthRequest, authenticate } from '../middleware/auth.middleware';
-import { LoggerService } from '@asset-withdrawal/shared';
 import { getUserService } from '../services/user.service';
 
 const router = Router();

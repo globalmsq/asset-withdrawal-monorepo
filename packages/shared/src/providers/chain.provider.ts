@@ -6,6 +6,7 @@ import {
   ChainConfig,
   ChainProviderOptions,
 } from '../types/chain.types';
+import { LoggerService } from '../services/logger.service';
 
 export class ChainProvider {
   private provider: ethers.WebSocketProvider;
@@ -14,10 +15,14 @@ export class ChainProvider {
   public readonly chain: ChainName;
   public readonly network: ChainNetwork;
   public readonly config: ChainConfig;
+  private logger: LoggerService;
 
   constructor(options: ChainProviderOptions) {
     this.chain = options.chain;
     this.network = options.network;
+    this.logger = new LoggerService({
+      service: `chain-provider:${options.chain}-${options.network}`,
+    });
 
     const chainConfigs = chainsConfig[options.chain];
     if (!chainConfigs) {
@@ -85,8 +90,8 @@ export class ChainProvider {
 
     // Only log in non-test environment
     if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
-      console.log(
-        `✅ WebSocket connecting: ${this.chain}/${this.network} - ${wsUrl}`
+      this.logger.info(
+        `WebSocket connecting: ${this.chain}/${this.network} - ${wsUrl}`
       );
     }
 
@@ -95,14 +100,15 @@ export class ChainProvider {
       this.verifyChainId()
         .then(() => {
           this.isChainIdVerified = true;
-          console.log(`✅ ChainId verified for ${this.chain}/${this.network}`);
+          this.logger.info(
+            `ChainId verified for ${this.chain}/${this.network}`
+          );
         })
         .catch(err => {
           this.isChainIdVerified = false;
           this.chainIdError = err.message;
-          console.error(
-            `❌ ChainId verification failed for ${this.chain}/${this.network}:`,
-            err.message
+          this.logger.error(
+            `ChainId verification failed for ${this.chain}/${this.network}: ${err.message}`
           );
         });
     }

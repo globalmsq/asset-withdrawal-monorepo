@@ -2,7 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { ApiResponse, AppError, ErrorCode } from '@asset-withdrawal/shared';
+import {
+  ApiResponse,
+  AppError,
+  ErrorCode,
+  LoggerService,
+} from '@asset-withdrawal/shared';
 import withdrawalRoutes from './routes/withdrawal';
 import authRoutes from './routes/auth';
 import swaggerUi from 'swagger-ui-express';
@@ -11,7 +16,6 @@ import {
   readinessCheck,
   readinessHandler,
 } from './middleware/readiness.middleware';
-import { LoggerService } from '@asset-withdrawal/shared';
 
 const app = express();
 const logger = new LoggerService({ service: 'api-server:app' });

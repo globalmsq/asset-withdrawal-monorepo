@@ -1,7 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../services/database';
-import { QueueFactory, WithdrawalRequest } from '@asset-withdrawal/shared';
-import { LoggerService } from '@asset-withdrawal/shared';
+import {
+  QueueFactory,
+  WithdrawalRequest,
+  LoggerService,
+} from '@asset-withdrawal/shared';
 
 const logger = new LoggerService({ service: 'api-server:readiness' });
 

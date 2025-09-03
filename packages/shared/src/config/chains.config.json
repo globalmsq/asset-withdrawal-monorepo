@@ -1,11 +1,10 @@
 {
   "polygon": {
     "mainnet": {
-      "enabled": false,
+      "enabled": true,
       "chainId": 137,
       "name": "Polygon Mainnet",
-      "rpcUrl": "https://polygon-rpc.com",
-      "wsUrl": "wss://rpc-mainnet.matic.network",
+      "rpcUrl": "wss://rpc-mainnet.matic.network",
       "requiredConfirmations": 30,
       "blockTime": 2,
       "nativeCurrency": {
@@ -20,8 +19,7 @@
       "enabled": false,
       "chainId": 80002,
       "name": "Polygon Amoy",
-      "rpcUrl": "https://rpc-amoy.polygon.technology",
-      "wsUrl": "wss://rpc-amoy.polygon.technology",
+      "rpcUrl": "wss://rpc-amoy.polygon.technology",
       "requiredConfirmations": 10,
       "blockTime": 2,
       "nativeCurrency": {
@@ -38,8 +36,7 @@
       "enabled": false,
       "chainId": 1,
       "name": "Ethereum Mainnet",
-      "rpcUrl": "https://ethereum.publicnode.com",
-      "wsUrl": "wss://ethereum.publicnode.com",
+      "rpcUrl": "wss://ethereum.publicnode.com",
       "requiredConfirmations": 12,
       "blockTime": 12,
       "nativeCurrency": {
@@ -54,8 +51,7 @@
       "enabled": false,
       "chainId": 11155111,
       "name": "Sepolia",
-      "rpcUrl": "https://ethereum-sepolia.publicnode.com",
-      "wsUrl": "wss://ethereum-sepolia.publicnode.com",
+      "rpcUrl": "wss://ethereum-sepolia.publicnode.com",
       "requiredConfirmations": 6,
       "blockTime": 12,
       "nativeCurrency": {
@@ -72,8 +68,7 @@
       "enabled": false,
       "chainId": 56,
       "name": "BSC Mainnet",
-      "rpcUrl": "https://bsc-dataseed.bnbchain.org",
-      "wsUrl": "wss://bsc-ws-node.nariox.org:443",
+      "rpcUrl": "wss://bsc-ws-node.nariox.org:443",
       "requiredConfirmations": 15,
       "blockTime": 3,
       "nativeCurrency": {
@@ -88,8 +83,7 @@
       "enabled": false,
       "chainId": 97,
       "name": "BSC Testnet",
-      "rpcUrl": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
-      "wsUrl": "wss://testnet.bsc.publicnode.com",
+      "rpcUrl": "wss://testnet.bsc.publicnode.com",
       "requiredConfirmations": 10,
       "blockTime": 3,
       "nativeCurrency": {
@@ -106,8 +100,7 @@
       "enabled": true,
       "chainId": 31337,
       "name": "Localhost",
-      "rpcUrl": "http://localhost:8545",
-      "wsUrl": "ws://localhost:8545",
+      "rpcUrl": "ws://localhost:8545",
       "requiredConfirmations": 3,
       "blockTime": 1,
       "nativeCurrency": {

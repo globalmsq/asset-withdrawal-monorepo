@@ -1,13 +1,13 @@
 # Asset Withdrawal System - Project Overview
 
 ## Purpose
-High-throughput Polygon blockchain withdrawal system with Multicall3 batch processing. Handles massive volumes of cryptocurrency withdrawals, processing tens of thousands of transactions efficiently. Features 10-100x faster speeds and up to 70% gas cost reduction.
+High-throughput multi-chain blockchain withdrawal system with Multicall3 batch processing. Handles massive volumes of cryptocurrency withdrawals across multiple blockchain networks (Polygon, Ethereum, BSC, and localhost for development), processing tens of thousands of transactions efficiently. Features 10-100x faster speeds and up to 70% gas cost reduction. The active blockchain network is configurable based on environment settings.
 
 ## Architecture
 Microservices architecture with the following services:
 - **API Server** (Port 3000): HTTP gateway for withdrawal requests, authentication, and status queries
 - **Signing Service** (Port 3002): High-throughput transaction processor with Multicall3 batching
-- **TX Broadcaster** (Port 3004): Broadcasts signed transactions to Polygon with retry logic
+- **TX Broadcaster** (Port 3004): Broadcasts signed transactions to configured blockchain networks with retry logic
 - **TX Monitor** (Port 3003): Tracks blockchain confirmations and handles failed transactions
 - **Account Manager** (Port 3005): Automated balance management for sub-accounts (planned)
 - **Admin UI** (Port 3006): React dashboard for system management (planned)
@@ -18,7 +18,7 @@ Microservices architecture with the following services:
 - **Framework**: Express.js
 - **Database**: MySQL with Prisma ORM
 - **Queue System**: AWS SQS (LocalStack for development)
-- **Blockchain**: Ethers.js for Polygon network interaction
+- **Blockchain**: Ethers.js for multi-chain network interaction
 - **Authentication**: JWT tokens with bcrypt password hashing
 - **Caching**: Redis for nonce management and caching
 - **Monorepo**: Nx workspace with pnpm
@@ -51,3 +51,16 @@ Microservices architecture with the following services:
 - Multi-chain support (Polygon, Ethereum, BSC, localhost)
 - Automated balance management for sub-accounts
 - Smart error handling with permanent vs retryable error distinction
+
+## Supported Blockchains
+- **Polygon**: Mainnet (137) and Amoy testnet (80002)
+- **Ethereum**: Mainnet (1) and Sepolia testnet (11155111)
+- **BSC**: Mainnet (56) and Testnet (97)
+- **Localhost**: Hardhat development network (31337)
+
+Each chain configuration includes:
+- WebSocket RPC endpoints
+- Chain-specific confirmation requirements
+- Native currency details
+- Block explorer URLs
+- Multicall3 contract addresses

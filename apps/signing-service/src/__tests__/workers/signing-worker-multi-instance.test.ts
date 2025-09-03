@@ -238,6 +238,18 @@ describe('SigningWorker Multi-Instance Support', () => {
     (signingWorker2 as any).outputQueue = mockOutputQueue;
   });
 
+  afterEach(async () => {
+    // Stop both workers to prevent the processLoop from continuing
+    if (signingWorker1) {
+      (signingWorker1 as any).isRunning = false;
+      await signingWorker1.stop();
+    }
+    if (signingWorker2) {
+      (signingWorker2 as any).isRunning = false;
+      await signingWorker2.stop();
+    }
+  });
+
   describe('claimMessages', () => {
     it('should atomically claim messages to prevent duplicate processing', async () => {
       const messages: Message<WithdrawalRequest>[] = [
@@ -422,6 +434,13 @@ describe('SigningWorker Multi-Instance Support', () => {
       const instanceId1 = (signingWorker1 as any).instanceId;
 
       // Mock transaction signer
+      const mockChainProvider = {
+        isConnected: jest.fn().mockReturnValue(true),
+        getProvider: jest.fn(),
+        chain: 'polygon',
+        network: 'mainnet',
+      } as any;
+
       const mockTransactionSigner = {
         signTransaction: jest.fn().mockResolvedValue({
           hash: '0xabc123',
@@ -437,11 +456,17 @@ describe('SigningWorker Multi-Instance Support', () => {
         }),
         initialize: jest.fn(),
         cleanup: jest.fn(),
+        getChainProvider: jest.fn().mockReturnValue(mockChainProvider),
       };
       (signingWorker1 as any).transactionSigner = mockTransactionSigner;
       (signingWorker1 as any).getOrCreateSigner = jest
         .fn()
-        .mockResolvedValue(mockTransactionSigner);
+        .mockImplementation(async (chain: string, network: string) => {
+          const key = `${chain}_${network}`;
+          (signingWorker1 as any).signers.set(key, mockTransactionSigner);
+          return mockTransactionSigner;
+        });
+      (signingWorker1 as any).canProcess = jest.fn().mockResolvedValue(true);
 
       // Mock ownership check - message is owned by different instance
       mockDbClient.$transaction.mockImplementation(async (fn: any) => {
@@ -485,6 +510,13 @@ describe('SigningWorker Multi-Instance Support', () => {
       const instanceId1 = (signingWorker1 as any).instanceId;
 
       // Mock transaction signer
+      const mockChainProvider = {
+        isConnected: jest.fn().mockReturnValue(true),
+        getProvider: jest.fn(),
+        chain: 'polygon',
+        network: 'mainnet',
+      } as any;
+
       const mockTransactionSigner = {
         signTransaction: jest.fn().mockResolvedValue({
           hash: '0xabc123',
@@ -500,11 +532,17 @@ describe('SigningWorker Multi-Instance Support', () => {
         }),
         initialize: jest.fn(),
         cleanup: jest.fn(),
+        getChainProvider: jest.fn().mockReturnValue(mockChainProvider),
       };
       (signingWorker1 as any).transactionSigner = mockTransactionSigner;
       (signingWorker1 as any).getOrCreateSigner = jest
         .fn()
-        .mockResolvedValue(mockTransactionSigner);
+        .mockImplementation(async (chain: string, network: string) => {
+          const key = `${chain}_${network}`;
+          (signingWorker1 as any).signers.set(key, mockTransactionSigner);
+          return mockTransactionSigner;
+        });
+      (signingWorker1 as any).canProcess = jest.fn().mockResolvedValue(true);
 
       // Mock ownership check - message is owned by current instance
       mockDbClient.$transaction.mockImplementation(async (fn: any) => {

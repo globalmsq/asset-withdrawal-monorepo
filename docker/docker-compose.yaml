@@ -173,7 +173,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-pass}
 
       # RPC URL Override for Docker environment
-      RPC_URL: http://hardhat-node:8545
+      RPC_URL: ws://hardhat-node:8545
     networks:
       - withdrawal-network
     volumes:
@@ -232,7 +232,7 @@ services:
       SIGNED_TX_DLQ_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-dlq
 
       # RPC URL Override for Docker environment
-      RPC_URL: http://hardhat-node:8545
+      RPC_URL: ws://hardhat-node:8545
 
       # Logging
       SIGNING_SERVICE_LOG_LEVEL: info
@@ -313,7 +313,7 @@ services:
       BROADCAST_TX_DLQ_URL: http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/broadcast-tx-dlq
 
       # RPC URL Override for Docker environment
-      RPC_URL: http://hardhat-node:8545
+      RPC_URL: ws://hardhat-node:8545
 
     networks:
       - withdrawal-network
@@ -387,10 +387,7 @@ services:
       CACHE_SIZE: 10000
 
       # RPC URL Override for Docker environment
-      RPC_URL: http://hardhat-node:8545
-
-      # WebSocket URL Override for Docker environment (optional)
-      WS_URL: ws://hardhat-node:8545
+      RPC_URL: ws://hardhat-node:8545
 
       # Logging
       LOG_LEVEL: info

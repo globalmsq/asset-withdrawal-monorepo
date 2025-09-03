@@ -57,7 +57,7 @@ graph TB
 
     Queue2 --> TxBroadcaster[TX Broadcaster]
     TxBroadcaster --> |4. 브로드캐스트 시작| DB4[(status: BROADCASTING)]
-    TxBroadcaster --> Blockchain[Polygon Network]
+    TxBroadcaster --> Blockchain[Blockchain Networks]
     Blockchain --> |txHash 반환| TxBroadcaster
     TxBroadcaster --> |5. 브로드캐스트 완료| DB5[(status: BROADCASTED)]
     TxBroadcaster --> |sent_transactions 저장| DB_ST[(sent_transactions)]
@@ -95,7 +95,7 @@ sequenceDiagram
     participant Signer as Signing Service
     participant Queue2 as signed-tx-queue
     participant Broadcaster as TX Broadcaster
-    participant Blockchain as Polygon Network
+    participant Blockchain as Blockchain Networks
     participant ST as sent_transactions DB
     participant Queue3 as broadcast-tx-queue
     participant Monitor as TX Monitor
@@ -199,7 +199,7 @@ sequenceDiagram
     participant DB as Database
     participant Signer as Signing Service
     participant Multicall as Multicall3 Contract
-    participant Blockchain as Polygon Network
+    participant Blockchain as Blockchain Networks
 
     User->>API: POST /withdrawals/batch
     API->>DB: 배치 생성<br/>개별 요청 저장
@@ -227,7 +227,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Monitor as TX Monitor
-    participant Blockchain as Polygon Network
+    participant Blockchain as Blockchain Networks
     participant DB as Database
     participant Queue as tx-request-queue
     participant Signer as Signing Service
@@ -298,12 +298,12 @@ sequenceDiagram
 
 **실패 시나리오**:
 
-- **네트워크 에러**: 
+- **네트워크 에러**:
   - ECONNREFUSED, ETIMEDOUT 등 감지
   - status → RETRYING
   - DLQ로 이동 후 nonce Pool 반환
   - 지수 백오프 재시도 (1s → 2s → 4s)
-- **가스비 추정 실패**: 
+- **가스비 추정 실패**:
   - Nonce 할당 전 실패 (nonce 낭비 방지)
   - 네트워크 에러인 경우 재시도
 - **영구 실패**:

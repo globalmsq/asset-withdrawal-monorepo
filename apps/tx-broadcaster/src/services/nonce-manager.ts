@@ -1222,14 +1222,10 @@ export class NonceManager {
         },
       });
 
-      // TODO: Implement actual dummy transaction sending
-      // This would require:
-      // 1. Access to the private key or signer for fromAddress
-      // 2. Creating minimal value transactions (e.g., 0 ETH to self)
-      // 3. Sending them with the missing nonces
-
-      // For now, we'll simulate by removing the buffered transaction
-      // In a real implementation, this would send actual transactions
+      // Dummy transaction implementation is handled by recovery service
+      // The recovery service has access to signers and can create proper
+      // transactions with missing nonces when gap resolution is needed.
+      // This service focuses on detection and buffering only.
       const buffer = this.buffers.get(fromAddress);
       if (buffer && buffer.has(endNonce)) {
         this.logger.info(

@@ -43,17 +43,17 @@ describe('WebSocketService', () => {
     mockMonitorService = new MonitorService() as jest.Mocked<MonitorService>;
 
     // Mock ChainService methods
+    mockChainService.getProvider = jest.fn().mockResolvedValue(mockProvider);
     mockChainService.getWebSocketProvider = jest
       .fn()
       .mockResolvedValue(mockProvider);
-    mockChainService.getProvider = jest.fn().mockResolvedValue(mockProvider);
     mockChainService.getLoadedConfigurations = jest.fn().mockReturnValue(
       new Map([
         ['polygon-mainnet', { url: 'wss://test' }],
         ['ethereum-mainnet', { url: 'wss://test2' }],
       ])
     );
-    mockChainService.removeWebSocketProvider = jest.fn();
+    mockChainService.removeProvider = jest.fn();
 
     // Mock MonitorService methods
     mockMonitorService.getActiveTransactions = jest

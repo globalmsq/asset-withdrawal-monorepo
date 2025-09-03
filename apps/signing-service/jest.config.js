@@ -2,6 +2,8 @@ module.exports = {
   preset: '../../jest.preset.js',
   displayName: 'signing-service',
   testEnvironment: 'node',
+  setupFiles: ['<rootDir>/src/__tests__/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
   transform: {
     '^.+\\.[tj]s$': [
       'ts-jest',

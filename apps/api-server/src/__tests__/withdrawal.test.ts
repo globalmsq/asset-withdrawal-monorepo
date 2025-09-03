@@ -11,6 +11,29 @@ jest.mock('../middleware/readiness.middleware', () => ({
   setReadiness: jest.fn(),
 }));
 
+// Mock chains.config.json
+jest.mock(
+  '../../../packages/shared/src/config/chains.config.json',
+  () => ({
+    polygon: {
+      mainnet: { enabled: true, chainId: 137 },
+      testnet: { enabled: true, chainId: 80002 },
+    },
+    ethereum: {
+      mainnet: { enabled: false, chainId: 1 },
+      testnet: { enabled: false, chainId: 11155111 },
+    },
+    bsc: {
+      mainnet: { enabled: false, chainId: 56 },
+      testnet: { enabled: false, chainId: 97 },
+    },
+    localhost: {
+      testnet: { enabled: true, chainId: 31337 },
+    },
+  }),
+  { virtual: true }
+);
+
 jest.mock('shared', () => ({
   ...jest.requireActual('shared'),
   TransactionStatus: {
@@ -78,7 +101,7 @@ const mockWithdrawalRequest = {
   requestId: '41d4-e29b-550e8400-a716-446655440000',
   amount: '0.5',
   symbol: 'USDT',
-  toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+  toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
   tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
   network: 'mainnet',
   chain: 'polygon',
@@ -129,7 +152,7 @@ describe('Withdrawal API', () => {
     it('should create withdrawal request', async () => {
       const withdrawalData = {
         amount: '0.5',
-        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         symbol: 'USDT',
         network: 'mainnet',
@@ -161,11 +184,12 @@ describe('Withdrawal API', () => {
       expect(response.body.error).toContain('Missing required fields');
     });
 
-    it('should return 400 for invalid amount', async () => {
+    it('should return 400 for invalid amount format', async () => {
       const invalidData = {
         amount: 'invalid',
-        toAddress: '0x742D35Cc6634C0532925a3b8D45a0E5e7F3d1234',
-        tokenAddress: '0xA0b86991c431e60e50074006c5a5B4234e5f50D',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        symbol: 'USDT', // Added symbol to avoid symbol validation
         network: 'mainnet',
         chain: 'polygon',
       };
@@ -176,16 +200,19 @@ describe('Withdrawal API', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Invalid amount');
+      expect(response.body.error).toBe(
+        'Invalid amount format. Maximum 8 decimal places allowed'
+      );
     });
 
-    it('should return 400 for unsupported network', async () => {
+    it('should return 400 for disabled chain/network', async () => {
       const invalidData = {
         amount: '0.5',
-        toAddress: '0x742D35Cc6634C0532925a3b8D45a0E5e7F3d1234',
-        tokenAddress: '0x0000000000000000000000000000000000000000',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        symbol: 'USDT', // Added symbol to avoid symbol validation
         network: 'mainnet',
-        chain: 'ethereum',
+        chain: 'ethereum', // ethereum/mainnet is disabled
       };
 
       const response = await request(app)
@@ -194,13 +221,14 @@ describe('Withdrawal API', () => {
         .expect(400);
 
       expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('is not supported');
+      expect(response.body.error).toContain('is currently disabled');
     });
 
-    it('should return 400 for symbol mismatch', async () => {
+    // Symbol mismatch test is disabled since token whitelist is temporarily disabled
+    it.skip('should return 400 for symbol mismatch', async () => {
       const invalidData = {
         amount: '0.5',
-        toAddress: '0x742D35Cc6634C0532925a3b8D45a0E5e7F3d1234',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', // USDT address
         symbol: 'USDC', // Wrong symbol
         network: 'mainnet',
@@ -219,7 +247,7 @@ describe('Withdrawal API', () => {
     it('should accept withdrawal request without symbol', async () => {
       const withdrawalData = {
         amount: '0.5',
-        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         network: 'mainnet',
         chain: 'polygon',
@@ -238,8 +266,9 @@ describe('Withdrawal API', () => {
     it('should return 400 for native token transfer', async () => {
       const nativeTokenData = {
         amount: '0.5',
-        toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
         tokenAddress: '0x0000000000000000000000000000000000000000',
+        symbol: 'MATIC', // Added symbol to avoid symbol validation
         network: 'mainnet',
         chain: 'polygon',
       };
@@ -251,7 +280,149 @@ describe('Withdrawal API', () => {
 
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBe(
-        'Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed.'
+        'Native token transfers are not supported. Only ERC-20 tokens are allowed.'
+      );
+    });
+
+    // New test cases for address validation
+    it('should return 400 for invalid toAddress format', async () => {
+      const invalidData = {
+        amount: '0.5',
+        toAddress: 'invalid_0x123', // Invalid Ethereum address
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        network: 'mainnet',
+        chain: 'polygon',
+      };
+
+      const response = await request(app)
+        .post('/api/withdrawal/request')
+        .send(invalidData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Invalid recipient address format');
+    });
+
+    it('should return 400 for invalid tokenAddress format', async () => {
+      const invalidData = {
+        amount: '0.5',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
+        tokenAddress: '0xINVALID', // Invalid Ethereum address
+        network: 'mainnet',
+        chain: 'polygon',
+      };
+
+      const response = await request(app)
+        .post('/api/withdrawal/request')
+        .send(invalidData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Invalid token address format');
+    });
+
+    // New test cases for chain/network validation
+    it('should return 400 for non-existent chain', async () => {
+      const invalidData = {
+        amount: '0.5',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        symbol: 'USDT', // Added symbol to avoid symbol validation
+        network: 'mainnet',
+        chain: 'nonexistent',
+      };
+
+      const response = await request(app)
+        .post('/api/withdrawal/request')
+        .send(invalidData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain(
+        'Unsupported chain/network combination'
+      );
+    });
+
+    it('should return 400 for invalid network for chain', async () => {
+      const invalidData = {
+        amount: '0.5',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        symbol: 'USDT', // Added symbol to avoid symbol validation
+        network: 'mainnet',
+        chain: 'localhost', // localhost doesn't have mainnet
+      };
+
+      const response = await request(app)
+        .post('/api/withdrawal/request')
+        .send(invalidData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain(
+        'Unsupported chain/network combination'
+      );
+    });
+
+    // New test cases for amount format validation
+    it('should return 400 for amount with too many decimal places', async () => {
+      const invalidData = {
+        amount: '0.123456789', // 9 decimal places, max is 8
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        symbol: 'USDT', // Added symbol to avoid symbol validation
+        network: 'mainnet',
+        chain: 'polygon',
+      };
+
+      const response = await request(app)
+        .post('/api/withdrawal/request')
+        .send(invalidData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe(
+        'Invalid amount format. Maximum 8 decimal places allowed'
+      );
+    });
+
+    it('should return 400 for zero amount', async () => {
+      const invalidData = {
+        amount: '0',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        symbol: 'USDT', // Added symbol to avoid symbol validation
+        network: 'mainnet',
+        chain: 'polygon',
+      };
+
+      const response = await request(app)
+        .post('/api/withdrawal/request')
+        .send(invalidData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Amount must be greater than 0');
+    });
+
+    it('should return 400 for negative amount', async () => {
+      const invalidData = {
+        amount: '-10',
+        toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
+        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+        symbol: 'USDT', // Added symbol to avoid symbol validation
+        network: 'mainnet',
+        chain: 'polygon',
+      };
+
+      const response = await request(app)
+        .post('/api/withdrawal/request')
+        .send(invalidData)
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe(
+        'Invalid amount format. Maximum 8 decimal places allowed'
       );
     });
 

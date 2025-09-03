@@ -5,7 +5,7 @@
   "main": "dist/main.js",
   "scripts": {
     "start": "tsx src/main.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.app.json",
     "dev": "tsx watch src/main.ts",
     "test:normal": "tsx src/main.ts batch --scenario normal-flow",
     "test:stress": "tsx src/main.ts batch --scenario stress-test",

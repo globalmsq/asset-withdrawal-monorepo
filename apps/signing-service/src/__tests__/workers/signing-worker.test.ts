@@ -243,6 +243,14 @@ describe('SigningWorker', () => {
     );
   });
 
+  afterEach(async () => {
+    // Stop the worker to prevent the processLoop from continuing
+    if (signingWorker) {
+      (signingWorker as any).isRunning = false;
+      await signingWorker.stop();
+    }
+  });
+
   describe('processMessage', () => {
     it('should successfully process and sign a withdrawal request', async () => {
       const withdrawalRequest: WithdrawalRequest = {
@@ -252,6 +260,13 @@ describe('SigningWorker', () => {
         amount: '1000000',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
       };
+
+      const mockChainProvider = {
+        isConnected: jest.fn().mockReturnValue(true),
+        getProvider: jest.fn(),
+        chain: 'polygon',
+        network: 'mainnet',
+      } as any;
 
       const mockTransactionSigner = {
         signTransaction: jest.fn().mockResolvedValue({
@@ -270,6 +285,7 @@ describe('SigningWorker', () => {
         }),
         initialize: jest.fn(),
         cleanup: jest.fn(),
+        getChainProvider: jest.fn().mockReturnValue(mockChainProvider),
       };
 
       // Mock the transaction signer
@@ -318,12 +334,16 @@ describe('SigningWorker', () => {
         'test-tx-123',
         TransactionStatus.SIGNED
       );
-      expect(mockTransactionSigner.signTransaction).toHaveBeenCalledWith({
-        to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000',
-        tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-        transactionId: 'test-tx-123',
-      });
+      expect(mockTransactionSigner.signTransaction).toHaveBeenCalledWith(
+        {
+          to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
+          amount: '1000000',
+          tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+          transactionId: 'test-tx-123',
+        },
+        undefined, // preAllocatedNonce
+        undefined // preEstimatedGas
+      );
       expect(result).toMatchObject({
         transactionId: 'test-tx-123',
         rawTransaction: '0xf86c0a85...',
@@ -339,12 +359,20 @@ describe('SigningWorker', () => {
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
       };
 
+      const mockChainProvider = {
+        isConnected: jest.fn().mockReturnValue(true),
+        getProvider: jest.fn(),
+        chain: 'polygon',
+        network: 'mainnet',
+      } as any;
+
       const mockTransactionSigner = {
         signTransaction: jest
           .fn()
           .mockRejectedValue(new Error('nonce too low')),
         initialize: jest.fn(),
         cleanup: jest.fn(),
+        getChainProvider: jest.fn().mockReturnValue(mockChainProvider),
       };
 
       const signingWorkerAny = signingWorker as any;
@@ -389,12 +417,20 @@ describe('SigningWorker', () => {
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
       };
 
+      const mockChainProvider = {
+        isConnected: jest.fn().mockReturnValue(true),
+        getProvider: jest.fn(),
+        chain: 'polygon',
+        network: 'mainnet',
+      } as any;
+
       const mockTransactionSigner = {
         signTransaction: jest
           .fn()
           .mockRejectedValue(new Error('Invalid token address')),
         initialize: jest.fn(),
         cleanup: jest.fn(),
+        getChainProvider: jest.fn().mockReturnValue(mockChainProvider),
       };
 
       const signingWorkerAny = signingWorker as any;
@@ -447,9 +483,17 @@ describe('SigningWorker', () => {
 
   describe('stop', () => {
     it('should cleanup resources on stop', async () => {
+      const mockChainProvider = {
+        isConnected: jest.fn().mockReturnValue(true),
+        getProvider: jest.fn(),
+        chain: 'polygon',
+        network: 'mainnet',
+      } as any;
+
       const mockTransactionSigner = {
         initialize: jest.fn(),
         cleanup: jest.fn(),
+        getChainProvider: jest.fn().mockReturnValue(mockChainProvider),
       };
 
       const signingWorkerAny = signingWorker as any;
@@ -539,6 +583,13 @@ describe('SigningWorker', () => {
         }),
       };
 
+      const mockChainProvider = {
+        isConnected: jest.fn().mockReturnValue(true),
+        getProvider: jest.fn(),
+        chain: 'polygon',
+        network: 'mainnet',
+      } as any;
+
       mockTransactionSigner = {
         initialize: jest.fn(),
         signBatchTransaction: jest.fn().mockResolvedValue({
@@ -558,6 +609,8 @@ describe('SigningWorker', () => {
         getAddress: jest
           .fn()
           .mockResolvedValue('0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf'),
+        getChainProvider: jest.fn().mockReturnValue(mockChainProvider),
+        cleanup: jest.fn(),
       };
 
       // Setup signing worker with mocks

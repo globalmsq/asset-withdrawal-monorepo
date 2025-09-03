@@ -29,6 +29,7 @@ import { Config } from '../config';
 import { ethers } from 'ethers';
 import * as crypto from 'crypto';
 import * as os from 'os';
+import Redis from 'ioredis';
 
 export class SigningWorker extends BaseWorker<
   WithdrawalRequest,
@@ -37,7 +38,7 @@ export class SigningWorker extends BaseWorker<
   private withdrawalRequestService: WithdrawalRequestService;
   private signedTransactionService: SignedTransactionService;
   private nonceCache: NonceCacheService;
-  private noncePoolService: NoncePoolService;
+  private noncePoolService!: NoncePoolService; // Initialized in initialize()
   private gasPriceCache: GasPriceCache;
   private multicallServices: Map<string, MulticallService>;
   private signers: Map<string, TransactionSigner>;
@@ -69,8 +70,7 @@ export class SigningWorker extends BaseWorker<
       {
         inputDlqUrl: config.queue.requestDlqUrl,
         outputDlqUrl: config.queue.signedTxDlqUrl,
-      },
-      config.redis // Pass Redis config to BaseWorker
+      }
     );
 
     this.auditLogger = logger;
@@ -97,12 +97,7 @@ export class SigningWorker extends BaseWorker<
     // Create queue recovery service
     this.queueRecoveryService = new QueueRecoveryService(this.nonceCache);
 
-    // Create nonce pool service using the Redis connection from BaseWorker
-    if (this.redisClient) {
-      this.noncePoolService = new NoncePoolService(this.redisClient);
-    } else {
-      throw new Error('Redis connection is required for NoncePoolService');
-    }
+    // NoncePoolService will be initialized in initialize() method
   }
 
   async initialize(): Promise<void> {
@@ -119,6 +114,17 @@ export class SigningWorker extends BaseWorker<
 
     // Connect to Redis for nonce management
     await this.nonceCache.connect();
+
+    // Initialize NoncePoolService with Redis
+    if (this.config.redis) {
+      const redisClient = new Redis({
+        host: this.config.redis.host,
+        port: this.config.redis.port,
+      });
+      this.noncePoolService = new NoncePoolService(redisClient);
+    } else {
+      throw new Error('Redis configuration is required for NoncePoolService');
+    }
 
     // Skip pre-initialization to avoid network connection issues at startup
     // Signers will be created on-demand when first message is received
@@ -217,6 +223,61 @@ export class SigningWorker extends BaseWorker<
     }
 
     return this.signers.get(key)!;
+  }
+
+  /**
+   * Override canProcess to check blockchain connections
+   * Messages are processed only if at least one blockchain is connected
+   */
+  protected async canProcess(): Promise<boolean> {
+    try {
+      // Get all currently configured signers/providers
+      const availableChains: string[] = [];
+      const disconnectedChains: string[] = [];
+
+      // Check all configured chains
+      for (const [key, signer] of this.signers) {
+        const chainProvider = signer.getChainProvider();
+        const isConnected = chainProvider.isConnected();
+
+        if (isConnected) {
+          availableChains.push(key);
+        } else {
+          disconnectedChains.push(key);
+        }
+      }
+
+      // If no signers are initialized yet, allow processing (they'll be created on demand)
+      if (this.signers.size === 0) {
+        return true;
+      }
+
+      // If ALL chains are disconnected, stop processing
+      if (availableChains.length === 0 && disconnectedChains.length > 0) {
+        this.auditLogger.warn(
+          'All blockchain connections are down, stopping SQS processing',
+          {
+            disconnectedChains,
+          }
+        );
+        return false;
+      }
+
+      // If some chains are disconnected, log warning but continue
+      if (disconnectedChains.length > 0) {
+        this.auditLogger.warn('Some blockchain connections are down', {
+          availableChains,
+          disconnectedChains,
+        });
+      }
+
+      // At least one chain is connected, continue processing
+      return true;
+    } catch (error) {
+      this.auditLogger.error('Error checking blockchain connections', error);
+      // On error, allow processing to continue
+      return true;
+    }
   }
 
   /**
@@ -653,72 +714,237 @@ export class SigningWorker extends BaseWorker<
     }
   }
 
+  /**
+   * Helper method to estimate gas for a message
+   */
+  private async estimateGasForMessage(message: WithdrawalRequest): Promise<{
+    gasLimit: bigint;
+    maxFeePerGas: bigint;
+    maxPriorityFeePerGas: bigint;
+  } | null> {
+    try {
+      const chain = message.chain || 'polygon';
+      const network = message.network;
+      const signer = await this.getOrCreateSigner(chain, network);
+
+      // Call signer's gas estimation method
+      const gasEstimate = await signer.estimateGasForTransaction({
+        to: message.toAddress,
+        amount: message.amount,
+        tokenAddress: message.tokenAddress,
+        transactionId: message.id,
+      });
+
+      return gasEstimate;
+    } catch (error) {
+      this.auditLogger.error('Failed to estimate gas for message', error, {
+        requestId: message.id,
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Group messages by chain and network
+   */
+  private groupMessagesByChain(
+    messages: Array<{
+      message: Message<WithdrawalRequest>;
+      gasEstimate: {
+        gasLimit: bigint;
+        maxFeePerGas: bigint;
+        maxPriorityFeePerGas: bigint;
+      };
+    }>
+  ): Map<string, typeof messages> {
+    const groups = new Map<string, typeof messages>();
+
+    for (const item of messages) {
+      const chain = item.message.body.chain || 'polygon';
+      const network = item.message.body.network;
+      const key = `${chain}:${network}`;
+
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(item);
+    }
+
+    return groups;
+  }
+
   private async processSingleTransactions(
     messages: Message<WithdrawalRequest>[]
   ): Promise<void> {
-    // Process messages individually
-    const messagePromises = messages.map(async message => {
-      const messageId = message.id || message.receiptHandle;
-      this.processingMessages.add(messageId);
+    // Step 1: Estimate gas for all messages in parallel
+    const gasEstimationPromises = messages.map(async message => {
+      const gasEstimate = await this.estimateGasForMessage(message.body);
+      if (gasEstimate) {
+        return { message, gasEstimate };
+      }
+      // Gas estimation failed - handle the message
+      this.auditLogger.warn('Gas estimation failed, skipping message', {
+        requestId: message.body.id,
+      });
 
+      // Update status to indicate gas estimation failure
       try {
-        const result = await this.processMessage(message.body);
-
-        // Send to output queue if configured and result is provided
-        if (this.outputQueue && result !== undefined) {
-          await this.outputQueue.sendMessage(result as SignedTransaction);
-        }
-
-        // Delete message from input queue
+        await this.withdrawalRequestService.updateStatusWithError(
+          message.body.id,
+          TransactionStatus.FAILED,
+          'Gas estimation failed'
+        );
+        // Delete message from queue as it's non-recoverable
         await this.inputQueue.deleteMessage(message.receiptHandle);
-        this.processedCount++;
-        this.lastProcessedAt = new Date();
-      } catch (error) {
-        this.logger.error(`Error processing message ${messageId}`, error);
-        this.lastError =
-          error instanceof Error ? error.message : 'Unknown error';
-        this.errorCount++;
+      } catch (err) {
+        this.logger.error(
+          'Failed to update status for gas estimation failure',
+          err
+        );
+      }
 
-        // Check if error is recoverable
-        const errorMessage =
-          error instanceof Error
-            ? error.message.toLowerCase()
-            : String(error).toLowerCase();
-        const isRecoverable = this.isRecoverableError(errorMessage);
+      return null;
+    });
 
-        if (isRecoverable) {
-          this.auditLogger.info(
-            'Recoverable error detected, recovering transaction',
-            {
-              withdrawalId: message.body.id,
-              error: errorMessage,
-            }
+    const gasEstimationResults = await Promise.all(gasEstimationPromises);
+    const messagesWithGas = gasEstimationResults.filter(
+      (result): result is NonNullable<typeof result> => result !== null
+    );
+
+    if (messagesWithGas.length === 0) {
+      this.logger.warn('No messages passed gas estimation');
+      return;
+    }
+
+    this.logger.info('Gas estimation completed', {
+      total: messages.length,
+      successful: messagesWithGas.length,
+      failed: messages.length - messagesWithGas.length,
+    });
+
+    // Step 2: Group messages by chain and network
+    const chainGroups = this.groupMessagesByChain(messagesWithGas);
+
+    // Step 3: Allocate nonces for each group and process
+    const allMessagesWithNonces: Array<{
+      message: Message<WithdrawalRequest>;
+      nonce: number;
+      gasEstimate: {
+        gasLimit: bigint;
+        maxFeePerGas: bigint;
+        maxPriorityFeePerGas: bigint;
+      };
+    }> = [];
+
+    for (const [chainKey, group] of chainGroups.entries()) {
+      const [chain, network] = chainKey.split(':');
+
+      // Get signer for this chain
+      const signer = await this.getOrCreateSigner(chain, network);
+      const address = await signer.getAddress();
+
+      // Allocate nonces sequentially for this group
+      for (const item of group) {
+        try {
+          const nonce = await this.nonceCache.getAndIncrement(
+            address,
+            chain,
+            network
           );
 
-          try {
-            await this.queueRecoveryService.recoverTransactionOnError(
-              message.body.id,
-              error,
-              message.receiptHandle
-            );
-          } catch (recoveryError) {
-            this.auditLogger.error(
-              'Failed to recover transaction',
-              recoveryError,
+          allMessagesWithNonces.push({
+            message: item.message,
+            nonce,
+            gasEstimate: item.gasEstimate,
+          });
+
+          this.auditLogger.info('Allocated nonce for message', {
+            requestId: item.message.body.id,
+            nonce,
+            chain,
+            network,
+          });
+        } catch (error) {
+          this.auditLogger.error('Failed to allocate nonce', error, {
+            requestId: item.message.body.id,
+          });
+          // Skip this message if nonce allocation fails
+        }
+      }
+    }
+
+    // Step 4: Process all messages in parallel with pre-allocated nonces and gas estimates
+    const messagePromises = allMessagesWithNonces.map(
+      async ({ message, nonce, gasEstimate }) => {
+        const messageId = message.id || message.receiptHandle;
+        this.processingMessages.add(messageId);
+
+        try {
+          const result = await this.processMessage(
+            message.body,
+            nonce,
+            gasEstimate
+          );
+
+          // Send to output queue if configured and result is provided
+          if (this.outputQueue && result !== undefined) {
+            await this.outputQueue.sendMessage(result as SignedTransaction);
+          }
+
+          // Delete message from input queue
+          await this.inputQueue.deleteMessage(message.receiptHandle);
+          this.processedCount++;
+          this.lastProcessedAt = new Date();
+        } catch (error) {
+          this.logger.error(`Error processing message ${messageId}`, error);
+          this.lastError =
+            error instanceof Error ? error.message : 'Unknown error';
+          this.errorCount++;
+
+          // Note: Nonces are already allocated and cannot be returned in Redis-based system
+          // Failed transactions will skip the nonce, which is acceptable
+
+          // Check if error is recoverable
+          const errorMessage =
+            error instanceof Error
+              ? error.message.toLowerCase()
+              : String(error).toLowerCase();
+          const isRecoverable = this.isRecoverableError(errorMessage);
+
+          if (isRecoverable) {
+            this.auditLogger.info(
+              'Recoverable error detected, recovering transaction',
               {
                 withdrawalId: message.body.id,
+                error: errorMessage,
               }
             );
-            // Message will be returned to queue after visibility timeout
+
+            try {
+              await this.queueRecoveryService.recoverTransactionOnError(
+                message.body.id,
+                error,
+                message.receiptHandle
+              );
+            } catch (recoveryError) {
+              this.auditLogger.error(
+                'Failed to recover transaction',
+                recoveryError,
+                {
+                  withdrawalId: message.body.id,
+                }
+              );
+              // Message will be returned to queue after visibility timeout
+            }
+          } else {
+            // Non-recoverable error - delete message from queue
+            await this.inputQueue.deleteMessage(message.receiptHandle);
           }
-        } else {
-          // Non-recoverable error - delete message from queue
-          await this.inputQueue.deleteMessage(message.receiptHandle);
+        } finally {
+          this.processingMessages.delete(messageId);
         }
-      } finally {
-        this.processingMessages.delete(messageId);
       }
-    });
+    );
 
     await Promise.all(messagePromises);
   }
@@ -1059,7 +1285,13 @@ export class SigningWorker extends BaseWorker<
   }
 
   async processMessage(
-    message: WithdrawalRequest
+    message: WithdrawalRequest,
+    preAllocatedNonce?: number,
+    preEstimatedGas?: {
+      gasLimit: bigint;
+      maxFeePerGas: bigint;
+      maxPriorityFeePerGas: bigint;
+    }
   ): Promise<SignedTransaction | null> {
     const {
       id: requestId,
@@ -1075,6 +1307,7 @@ export class SigningWorker extends BaseWorker<
       to,
       amount,
       tokenAddress,
+      preAllocatedNonce,
     });
 
     try {
@@ -1118,6 +1351,19 @@ export class SigningWorker extends BaseWorker<
             requestId,
           }
         );
+
+        // Note: Pre-allocated nonces cannot be returned in Redis-based system
+        // The nonce will be skipped, which is acceptable for blockchain operation
+        if (preAllocatedNonce !== undefined) {
+          this.logger.debug(
+            'Skipping pre-allocated nonce (cannot be returned)',
+            {
+              nonce: preAllocatedNonce,
+              requestId,
+            }
+          );
+        }
+
         return null;
       }
 
@@ -1130,13 +1376,25 @@ export class SigningWorker extends BaseWorker<
       const chain = message.chain || 'polygon';
       const signer = await this.getOrCreateSigner(chain, network);
 
-      // Build and sign transaction
-      const signedTx = await signer.signTransaction({
-        to,
-        amount,
-        tokenAddress,
-        transactionId: requestId,
-      });
+      // Check if the chain is connected
+      const chainProvider = signer.getChainProvider();
+      if (!chainProvider.isConnected()) {
+        // Chain is disconnected - throw error
+        // Note: Pre-allocated nonce will be lost but this is acceptable
+        throw new Error(`Blockchain connection lost for ${chain}/${network}`);
+      }
+
+      // Build and sign transaction with pre-allocated nonce and gas if provided
+      const signedTx = await signer.signTransaction(
+        {
+          to,
+          amount,
+          tokenAddress,
+          transactionId: requestId,
+        },
+        preAllocatedNonce,
+        preEstimatedGas
+      );
 
       // Save signed transaction to database
       try {
@@ -1204,6 +1462,19 @@ export class SigningWorker extends BaseWorker<
 
       return signedTx;
     } catch (error) {
+      // Note: Pre-allocated nonces cannot be returned in Redis-based system
+      // Failed transactions will skip the nonce, which is acceptable
+      if (preAllocatedNonce !== undefined) {
+        this.logger.debug(
+          'Pre-allocated nonce lost due to error (cannot be returned)',
+          {
+            nonce: preAllocatedNonce,
+            requestId,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
+      }
+
       this.auditLogger.error(`Failed to sign transaction: ${requestId}`, error);
 
       this.auditLogger.auditFailure(

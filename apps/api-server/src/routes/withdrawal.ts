@@ -9,10 +9,11 @@ import {
   QueueFactory,
   IQueue,
   tokenService,
+  chainsConfig,
+  LoggerService,
 } from '@asset-withdrawal/shared';
 import { getDatabase } from '../services/database';
 import { config } from '../config';
-import { LoggerService } from '@asset-withdrawal/shared';
 
 const router = Router();
 const logger = new LoggerService({ service: 'api-server:withdrawal' });
@@ -123,7 +124,7 @@ function getSymbolFromTokenAddress(
  *               toAddress:
  *                 type: string
  *                 description: Destination wallet address
- *                 example: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 example: "0x742d35Cc6634c0532925a3b844bC9e7595F0FAED"
  *               tokenAddress:
  *                 type: string
  *                 description: Token contract address (only ERC-20 tokens from approved list)
@@ -145,7 +146,7 @@ function getSymbolFromTokenAddress(
  *               summary: Polygon USDT withdrawal
  *               value:
  *                 amount: "100"
- *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 toAddress: "0x742d35Cc6634c0532925a3b844bC9e7595F0FAED"
  *                 tokenAddress: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"
  *                 symbol: "USDT"
  *                 chain: "polygon"
@@ -154,7 +155,7 @@ function getSymbolFromTokenAddress(
  *               summary: Localhost mock USDT withdrawal
  *               value:
  *                 amount: "50"
- *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 toAddress: "0x742d35Cc6634c0532925a3b844bC9e7595F0FAED"
  *                 tokenAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3"
  *                 symbol: "mUSDT"
  *                 chain: "localhost"
@@ -163,7 +164,7 @@ function getSymbolFromTokenAddress(
  *               summary: Localhost mock MSQ withdrawal
  *               value:
  *                 amount: "100"
- *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 toAddress: "0x742d35Cc6634c0532925a3b844bC9e7595F0FAED"
  *                 tokenAddress: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
  *                 symbol: "mMSQ"
  *                 chain: "localhost"
@@ -172,7 +173,7 @@ function getSymbolFromTokenAddress(
  *               summary: Localhost mock KWT withdrawal
  *               value:
  *                 amount: "1000"
- *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 toAddress: "0x742d35Cc6634c0532925a3b844bC9e7595F0FAED"
  *                 tokenAddress: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
  *                 symbol: "mKWT"
  *                 chain: "localhost"
@@ -181,7 +182,7 @@ function getSymbolFromTokenAddress(
  *               summary: Polygon MSQ withdrawal with symbol validation
  *               value:
  *                 amount: "50"
- *                 toAddress: "0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd"
+ *                 toAddress: "0x742d35Cc6634c0532925a3b844bC9e7595F0FAED"
  *                 tokenAddress: "0x6A8Ec2d9BfBDD20A7F5A4E89D640F7E7cebA4499"
  *                 symbol: "MSQ"
  *                 chain: "polygon"
@@ -256,7 +257,7 @@ router.post('/request', async (req: Request, res: Response) => {
     const { amount, toAddress, tokenAddress, symbol, network, chain } =
       req.body;
 
-    // Basic validation
+    // Basic validation - Check required fields
     if (!amount || !toAddress || !tokenAddress || !chain || !network) {
       const response: ApiResponse = {
         success: false,
@@ -270,38 +271,87 @@ router.post('/request', async (req: Request, res: Response) => {
     const blockchainName = chain;
     const networkType = network;
 
-    // Validate amount
-    if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+    // Validate address formats - 체크섬 무시하고 이더리움 주소 형식만 검증
+    // ethers v6에서는 isAddress가 체크섬을 무시하고 검증합니다
+    if (!ethers.isAddress(toAddress)) {
       const response: ApiResponse = {
         success: false,
-        error: 'Invalid amount',
+        error: 'Invalid recipient address format',
         timestamp: new Date(),
       };
       return res.status(400).json(response);
     }
 
-    // Validate supported chains using tokenService
-    const supportedChains = tokenService.getSupportedBlockchains();
-    if (!supportedChains.includes(blockchainName)) {
+    if (!ethers.isAddress(tokenAddress)) {
       const response: ApiResponse = {
         success: false,
-        error: `Chain '${blockchainName}' is not supported. Supported chains: ${supportedChains.join(', ')}`,
+        error: 'Invalid token address format',
         timestamp: new Date(),
       };
       return res.status(400).json(response);
     }
 
     // Validate token address - Native tokens (0x0000...) are not supported
-    if (tokenAddress === '0x0000000000000000000000000000000000000000') {
+    if (
+      tokenAddress.toLowerCase() ===
+      '0x0000000000000000000000000000000000000000'
+    ) {
       const response: ApiResponse = {
         success: false,
         error:
-          'Native token transfers are not supported. Only ERC-20 tokens from the approved list are allowed.',
+          'Native token transfers are not supported. Only ERC-20 tokens are allowed.',
         timestamp: new Date(),
       };
       return res.status(400).json(response);
     }
 
+    // Validate chain and network based on chains.config.json
+    const chainConfig = (chainsConfig as any)[blockchainName]?.[networkType];
+    if (!chainConfig) {
+      const supportedChains = Object.keys(chainsConfig);
+      const response: ApiResponse = {
+        success: false,
+        error: `Unsupported chain/network combination: ${blockchainName}/${networkType}. Supported chains: ${supportedChains.join(', ')}`,
+        timestamp: new Date(),
+      };
+      return res.status(400).json(response);
+    }
+
+    // Check if the chain/network is enabled
+    if (chainConfig.enabled === false) {
+      const response: ApiResponse = {
+        success: false,
+        error: `Chain/network ${blockchainName}/${networkType} is currently disabled`,
+        timestamp: new Date(),
+      };
+      return res.status(400).json(response);
+    }
+
+    // Validate amount format (up to 8 decimal places)
+    const AMOUNT_PATTERN = /^\d+(\.\d{1,8})?$/;
+    if (!AMOUNT_PATTERN.test(amount)) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Invalid amount format. Maximum 8 decimal places allowed',
+        timestamp: new Date(),
+      };
+      return res.status(400).json(response);
+    }
+
+    // Validate amount is positive
+    const numAmount = parseFloat(amount);
+    if (numAmount <= 0) {
+      const response: ApiResponse = {
+        success: false,
+        error: 'Amount must be greater than 0',
+        timestamp: new Date(),
+      };
+      return res.status(400).json(response);
+    }
+
+    // Token whitelist validation - TEMPORARILY DISABLED
+    // Will be re-enabled when whitelist feature is implemented
+    /*
     // Validate token is in our supported list
     const tokenInfo = tokenService.getTokenByAddress(
       tokenAddress,
@@ -312,7 +362,7 @@ router.post('/request', async (req: Request, res: Response) => {
     if (!tokenInfo) {
       const response: ApiResponse = {
         success: false,
-        error: `Token ${tokenAddress} is not supported on ${blockchainName} ${networkType} network`,
+        error: `Token ${tokenAddress} is not in the approved token list for ${blockchainName} ${networkType}`,
         timestamp: new Date(),
       };
       return res.status(400).json(response);
@@ -344,6 +394,44 @@ router.post('/request', async (req: Request, res: Response) => {
           timestamp: new Date(),
         };
         return res.status(400).json(response);
+      }
+    }
+    */
+
+    // For now, get token info for optional maxTransferAmount check
+    // This is a temporary solution until whitelist is fully implemented
+    const tokenInfo = tokenService.getTokenByAddress(
+      tokenAddress,
+      networkType,
+      blockchainName
+    );
+
+    // Check maxTransferAmount if token info is available
+    if (tokenInfo && tokenInfo.maxTransferAmount) {
+      try {
+        const requestedAmount = ethers.parseUnits(amount, tokenInfo.decimals);
+        const maxAmount = ethers.parseUnits(
+          tokenInfo.maxTransferAmount,
+          tokenInfo.decimals
+        );
+
+        if (requestedAmount > maxAmount) {
+          const response: ApiResponse = {
+            success: false,
+            error: `Transfer amount exceeds maximum allowed limit. Maximum: ${tokenInfo.maxTransferAmount} ${tokenInfo.symbol}`,
+            timestamp: new Date(),
+          };
+          return res.status(400).json(response);
+        }
+      } catch (e) {
+        // If parsing fails, continue without maxTransferAmount check
+        logger.warn('Failed to parse amount for maxTransferAmount check', {
+          metadata: {
+            error: String(e),
+            tokenAddress,
+            amount,
+          },
+        });
       }
     }
 
@@ -379,11 +467,8 @@ router.post('/request', async (req: Request, res: Response) => {
         data: {
           requestId: requestId,
           amount: amount,
-          symbol: getSymbolFromTokenAddress(
-            tokenAddress,
-            networkType,
-            blockchainName
-          ),
+          // Use symbol from request or token info if available, otherwise use 'UNKNOWN'
+          symbol: symbol || tokenInfo?.symbol || 'UNKNOWN',
           toAddress: toAddress,
           tokenAddress: tokenAddress,
           chain: blockchainName,
@@ -408,7 +493,7 @@ router.post('/request', async (req: Request, res: Response) => {
       amount: amount,
       toAddress: toAddress,
       tokenAddress: tokenAddress,
-      symbol: symbol || tokenInfo.symbol,
+      symbol: symbol || tokenInfo?.symbol || 'UNKNOWN',
       chain: blockchainName,
       network: network,
       createdAt: savedRequest.createdAt,

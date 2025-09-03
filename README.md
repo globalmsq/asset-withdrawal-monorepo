@@ -1,6 +1,6 @@
 # Asset Withdrawal System
 
-High-throughput Polygon blockchain withdrawal system with Multicall3 batch processing. Handles massive volumes of cryptocurrency withdrawals, processing tens of thousands of transactions efficiently. Features 10-100x faster speeds and up to 70% gas cost reduction.
+High-throughput multi-chain blockchain withdrawal system with Multicall3 batch processing. Handles massive volumes of cryptocurrency withdrawals across multiple blockchain networks (Polygon, Ethereum, BSC, and localhost for development), processing tens of thousands of transactions efficiently. Features 10-100x faster speeds and up to 70% gas cost reduction.
 
 ## 📁 Project Structure
 
@@ -115,7 +115,7 @@ graph TB
     end
 
     subgraph "Blockchain"
-        Polygon[Polygon Network]
+        Blockchain[Blockchain Networks]
     end
 
     Client --> ALB
@@ -131,18 +131,18 @@ graph TB
     Signer --> MySQL
 
     SQS2 --> Broadcaster
-    Broadcaster --> Polygon
+    Broadcaster --> Blockchain
     Broadcaster --> SQS3
     Broadcaster --> MySQL
 
     SQS3 --> Monitor
-    Monitor --> Polygon
+    Monitor --> Blockchain
     Monitor --> MySQL
 
     AcctMgr --> SQS4
     AcctMgr --> SQS5
     AcctMgr --> MySQL
-    AcctMgr --> Polygon
+    AcctMgr --> Blockchain
     SQS5 --> Signer
 
     SQS1 -.->|5 retries| DLQ1

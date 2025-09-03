@@ -1,10 +1,10 @@
 import axios, { AxiosInstance } from 'axios';
 import chalk from 'chalk';
-import {
+import type {
   WithdrawalRequest,
   WithdrawalResponse,
   TransactionStatus,
-} from 'shared';
+} from '@asset-withdrawal/shared';
 
 export interface RequestOptions {
   amount: string;

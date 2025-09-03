@@ -136,7 +136,8 @@ describe('TokenService', () => {
     it('should return all mainnet tokens', () => {
       const tokens = tokenService.getSupportedTokens('mainnet');
 
-      expect(tokens).toHaveLength(5);
+      expect(tokens).toHaveLength(6); // USDC 추가로 6개가 됨
+      expect(tokens.map(t => t.symbol)).toContain('USDC'); // USDC 추가
       expect(tokens.map(t => t.symbol)).toContain('USDT');
       expect(tokens.map(t => t.symbol)).toContain('MSQ');
       expect(tokens.map(t => t.symbol)).toContain('SUT');

@@ -58,6 +58,38 @@ export class TransactionSigner {
       // Get provider and store it
       this.provider = this.chainProvider.getProvider();
 
+      // Verify chainId matches before proceeding
+      try {
+        const actualChainIdHex = await (this.provider as any).send(
+          'eth_chainId',
+          []
+        );
+        const actualChainId = parseInt(actualChainIdHex, 16);
+        const expectedChainId = this.chainProvider.getChainId();
+
+        if (actualChainId !== expectedChainId) {
+          const rpcUrl = process.env.RPC_URL || 'configured RPC';
+          throw new Error(
+            `ChainId mismatch: Config expects ${expectedChainId} for ${this.chainProvider.chain}/${this.chainProvider.network}, ` +
+              `but RPC endpoint ${rpcUrl} reports ${actualChainId}. ` +
+              `Please check RPC_URL configuration.`
+          );
+        }
+
+        this.logger.info('ChainId verification passed', {
+          chain: this.chainProvider.chain,
+          network: this.chainProvider.network,
+          chainId: actualChainId,
+        });
+      } catch (error) {
+        this.logger.error('ChainId verification failed', {
+          chain: this.chainProvider.chain,
+          network: this.chainProvider.network,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        throw error;
+      }
+
       // Create wallet instance
       this.wallet = new ethers.Wallet(privateKey, this.provider);
 
@@ -88,7 +120,25 @@ export class TransactionSigner {
         'Initialization complete - approve TX logic removed, assuming sufficient allowances'
       );
     } catch (error) {
-      this.logger.error('Failed to initialize transaction signer', error);
+      this.logger.error('Failed to initialize transaction signer', {
+        chain: this.chainProvider.chain,
+        network: this.chainProvider.network,
+        rpcUrl: process.env.RPC_URL,
+        chainId: this.chainProvider.getChainId(),
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Provide more specific error message for connection issues
+      if (
+        error instanceof Error &&
+        error.message.includes('could not detect network')
+      ) {
+        throw new Error(
+          `Cannot connect to ${this.chainProvider.chain}/${this.chainProvider.network} RPC endpoint. ` +
+            `Please check RPC_URL configuration.`
+        );
+      }
+
       throw error;
     }
   }
@@ -100,13 +150,127 @@ export class TransactionSigner {
     return this.wallet.address;
   }
 
-  async signTransaction(request: SigningRequest): Promise<SignedTransaction> {
+  getChainProvider(): ChainProvider {
+    return this.chainProvider;
+  }
+
+  /**
+   * Estimate gas for a transaction without signing
+   */
+  async estimateGasForTransaction(request: SigningRequest): Promise<{
+    gasLimit: bigint;
+    maxFeePerGas: bigint;
+    maxPriorityFeePerGas: bigint;
+  }> {
+    if (!this.wallet) {
+      throw new Error('Wallet not initialized');
+    }
+
+    const { to, amount, tokenAddress, transactionId } = request;
+
+    // Build transaction WITHOUT nonce for gas estimation
+    let transactionForGasEstimate: ethers.TransactionRequest;
+
+    if (tokenAddress) {
+      // ERC20 transfer
+      const tokenContract = new ethers.Contract(
+        tokenAddress,
+        ['function transfer(address to, uint256 amount) returns (bool)'],
+        this.wallet
+      );
+
+      const data = tokenContract.interface.encodeFunctionData('transfer', [
+        to,
+        amount,
+      ]);
+
+      transactionForGasEstimate = {
+        to: tokenAddress,
+        data,
+        from: this.wallet.address,
+        type: 2, // EIP-1559
+        chainId: this.chainProvider.getChainId(),
+      };
+    } else {
+      // Native token transfer
+      transactionForGasEstimate = {
+        to,
+        value: BigInt(amount),
+        from: this.wallet.address,
+        type: 2, // EIP-1559
+        chainId: this.chainProvider.getChainId(),
+      };
+    }
+
+    // Estimate gas
+    const gasEstimate = await this.wallet.estimateGas(
+      transactionForGasEstimate
+    );
+    const gasLimit = (gasEstimate * 120n) / 100n; // Add 20% buffer
+
+    // Get gas price
+    let cachedGasPrice = this.gasPriceCache.get();
+    let maxFeePerGas: bigint;
+    let maxPriorityFeePerGas: bigint;
+
+    if (cachedGasPrice) {
+      maxFeePerGas = cachedGasPrice.maxFeePerGas;
+      maxPriorityFeePerGas = cachedGasPrice.maxPriorityFeePerGas;
+    } else {
+      if (!this.provider) {
+        throw new Error('Provider not initialized');
+      }
+
+      const feeData = await this.provider.getFeeData();
+
+      if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
+        throw new GasEstimationError(
+          'Failed to fetch gas price from provider',
+          {
+            chain: this.chainProvider.chain,
+            network: this.chainProvider.network,
+          }
+        );
+      }
+
+      // Update cache for next use
+      this.gasPriceCache.set({
+        maxFeePerGas: feeData.maxFeePerGas,
+        maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+      });
+
+      maxFeePerGas = feeData.maxFeePerGas;
+      maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+    }
+
+    // Adjust gas price with a buffer (10% higher)
+    maxFeePerGas = (maxFeePerGas * 110n) / 100n;
+    maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
+
+    return {
+      gasLimit,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    };
+  }
+
+  async signTransaction(
+    request: SigningRequest,
+    preAllocatedNonce?: number,
+    preEstimatedGas?: {
+      gasLimit: bigint;
+      maxFeePerGas: bigint;
+      maxPriorityFeePerGas: bigint;
+    }
+  ): Promise<SignedTransaction> {
     if (!this.wallet) {
       throw new Error('Wallet not initialized');
     }
 
     const { to, amount, tokenAddress, transactionId } = request;
     let nonce: number | undefined;
+    let maxFeePerGas: bigint = 0n;
+    let maxPriorityFeePerGas: bigint = 0n;
 
     try {
       // Build transaction WITHOUT nonce first (for gas estimation)
@@ -162,54 +326,82 @@ export class TransactionSigner {
         };
       }
 
-      // Estimate gas BEFORE getting nonce
+      // Use pre-estimated gas if provided, otherwise estimate
       let gasEstimate: bigint;
-      try {
-        gasEstimate = await this.wallet.estimateGas(transactionForGasEstimate);
-        this.logger.debug('Gas estimation successful', {
+
+      if (preEstimatedGas) {
+        // Use pre-estimated values
+        gasEstimate = preEstimatedGas.gasLimit;
+        maxFeePerGas = preEstimatedGas.maxFeePerGas;
+        maxPriorityFeePerGas = preEstimatedGas.maxPriorityFeePerGas;
+
+        this.logger.debug('Using pre-estimated gas', {
           transactionId,
           gasEstimate: gasEstimate.toString(),
+          maxFeePerGas: maxFeePerGas.toString(),
+          maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
         });
-      } catch (gasError) {
-        // Gas estimation failed - DO NOT allocate nonce
-        this.logger.error(
-          'Gas estimation failed - nonce not allocated',
-          gasError,
-          {
+      } else {
+        // Estimate gas
+        try {
+          gasEstimate = await this.wallet.estimateGas(
+            transactionForGasEstimate
+          );
+          this.logger.debug('Gas estimation successful', {
             transactionId,
-            to,
-            amount,
-            tokenAddress,
-          }
-        );
+            gasEstimate: gasEstimate.toString(),
+          });
+        } catch (gasError) {
+          // Gas estimation failed - DO NOT allocate nonce
+          this.logger.error(
+            'Gas estimation failed - nonce not allocated',
+            gasError,
+            {
+              transactionId,
+              to,
+              amount,
+              tokenAddress,
+            }
+          );
 
-        // Throw a specific error for gas estimation failure
-        throw new GasEstimationError(
-          gasError instanceof Error
-            ? gasError.message
-            : 'Unknown gas estimation error',
-          {
-            transactionId,
-            to,
-            amount,
-            tokenAddress,
-          },
-          gasError
-        );
+          // Throw a specific error for gas estimation failure
+          throw new GasEstimationError(
+            gasError instanceof Error
+              ? gasError.message
+              : 'Unknown gas estimation error',
+            {
+              transactionId,
+              to,
+              amount,
+              tokenAddress,
+            },
+            gasError
+          );
+        }
       }
 
-      // Only get nonce if gas estimation succeeded
-      nonce = await this.nonceCache.getAndIncrement(
-        this.wallet.address,
-        this.chainProvider.chain,
-        this.chainProvider.network
-      );
+      // Use pre-allocated nonce if provided, otherwise get a new one
+      if (preAllocatedNonce !== undefined) {
+        nonce = preAllocatedNonce;
+        this.logger.debug('Using pre-allocated nonce for transaction', {
+          address: this.wallet.address,
+          nonce,
+          transactionId,
+        });
+      } else {
+        // Only get nonce if gas estimation succeeded
+        nonce = await this.nonceCache.getAndIncrement(
+          this.wallet.address,
+          this.chainProvider.chain,
+          this.chainProvider.network
+        );
 
-      this.logger.debug('Using nonce for transaction', {
-        address: this.wallet.address,
-        nonce,
-        transactionId,
-      });
+        this.logger.debug('Using newly allocated nonce for transaction', {
+          address: this.wallet.address,
+          nonce,
+          transactionId,
+        });
+      }
 
       // Build final transaction with nonce
       let transaction: ethers.TransactionRequest = {
@@ -218,58 +410,58 @@ export class TransactionSigner {
       };
       const gasLimit = (gasEstimate * 120n) / 100n; // Add 20% buffer
 
-      // Get gas price from cache or fetch new one
-      let cachedGasPrice = this.gasPriceCache.get();
-      let maxFeePerGas: bigint;
-      let maxPriorityFeePerGas: bigint;
+      // Get gas price from cache or fetch new one (unless pre-estimated)
+      if (!preEstimatedGas) {
+        let cachedGasPrice = this.gasPriceCache.get();
 
-      if (cachedGasPrice) {
-        // Use cached values
-        maxFeePerGas = cachedGasPrice.maxFeePerGas;
-        maxPriorityFeePerGas = cachedGasPrice.maxPriorityFeePerGas;
+        if (cachedGasPrice) {
+          // Use cached values
+          maxFeePerGas = cachedGasPrice.maxFeePerGas;
+          maxPriorityFeePerGas = cachedGasPrice.maxPriorityFeePerGas;
 
-        this.logger.debug('Using cached gas price', {
-          maxFeePerGas: maxFeePerGas.toString(),
-          maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
-        });
-      } else {
-        // Cache expired, fetch fresh gas price
-        this.logger.debug('Gas price cache expired, fetching fresh values');
+          this.logger.debug('Using cached gas price', {
+            maxFeePerGas: maxFeePerGas.toString(),
+            maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+          });
+        } else {
+          // Cache expired, fetch fresh gas price
+          this.logger.debug('Gas price cache expired, fetching fresh values');
 
-        if (!this.provider) {
-          throw new Error('Provider not initialized');
+          if (!this.provider) {
+            throw new Error('Provider not initialized');
+          }
+
+          const feeData = await this.provider.getFeeData();
+
+          if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
+            throw new GasEstimationError(
+              'Failed to fetch gas price from provider',
+              {
+                chain: this.chainProvider.chain,
+                network: this.chainProvider.network,
+              }
+            );
+          }
+
+          // Update cache for next use
+          this.gasPriceCache.set({
+            maxFeePerGas: feeData.maxFeePerGas,
+            maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
+          });
+
+          maxFeePerGas = feeData.maxFeePerGas;
+          maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
+
+          this.logger.debug('Fetched fresh gas price', {
+            maxFeePerGas: maxFeePerGas.toString(),
+            maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+          });
         }
 
-        const feeData = await this.provider.getFeeData();
-
-        if (!feeData.maxFeePerGas || !feeData.maxPriorityFeePerGas) {
-          throw new GasEstimationError(
-            'Failed to fetch gas price from provider',
-            {
-              chain: this.chainProvider.chain,
-              network: this.chainProvider.network,
-            }
-          );
-        }
-
-        // Update cache for next use
-        this.gasPriceCache.set({
-          maxFeePerGas: feeData.maxFeePerGas,
-          maxPriorityFeePerGas: feeData.maxPriorityFeePerGas,
-        });
-
-        maxFeePerGas = feeData.maxFeePerGas;
-        maxPriorityFeePerGas = feeData.maxPriorityFeePerGas;
-
-        this.logger.debug('Fetched fresh gas price', {
-          maxFeePerGas: maxFeePerGas.toString(),
-          maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
-        });
+        // Adjust gas price with a buffer (10% higher)
+        maxFeePerGas = (maxFeePerGas * 110n) / 100n;
+        maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
       }
-
-      // Adjust gas price with a buffer (10% higher)
-      maxFeePerGas = (maxFeePerGas * 110n) / 100n;
-      maxPriorityFeePerGas = (maxPriorityFeePerGas * 110n) / 100n;
 
       // Complete transaction object
       transaction = {

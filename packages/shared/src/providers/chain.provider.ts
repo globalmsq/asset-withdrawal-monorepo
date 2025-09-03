@@ -77,6 +77,8 @@ export class ChainProvider {
         send: () => Promise.resolve('0x7C9D'), // 31337 in hex for localhost
         websocket: { readyState: 1 },
       } as any;
+      // In test environment, mark as verified immediately
+      this.isChainIdVerified = true;
     } else {
       this.provider = new ethers.WebSocketProvider(wsUrl, chainId);
     }
@@ -103,9 +105,6 @@ export class ChainProvider {
             err.message
           );
         });
-    } else {
-      // In test environment, mark as verified
-      this.isChainIdVerified = true;
     }
   }
 

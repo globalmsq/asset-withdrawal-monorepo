@@ -52,6 +52,9 @@ jest.mock('@asset-withdrawal/shared', () => ({
       getChainId: jest.fn().mockReturnValue(137),
       chain: 'polygon',
       network: 'mainnet',
+      isValidProvider: jest.fn().mockReturnValue(true),
+      getChainIdError: jest.fn().mockReturnValue(null),
+      waitForVerification: jest.fn().mockResolvedValue(true),
     }),
   },
   TransactionStatus: {

@@ -197,6 +197,23 @@ export class SigningWorker extends BaseWorker<
         network as any
       );
 
+      // Wait for chainId verification to complete
+      const verificationSuccess = await chainProvider.waitForVerification(5000);
+      if (!verificationSuccess) {
+        const chainIdError = chainProvider.getChainIdError();
+        this.auditLogger.error('ChainId verification failed', {
+          chain,
+          network,
+          error: chainIdError,
+        });
+        // Don't store the invalid signer
+        throw new Error(
+          `Failed to verify chainId for ${chain}/${network}: ${
+            chainIdError || 'Verification timeout'
+          }`
+        );
+      }
+
       // Create multicall service for this chain
       const multicallService = new MulticallService(
         chainProvider,
@@ -218,23 +235,6 @@ export class SigningWorker extends BaseWorker<
 
       // Initialize the signer
       await signer.initialize();
-
-      // Wait for chainId verification to complete
-      const verificationSuccess = await chainProvider.waitForVerification(5000);
-      if (!verificationSuccess) {
-        const chainIdError = chainProvider.getChainIdError();
-        this.auditLogger.error('ChainId verification failed', {
-          chain,
-          network,
-          error: chainIdError,
-        });
-        // Don't store the invalid signer
-        throw new Error(
-          `Failed to verify chainId for ${chain}/${network}: ${
-            chainIdError || 'Verification timeout'
-          }`
-        );
-      }
 
       this.signers.set(key, signer);
     }

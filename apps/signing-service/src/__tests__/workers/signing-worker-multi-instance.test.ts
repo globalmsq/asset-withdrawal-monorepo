@@ -43,6 +43,9 @@ jest.mock('@asset-withdrawal/shared', () => ({
         .fn()
         .mockReturnValue('0x1234567890123456789012345678901234567890'),
       getChainId: jest.fn().mockReturnValue(137),
+      isValidProvider: jest.fn().mockReturnValue(true),
+      getChainIdError: jest.fn().mockReturnValue(null),
+      waitForVerification: jest.fn().mockResolvedValue(true),
     }),
   },
   TransactionStatus: {
@@ -55,7 +58,46 @@ jest.mock('@asset-withdrawal/shared', () => ({
     FAILED: 'FAILED',
   },
 }));
-jest.mock('../../services/transaction-signer');
+jest.mock('../../services/transaction-signer', () => ({
+  TransactionSigner: jest.fn().mockImplementation(() => ({
+    initialize: jest.fn().mockResolvedValue(undefined),
+    signTransaction: jest.fn().mockResolvedValue({
+      hash: '0xmockhash',
+      nonce: 1,
+      gasLimit: '21000',
+      maxFeePerGas: '20000000000',
+      maxPriorityFeePerGas: '1000000000',
+      from: '0xfrom',
+      to: '0xto',
+      value: '0',
+      data: '0x',
+      chainId: 137,
+    }),
+    signBatchTransaction: jest.fn().mockResolvedValue({
+      hash: '0xbatchhash',
+      nonce: 1,
+      gasLimit: '100000',
+      maxFeePerGas: '20000000000',
+      maxPriorityFeePerGas: '1000000000',
+      from: '0xfrom',
+      to: '0xmulticall',
+      value: '0',
+      data: '0xbatchdata',
+      chainId: 137,
+    }),
+    getAddress: jest
+      .fn()
+      .mockResolvedValue('0x1234567890123456789012345678901234567890'),
+    getChainProvider: jest.fn().mockReturnValue({
+      isConnected: jest.fn().mockReturnValue(true),
+      isValidProvider: jest.fn().mockReturnValue(true),
+      getChainIdError: jest.fn().mockReturnValue(null),
+      waitForVerification: jest.fn().mockResolvedValue(true),
+      getProvider: jest.fn(),
+    }),
+    cleanup: jest.fn().mockResolvedValue(undefined),
+  })),
+}));
 jest.mock('@aws-sdk/client-sqs');
 jest.mock('../../services/nonce-cache.service', () => ({
   NonceCacheService: jest.fn().mockImplementation(() => ({
@@ -204,6 +246,10 @@ describe('SigningWorker Multi-Instance Support', () => {
       }),
       getMulticall3Address: jest.fn().mockReturnValue('0x1234567890abcdef'),
       getChainId: jest.fn().mockReturnValue(80002),
+      isConnected: jest.fn().mockReturnValue(true),
+      isValidProvider: jest.fn().mockReturnValue(true),
+      getChainIdError: jest.fn().mockReturnValue(null),
+      waitForVerification: jest.fn().mockResolvedValue(true),
     };
 
     (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(
@@ -436,6 +482,9 @@ describe('SigningWorker Multi-Instance Support', () => {
       // Mock transaction signer
       const mockChainProvider = {
         isConnected: jest.fn().mockReturnValue(true),
+        isValidProvider: jest.fn().mockReturnValue(true),
+        getChainIdError: jest.fn().mockReturnValue(null),
+        waitForVerification: jest.fn().mockResolvedValue(true),
         getProvider: jest.fn(),
         chain: 'polygon',
         network: 'mainnet',
@@ -512,6 +561,9 @@ describe('SigningWorker Multi-Instance Support', () => {
       // Mock transaction signer
       const mockChainProvider = {
         isConnected: jest.fn().mockReturnValue(true),
+        isValidProvider: jest.fn().mockReturnValue(true),
+        getChainIdError: jest.fn().mockReturnValue(null),
+        waitForVerification: jest.fn().mockResolvedValue(true),
         getProvider: jest.fn(),
         chain: 'polygon',
         network: 'mainnet',

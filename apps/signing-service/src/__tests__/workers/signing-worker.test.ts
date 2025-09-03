@@ -41,6 +41,9 @@ jest.mock('@asset-withdrawal/shared', () => ({
         .fn()
         .mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
       getChainId: jest.fn().mockReturnValue(137),
+      isValidProvider: jest.fn().mockReturnValue(true),
+      getChainIdError: jest.fn().mockReturnValue(null),
+      waitForVerification: jest.fn().mockResolvedValue(true),
     }),
   },
   TransactionStatus: {
@@ -67,6 +70,8 @@ jest.mock('../../services/transaction-signer', () => ({
       value: '0',
       data: '0x',
       chainId: 137,
+      transactionId: 'test-tx-123',
+      rawTransaction: '0xf86c0a85...',
     }),
     signBatchTransaction: jest.fn().mockResolvedValue({
       hash: '0xbatchhash',
@@ -79,6 +84,13 @@ jest.mock('../../services/transaction-signer', () => ({
       value: '0',
       data: '0xbatchdata',
       chainId: 137,
+    }),
+    getChainProvider: jest.fn().mockReturnValue({
+      isConnected: jest.fn().mockReturnValue(true),
+      isValidProvider: jest.fn().mockReturnValue(true),
+      getChainIdError: jest.fn().mockReturnValue(null),
+      waitForVerification: jest.fn().mockResolvedValue(true),
+      getProvider: jest.fn(),
     }),
     cleanup: jest.fn().mockResolvedValue(undefined),
   })),
@@ -193,7 +205,7 @@ describe('SigningWorker', () => {
         findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn().mockResolvedValue({
           status: TransactionStatus.VALIDATING,
-          processingInstanceId: 'test-instance',
+          processingInstanceId: 'test-instance-id',
         }),
       },
       signedBatchTransaction: {
@@ -229,6 +241,10 @@ describe('SigningWorker', () => {
       getMulticall3Address: jest
         .fn()
         .mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
+      isConnected: jest.fn().mockReturnValue(true),
+      isValidProvider: jest.fn().mockReturnValue(true),
+      getChainIdError: jest.fn().mockReturnValue(null),
+      waitForVerification: jest.fn().mockResolvedValue(true),
       chain: 'polygon',
       network: 'testnet',
     };
@@ -255,7 +271,8 @@ describe('SigningWorker', () => {
     it('should successfully process and sign a withdrawal request', async () => {
       const withdrawalRequest: WithdrawalRequest = {
         id: 'test-tx-123',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'testnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         amount: '1000000',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
@@ -263,9 +280,12 @@ describe('SigningWorker', () => {
 
       const mockChainProvider = {
         isConnected: jest.fn().mockReturnValue(true),
+        isValidProvider: jest.fn().mockReturnValue(true),
+        getChainIdError: jest.fn().mockReturnValue(null),
+        waitForVerification: jest.fn().mockResolvedValue(true),
         getProvider: jest.fn(),
         chain: 'polygon',
-        network: 'mainnet',
+        network: 'testnet',
       } as any;
 
       const mockTransactionSigner = {
@@ -353,7 +373,8 @@ describe('SigningWorker', () => {
     it('should handle recoverable errors and throw for retry', async () => {
       const withdrawalRequest: WithdrawalRequest = {
         id: 'test-tx-123',
-        network: 'polygon',
+        chain: 'polygon',
+        network: 'testnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
         amount: '1000000',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
@@ -361,9 +382,12 @@ describe('SigningWorker', () => {
 
       const mockChainProvider = {
         isConnected: jest.fn().mockReturnValue(true),
+        isValidProvider: jest.fn().mockReturnValue(true),
+        getChainIdError: jest.fn().mockReturnValue(null),
+        waitForVerification: jest.fn().mockResolvedValue(true),
         getProvider: jest.fn(),
         chain: 'polygon',
-        network: 'mainnet',
+        network: 'testnet',
       } as any;
 
       const mockTransactionSigner = {
@@ -419,6 +443,9 @@ describe('SigningWorker', () => {
 
       const mockChainProvider = {
         isConnected: jest.fn().mockReturnValue(true),
+        isValidProvider: jest.fn().mockReturnValue(true),
+        getChainIdError: jest.fn().mockReturnValue(null),
+        waitForVerification: jest.fn().mockResolvedValue(true),
         getProvider: jest.fn(),
         chain: 'polygon',
         network: 'mainnet',

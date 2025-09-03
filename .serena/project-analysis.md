@@ -1,7 +1,7 @@
 # Asset Withdrawal System - Project Analysis
 
 ## Project Overview
-The Asset Withdrawal System is a Polygon-focused blockchain withdrawal system built as a TypeScript monorepo using Nx. It handles cryptocurrency withdrawal requests, processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status.
+The Asset Withdrawal System is a multi-chain blockchain withdrawal system built as a TypeScript monorepo using Nx. It handles cryptocurrency withdrawal requests across multiple blockchain networks (Polygon, Ethereum, BSC, and localhost for development), processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status. The active blockchain network is configurable based on environment settings.
 
 ## Architecture
 
@@ -139,8 +139,8 @@ asset-withdrawal-monorepo/
 ## Key Technologies
 
 ### Blockchain
-- **Ethers.js v6**: Ethereum/Polygon interaction
-- **Polygon Network**: Primary blockchain
+- **Ethers.js v6**: Multi-chain blockchain interaction
+- **Supported Networks**: Polygon, Ethereum, BSC, localhost
 - **Hardhat**: Local development network
 
 ### Infrastructure

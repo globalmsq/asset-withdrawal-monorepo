@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is a Polygon-focused blockchain withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests on the Polygon network, processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status.
+This is a multi-chain blockchain withdrawal system built with TypeScript, Express, and Prisma. The system handles cryptocurrency withdrawal requests across multiple blockchain networks (Polygon, Ethereum, BSC, and localhost for development), processes transactions securely using AWS SQS (LocalStack for development), and tracks transaction status. The active blockchain network is configurable based on environment settings.
 
 ## Core Development Principles
 
@@ -88,7 +88,7 @@ docker-compose -f docker/docker-compose.yaml logs -f
 - **Prisma**: ORM for MySQL database
 - **Express**: Web framework
 - **JWT**: Authentication
-- **Ethers.js**: Polygon blockchain interaction
+- **Ethers.js**: Multi-chain blockchain interaction (Polygon, Ethereum, BSC)
 - **AWS SDK**: SQS queue management
 - **LocalStack**: Local AWS service emulation
 - **Nx**: Monorepo management

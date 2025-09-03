@@ -10,8 +10,8 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "shared": ["../../packages/shared/dist/index"],
-      "shared/*": ["../../packages/shared/dist/*"]
+      "@asset-withdrawal/shared": ["../../packages/shared/src/index"],
+      "@asset-withdrawal/shared/*": ["../../packages/shared/src/*"]
     }
   },
   "include": ["src/**/*.ts"]

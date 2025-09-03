@@ -4,7 +4,7 @@ import type {
   WithdrawalRequest,
   WithdrawalResponse,
   TransactionStatus,
-} from 'shared';
+} from '@asset-withdrawal/shared';
 
 export interface RequestOptions {
   amount: string;

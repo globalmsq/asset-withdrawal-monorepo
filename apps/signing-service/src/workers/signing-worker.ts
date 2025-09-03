@@ -219,6 +219,23 @@ export class SigningWorker extends BaseWorker<
       // Initialize the signer
       await signer.initialize();
 
+      // Wait for chainId verification to complete
+      const verificationSuccess = await chainProvider.waitForVerification(5000);
+      if (!verificationSuccess) {
+        const chainIdError = chainProvider.getChainIdError();
+        this.auditLogger.error('ChainId verification failed', {
+          chain,
+          network,
+          error: chainIdError,
+        });
+        // Don't store the invalid signer
+        throw new Error(
+          `Failed to verify chainId for ${chain}/${network}: ${
+            chainIdError || 'Verification timeout'
+          }`
+        );
+      }
+
       this.signers.set(key, signer);
     }
 
@@ -1376,12 +1393,25 @@ export class SigningWorker extends BaseWorker<
       const chain = message.chain || 'polygon';
       const signer = await this.getOrCreateSigner(chain, network);
 
-      // Check if the chain is connected
+      // Check if the chain provider is valid (connected and chainId verified)
       const chainProvider = signer.getChainProvider();
-      if (!chainProvider.isConnected()) {
-        // Chain is disconnected - throw error
-        // Note: Pre-allocated nonce will be lost but this is acceptable
-        throw new Error(`Blockchain connection lost for ${chain}/${network}`);
+      if (!chainProvider.isValidProvider()) {
+        // Check specific error type
+        const chainIdError = chainProvider.getChainIdError();
+        if (chainIdError) {
+          // ChainId mismatch - configuration error
+          throw new Error(
+            `ChainId verification failed for ${chain}/${network}: ${chainIdError}`
+          );
+        } else if (!chainProvider.isConnected()) {
+          // WebSocket disconnected
+          throw new Error(`Blockchain connection lost for ${chain}/${network}`);
+        } else {
+          // ChainId verification pending or timed out
+          throw new Error(
+            `ChainId verification pending or failed for ${chain}/${network}`
+          );
+        }
       }
 
       // Build and sign transaction with pre-allocated nonce and gas if provided

@@ -9,6 +9,8 @@ import {
 
 export class ChainProvider {
   private provider: ethers.WebSocketProvider;
+  private isChainIdVerified: boolean = false;
+  private chainIdError: string | null = null;
   public readonly chain: ChainName;
   public readonly network: ChainNetwork;
   public readonly config: ChainConfig;
@@ -88,12 +90,22 @@ export class ChainProvider {
 
     // Verify chainId matches after connection (skip in test environment)
     if (!process.env.JEST_WORKER_ID && process.env.NODE_ENV !== 'test') {
-      this.verifyChainId().catch(err => {
-        console.error(
-          `❌ ChainId verification failed for ${this.chain}/${this.network}:`,
-          err.message
-        );
-      });
+      this.verifyChainId()
+        .then(() => {
+          this.isChainIdVerified = true;
+          console.log(`✅ ChainId verified for ${this.chain}/${this.network}`);
+        })
+        .catch(err => {
+          this.isChainIdVerified = false;
+          this.chainIdError = err.message;
+          console.error(
+            `❌ ChainId verification failed for ${this.chain}/${this.network}:`,
+            err.message
+          );
+        });
+    } else {
+      // In test environment, mark as verified
+      this.isChainIdVerified = true;
     }
   }
 
@@ -127,6 +139,29 @@ export class ChainProvider {
   isConnected(): boolean {
     const ws = (this.provider as any).websocket;
     return !!(ws && ws.readyState === 1); // WebSocket.OPEN
+  }
+
+  // Check if provider is valid (connected and chainId verified)
+  isValidProvider(): boolean {
+    return this.isConnected() && this.isChainIdVerified;
+  }
+
+  // Get chainId verification error if any
+  getChainIdError(): string | null {
+    return this.chainIdError;
+  }
+
+  // Wait for chainId verification to complete
+  async waitForVerification(timeoutMs: number = 5000): Promise<boolean> {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeoutMs) {
+      if (this.isChainIdVerified || this.chainIdError) {
+        return this.isChainIdVerified;
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    // Timeout - treat as unverified
+    return false;
   }
 
   getChainId(): number {

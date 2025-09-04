@@ -8,6 +8,8 @@ import {
   NoncePoolService,
   isNetworkError,
   retryWithBackoff,
+  tokenService,
+  validateAmountWithDecimals,
 } from '@asset-withdrawal/shared';
 import {
   WithdrawalRequestService,
@@ -688,10 +690,33 @@ export class SigningWorker extends BaseWorker<
       return `Invalid token address format: ${request.tokenAddress}`;
     }
 
-    // Validate amount (decimal values allowed)
-    const numAmount = parseFloat(request.amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-      return `Invalid amount: ${request.amount}. Must be a positive number`;
+    // Validate amount with token-specific decimals
+    let tokenDecimals: number;
+    if (request.tokenAddress) {
+      // ERC-20 token - validate token exists and get decimals
+      const tokenInfo = tokenService.getTokenByAddress(
+        request.tokenAddress,
+        request.network,
+        request.chain
+      );
+
+      if (!tokenInfo) {
+        return `Token not supported: ${request.tokenAddress} on ${request.chain} ${request.network}`;
+      }
+
+      tokenDecimals = tokenInfo.decimals;
+    } else {
+      // Native token - all native tokens (ETH, MATIC, BNB) use 18 decimals
+      tokenDecimals = 18;
+    }
+
+    const amountValidation = validateAmountWithDecimals(
+      request.amount,
+      tokenDecimals
+    );
+
+    if (!amountValidation.valid) {
+      return `Invalid amount: ${amountValidation.error}`;
     }
 
     return null; // No validation errors
@@ -996,19 +1021,32 @@ export class SigningWorker extends BaseWorker<
         return null;
       }
 
-      // Calculate total amount and get symbol
-      const totalAmount = messages
-        .reduce((sum, msg) => {
-          return sum + BigInt(msg.body.amount);
-        }, 0n)
-        .toString();
-
-      const symbol = messages[0]?.body.symbol || 'UNKNOWN';
-
       // Get chain info from first message (all messages in batch should have same chain)
       const firstMessage = messages[0];
       const chain = firstMessage.body.chain || 'polygon';
       const network = firstMessage.body.network || 'mainnet';
+
+      // Get token info to determine decimals for accurate calculation
+      const tokenInfo = tokenService.getTokenByAddress(
+        tokenAddress,
+        network,
+        chain
+      );
+      const decimals = tokenInfo?.decimals || 18; // Default to 18 if not found
+
+      // Calculate total amount using integer arithmetic to avoid floating point errors
+      const multiplier = Math.pow(10, decimals);
+      const totalAmountInteger = messages.reduce((sum, msg) => {
+        // Convert to smallest unit (e.g., wei)
+        const amountInSmallestUnit = Math.round(
+          parseFloat(msg.body.amount) * multiplier
+        );
+        return sum + amountInSmallestUnit;
+      }, 0);
+
+      // Convert back to decimal string with proper precision
+      const totalAmount = (totalAmountInteger / multiplier).toString();
+      const symbol = messages[0]?.body.symbol || 'UNKNOWN';
 
       // Get chain provider to get multicall address and chain ID
       const chainProvider = ChainProviderFactory.getProvider(
@@ -1278,6 +1316,31 @@ export class SigningWorker extends BaseWorker<
                 error instanceof Error ? error.message : String(error),
             },
           });
+        } else {
+          // If batch was not created, update all withdrawal requests individually
+          await Promise.all(
+            messages.map(async message => {
+              try {
+                await this.dbClient.withdrawalRequest.update({
+                  where: { requestId: message.body.id },
+                  data: {
+                    status: TransactionStatus.FAILED,
+                    errorMessage:
+                      error instanceof Error ? error.message : String(error),
+                    processingCompletedAt: new Date(),
+                  },
+                });
+              } catch (updateError) {
+                this.auditLogger.error(
+                  'Failed to update withdrawal request status',
+                  updateError,
+                  {
+                    requestId: message.body.id,
+                  }
+                );
+              }
+            })
+          );
         }
 
         // Delete messages from queue for non-recoverable errors

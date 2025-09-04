@@ -12,6 +12,7 @@ import {
   ChainProviderFactory,
   TransactionStatus,
   Message,
+  tokenService,
 } from '@asset-withdrawal/shared';
 
 // Mock dependencies
@@ -56,6 +57,10 @@ jest.mock('@asset-withdrawal/shared', () => ({
       getChainIdError: jest.fn().mockReturnValue(null),
       waitForVerification: jest.fn().mockResolvedValue(true),
     }),
+  },
+  tokenService: {
+    getTokenByAddress: jest.fn(),
+    getNativeTokenInfo: jest.fn(),
   },
   TransactionStatus: {
     PENDING: 'PENDING',
@@ -235,6 +240,33 @@ describe('SigningWorker Validation', () => {
       mockProvider
     );
 
+    // Mock tokenService
+    (tokenService.getTokenByAddress as jest.Mock).mockImplementation(
+      (address, network, chain) => {
+        // Handle null address (native token)
+        if (!address) {
+          return null;
+        }
+        // Valid token for test
+        if (
+          address === '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66' &&
+          network === 'mainnet' &&
+          chain === 'polygon'
+        ) {
+          return { symbol: 'USDT', decimals: 6, address };
+        }
+        // Valid USDC token
+        if (
+          address === '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' &&
+          network === 'mainnet' &&
+          chain === 'ethereum'
+        ) {
+          return { symbol: 'USDC', decimals: 6, address };
+        }
+        return null;
+      }
+    );
+
     // Create worker instance
     signingWorker = new SigningWorker(
       mockConfig,
@@ -272,7 +304,7 @@ describe('SigningWorker Validation', () => {
         chain: 'polygon',
         network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
-        amount: '1000000000000000000',
+        amount: '1000.0',
         tokenAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
         symbol: 'USDT',
       };
@@ -365,7 +397,7 @@ describe('SigningWorker Validation', () => {
         chain: 'polygon',
         network: 'mainnet',
         toAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66',
-        amount: '1000000000000000000',
+        amount: '1.0',
         tokenAddress: null, // Native token transfer
         symbol: 'MATIC',
       } as any;
@@ -390,7 +422,9 @@ describe('SigningWorker Validation', () => {
       const result = (signingWorker as any).validateWithdrawalRequest(
         invalidRequest
       );
-      expect(result).toBe('Invalid amount: -1000. Must be positive');
+      expect(result).toBe(
+        'Invalid amount: Invalid amount format. Must be a positive number'
+      );
     });
 
     it('should return error for zero amount', () => {
@@ -407,7 +441,7 @@ describe('SigningWorker Validation', () => {
       const result = (signingWorker as any).validateWithdrawalRequest(
         invalidRequest
       );
-      expect(result).toBe('Invalid amount: 0. Must be positive');
+      expect(result).toBe('Invalid amount: Amount must be greater than 0');
     });
 
     it('should return error for non-numeric amount', () => {
@@ -425,7 +459,7 @@ describe('SigningWorker Validation', () => {
         invalidRequest
       );
       expect(result).toBe(
-        'Invalid amount format: not-a-number. Must be a valid number'
+        'Invalid amount: Invalid amount format. Must be a positive number'
       );
     });
   });

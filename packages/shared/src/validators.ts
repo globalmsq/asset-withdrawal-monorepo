@@ -51,6 +51,48 @@ export function isValidAmount(amount: string): boolean {
   return numAmount > 0 && numAmount <= 1000000; // Max 1M units
 }
 
+export function validateAmountWithDecimals(
+  amount: string,
+  tokenDecimals: number
+): { valid: boolean; error?: string } {
+  // Basic amount validation
+  if (!ValidationPatterns.AMOUNT.test(amount)) {
+    return {
+      valid: false,
+      error: 'Invalid amount format. Must be a positive number',
+    };
+  }
+
+  const numAmount = parseFloat(amount);
+  if (isNaN(numAmount) || numAmount <= 0) {
+    return {
+      valid: false,
+      error: 'Amount must be greater than 0',
+    };
+  }
+
+  if (numAmount > 1000000) {
+    return {
+      valid: false,
+      error: 'Amount exceeds maximum limit of 1,000,000',
+    };
+  }
+
+  // Check decimal places don't exceed token decimals
+  const decimalIndex = amount.indexOf('.');
+  if (decimalIndex !== -1) {
+    const decimalPlaces = amount.length - decimalIndex - 1;
+    if (decimalPlaces > tokenDecimals) {
+      return {
+        valid: false,
+        error: `Amount has too many decimal places. Maximum ${tokenDecimals} decimals allowed for this token`,
+      };
+    }
+  }
+
+  return { valid: true };
+}
+
 export function isValidNetwork(network: string): network is NetworkType {
   return SupportedNetworks.includes(network as NetworkType);
 }

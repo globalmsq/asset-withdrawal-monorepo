@@ -12,6 +12,7 @@ import {
   chainsConfig,
   LoggerService,
   isValidAmount,
+  validateAmountWithDecimals,
 } from '@asset-withdrawal/shared';
 import { getDatabase } from '../services/database';
 import { config } from '../config';
@@ -328,12 +329,30 @@ router.post('/request', async (req: Request, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Validate amount format using shared validator
-    if (!isValidAmount(amount)) {
+    // Get token info to validate amount with proper decimals
+    const tokenInfo = tokenService.getTokenByAddress(
+      tokenAddress,
+      network,
+      chain
+    );
+    if (!tokenInfo) {
       const response: ApiResponse = {
         success: false,
-        error:
-          'Invalid amount format. Must be a positive number with up to 8 decimal places',
+        error: `Token not supported: ${tokenAddress} on ${chain} ${network}`,
+        timestamp: new Date(),
+      };
+      return res.status(400).json(response);
+    }
+
+    // Validate amount format with token-specific decimals
+    const amountValidation = validateAmountWithDecimals(
+      amount,
+      tokenInfo.decimals
+    );
+    if (!amountValidation.valid) {
+      const response: ApiResponse = {
+        success: false,
+        error: amountValidation.error!,
         timestamp: new Date(),
       };
       return res.status(400).json(response);
@@ -401,25 +420,28 @@ router.post('/request', async (req: Request, res: Response) => {
 
     // For now, get token info for optional maxTransferAmount check
     // This is a temporary solution until whitelist is fully implemented
-    const tokenInfo = tokenService.getTokenByAddress(
+    const tokenInfoForLimit = tokenService.getTokenByAddress(
       tokenAddress,
       networkType,
       blockchainName
     );
 
     // Check maxTransferAmount if token info is available
-    if (tokenInfo && tokenInfo.maxTransferAmount) {
+    if (tokenInfoForLimit && tokenInfoForLimit.maxTransferAmount) {
       try {
-        const requestedAmount = ethers.parseUnits(amount, tokenInfo.decimals);
+        const requestedAmount = ethers.parseUnits(
+          amount,
+          tokenInfoForLimit.decimals
+        );
         const maxAmount = ethers.parseUnits(
-          tokenInfo.maxTransferAmount,
-          tokenInfo.decimals
+          tokenInfoForLimit.maxTransferAmount,
+          tokenInfoForLimit.decimals
         );
 
         if (requestedAmount > maxAmount) {
           const response: ApiResponse = {
             success: false,
-            error: `Transfer amount exceeds maximum allowed limit. Maximum: ${tokenInfo.maxTransferAmount} ${tokenInfo.symbol}`,
+            error: `Transfer amount exceeds maximum allowed limit. Maximum: ${tokenInfoForLimit.maxTransferAmount} ${tokenInfoForLimit.symbol}`,
             timestamp: new Date(),
           };
           return res.status(400).json(response);

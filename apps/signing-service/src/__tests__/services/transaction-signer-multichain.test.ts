@@ -1,5 +1,10 @@
 import { TransactionSigner } from '../../services/transaction-signer';
-import { ChainProvider, ChainProviderFactory } from '@asset-withdrawal/shared';
+import {
+  ChainProvider,
+  ChainProviderFactory,
+  tokenService,
+  AmountConverter,
+} from '@asset-withdrawal/shared';
 import { SecureSecretsManager } from '../../services/secrets-manager';
 import { NonceCacheService } from '../../services/nonce-cache.service';
 import { GasPriceCache } from '../../services/gas-price-cache';
@@ -11,6 +16,19 @@ jest.mock('ethers');
 jest.mock('../../services/nonce-cache.service');
 jest.mock('../../services/gas-price-cache');
 jest.mock('../../services/multicall.service');
+jest.mock('@asset-withdrawal/shared', () => ({
+  ...jest.requireActual('@asset-withdrawal/shared'),
+  tokenService: {
+    getTokenByAddress: jest.fn(),
+    getNativeTokenInfo: jest.fn(),
+  },
+  AmountConverter: {
+    toWei: jest.fn(),
+    fromWei: jest.fn(),
+    validateDecimalPlaces: jest.fn(),
+    validateAmount: jest.fn(),
+  },
+}));
 
 describe('TransactionSigner - Multi-chain Support', () => {
   let mockLogger: jest.Mocked<Logger>;
@@ -145,15 +163,79 @@ describe('TransactionSigner - Multi-chain Support', () => {
       .fn()
       .mockImplementation(address => address);
 
-    // Mock parseUnits
+    // Mock parseUnits - simulate real conversion behavior
     (ethers.parseUnits as jest.Mock) = jest
       .fn()
-      .mockImplementation((value, unit) => {
-        if (unit === 'gwei') {
-          return BigInt(value) * BigInt(1000000000);
+      .mockImplementation((value, decimals) => {
+        try {
+          const multiplier = BigInt(10) ** BigInt(decimals);
+          const [integer, decimal = ''] = value.split('.');
+          const paddedDecimal = decimal
+            .padEnd(decimals, '0')
+            .slice(0, decimals);
+          const integerPart = BigInt(integer || '0') * multiplier;
+          const decimalPart = decimal ? BigInt(paddedDecimal) : BigInt(0);
+          return integerPart + decimalPart;
+        } catch (error) {
+          throw new Error(`parseUnits failed: ${error.message}`);
         }
-        return BigInt(value);
       });
+
+    // Mock tokenService
+    (tokenService.getTokenByAddress as jest.Mock).mockImplementation(
+      (address, network, chain) => {
+        // USDC on Ethereum mainnet
+        if (
+          address === '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' &&
+          network === 'mainnet' &&
+          chain === 'ethereum'
+        ) {
+          return { symbol: 'USDC', decimals: 6, address };
+        }
+        // USDC on Polygon mainnet
+        if (
+          address === '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174' &&
+          network === 'mainnet' &&
+          chain === 'polygon'
+        ) {
+          return { symbol: 'USDC', decimals: 6, address };
+        }
+        // USDC on BSC mainnet
+        if (
+          address === '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d' &&
+          network === 'mainnet' &&
+          chain === 'bsc'
+        ) {
+          return { symbol: 'USDC', decimals: 6, address };
+        }
+        return null;
+      }
+    );
+
+    (tokenService.getNativeTokenInfo as jest.Mock).mockImplementation(
+      (network, chain) => {
+        if (chain === 'polygon')
+          return { symbol: 'MATIC', decimals: 18, address: null };
+        if (chain === 'ethereum')
+          return { symbol: 'ETH', decimals: 18, address: null };
+        if (chain === 'bsc')
+          return { symbol: 'BNB', decimals: 18, address: null };
+        return { symbol: 'ETH', decimals: 18, address: null }; // Default for localhost
+      }
+    );
+
+    // Mock AmountConverter
+    (AmountConverter.toWei as jest.Mock).mockImplementation(
+      (amount, decimals) => {
+        // Proper conversion for test - handle large numbers with BigInt
+        const [integer, decimal = ''] = amount.split('.');
+        const paddedDecimal = decimal.padEnd(decimals, '0').slice(0, decimals);
+        const integerPart =
+          BigInt(integer || '0') * BigInt(10) ** BigInt(decimals);
+        const decimalPart = decimal ? BigInt(paddedDecimal) : BigInt(0);
+        return (integerPart + decimalPart).toString();
+      }
+    );
   });
 
   describe('Multi-chain transaction signing', () => {
@@ -177,7 +259,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
 
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000000000000000', // 1 MATIC
+        amount: '1.0', // 1 MATIC (will be converted to wei)
         transactionId: 'test-polygon-mainnet',
       };
 
@@ -224,7 +306,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
 
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000000000000000', // 1 ETH
+        amount: '1.0', // 1 ETH (will be converted to wei)
         transactionId: 'test-ethereum-mainnet',
       };
 
@@ -267,7 +349,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
 
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000000000000000', // 1 BNB
+        amount: '1.0', // 1 BNB (will be converted to wei)
         transactionId: 'test-bsc-mainnet',
       };
 
@@ -305,7 +387,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
 
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000000000000000', // 1 ETH
+        amount: '1.0', // 1 ETH (will be converted to wei)
         transactionId: 'test-localhost',
       };
 
@@ -373,7 +455,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
 
       const ethereumTx = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000000000000000',
+        amount: '1.0',
         transactionId: 'test-eth-gas',
       };
 
@@ -401,7 +483,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
 
       const polygonTx = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000000000000000',
+        amount: '1.0',
         transactionId: 'test-polygon-gas',
       };
 
@@ -454,7 +536,7 @@ describe('TransactionSigner - Multi-chain Support', () => {
 
         const transactionData = {
           to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-          amount: '1000000', // 1 USDC (6 decimals)
+          amount: '1.0', // 1 USDC (will be converted to wei based on 6 decimals)
           tokenAddress: chainInfo.tokenAddress,
           transactionId: `test-${chainInfo.chain}-erc20`,
         };

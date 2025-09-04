@@ -46,6 +46,45 @@ jest.mock('@asset-withdrawal/shared', () => ({
       waitForVerification: jest.fn().mockResolvedValue(true),
     }),
   },
+  tokenService: {
+    getTokenByAddress: jest
+      .fn()
+      .mockImplementation((address, network, chain) => {
+        // Mock token info for test addresses with high max transfer amount to avoid validation errors
+        return {
+          symbol: 'TEST',
+          decimals: 18,
+          address,
+          maxTransferAmount: '100000000000000000000',
+        }; // 100 ETH in wei
+      }),
+    getNativeTokenInfo: jest
+      .fn()
+      .mockReturnValue({ symbol: 'MATIC', decimals: 18, address: null }),
+  },
+  AmountConverter: {
+    toWei: jest.fn().mockImplementation((amount, decimals) => {
+      try {
+        const { parseUnits } = jest.requireActual('ethers');
+        return parseUnits(amount, decimals).toString();
+      } catch (error) {
+        throw new Error(
+          `Failed to convert amount to wei: ${amount} with ${decimals} decimals`
+        );
+      }
+    }),
+    fromWei: jest.fn().mockImplementation((weiAmount, decimals) => {
+      try {
+        const { formatUnits } = jest.requireActual('ethers');
+        return formatUnits(weiAmount, decimals);
+      } catch (error) {
+        throw new Error(
+          `Failed to convert wei to amount: ${weiAmount} with ${decimals} decimals`
+        );
+      }
+    }),
+    validateAmount: jest.fn().mockReturnValue({ valid: true }),
+  },
   TransactionStatus: {
     PENDING: 'PENDING',
     VALIDATING: 'VALIDATING',
@@ -552,7 +591,7 @@ describe('SigningWorker', () => {
           receiptHandle: 'receipt-1',
           body: {
             id: 'req-1',
-            amount: '1000000000000000000',
+            amount: '1.0',
             toAddress: '0x1234567890123456789012345678901234567890',
             tokenAddress: '0xAAA1234567890123456789012345678901234567',
             network: 'polygon',
@@ -563,7 +602,7 @@ describe('SigningWorker', () => {
           receiptHandle: 'receipt-2',
           body: {
             id: 'req-2',
-            amount: '2000000000000000000',
+            amount: '2.0',
             toAddress: '0x2234567890123456789012345678901234567890',
             tokenAddress: '0xAAA1234567890123456789012345678901234567',
             network: 'polygon',
@@ -574,7 +613,7 @@ describe('SigningWorker', () => {
           receiptHandle: 'receipt-3',
           body: {
             id: 'req-3',
-            amount: '3000000000000000000',
+            amount: '3.0',
             toAddress: '0x3234567890123456789012345678901234567890',
             tokenAddress: '0xAAA1234567890123456789012345678901234567',
             network: 'polygon',
@@ -608,6 +647,14 @@ describe('SigningWorker', () => {
           estimatedGasPerCall: 50000n,
           totalEstimatedGas: 150000n,
         }),
+        validateBatch: jest.fn().mockResolvedValue({
+          valid: true,
+          errors: [],
+        }),
+        checkAndPrepareAllowances: jest.fn().mockResolvedValue({
+          needsApproval: [],
+        }),
+        encodeBatchTransaction: jest.fn().mockReturnValue('0xencoded'),
       };
 
       const mockChainProvider = {
@@ -894,7 +941,7 @@ describe('SigningWorker', () => {
             signedBatchTransaction: {
               create: jest.fn().mockResolvedValue({
                 id: 123n,
-                totalAmount: '6000000000000000000',
+                totalAmount: '6',
               }),
             },
           };
@@ -958,7 +1005,7 @@ describe('SigningWorker', () => {
           data: expect.objectContaining({
             multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
             totalRequests: 3,
-            totalAmount: '6000000000000000000',
+            totalAmount: '6',
             nonce: 0,
             gasLimit: '0',
             status: 'PENDING',
@@ -1048,7 +1095,7 @@ describe('SigningWorker', () => {
             signedBatchTransaction: {
               create: jest.fn().mockResolvedValue({
                 id: 123n,
-                totalAmount: '6000000000000000000',
+                totalAmount: '6',
               }),
             },
           };
@@ -1134,7 +1181,7 @@ describe('SigningWorker', () => {
           receiptHandle: 'receipt-4',
           body: {
             id: 'req-4',
-            amount: '4000000000000000000',
+            amount: '4.0',
             toAddress: '0x4234567890123456789012345678901234567890',
             tokenAddress: '0xAAA1234567890123456789012345678901234567',
             network: 'polygon',
@@ -1232,6 +1279,14 @@ describe('SigningWorker', () => {
         const processBatchSpy = jest.spyOn(
           signingWorkerAny,
           'processBatchTransactions'
+        );
+        const separateSpy = jest.spyOn(
+          signingWorkerAny,
+          'separateMessagesByTryCount'
+        );
+        const shouldUseBatchSpy = jest.spyOn(
+          signingWorkerAny,
+          'shouldUseBatchProcessing'
         );
 
         // Enable batch processing

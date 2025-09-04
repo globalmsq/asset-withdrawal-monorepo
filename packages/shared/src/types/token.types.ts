@@ -7,8 +7,8 @@ export interface Token {
 }
 
 export interface TokenConfig {
-  [network: string]: {
-    [chainName: string]: {
+  [chainName: string]: {
+    [network: string]: {
       [symbol: string]: Token;
     };
   };

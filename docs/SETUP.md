@@ -61,11 +61,19 @@ SIGNING_SERVICE_PRIVATE_KEY_SECRET=signing-service/private-key
 SIGNING_SERVICE_LOG_LEVEL=info
 
 # 서비스 포트
-API_SERVER_PORT=3000
+API_SERVER_PORT=8080
 SIGNING_SERVICE_PORT=3002
 TX_BROADCASTER_PORT=3004  # 개발 예정
 TX_MONITOR_PORT=3003  # 개발 예정
 ACCOUNT_MANAGER_PORT=3005  # 개발 예정
+
+# LocalStack SQS 큐 URL (signing-service 등에서 사용)
+REQUEST_QUEUE_URL=http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/tx-request-queue
+SIGNED_TX_QUEUE_URL=http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-queue
+BROADCAST_TX_QUEUE_URL=http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/broadcast-tx-queue
+REQUEST_DLQ_URL=http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/tx-request-dlq
+SIGNED_TX_DLQ_URL=http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/signed-tx-dlq
+BROADCAST_TX_DLQ_URL=http://sqs.ap-northeast-2.localhost.localstack.cloud:4566/000000000000/broadcast-tx-dlq
 
 # Redis
 REDIS_HOST=localhost
@@ -116,8 +124,8 @@ docker-compose -f docker/docker-compose.yaml up -d mysql redis localstack
 ### 5. LocalStack 초기화
 
 ```bash
-# SQS 큐 생성
-./docker/scripts/init-localstack.sh
+# SQS 큐 생성 (프로젝트 루트에서 실행)
+./scripts/init-localstack.sh
 ```
 
 이 스크립트는 다음 큐들을 생성합니다:

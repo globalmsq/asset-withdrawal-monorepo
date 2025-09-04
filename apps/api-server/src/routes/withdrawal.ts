@@ -11,6 +11,7 @@ import {
   tokenService,
   chainsConfig,
   LoggerService,
+  isValidAmount,
 } from '@asset-withdrawal/shared';
 import { getDatabase } from '../services/database';
 import { config } from '../config';
@@ -327,12 +328,12 @@ router.post('/request', async (req: Request, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Validate amount format (up to 8 decimal places)
-    const AMOUNT_PATTERN = /^\d+(\.\d{1,8})?$/;
-    if (!AMOUNT_PATTERN.test(amount)) {
+    // Validate amount format using shared validator
+    if (!isValidAmount(amount)) {
       const response: ApiResponse = {
         success: false,
-        error: 'Invalid amount format. Maximum 8 decimal places allowed',
+        error:
+          'Invalid amount format. Must be a positive number with up to 8 decimal places',
         timestamp: new Date(),
       };
       return res.status(400).json(response);

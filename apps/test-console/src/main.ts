@@ -8,6 +8,10 @@ import { requestCommand } from './commands/request';
 import { errorCommand } from './commands/error';
 import { statusCommand } from './commands/status';
 import { batchCommand } from './commands/batch';
+import { websocketCommand } from './commands/websocket';
+import { multichainCommand } from './commands/multichain';
+import { secretsCommand } from './commands/secrets';
+import { performanceCommand } from './commands/performance';
 import { interactiveMode } from './utils/interactive';
 
 // Load environment variables
@@ -92,6 +96,74 @@ program
   .option('--json', 'Output as JSON')
   .option('--csv', 'Output as CSV')
   .action(batchCommand);
+
+// WebSocket command
+program
+  .command('websocket')
+  .description('WebSocket connection testing')
+  .requiredOption(
+    '-a, --action <action>',
+    'Action: test-connection, disconnect, reconnect, stress-test, verify-connection, monitor-health'
+  )
+  .option('--chain <chain>', 'Blockchain name', 'localhost')
+  .option('--duration <ms>', 'Test duration in milliseconds', '10000')
+  .option('--count <number>', 'Number of connections for stress test', '10')
+  .option('--json', 'Output as JSON')
+  .option('--report', 'Generate performance report')
+  .action(websocketCommand);
+
+// Multichain command
+program
+  .command('multichain')
+  .description('Multi-chain environment testing')
+  .requiredOption(
+    '-a, --action <action>',
+    'Action: test-chain, test-all-chains, test-rpc, test-withdrawal, compare-chains, validate-multicall'
+  )
+  .option('--chain <chain>', 'Blockchain name')
+  .option('--network <network>', 'Network type')
+  .option('--amount <amount>', 'Withdrawal amount', '10')
+  .option('--token <address>', 'Token address', process.env.DEFAULT_TOKEN)
+  .option(
+    '--to <address>',
+    'Recipient address',
+    process.env.TEST_WALLET_ADDRESS
+  )
+  .option('--json', 'Output as JSON')
+  .option('--report', 'Generate performance report')
+  .action(multichainCommand);
+
+// Secrets command
+program
+  .command('secrets')
+  .description('AWS Secrets Manager failure testing')
+  .requiredOption(
+    '-s, --scenario <scenario>',
+    'Scenario: access-failure, key-rotation, dlq-failover, timeout-simulation, permission-denied, service-unavailable, batch-failure'
+  )
+  .option('--duration <ms>', 'Timeout duration for timeout-simulation', '5000')
+  .option('--count <number>', 'Request count for batch-failure', '5')
+  .option('--severity <level>', 'Error severity: low, medium, high', 'medium')
+  .option('--json', 'Output as JSON')
+  .option('--report', 'Generate performance report')
+  .action(secretsCommand);
+
+// Performance command
+program
+  .command('performance')
+  .description('Performance benchmarking and load testing')
+  .requiredOption(
+    '-t, --type <type>',
+    'Test type: throughput, latency, load, stress, endurance, baseline'
+  )
+  .option('--requests <number>', 'Number of requests', '100')
+  .option('--concurrency <number>', 'Concurrent requests', '10')
+  .option('--duration <seconds>', 'Test duration in seconds', '30')
+  .option('--output <filename>', 'Save results to file')
+  .option('--json', 'Output as JSON')
+  .option('--csv', 'Save as CSV format')
+  .option('--report', 'Generate performance report')
+  .action(performanceCommand);
 
 // Interactive mode (default when no command specified)
 program

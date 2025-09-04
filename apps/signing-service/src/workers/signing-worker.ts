@@ -688,14 +688,10 @@ export class SigningWorker extends BaseWorker<
       return `Invalid token address format: ${request.tokenAddress}`;
     }
 
-    // Validate amount
-    try {
-      const amountBigInt = BigInt(request.amount);
-      if (amountBigInt <= 0n) {
-        return `Invalid amount: ${request.amount}. Must be positive`;
-      }
-    } catch (error) {
-      return `Invalid amount format: ${request.amount}. Must be a valid number`;
+    // Validate amount (decimal values allowed)
+    const numAmount = parseFloat(request.amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return `Invalid amount: ${request.amount}. Must be a positive number`;
     }
 
     return null; // No validation errors

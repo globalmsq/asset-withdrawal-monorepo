@@ -86,6 +86,7 @@ packages/shared/
 export interface IWithdrawalRequest {
   id: string;
   userId: string;
+  // 데이터베이스와 내부 로직에서는 bigint로 처리
   amount: bigint;
   tokenAddress: string;
   destinationAddress: string;
@@ -119,6 +120,7 @@ export interface IQueueMessage<T> {
 export interface IWithdrawalMessage {
   withdrawalId: string;
   userId: string;
+  // API 요청 및 메시지 큐에서는 정밀도 손실을 막기 위해 string으로 전송
   amount: string;
   tokenAddress: string;
   destinationAddress: string;
@@ -130,6 +132,7 @@ export interface IWithdrawalMessage {
 ```typescript
 export const withdrawalValidator = {
   create: Joi.object({
+    // API 입력값은 문자열로 받아 내부에서 변환
     amount: Joi.string()
       .pattern(/^\d+(\.\d{1,18})?$/)
       .required(),

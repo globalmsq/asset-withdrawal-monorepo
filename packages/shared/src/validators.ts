@@ -8,7 +8,7 @@ export const ValidationPatterns = {
   ETHEREUM: /^0x[a-fA-F0-9]{40}$/,
 
   // Amount validation
-  AMOUNT: /^\d+(\.\d{1,8})?$/,
+  AMOUNT: /^(\d+(\.\d{1,8})?|\.\d{1,8})$/,
 };
 
 export const SupportedNetworks = [

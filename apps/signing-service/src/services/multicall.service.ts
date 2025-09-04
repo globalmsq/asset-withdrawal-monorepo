@@ -691,9 +691,12 @@ export class MulticallService {
       );
       return { amount: BigInt(amountInWei), tokenInfo };
     } catch (error) {
-      // Fallback: if tokenService fails, assume the amount is already in wei
-      // This can happen in test environments
-      return { amount: BigInt(transfer.amount), tokenInfo };
+      this.logger.error(
+        `Failed to get token info for ${transfer.tokenAddress} on ${chain} ${network}: ${error instanceof Error ? error.message : String(error)}`
+      );
+      throw new Error(
+        `Unable to process transfer: Token ${transfer.tokenAddress} not found or inaccessible on ${chain} ${network}`
+      );
     }
   }
 

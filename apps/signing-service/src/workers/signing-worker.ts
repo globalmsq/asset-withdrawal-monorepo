@@ -10,6 +10,7 @@ import {
   retryWithBackoff,
   tokenService,
   validateAmountWithDecimals,
+  AmountConverter,
 } from '@asset-withdrawal/shared';
 import {
   WithdrawalRequestService,
@@ -1034,18 +1035,11 @@ export class SigningWorker extends BaseWorker<
       );
       const decimals = tokenInfo?.decimals || 18; // Default to 18 if not found
 
-      // Calculate total amount using integer arithmetic to avoid floating point errors
-      const multiplier = Math.pow(10, decimals);
-      const totalAmountInteger = messages.reduce((sum, msg) => {
-        // Convert to smallest unit (e.g., wei)
-        const amountInSmallestUnit = Math.round(
-          parseFloat(msg.body.amount) * multiplier
-        );
-        return sum + amountInSmallestUnit;
-      }, 0);
-
-      // Convert back to decimal string with proper precision
-      const totalAmount = (totalAmountInteger / multiplier).toString();
+      // Calculate total amount using BigInt arithmetic for precision
+      const totalAmount = AmountConverter.sumAmounts(
+        messages.map(msg => msg.body.amount),
+        decimals
+      );
       const symbol = messages[0]?.body.symbol || 'UNKNOWN';
 
       // Get chain provider to get multicall address and chain ID

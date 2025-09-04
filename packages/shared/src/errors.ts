@@ -21,6 +21,7 @@ export enum ErrorCode {
   GAS_ESTIMATION_ERROR = 'GAS_ESTIMATION_ERROR',
   NONCE_ALLOCATION_ERROR = 'NONCE_ALLOCATION_ERROR',
   QUEUE_ERROR = 'QUEUE_ERROR',
+  TOKEN_LOOKUP_ERROR = 'TOKEN_LOOKUP_ERROR',
   UNKNOWN_ERROR = 'UNKNOWN_ERROR',
 }
 
@@ -85,5 +86,19 @@ export class NonceAllocationError extends AppError {
       ...details,
       originalError,
     });
+  }
+}
+
+export class TokenLookupError extends AppError {
+  constructor(
+    message: string,
+    public readonly details: {
+      tokenAddress: string;
+      chain: string;
+      network: string;
+      originalError?: any;
+    }
+  ) {
+    super(ErrorCode.TOKEN_LOOKUP_ERROR, message, 500, details);
   }
 }

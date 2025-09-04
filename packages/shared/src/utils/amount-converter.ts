@@ -99,7 +99,27 @@ export class AmountConverter {
 
     return { valid: true };
   }
+
+  /**
+   * Sum multiple amounts with precise BigInt arithmetic
+   * @param amounts Array of decimal amount strings
+   * @param decimals Token decimals for conversion
+   * @returns Total amount as decimal string
+   */
+  static sumAmounts(amounts: string[], decimals: number): string {
+    const totalWei = amounts.reduce((sum, amount) => {
+      const weiAmount = this.toWei(amount, decimals);
+      return sum + BigInt(weiAmount);
+    }, BigInt(0));
+
+    return this.fromWei(totalWei.toString(), decimals);
+  }
 }
 
-export const { toWei, fromWei, validateDecimalPlaces, validateAmount } =
-  AmountConverter;
+export const {
+  toWei,
+  fromWei,
+  validateDecimalPlaces,
+  validateAmount,
+  sumAmounts,
+} = AmountConverter;

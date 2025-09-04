@@ -113,6 +113,31 @@ describe('AmountConverter', () => {
     });
   });
 
+  describe('sumAmounts', () => {
+    it('should sum USDC amounts precisely (6 decimals)', () => {
+      const amounts = ['1.5', '2.3', '0.123456'];
+      const result = AmountConverter.sumAmounts(amounts, 6);
+      expect(result).toBe('3.923456');
+    });
+
+    it('should sum ETH amounts precisely (18 decimals)', () => {
+      const amounts = ['1.0', '0.5', '0.000000000000000001'];
+      const result = AmountConverter.sumAmounts(amounts, 18);
+      expect(result).toBe('1.500000000000000001');
+    });
+
+    it('should handle large amounts without precision loss', () => {
+      const amounts = ['999999.999999', '0.000001'];
+      const result = AmountConverter.sumAmounts(amounts, 6);
+      expect(result).toBe('1000000.0');
+    });
+
+    it('should handle empty array', () => {
+      const result = AmountConverter.sumAmounts([], 18);
+      expect(result).toBe('0.0');
+    });
+  });
+
   describe('integration with ethers', () => {
     it('should produce same results as ethers.parseUnits', () => {
       const amounts = ['1.5', '0.1', '1000.123456'];

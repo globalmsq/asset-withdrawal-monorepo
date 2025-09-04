@@ -84,6 +84,14 @@ jest.mock('@asset-withdrawal/shared', () => ({
       }
     }),
     validateAmount: jest.fn().mockReturnValue({ valid: true }),
+    sumAmounts: jest.fn().mockImplementation((amounts, decimals) => {
+      const { parseUnits, formatUnits } = jest.requireActual('ethers');
+      const totalWei = amounts.reduce((sum, amount) => {
+        const weiAmount = parseUnits(amount, decimals);
+        return sum + weiAmount;
+      }, BigInt(0));
+      return formatUnits(totalWei.toString(), decimals);
+    }),
   },
   TransactionStatus: {
     PENDING: 'PENDING',
@@ -1005,11 +1013,14 @@ describe('SigningWorker', () => {
           data: expect.objectContaining({
             multicallAddress: '0xcA11bde05977b3631167028862bE2a173976CA11',
             totalRequests: 3,
-            totalAmount: '6',
+            totalAmount: '6.0',
             nonce: 0,
             gasLimit: '0',
             status: 'PENDING',
             tryCount: 0,
+            chain: 'polygon',
+            network: 'mainnet',
+            symbol: 'UNKNOWN',
           }),
         });
 

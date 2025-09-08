@@ -163,7 +163,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000', // 1 token
+          amount: '1.0', // 1 token
           transactionId: 'tx1',
         },
         {
@@ -195,7 +195,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
         {
@@ -234,7 +234,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
       ];
@@ -282,7 +282,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000', // 1 token with 18 decimals
+          amount: '1.0', // 1 token with 18 decimals
           transactionId: 'tx1',
         },
       ];
@@ -294,11 +294,11 @@ describe('MulticallService', () => {
       );
 
       // Verify encoding was called with correct parameters
-      // Amount should be converted to wei (1000000000000000000 with 18 decimals = 1000000000000000000000000000000000000)
+      // Amount should be converted to wei (1.0 with 18 decimals = 1000000000000000000)
       expect(mockEncodeFunctionData).toHaveBeenCalledWith('transferFrom', [
         '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         TEST_RECIPIENT,
-        '1000000000000000000000000000000000000',
+        '1000000000000000000',
       ]);
 
       // Verify the Call3 structure
@@ -438,7 +438,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
       ];
@@ -457,7 +457,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
         {
@@ -482,7 +482,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: 'invalid-address',
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
       ];
@@ -531,7 +531,7 @@ describe('MulticallService', () => {
         .fill({
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx',
         })
         .map((t, i) => ({ ...t, transactionId: `tx${i}` }));
@@ -585,7 +585,7 @@ describe('MulticallService', () => {
         .map((_, i) => ({
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: `tx${i}`,
         }));
 
@@ -618,7 +618,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
         {
@@ -646,7 +646,7 @@ describe('MulticallService', () => {
           .map((_, i) => ({
             tokenAddress: TEST_TOKEN_ADDRESS,
             to: TEST_RECIPIENT,
-            amount: '1000000000000000000',
+            amount: '1.0',
             transactionId: `tx-a-${i}`,
           })),
         ...Array(50)
@@ -687,7 +687,7 @@ describe('MulticallService', () => {
         .map((_, i) => ({
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: `tx${i}`,
         }));
 
@@ -708,7 +708,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
       ];
@@ -750,7 +750,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: 'invalid',
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
       ];

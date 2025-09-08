@@ -1,3 +1,5 @@
+import { AmountConverter } from './utils/amount-converter';
+
 export const ValidationPatterns = {
   // Bitcoin address patterns
   BITCOIN_P2PKH: /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/,
@@ -44,11 +46,15 @@ export function isValidAddress(address: string, network: string): boolean {
 }
 
 export function isValidAmount(amount: string): boolean {
-  if (!ValidationPatterns.AMOUNT.test(amount)) {
+  // Use AmountConverter for robust validation but limit decimals to 8
+  const validation = AmountConverter.validateAmount(amount, 8);
+  if (!validation.valid) {
     return false;
   }
+
+  // Additional check for 1M limit (legacy requirement)
   const numAmount = parseFloat(amount);
-  return numAmount > 0 && numAmount <= 1000000; // Max 1M units
+  return numAmount <= 1000000; // Max 1M units
 }
 
 export function isValidNetwork(network: string): network is NetworkType {

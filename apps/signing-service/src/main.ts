@@ -10,7 +10,6 @@ import { Logger } from './utils/logger';
 import { SecureSecretsManager } from './services/secrets-manager';
 import { SigningWorker } from './workers/signing-worker';
 import { DatabaseService } from '@asset-withdrawal/database';
-import { NonceCacheService } from './services/nonce-cache.service';
 
 async function bootstrap() {
   // Load configuration
@@ -38,9 +37,6 @@ async function bootstrap() {
     throw new Error('Database health check failed');
   }
   logger.info('Database connection healthy');
-
-  // Initialize nonce cache service
-  const nonceCacheService = new NonceCacheService(undefined, logger);
 
   // Initialize signing worker
   const signingWorker = new SigningWorker(config, secretsManager, logger);

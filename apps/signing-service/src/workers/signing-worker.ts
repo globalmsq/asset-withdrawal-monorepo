@@ -9,7 +9,6 @@ import {
   isNetworkError,
   retryWithBackoff,
   tokenService,
-  validateAmountWithDecimals,
   AmountConverter,
 } from '@asset-withdrawal/shared';
 import {
@@ -711,7 +710,7 @@ export class SigningWorker extends BaseWorker<
       tokenDecimals = 18;
     }
 
-    const amountValidation = validateAmountWithDecimals(
+    const amountValidation = AmountConverter.validateAmount(
       request.amount,
       tokenDecimals
     );

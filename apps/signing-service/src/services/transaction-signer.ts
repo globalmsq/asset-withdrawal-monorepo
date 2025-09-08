@@ -428,13 +428,21 @@ export class TransactionSigner {
           chainId: this.chainProvider.getChainId(),
         };
       } else {
-        // Native token transfer (ETH, MATIC, BNB - all use 18 decimals)
+        // Native token transfer - get decimals from chain configuration
+        const nativeCurrency = this.chainProvider.getNativeCurrency();
+        if (!nativeCurrency || typeof nativeCurrency.decimals !== 'number') {
+          throw new Error(
+            'Native currency decimals not configured for this chain'
+          );
+        }
+
         try {
-          amountInWei = AmountConverter.toWei(amount, 18);
+          amountInWei = AmountConverter.toWei(amount, nativeCurrency.decimals);
 
           this.logger.debug('Native token amount conversion', {
             originalAmount: amount,
-            decimals: 18,
+            decimals: nativeCurrency.decimals,
+            symbol: nativeCurrency.symbol,
             amountInWei,
             chain: this.chainProvider.chain,
             transactionId,
@@ -442,7 +450,8 @@ export class TransactionSigner {
         } catch (error) {
           this.logger.error('Failed to convert native token amount to wei', {
             amount,
-            decimals: 18,
+            decimals: nativeCurrency.decimals,
+            symbol: nativeCurrency.symbol,
             transactionId,
             error: error instanceof Error ? error.message : String(error),
           });

@@ -706,8 +706,20 @@ export class SigningWorker extends BaseWorker<
 
       tokenDecimals = tokenInfo.decimals;
     } else {
-      // Native token - all native tokens (ETH, MATIC, BNB) use 18 decimals
-      tokenDecimals = 18;
+      // Native token - get decimals from chain configuration
+      try {
+        const chainProvider = ChainProviderFactory.getProvider(
+          request.chain as any,
+          request.network as any
+        );
+        const nativeCurrency = chainProvider.getNativeCurrency();
+        if (!nativeCurrency || typeof nativeCurrency.decimals !== 'number') {
+          return `Native currency decimals not configured for chain: ${request.chain}/${request.network}`;
+        }
+        tokenDecimals = nativeCurrency.decimals;
+      } catch (error) {
+        return `Failed to get native currency information for ${request.chain}/${request.network}`;
+      }
     }
 
     const amountValidation = AmountConverter.validateAmount(
@@ -1032,7 +1044,20 @@ export class SigningWorker extends BaseWorker<
         network,
         chain
       );
-      const decimals = tokenInfo?.decimals || 18; // Default to 18 if not found
+
+      if (!tokenInfo || typeof tokenInfo.decimals !== 'number') {
+        this.logger.error('Token info not found or decimals missing', {
+          tokenAddress,
+          network,
+          chain,
+          tokenInfo,
+        });
+        throw new Error(
+          `Token not configured or decimals missing: ${tokenAddress} on ${chain}/${network}`
+        );
+      }
+
+      const decimals = tokenInfo.decimals;
 
       // Calculate total amount using BigInt arithmetic for precision
       const totalAmount = AmountConverter.sumAmounts(

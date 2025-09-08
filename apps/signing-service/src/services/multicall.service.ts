@@ -467,26 +467,21 @@ export class MulticallService {
           continue;
         }
 
-        // Convert decimal amount to wei for validation
-        let amountInWei: string;
-        try {
-          amountInWei = AmountConverter.toWei(
-            transfer.amount,
-            tokenInfo.decimals
-          );
-        } catch (conversionError) {
+        // Use the centralized validation method
+        const amountValidation = AmountConverter.validateAmount(
+          transfer.amount,
+          tokenInfo.decimals
+        );
+        if (!amountValidation.valid) {
           errors.push(
-            `Invalid amount format in transfer ${transfer.transactionId}: ${transfer.amount}`
+            `Invalid amount in transfer ${transfer.transactionId}: ${amountValidation.error}`
           );
           continue;
         }
 
-        const amount = BigInt(amountInWei);
-        if (amount <= 0n) {
-          errors.push(
-            `Invalid amount in transfer ${transfer.transactionId}: must be positive`
-          );
-        }
+        const amount = BigInt(
+          AmountConverter.toWei(transfer.amount, tokenInfo.decimals)
+        );
 
         // Accumulate token totals for max amount checking
         const key = transfer.tokenAddress.toLowerCase();

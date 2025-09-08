@@ -124,6 +124,23 @@ describe('MulticallService', () => {
       }
     );
 
+    (AmountConverter.validateAmount as jest.Mock).mockImplementation(
+      (amount, decimals) => {
+        // Simple validation: check if amount is valid number format and positive
+        if (amount === 'invalid') {
+          return { valid: false, error: 'invalid' };
+        }
+        if (amount === '0') {
+          return { valid: false, error: 'must be positive' };
+        }
+        const numAmount = parseFloat(amount);
+        if (isNaN(numAmount) || numAmount <= 0) {
+          return { valid: false, error: 'must be positive' };
+        }
+        return { valid: true };
+      }
+    );
+
     // Create service instance
     multicallService = new MulticallService(mockChainProvider, mockLogger);
   });
@@ -522,7 +539,7 @@ describe('MulticallService', () => {
         'Invalid amount in transfer tx1: must be positive'
       );
       expect(result.errors).toContain(
-        'Invalid amount format in transfer tx2: invalid'
+        'Invalid amount in transfer tx2: invalid'
       );
     });
 

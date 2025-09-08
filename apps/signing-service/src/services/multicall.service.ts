@@ -755,7 +755,12 @@ export class MulticallService {
 
       // Get max transfer amount for this token
       const maxTransferAmount = tokenInfo?.maxTransferAmount
-        ? BigInt(tokenInfo.maxTransferAmount) * BigInt(10 ** tokenInfo.decimals)
+        ? BigInt(
+            AmountConverter.toWei(
+              tokenInfo.maxTransferAmount,
+              tokenInfo.decimals
+            )
+          )
         : null;
 
       // Check if adding this transfer would exceed max amount or gas limit

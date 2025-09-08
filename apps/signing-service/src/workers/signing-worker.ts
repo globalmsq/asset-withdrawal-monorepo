@@ -1314,8 +1314,12 @@ export class SigningWorker extends BaseWorker<
           await Promise.all(
             messages.map(async message => {
               try {
-                await this.dbClient.withdrawalRequest.update({
-                  where: { requestId: message.body.id },
+                // Add a condition to ensure we only update requests owned by this instance
+                await this.dbClient.withdrawalRequest.updateMany({
+                  where: {
+                    requestId: message.body.id,
+                    processingInstanceId: this.instanceId, // Only update if we still own it
+                  },
                   data: {
                     status: TransactionStatus.FAILED,
                     errorMessage:

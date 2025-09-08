@@ -1,0 +1,16 @@
+{
+  "scenario": "normal-flow",
+  "startTime": "2025-09-04T06:53:30.456Z",
+  "endTime": "2025-09-04T06:53:31.674Z",
+  "totalRequests": 10,
+  "successfulRequests": 10,
+  "failedRequests": 0,
+  "errors": [],
+  "metrics": {
+    "avgResponseTime": 21.2,
+    "minResponseTime": 15,
+    "maxResponseTime": 29,
+    "throughput": 8.210180623973727,
+    "successRate": 100
+  }
+}

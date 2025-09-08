@@ -1,5 +1,9 @@
 import { ethers } from 'ethers';
-import { ChainProvider } from '@asset-withdrawal/shared';
+import {
+  ChainProvider,
+  tokenService,
+  AmountConverter,
+} from '@asset-withdrawal/shared';
 import {
   MulticallService,
   BatchTransferRequest,
@@ -7,7 +11,19 @@ import {
 import { Logger } from '../../utils/logger';
 
 // Mock dependencies
-jest.mock('@asset-withdrawal/shared');
+jest.mock('@asset-withdrawal/shared', () => ({
+  ...jest.requireActual('@asset-withdrawal/shared'),
+  tokenService: {
+    getTokenByAddress: jest.fn(),
+    getNativeTokenInfo: jest.fn(),
+  },
+  AmountConverter: {
+    toWei: jest.fn(),
+    fromWei: jest.fn(),
+    validateDecimalPlaces: jest.fn(),
+    validateAmount: jest.fn(),
+  },
+}));
 jest.mock('../../utils/logger');
 
 describe('MulticallService - Multi-chain Support', () => {
@@ -101,6 +117,80 @@ describe('MulticallService - Multi-chain Support', () => {
         ({
           encodeFunctionData: jest.fn().mockReturnValue('0xencoded'),
         }) as any
+    );
+
+    // Mock tokenService
+    (tokenService.getTokenByAddress as jest.Mock).mockImplementation(
+      (address, network, chain) => {
+        // Return mock token info for test addresses
+        if (address === TEST_TOKEN_ADDRESS) {
+          return { symbol: 'TEST', decimals: 18, address };
+        }
+        if (address === '0x9999999999999999999999999999999999999999') {
+          return { symbol: 'TEST2', decimals: 18, address };
+        }
+        // Real token addresses for multi-chain tests
+        if (
+          address === '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' &&
+          network === 'mainnet' &&
+          chain === 'ethereum'
+        ) {
+          return { symbol: 'USDC', decimals: 6, address };
+        }
+        if (
+          address === '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174' &&
+          network === 'mainnet' &&
+          chain === 'polygon'
+        ) {
+          return { symbol: 'USDC', decimals: 6, address };
+        }
+        if (
+          address === '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' &&
+          network === 'mainnet' &&
+          chain === 'polygon'
+        ) {
+          return { symbol: 'USDT', decimals: 6, address };
+        }
+        if (
+          address === '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d' &&
+          network === 'mainnet' &&
+          chain === 'bsc'
+        ) {
+          return { symbol: 'USDC', decimals: 18, address };
+        }
+        return null;
+      }
+    );
+
+    // Mock AmountConverter
+    (AmountConverter.toWei as jest.Mock).mockImplementation(
+      (amount, decimals) => {
+        // Simple mock implementation
+        const multiplier = BigInt(10) ** BigInt(decimals);
+        const [integer, decimal = ''] = amount.split('.');
+        const paddedDecimal = decimal.padEnd(decimals, '0').slice(0, decimals);
+        const integerPart = BigInt(integer || '0') * multiplier;
+        const decimalPart = decimal ? BigInt(paddedDecimal) : BigInt(0);
+        return (integerPart + decimalPart).toString();
+      }
+    );
+
+    // Mock AmountConverter.validateAmount
+    (AmountConverter.validateAmount as jest.Mock).mockImplementation(
+      (amount, decimals) => {
+        // Simple validation - just check if amount is a valid number and decimals exist
+        if (
+          !amount ||
+          isNaN(parseFloat(amount)) ||
+          typeof decimals !== 'number'
+        ) {
+          return { valid: false, error: 'Invalid amount or decimals' };
+        }
+        if (parseFloat(amount) <= 0) {
+          return { valid: false, error: 'Amount must be positive' };
+        }
+        return { valid: true };
+      }
     );
   });
 

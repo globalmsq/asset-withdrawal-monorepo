@@ -5,6 +5,7 @@ import {
   NoncePoolService,
   GasEstimationError,
   NonceAllocationError,
+  AmountConverter,
 } from '@asset-withdrawal/shared';
 import { SignedTransaction } from '../types';
 import { SecureSecretsManager } from './secrets-manager';
@@ -170,18 +171,61 @@ export class TransactionSigner {
 
     // Build transaction WITHOUT nonce for gas estimation
     let transactionForGasEstimate: ethers.TransactionRequest;
+    let amountInWei: string;
 
     if (tokenAddress) {
-      // ERC20 transfer
+      // ERC-20 token transfer
       const tokenContract = new ethers.Contract(
         tokenAddress,
-        ['function transfer(address to, uint256 amount) returns (bool)'],
+        ERC20_ABI,
         this.wallet
       );
 
+      // Get token info to determine decimals
+      const network = this.chainProvider.network;
+      const chain = this.chainProvider.chain;
+      const tokenInfo = tokenService.getTokenByAddress(
+        tokenAddress,
+        network,
+        chain
+      );
+
+      if (!tokenInfo) {
+        throw new Error(
+          `Token not found: ${tokenAddress} on ${chain} ${network}`
+        );
+      }
+
+      // Convert amount to wei using token decimals
+      try {
+        amountInWei = AmountConverter.toWei(amount, tokenInfo.decimals);
+
+        this.logger.debug('Amount conversion for gas estimation', {
+          originalAmount: amount,
+          tokenDecimals: tokenInfo.decimals,
+          amountInWei,
+          tokenSymbol: tokenInfo.symbol,
+          transactionId,
+        });
+      } catch (error) {
+        this.logger.error(
+          'Failed to convert amount to wei for gas estimation',
+          {
+            amount,
+            decimals: tokenInfo.decimals,
+            tokenAddress,
+            transactionId,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
+        throw new Error(
+          `Amount conversion failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+
       const data = tokenContract.interface.encodeFunctionData('transfer', [
         to,
-        amount,
+        amountInWei,
       ]);
 
       transactionForGasEstimate = {
@@ -192,10 +236,42 @@ export class TransactionSigner {
         chainId: this.chainProvider.getChainId(),
       };
     } else {
-      // Native token transfer
+      // Native token transfer - get decimals from chain configuration
+      const nativeCurrency = this.chainProvider.getNativeCurrency();
+      if (!nativeCurrency || typeof nativeCurrency.decimals !== 'number') {
+        throw new Error(
+          `Native currency decimals not configured for chain: ${this.chainProvider.chain}`
+        );
+      }
+
+      try {
+        amountInWei = AmountConverter.toWei(amount, nativeCurrency.decimals);
+
+        this.logger.debug('Native token amount conversion for gas estimation', {
+          originalAmount: amount,
+          decimals: nativeCurrency.decimals,
+          amountInWei,
+          chain: this.chainProvider.chain,
+          transactionId,
+        });
+      } catch (error) {
+        this.logger.error(
+          'Failed to convert native token amount to wei for gas estimation',
+          {
+            amount,
+            decimals: nativeCurrency.decimals,
+            transactionId,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
+        throw new Error(
+          `Native token amount conversion failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+
       transactionForGasEstimate = {
         to,
-        value: BigInt(amount),
+        value: amountInWei,
         from: this.wallet.address,
         type: 2, // EIP-1559
         chainId: this.chainProvider.getChainId(),
@@ -275,6 +351,7 @@ export class TransactionSigner {
     try {
       // Build transaction WITHOUT nonce first (for gas estimation)
       let transactionForGasEstimate: ethers.TransactionRequest;
+      let amountInWei: string;
 
       if (tokenAddress) {
         // ERC-20 token transfer
@@ -283,6 +360,46 @@ export class TransactionSigner {
           ERC20_ABI,
           this.wallet
         );
+
+        // Get token info to determine decimals
+        const network = this.chainProvider.network;
+        const chain = this.chainProvider.chain;
+        const tokenInfo = tokenService.getTokenByAddress(
+          tokenAddress,
+          network,
+          chain
+        );
+
+        if (!tokenInfo) {
+          throw new Error(
+            `Token not found: ${tokenAddress} on ${chain} ${network}`
+          );
+        }
+
+        // Convert amount to wei using token decimals
+        try {
+          amountInWei = AmountConverter.toWei(amount, tokenInfo.decimals);
+
+          this.logger.debug('Amount conversion', {
+            originalAmount: amount,
+            tokenDecimals: tokenInfo.decimals,
+            amountInWei,
+            tokenSymbol: tokenInfo.symbol,
+            transactionId,
+          });
+        } catch (error) {
+          this.logger.error('Failed to convert amount to wei', {
+            amount,
+            decimals: tokenInfo.decimals,
+            tokenAddress,
+            transactionId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          throw new Error(
+            `Amount conversion failed: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+
         // Normalize address with error handling
         let normalizedTo: string;
         try {
@@ -309,7 +426,7 @@ export class TransactionSigner {
 
         const data = tokenContract.interface.encodeFunctionData('transfer', [
           normalizedTo,
-          amount,
+          amountInWei,
         ]);
 
         transactionForGasEstimate = {
@@ -318,10 +435,41 @@ export class TransactionSigner {
           chainId: this.chainProvider.getChainId(),
         };
       } else {
-        // Native token transfer
+        // Native token transfer - get decimals from chain configuration
+        const nativeCurrency = this.chainProvider.getNativeCurrency();
+        if (!nativeCurrency || typeof nativeCurrency.decimals !== 'number') {
+          throw new Error(
+            'Native currency decimals not configured for this chain'
+          );
+        }
+
+        try {
+          amountInWei = AmountConverter.toWei(amount, nativeCurrency.decimals);
+
+          this.logger.debug('Native token amount conversion', {
+            originalAmount: amount,
+            decimals: nativeCurrency.decimals,
+            symbol: nativeCurrency.symbol,
+            amountInWei,
+            chain: this.chainProvider.chain,
+            transactionId,
+          });
+        } catch (error) {
+          this.logger.error('Failed to convert native token amount to wei', {
+            amount,
+            decimals: nativeCurrency.decimals,
+            symbol: nativeCurrency.symbol,
+            transactionId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          throw new Error(
+            `Native token amount conversion failed: ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+
         transactionForGasEstimate = {
           to,
-          value: amount,
+          value: amountInWei,
           chainId: this.chainProvider.getChainId(),
         };
       }
@@ -487,7 +635,7 @@ export class TransactionSigner {
         maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
         from: this.wallet.address,
         to: tokenAddress || to, // Use tokenAddress for ERC-20, or recipient address for native transfers
-        value: tokenAddress ? '0' : amount, // ERC-20 transfers have value 0, native transfers have the amount
+        value: tokenAddress ? '0' : amountInWei, // ERC-20 transfers have value 0, native transfers have the amount in wei
         data: transaction.data?.toString(),
         chainId: this.chainProvider.getChainId(),
         chain: this.chainProvider.chain,

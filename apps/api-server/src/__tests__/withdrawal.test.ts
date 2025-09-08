@@ -201,7 +201,7 @@ describe('Withdrawal API', () => {
 
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBe(
-        'Invalid amount format. Maximum 8 decimal places allowed'
+        'Invalid amount format. Must be a positive number'
       );
     });
 
@@ -367,7 +367,7 @@ describe('Withdrawal API', () => {
     // New test cases for amount format validation
     it('should return 400 for amount with too many decimal places', async () => {
       const invalidData = {
-        amount: '0.123456789', // 9 decimal places, max is 8
+        amount: '0.1234567', // 7 decimal places, USDT has 6 decimals max
         toAddress: '0x742d35Cc6634c0532925a3b844bC9e7595F0FAED',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         symbol: 'USDT', // Added symbol to avoid symbol validation
@@ -382,7 +382,7 @@ describe('Withdrawal API', () => {
 
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBe(
-        'Invalid amount format. Maximum 8 decimal places allowed'
+        'Amount has too many decimal places. Maximum 6 decimals allowed for this token'
       );
     });
 
@@ -422,7 +422,7 @@ describe('Withdrawal API', () => {
 
       expect(response.body.success).toBe(false);
       expect(response.body.error).toBe(
-        'Invalid amount format. Maximum 8 decimal places allowed'
+        'Invalid amount format. Must be a positive number'
       );
     });
 

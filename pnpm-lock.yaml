@@ -359,6 +359,9 @@ importers:
       inquirer:
         specifier: ^9.2.11
         version: 9.3.7
+      js-yaml:
+        specifier: ^4.1.0
+        version: 4.1.0
       lodash:
         specifier: ^4.17.21
         version: 4.17.21
@@ -368,16 +371,25 @@ importers:
       shared:
         specifier: workspace:*
         version: link:../../packages/shared
+      ws:
+        specifier: ^8.14.2
+        version: 8.17.1
     devDependencies:
       '@types/inquirer':
         specifier: ^9.0.7
         version: 9.0.9
+      '@types/js-yaml':
+        specifier: ^4.0.8
+        version: 4.0.9
       '@types/lodash':
         specifier: ^4.14.200
         version: 4.17.20
       '@types/node':
         specifier: ^20.8.0
         version: 20.19.9
+      '@types/ws':
+        specifier: ^8.5.8
+        version: 8.18.1
       tsx:
         specifier: ^4.6.0
         version: 4.20.5
@@ -5252,6 +5264,10 @@ packages:
       pretty-format: 29.7.0
     dev: true
 
+  /@types/js-yaml@4.0.9:
+    resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
+    dev: true
+
   /@types/json-schema@7.0.15:
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
     dev: false
@@ -5392,6 +5408,12 @@ packages:
 
   /@types/uuid@9.0.8:
     resolution: {integrity: sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA==}
+
+  /@types/ws@8.18.1:
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
+    dependencies:
+      '@types/node': 20.19.9
+    dev: true
 
   /@types/yargs-parser@21.0.3:
     resolution: {integrity: sha512-I4q9QU9MQv4oEOz4tAHJtNz1cwuLxn2F3xcc2iV5WdqLPpUnj30aUuxt1mAxYTG+oe8CZMV/+6rU4S4gRDzqtQ==}

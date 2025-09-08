@@ -11,6 +11,8 @@ import {
   tokenService,
   chainsConfig,
   LoggerService,
+  isValidWithdrawalAmount,
+  AmountConverter,
 } from '@asset-withdrawal/shared';
 import { getDatabase } from '../services/database';
 import { config } from '../config';
@@ -327,23 +329,30 @@ router.post('/request', async (req: Request, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Validate amount format (up to 8 decimal places)
-    const AMOUNT_PATTERN = /^\d+(\.\d{1,8})?$/;
-    if (!AMOUNT_PATTERN.test(amount)) {
+    // Get token info to validate amount with proper decimals
+    const tokenInfo = tokenService.getTokenByAddress(
+      tokenAddress,
+      network,
+      chain
+    );
+    if (!tokenInfo) {
       const response: ApiResponse = {
         success: false,
-        error: 'Invalid amount format. Maximum 8 decimal places allowed',
+        error: `Token not supported: ${tokenAddress} on ${chain} ${network}`,
         timestamp: new Date(),
       };
       return res.status(400).json(response);
     }
 
-    // Validate amount is positive
-    const numAmount = parseFloat(amount);
-    if (numAmount <= 0) {
+    // Validate amount format with token-specific decimals
+    const amountValidation = AmountConverter.validateAmount(
+      amount,
+      tokenInfo.decimals
+    );
+    if (!amountValidation.valid) {
       const response: ApiResponse = {
         success: false,
-        error: 'Amount must be greater than 0',
+        error: amountValidation.error!,
         timestamp: new Date(),
       };
       return res.status(400).json(response);
@@ -397,14 +406,6 @@ router.post('/request', async (req: Request, res: Response) => {
       }
     }
     */
-
-    // For now, get token info for optional maxTransferAmount check
-    // This is a temporary solution until whitelist is fully implemented
-    const tokenInfo = tokenService.getTokenByAddress(
-      tokenAddress,
-      networkType,
-      blockchainName
-    );
 
     // Check maxTransferAmount if token info is available
     if (tokenInfo && tokenInfo.maxTransferAmount) {

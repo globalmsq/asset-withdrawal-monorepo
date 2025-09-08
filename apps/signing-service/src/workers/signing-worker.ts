@@ -8,6 +8,8 @@ import {
   NoncePoolService,
   isNetworkError,
   retryWithBackoff,
+  tokenService,
+  AmountConverter,
 } from '@asset-withdrawal/shared';
 import {
   WithdrawalRequestService,
@@ -688,14 +690,45 @@ export class SigningWorker extends BaseWorker<
       return `Invalid token address format: ${request.tokenAddress}`;
     }
 
-    // Validate amount
-    try {
-      const amountBigInt = BigInt(request.amount);
-      if (amountBigInt <= 0n) {
-        return `Invalid amount: ${request.amount}. Must be positive`;
+    // Validate amount with token-specific decimals
+    let tokenDecimals: number;
+    if (request.tokenAddress) {
+      // ERC-20 token - validate token exists and get decimals
+      const tokenInfo = tokenService.getTokenByAddress(
+        request.tokenAddress,
+        request.network,
+        request.chain
+      );
+
+      if (!tokenInfo) {
+        return `Token not supported: ${request.tokenAddress} on ${request.chain} ${request.network}`;
       }
-    } catch (error) {
-      return `Invalid amount format: ${request.amount}. Must be a valid number`;
+
+      tokenDecimals = tokenInfo.decimals;
+    } else {
+      // Native token - get decimals from chain configuration
+      try {
+        const chainProvider = ChainProviderFactory.getProvider(
+          request.chain as any,
+          request.network as any
+        );
+        const nativeCurrency = chainProvider.getNativeCurrency();
+        if (!nativeCurrency || typeof nativeCurrency.decimals !== 'number') {
+          return `Native currency decimals not configured for chain: ${request.chain}/${request.network}`;
+        }
+        tokenDecimals = nativeCurrency.decimals;
+      } catch (error) {
+        return `Failed to get native currency information for ${request.chain}/${request.network}`;
+      }
+    }
+
+    const amountValidation = AmountConverter.validateAmount(
+      request.amount,
+      tokenDecimals
+    );
+
+    if (!amountValidation.valid) {
+      return `Invalid amount: ${amountValidation.error}`;
     }
 
     return null; // No validation errors
@@ -1000,19 +1033,38 @@ export class SigningWorker extends BaseWorker<
         return null;
       }
 
-      // Calculate total amount and get symbol
-      const totalAmount = messages
-        .reduce((sum, msg) => {
-          return sum + BigInt(msg.body.amount);
-        }, 0n)
-        .toString();
-
-      const symbol = messages[0]?.body.symbol || 'UNKNOWN';
-
       // Get chain info from first message (all messages in batch should have same chain)
       const firstMessage = messages[0];
       const chain = firstMessage.body.chain || 'polygon';
       const network = firstMessage.body.network || 'mainnet';
+
+      // Get token info to determine decimals for accurate calculation
+      const tokenInfo = tokenService.getTokenByAddress(
+        tokenAddress,
+        network,
+        chain
+      );
+
+      if (!tokenInfo || typeof tokenInfo.decimals !== 'number') {
+        this.logger.error('Token info not found or decimals missing', {
+          tokenAddress,
+          network,
+          chain,
+          tokenInfo,
+        });
+        throw new Error(
+          `Token not configured or decimals missing: ${tokenAddress} on ${chain}/${network}`
+        );
+      }
+
+      const decimals = tokenInfo.decimals;
+
+      // Calculate total amount using BigInt arithmetic for precision
+      const totalAmount = AmountConverter.sumAmounts(
+        messages.map(msg => msg.body.amount),
+        decimals
+      );
+      const symbol = messages[0]?.body.symbol || 'UNKNOWN';
 
       // Get chain provider to get multicall address and chain ID
       const chainProvider = ChainProviderFactory.getProvider(
@@ -1282,6 +1334,35 @@ export class SigningWorker extends BaseWorker<
                 error instanceof Error ? error.message : String(error),
             },
           });
+        } else {
+          // If batch was not created, update all withdrawal requests individually
+          await Promise.all(
+            messages.map(async message => {
+              try {
+                // Add a condition to ensure we only update requests owned by this instance
+                await this.dbClient.withdrawalRequest.updateMany({
+                  where: {
+                    requestId: message.body.id,
+                    processingInstanceId: this.instanceId, // Only update if we still own it
+                  },
+                  data: {
+                    status: TransactionStatus.FAILED,
+                    errorMessage:
+                      error instanceof Error ? error.message : String(error),
+                    processingCompletedAt: new Date(),
+                  },
+                });
+              } catch (updateError) {
+                this.auditLogger.error(
+                  'Failed to update withdrawal request status',
+                  updateError,
+                  {
+                    requestId: message.body.id,
+                  }
+                );
+              }
+            })
+          );
         }
 
         // Delete messages from queue for non-recoverable errors

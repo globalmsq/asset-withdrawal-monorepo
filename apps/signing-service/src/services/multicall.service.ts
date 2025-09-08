@@ -1,5 +1,9 @@
 import { ethers } from 'ethers';
-import { ChainProvider, tokenService } from '@asset-withdrawal/shared';
+import {
+  ChainProvider,
+  tokenService,
+  AmountConverter,
+} from '@asset-withdrawal/shared';
 import { Logger } from '../utils/logger';
 
 // Multicall3 ABI - only the functions we need
@@ -177,6 +181,31 @@ export class MulticallService {
       const transfer = transfers[i];
       const { tokenAddress, to, amount } = transfer;
 
+      // Get token info to determine decimals for amount conversion
+      const network = this.chainProvider.network;
+      const chain = this.chainProvider.chain;
+      const tokenInfo = tokenService.getTokenByAddress(
+        tokenAddress,
+        network,
+        chain
+      );
+
+      if (!tokenInfo) {
+        throw new Error(
+          `Token not found: ${tokenAddress} on ${chain} ${network}`
+        );
+      }
+
+      // Convert decimal amount to wei using token decimals
+      let amountInWei: string;
+      try {
+        amountInWei = AmountConverter.toWei(amount, tokenInfo.decimals);
+      } catch (error) {
+        throw new Error(
+          `Failed to convert amount to wei for batch transfer: ${amount} with ${tokenInfo.decimals} decimals`
+        );
+      }
+
       // Create ERC20 interface for encoding
       const erc20Interface = new ethers.Interface(ERC20_ABI);
 
@@ -185,7 +214,7 @@ export class MulticallService {
       const callData = erc20Interface.encodeFunctionData('transferFrom', [
         fromAddress, // from: signing service wallet
         to, // to: recipient
-        amount, // amount to transfer
+        amountInWei, // amount to transfer in wei
       ]);
 
       // Add to calls array
@@ -422,32 +451,50 @@ export class MulticallService {
         }
       }
 
-      // Validate amount
+      // Validate amount with token-specific decimals
       try {
-        const amount = BigInt(transfer.amount);
-        if (amount <= 0n) {
-          errors.push(
-            `Invalid amount in transfer ${transfer.transactionId}: must be positive`
-          );
-        }
-
-        // Accumulate token totals for max amount checking
+        // Get token info to determine decimals
         const tokenInfo = tokenService.getTokenByAddress(
           transfer.tokenAddress,
           network,
           chain
         );
-        if (tokenInfo) {
-          const key = transfer.tokenAddress.toLowerCase();
-          const current = tokenTotals.get(key);
-          if (current) {
-            current.amount += amount;
-          } else {
-            tokenTotals.set(key, { amount, symbol: tokenInfo.symbol });
-          }
+
+        if (!tokenInfo) {
+          errors.push(
+            `Token not found: ${transfer.tokenAddress} on ${chain} ${network}`
+          );
+          continue;
+        }
+
+        // Use the centralized validation method
+        const amountValidation = AmountConverter.validateAmount(
+          transfer.amount,
+          tokenInfo.decimals
+        );
+        if (!amountValidation.valid) {
+          errors.push(
+            `Invalid amount in transfer ${transfer.transactionId}: ${amountValidation.error}`
+          );
+          continue;
+        }
+
+        const amount = BigInt(
+          AmountConverter.toWei(transfer.amount, tokenInfo.decimals)
+        );
+
+        // Accumulate token totals for max amount checking
+        const key = transfer.tokenAddress.toLowerCase();
+        const current = tokenTotals.get(key);
+        if (current) {
+          current.amount += amount;
+        } else {
+          tokenTotals.set(key, { amount, symbol: tokenInfo.symbol });
         }
       } catch (error) {
-        errors.push(`Invalid amount in transfer ${transfer.transactionId}`);
+        errors.push(
+          `Invalid amount in transfer ${transfer.transactionId}: ${error instanceof Error ? error.message : String(error)}`
+        );
       }
     }
 
@@ -611,6 +658,68 @@ export class MulticallService {
   }
 
   /**
+   * Convert transfer amount to wei with proper token decimals lookup
+   */
+  private getTransferAmountInWei(
+    transfer: BatchTransferRequest,
+    network: string,
+    chain: string
+  ): { amount: bigint; tokenInfo: any } {
+    let tokenInfo: any = null;
+    try {
+      tokenInfo = tokenService.getTokenByAddress(
+        transfer.tokenAddress,
+        network,
+        chain
+      );
+
+      if (!tokenInfo) {
+        throw new Error(
+          `Token not found: ${transfer.tokenAddress} on ${chain} ${network}`
+        );
+      }
+
+      // Convert decimal amount to wei first, then to BigInt
+      const amountInWei = AmountConverter.toWei(
+        transfer.amount,
+        tokenInfo.decimals
+      );
+      return { amount: BigInt(amountInWei), tokenInfo };
+    } catch (error) {
+      this.logger.error(
+        `Failed to process transfer for ${transfer.tokenAddress} on ${chain} ${network}`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+          transfer,
+        }
+      );
+
+      // Differentiate between token lookup failure and amount conversion failure
+      if (error instanceof Error) {
+        if (
+          error.message.includes('Failed to convert amount to wei') ||
+          error.message.includes('Invalid amount')
+        ) {
+          throw new Error(
+            `Unable to process transfer: Invalid amount format for ${transfer.amount}`
+          );
+        }
+
+        if (error.message.includes('Token not found')) {
+          throw new Error(
+            `Unable to process transfer: Token ${transfer.tokenAddress} not found on ${chain} ${network}`
+          );
+        }
+      }
+
+      // Other unexpected errors
+      throw new Error(
+        `Unable to process transfer: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
    * Split transfers into optimal batch groups
    */
   private async splitIntoBatches(
@@ -652,19 +761,25 @@ export class MulticallService {
 
       // Check max transfer amount for token
       const tokenAddress = transfer.tokenAddress.toLowerCase();
-      const transferAmount = BigInt(transfer.amount);
+
+      // Get token info and convert amount to wei
+      const { amount: transferAmount, tokenInfo } = this.getTransferAmountInWei(
+        transfer,
+        network,
+        chain
+      );
       const currentTokenAmount =
         currentBatch.tokenAmounts.get(tokenAddress) || 0n;
       const newTokenTotal = currentTokenAmount + transferAmount;
 
       // Get max transfer amount for this token
-      const tokenInfo = tokenService.getTokenByAddress(
-        transfer.tokenAddress,
-        network,
-        chain
-      );
       const maxTransferAmount = tokenInfo?.maxTransferAmount
-        ? BigInt(tokenInfo.maxTransferAmount)
+        ? BigInt(
+            AmountConverter.toWei(
+              tokenInfo.maxTransferAmount,
+              tokenInfo.decimals
+            )
+          )
         : null;
 
       // Check if adding this transfer would exceed max amount or gas limit
@@ -747,11 +862,14 @@ export class MulticallService {
 
     // Aggregate amounts by token
     for (const transfer of transfers) {
-      const current = tokenAmounts.get(transfer.tokenAddress) || 0n;
-      tokenAmounts.set(
-        transfer.tokenAddress,
-        current + BigInt(transfer.amount)
+      const { amount: amountToAdd } = this.getTransferAmountInWei(
+        transfer,
+        this.chainProvider.network,
+        this.chainProvider.chain
       );
+
+      const current = tokenAmounts.get(transfer.tokenAddress) || 0n;
+      tokenAmounts.set(transfer.tokenAddress, current + amountToAdd);
     }
 
     const needsApproval: Array<{

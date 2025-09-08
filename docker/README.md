@@ -2,24 +2,25 @@
 
 ## 개요
 
-이 디렉토리는 Withdrawal System을 로컬 환경에서 Docker를 사용하여 실행하기 위한 구성 파일들을 포함합니다.
+이 디렉토리는 Asset Withdrawal System을 로컬 환경에서 Docker를 사용하여 실행하기 위한 구성 파일들을 포함합니다. `docker-compose.yaml` 파일은 개발 및 통합 테스트에 필요한 모든 서비스를 정의합니다.
 
 ## 파일 구조
 
-- `docker-compose.yaml`: 프로덕션 환경용 Docker Compose 설정
-- `docker-compose.dev.yaml`: 개발 환경용 Docker Compose 설정 (MySQL만 포함)
-- `dockerfile.api-server`: API 서버용 Dockerfile
-- `init.sql`: MySQL 데이터베이스 초기화 스크립트
+- `docker-compose.yaml`: 개발 및 통합 테스트 환경용 Docker Compose 설정 파일입니다.
+- `dockerfile.packages`: 모노레포의 각 서비스(`api-server`, `signing-service` 등)를 빌드하기 위한 멀티 스테이지 Dockerfile입니다.
+- `init.sql`: MySQL 데이터베이스 초기화를 위한 스크립트입니다.
+- `scripts/init-localstack.sh`: LocalStack(AWS 에뮬레이터) 초기화를 위한 스크립트입니다. SQS 큐와 Secrets Manager 시크릿을 생성합니다.
+- `scripts/init-hardhat.sh`: Hardhat 로컬 블록체인에 테스트 컨트랙트를 배포하는 스크립트입니다.
 
 ## 로컬 실행 방법
 
-### 1. 전체 시스템 실행 (MySQL + API 서버)
+### 1. 전체 개발 환경 실행
 
 ```bash
 # 프로젝트 루트 디렉토리에서 실행
 docker-compose -f docker/docker-compose.yaml up -d
 
-# 또는 빌드와 함께 실행
+# 변경사항이 있을 경우 빌드와 함께 실행
 docker-compose -f docker/docker-compose.yaml up --build -d
 ```
 

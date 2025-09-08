@@ -1,5 +1,9 @@
 import { ethers } from 'ethers';
-import { ChainProvider } from '@asset-withdrawal/shared';
+import {
+  ChainProvider,
+  tokenService,
+  AmountConverter,
+} from '@asset-withdrawal/shared';
 import {
   MulticallService,
   BatchTransferRequest,
@@ -7,7 +11,19 @@ import {
 import { Logger } from '../../utils/logger';
 
 // Mock dependencies
-jest.mock('@asset-withdrawal/shared');
+jest.mock('@asset-withdrawal/shared', () => ({
+  ...jest.requireActual('@asset-withdrawal/shared'),
+  tokenService: {
+    getTokenByAddress: jest.fn(),
+    getNativeTokenInfo: jest.fn(),
+  },
+  AmountConverter: {
+    toWei: jest.fn(),
+    fromWei: jest.fn(),
+    validateDecimalPlaces: jest.fn(),
+    validateAmount: jest.fn(),
+  },
+}));
 jest.mock('../../utils/logger');
 
 describe('MulticallService', () => {
@@ -73,6 +89,58 @@ describe('MulticallService', () => {
       .spyOn(ethers, 'Contract')
       .mockImplementation(() => mockMulticall3Contract as any);
 
+    // Mock tokenService
+    (tokenService.getTokenByAddress as jest.Mock).mockImplementation(
+      (address, network, chain) => {
+        // Return mock token info for test addresses
+        if (address === TEST_TOKEN_ADDRESS) {
+          return { symbol: 'TEST', decimals: 18, address };
+        }
+        if (address === '0x9999999999999999999999999999999999999999') {
+          return { symbol: 'TEST2', decimals: 18, address };
+        }
+        // Real USDC addresses for multi-chain tests
+        if (
+          address === '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' &&
+          network === 'mainnet' &&
+          chain === 'ethereum'
+        ) {
+          return { symbol: 'USDC', decimals: 6, address };
+        }
+        return null;
+      }
+    );
+
+    // Mock AmountConverter
+    (AmountConverter.toWei as jest.Mock).mockImplementation(
+      (amount, decimals) => {
+        // Simple mock implementation
+        const multiplier = BigInt(10) ** BigInt(decimals);
+        const [integer, decimal = ''] = amount.split('.');
+        const paddedDecimal = decimal.padEnd(decimals, '0').slice(0, decimals);
+        const integerPart = BigInt(integer || '0') * multiplier;
+        const decimalPart = decimal ? BigInt(paddedDecimal) : BigInt(0);
+        return (integerPart + decimalPart).toString();
+      }
+    );
+
+    (AmountConverter.validateAmount as jest.Mock).mockImplementation(
+      (amount, decimals) => {
+        // Simple validation: check if amount is valid number format and positive
+        if (amount === 'invalid') {
+          return { valid: false, error: 'invalid' };
+        }
+        if (amount === '0') {
+          return { valid: false, error: 'must be positive' };
+        }
+        const numAmount = parseFloat(amount);
+        if (isNaN(numAmount) || numAmount <= 0) {
+          return { valid: false, error: 'must be positive' };
+        }
+        return { valid: true };
+      }
+    );
+
     // Create service instance
     multicallService = new MulticallService(mockChainProvider, mockLogger);
   });
@@ -112,7 +180,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000', // 1 token
+          amount: '1.0', // 1 token
           transactionId: 'tx1',
         },
         {
@@ -144,7 +212,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
         {
@@ -183,7 +251,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
       ];
@@ -231,7 +299,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000', // 1 token with 18 decimals
+          amount: '1.0', // 1 token with 18 decimals
           transactionId: 'tx1',
         },
       ];
@@ -243,6 +311,7 @@ describe('MulticallService', () => {
       );
 
       // Verify encoding was called with correct parameters
+      // Amount should be converted to wei (1.0 with 18 decimals = 1000000000000000000)
       expect(mockEncodeFunctionData).toHaveBeenCalledWith('transferFrom', [
         '0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf',
         TEST_RECIPIENT,
@@ -386,7 +455,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
       ];
@@ -405,7 +474,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
         {
@@ -430,7 +499,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: 'invalid-address',
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
       ];
@@ -469,7 +538,9 @@ describe('MulticallService', () => {
       expect(result.errors).toContain(
         'Invalid amount in transfer tx1: must be positive'
       );
-      expect(result.errors).toContain('Invalid amount in transfer tx2');
+      expect(result.errors).toContain(
+        'Invalid amount in transfer tx2: invalid'
+      );
     });
 
     it('should allow large batches (gas will be the limiter)', async () => {
@@ -477,7 +548,7 @@ describe('MulticallService', () => {
         .fill({
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx',
         })
         .map((t, i) => ({ ...t, transactionId: `tx${i}` }));
@@ -531,7 +602,7 @@ describe('MulticallService', () => {
         .map((_, i) => ({
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: `tx${i}`,
         }));
 
@@ -564,7 +635,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
         {
@@ -592,7 +663,7 @@ describe('MulticallService', () => {
           .map((_, i) => ({
             tokenAddress: TEST_TOKEN_ADDRESS,
             to: TEST_RECIPIENT,
-            amount: '1000000000000000000',
+            amount: '1.0',
             transactionId: `tx-a-${i}`,
           })),
         ...Array(50)
@@ -633,7 +704,7 @@ describe('MulticallService', () => {
         .map((_, i) => ({
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: `tx${i}`,
         }));
 
@@ -654,7 +725,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: TEST_TOKEN_ADDRESS,
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
       ];
@@ -696,7 +767,7 @@ describe('MulticallService', () => {
         {
           tokenAddress: 'invalid',
           to: TEST_RECIPIENT,
-          amount: '1000000000000000000',
+          amount: '1.0',
           transactionId: 'tx1',
         },
       ];

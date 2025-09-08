@@ -1,5 +1,10 @@
 import { TransactionSigner } from '../../services/transaction-signer';
-import { ChainProvider, GasEstimationError } from '@asset-withdrawal/shared';
+import {
+  ChainProvider,
+  GasEstimationError,
+  tokenService,
+  AmountConverter,
+} from '@asset-withdrawal/shared';
 import { SecureSecretsManager } from '../../services/secrets-manager';
 import { NonceCacheService } from '../../services/nonce-cache.service';
 import { GasPriceCache } from '../../services/gas-price-cache';
@@ -11,6 +16,19 @@ jest.mock('ethers');
 jest.mock('../../services/nonce-cache.service');
 jest.mock('../../services/gas-price-cache');
 jest.mock('../../services/multicall.service');
+jest.mock('@asset-withdrawal/shared', () => ({
+  ...jest.requireActual('@asset-withdrawal/shared'),
+  tokenService: {
+    getTokenByAddress: jest.fn(),
+    getNativeTokenInfo: jest.fn(),
+  },
+  AmountConverter: {
+    toWei: jest.fn(),
+    fromWei: jest.fn(),
+    validateDecimalPlaces: jest.fn(),
+    validateAmount: jest.fn(),
+  },
+}));
 
 describe('TransactionSigner', () => {
   let transactionSigner: TransactionSigner;
@@ -42,6 +60,11 @@ describe('TransactionSigner', () => {
       getMulticall3Address: jest
         .fn()
         .mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
+      getNativeCurrency: jest.fn().mockReturnValue({
+        name: 'MATIC',
+        symbol: 'MATIC',
+        decimals: 18,
+      }),
       chain: 'polygon',
       network: 'testnet',
     } as any;
@@ -144,19 +167,69 @@ describe('TransactionSigner', () => {
       return address;
     });
 
-    // Mock parseUnits
+    // Mock parseUnits - simulate real conversion behavior
     (ethers.parseUnits as jest.Mock) = jest
       .fn()
-      .mockImplementation((value, unit) => {
-        if (unit === 'gwei') {
-          return BigInt(value) * BigInt(1000000000);
+      .mockImplementation((value, decimals) => {
+        try {
+          const multiplier = BigInt(10) ** BigInt(decimals);
+          const [integer, decimal = ''] = value.split('.');
+          const paddedDecimal = decimal
+            .padEnd(decimals, '0')
+            .slice(0, decimals);
+          const integerPart = BigInt(integer || '0') * multiplier;
+          const decimalPart = decimal ? BigInt(paddedDecimal) : BigInt(0);
+          return integerPart + decimalPart;
+        } catch (error) {
+          throw new Error(`parseUnits failed: ${error.message}`);
         }
-        return BigInt(value);
       });
 
     mockConfig = {
       batchProcessing: {},
     };
+
+    // Mock tokenService
+    (tokenService.getTokenByAddress as jest.Mock).mockImplementation(
+      (address, network, chain) => {
+        // USDT on Polygon testnet
+        if (
+          address === '0xc2132D05D31c914a87C6611C10748AEb04B58e8F' &&
+          network === 'testnet' &&
+          chain === 'polygon'
+        ) {
+          return { symbol: 'USDT', decimals: 6, address };
+        }
+        // USDC on Ethereum mainnet
+        if (
+          address === '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' &&
+          network === 'mainnet' &&
+          chain === 'ethereum'
+        ) {
+          return { symbol: 'USDC', decimals: 6, address };
+        }
+        return null;
+      }
+    );
+
+    (tokenService.getNativeTokenInfo as jest.Mock).mockImplementation(
+      (network, chain) => {
+        return { symbol: 'MATIC', decimals: 18, address: null };
+      }
+    );
+
+    // Mock AmountConverter
+    (AmountConverter.toWei as jest.Mock).mockImplementation(
+      (amount, decimals) => {
+        // Proper conversion for test - handle large numbers with BigInt
+        const [integer, decimal = ''] = amount.split('.');
+        const paddedDecimal = decimal.padEnd(decimals, '0').slice(0, decimals);
+        const integerPart =
+          BigInt(integer || '0') * BigInt(10) ** BigInt(decimals);
+        const decimalPart = decimal ? BigInt(paddedDecimal) : BigInt(0);
+        return (integerPart + decimalPart).toString();
+      }
+    );
 
     transactionSigner = new TransactionSigner(
       mockChainProvider,
@@ -202,7 +275,7 @@ describe('TransactionSigner', () => {
     it('should sign ERC20 transfer transaction', async () => {
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000', // 1 USDT (6 decimals)
+        amount: '1.0', // 1 USDT (will be converted to wei based on 6 decimals)
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         transactionId: 'test-tx-123',
       };
@@ -243,7 +316,7 @@ describe('TransactionSigner', () => {
     it('should sign native MATIC transfer transaction', async () => {
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000000000000000', // 1 MATIC
+        amount: '1.0', // 1 MATIC (will be converted to wei based on 18 decimals)
         transactionId: 'test-tx-456',
       };
 
@@ -283,7 +356,7 @@ describe('TransactionSigner', () => {
     it('should handle gas estimation failure', async () => {
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000',
+        amount: '1.0',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         transactionId: 'test-tx-123',
       };
@@ -306,7 +379,7 @@ describe('TransactionSigner', () => {
     it('should handle insufficient funds error', async () => {
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000',
+        amount: '1.0',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         transactionId: 'test-tx-123',
       };
@@ -327,7 +400,7 @@ describe('TransactionSigner', () => {
     it('should handle checksum address validation', async () => {
       const transactionData = {
         to: '0x742d35cc6634c0532925a3b844bc9e7595f7faed', // Lowercase address
-        amount: '1000000',
+        amount: '1.0',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         transactionId: 'test-tx-123',
       };
@@ -371,7 +444,7 @@ describe('TransactionSigner', () => {
     it('should throw Redis connection error for retry', async () => {
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000',
+        amount: '1.0',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         transactionId: 'test-tx-123',
       };
@@ -392,7 +465,7 @@ describe('TransactionSigner', () => {
     it('should fetch gas price when cache is empty', async () => {
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000',
+        amount: '1.0',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         transactionId: 'test-tx-123',
       };
@@ -437,7 +510,7 @@ describe('TransactionSigner', () => {
     it('should throw error when RPC fails to fetch gas price', async () => {
       const transactionData = {
         to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-        amount: '1000000',
+        amount: '1.0',
         tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         transactionId: 'test-tx-123',
       };
@@ -468,7 +541,7 @@ describe('TransactionSigner', () => {
           {
             tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
             to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            amount: '1000000',
+            amount: '1.0',
             transactionId: 'tx1',
           },
           {
@@ -536,7 +609,7 @@ describe('TransactionSigner', () => {
           {
             tokenAddress: 'invalid-address',
             to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            amount: '1000000',
+            amount: '1.0',
             transactionId: 'tx1',
           },
         ],
@@ -565,7 +638,7 @@ describe('TransactionSigner', () => {
           {
             tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
             to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            amount: '1000000',
+            amount: '1.0',
             transactionId: 'tx1',
           },
         ],
@@ -593,7 +666,7 @@ describe('TransactionSigner', () => {
           {
             tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
             to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            amount: '1000000',
+            amount: '1.0',
             transactionId: 'tx1',
           },
         ],
@@ -630,7 +703,7 @@ describe('TransactionSigner', () => {
           {
             tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
             to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            amount: '1000000',
+            amount: '1.0',
             transactionId: 'tx1',
           },
         ],
@@ -659,7 +732,7 @@ describe('TransactionSigner', () => {
               ? '0xc2132D05D31c914a87C6611C10748AEb04B58e8F'
               : '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
           to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-          amount: String(1000000 * (i + 1)),
+          amount: String(1.0 * (i + 1)),
           transactionId: `tx${i}`,
         });
       }
@@ -706,7 +779,7 @@ describe('TransactionSigner', () => {
           {
             tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
             to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            amount: '1000000',
+            amount: '1.0',
             transactionId: 'tx1',
           },
         ],
@@ -739,7 +812,7 @@ describe('TransactionSigner', () => {
           {
             tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
             to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            amount: '1000000',
+            amount: '1.0',
             transactionId: 'tx1',
           },
         ],
@@ -767,7 +840,7 @@ describe('TransactionSigner', () => {
         .map((_, i) => ({
           tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
           to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-          amount: '1000000',
+          amount: '1.0',
           transactionId: `tx${i}`,
         }));
 
@@ -852,7 +925,7 @@ describe('TransactionSigner', () => {
           {
             tokenAddress: 'invalid-address',
             to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-            amount: '1000000',
+            amount: '1.0',
             transactionId: 'tx1',
           },
         ],
@@ -875,7 +948,7 @@ describe('TransactionSigner', () => {
         .map((_, i) => ({
           tokenAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
           to: '0x742d35Cc6634C0532925a3b844Bc9e7595f7fAEd',
-          amount: '1000000',
+          amount: '1.0',
           transactionId: `tx${i}`,
         }));
 

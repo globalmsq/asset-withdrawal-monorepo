@@ -1,3 +1,5 @@
+import { AmountConverter } from './utils/amount-converter';
+
 export const ValidationPatterns = {
   // Bitcoin address patterns
   BITCOIN_P2PKH: /^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$/,
@@ -8,7 +10,7 @@ export const ValidationPatterns = {
   ETHEREUM: /^0x[a-fA-F0-9]{40}$/,
 
   // Amount validation
-  AMOUNT: /^\d+(\.\d{1,8})?$/,
+  AMOUNT: /^(\d+(\.\d{1,8})?|\.\d{1,8})$/,
 };
 
 export const SupportedNetworks = [
@@ -43,12 +45,22 @@ export function isValidAddress(address: string, network: string): boolean {
   }
 }
 
-export function isValidAmount(amount: string): boolean {
-  if (!ValidationPatterns.AMOUNT.test(amount)) {
+/**
+ * Validates withdrawal amount with legacy requirements
+ * @deprecated Use AmountConverter.validateAmount() with token-specific decimals instead
+ * @param amount - Amount string to validate
+ * @returns true if valid for withdrawal (max 8 decimals, <= 1M units)
+ */
+export function isValidWithdrawalAmount(amount: string): boolean {
+  // Legacy validation: 8 decimals max, 1M unit limit
+  const validation = AmountConverter.validateAmount(amount, 8);
+  if (!validation.valid) {
     return false;
   }
+
+  // Additional check for 1M limit (legacy requirement)
   const numAmount = parseFloat(amount);
-  return numAmount > 0 && numAmount <= 1000000; // Max 1M units
+  return numAmount <= 1000000; // Max 1M units (legacy requirement)
 }
 
 export function isValidNetwork(network: string): network is NetworkType {
@@ -74,7 +86,7 @@ export function validateWithdrawalRequest(data: any): FieldValidationError[] {
   if (errors.length > 0) return errors;
 
   // Validate amount
-  if (!isValidAmount(data.amount)) {
+  if (!isValidWithdrawalAmount(data.amount)) {
     errors.push({
       field: 'amount',
       message:

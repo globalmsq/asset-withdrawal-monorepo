@@ -51,6 +51,11 @@ jest.mock('@asset-withdrawal/shared', () => ({
         .fn()
         .mockReturnValue('0x1234567890123456789012345678901234567890'),
       getChainId: jest.fn().mockReturnValue(137),
+      getNativeCurrency: jest.fn().mockReturnValue({
+        name: 'MATIC',
+        symbol: 'MATIC',
+        decimals: 18,
+      }),
       chain: 'polygon',
       network: 'mainnet',
       isValidProvider: jest.fn().mockReturnValue(true),
@@ -236,9 +241,14 @@ describe('SigningWorker Validation', () => {
     (ChainProviderFactory.createPolygonProvider as jest.Mock).mockReturnValue(
       mockProvider
     );
-    (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue(
-      mockProvider
-    );
+    (ChainProviderFactory.getProvider as jest.Mock).mockReturnValue({
+      ...mockProvider,
+      getNativeCurrency: jest.fn().mockReturnValue({
+        name: 'MATIC',
+        symbol: 'MATIC',
+        decimals: 18,
+      }),
+    });
 
     // Mock tokenService
     (tokenService.getTokenByAddress as jest.Mock).mockImplementation(

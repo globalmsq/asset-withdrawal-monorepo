@@ -174,6 +174,24 @@ describe('MulticallService - Multi-chain Support', () => {
         return (integerPart + decimalPart).toString();
       }
     );
+
+    // Mock AmountConverter.validateAmount
+    (AmountConverter.validateAmount as jest.Mock).mockImplementation(
+      (amount, decimals) => {
+        // Simple validation - just check if amount is a valid number and decimals exist
+        if (
+          !amount ||
+          isNaN(parseFloat(amount)) ||
+          typeof decimals !== 'number'
+        ) {
+          return { valid: false, error: 'Invalid amount or decimals' };
+        }
+        if (parseFloat(amount) <= 0) {
+          return { valid: false, error: 'Amount must be positive' };
+        }
+        return { valid: true };
+      }
+    );
   });
 
   afterEach(() => {

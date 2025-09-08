@@ -54,12 +54,23 @@ describe('TransactionSigner - Multi-chain Support', () => {
       send: jest.fn().mockResolvedValue(`0x${chainId.toString(16)}`), // chainId in hex
     };
 
+    // Chain-specific native currency info
+    const nativeCurrencies: { [key: string]: any } = {
+      polygon: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+      ethereum: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      bsc: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+      localhost: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    };
+
     return {
       getProvider: jest.fn().mockReturnValue(mockProviderInstance),
       getChainId: jest.fn().mockReturnValue(chainId),
       getMulticall3Address: jest
         .fn()
         .mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
+      getNativeCurrency: jest
+        .fn()
+        .mockReturnValue(nativeCurrencies[chain] || nativeCurrencies.ethereum),
       chain,
       network,
     } as any;

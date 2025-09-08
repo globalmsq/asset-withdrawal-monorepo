@@ -60,6 +60,11 @@ describe('TransactionSigner', () => {
       getMulticall3Address: jest
         .fn()
         .mockReturnValue('0xcA11bde05977b3631167028862bE2a173976CA11'),
+      getNativeCurrency: jest.fn().mockReturnValue({
+        name: 'MATIC',
+        symbol: 'MATIC',
+        decimals: 18,
+      }),
       chain: 'polygon',
       network: 'testnet',
     } as any;

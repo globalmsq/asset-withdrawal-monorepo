@@ -48,6 +48,10 @@ jest.mock('@asset-withdrawal/shared', () => ({
       waitForVerification: jest.fn().mockResolvedValue(true),
     }),
   },
+  tokenService: {
+    getTokenByAddress: jest.fn(),
+    getNativeTokenInfo: jest.fn(),
+  },
   TransactionStatus: {
     PENDING: 'PENDING',
     VALIDATING: 'VALIDATING',
@@ -276,6 +280,18 @@ describe('SigningWorker Multi-Instance Support', () => {
     mockOutputQueue = {
       sendMessage: jest.fn(),
     };
+
+    // Mock tokenService - imported from shared module already mocked above
+    const { tokenService } = jest.requireMock('@asset-withdrawal/shared');
+    (tokenService.getTokenByAddress as jest.Mock).mockImplementation(
+      (address, network, chain) => {
+        // Return mock token info for test token address
+        if (address === '0x742d35Cc6634C0532925a3b844Bc9e7595f8fA66') {
+          return { symbol: 'USDT', decimals: 6, address };
+        }
+        return null;
+      }
+    );
 
     // Setup queues for both workers
     (signingWorker1 as any).inputQueue = mockInputQueue;

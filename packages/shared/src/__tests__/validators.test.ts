@@ -2,7 +2,7 @@ import {
   ValidationPatterns,
   SupportedNetworks,
   isValidAddress,
-  isValidAmount,
+  isValidWithdrawalAmount,
   isValidNetwork,
   validateWithdrawalRequest,
   validateBatchWithdrawalRequest,
@@ -266,7 +266,7 @@ describe('isValidAddress', () => {
   });
 });
 
-describe('isValidAmount', () => {
+describe('isValidWithdrawalAmount', () => {
   it('should validate positive amounts within range', () => {
     const validAmounts = [
       '0.1',
@@ -280,7 +280,7 @@ describe('isValidAmount', () => {
     ];
 
     validAmounts.forEach(amount => {
-      expect(isValidAmount(amount)).toBe(true);
+      expect(isValidWithdrawalAmount(amount)).toBe(true);
     });
   });
 
@@ -298,7 +298,7 @@ describe('isValidAmount', () => {
     ];
 
     invalidAmounts.forEach(amount => {
-      expect(isValidAmount(amount)).toBe(false);
+      expect(isValidWithdrawalAmount(amount)).toBe(false);
     });
   });
 });

@@ -687,10 +687,34 @@ export class MulticallService {
       return { amount: BigInt(amountInWei), tokenInfo };
     } catch (error) {
       this.logger.error(
-        `Failed to get token info for ${transfer.tokenAddress} on ${chain} ${network}: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to process transfer for ${transfer.tokenAddress} on ${chain} ${network}`,
+        {
+          error: error instanceof Error ? error.message : String(error),
+          transfer,
+        }
       );
+
+      // Differentiate between token lookup failure and amount conversion failure
+      if (error instanceof Error) {
+        if (
+          error.message.includes('Failed to convert amount to wei') ||
+          error.message.includes('Invalid amount')
+        ) {
+          throw new Error(
+            `Unable to process transfer: Invalid amount format for ${transfer.amount}`
+          );
+        }
+
+        if (error.message.includes('Token not found')) {
+          throw new Error(
+            `Unable to process transfer: Token ${transfer.tokenAddress} not found on ${chain} ${network}`
+          );
+        }
+      }
+
+      // Other unexpected errors
       throw new Error(
-        `Unable to process transfer: Token ${transfer.tokenAddress} not found or inaccessible on ${chain} ${network}`
+        `Unable to process transfer: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

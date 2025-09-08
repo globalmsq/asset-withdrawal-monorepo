@@ -11,7 +11,7 @@ import {
   tokenService,
   chainsConfig,
   LoggerService,
-  isValidAmount,
+  isValidWithdrawalAmount,
   AmountConverter,
 } from '@asset-withdrawal/shared';
 import { getDatabase } from '../services/database';

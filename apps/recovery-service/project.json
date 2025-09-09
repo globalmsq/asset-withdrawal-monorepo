@@ -1,7 +1,7 @@
 {
-  "name": "dlq-handler",
+  "name": "recovery-service",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "apps/dlq-handler/src",
+  "sourceRoot": "apps/recovery-service/src",
   "projectType": "application",
   "targets": {
     "build": {
@@ -9,11 +9,11 @@
       "outputs": ["{options.outputPath}"],
       "options": {
         "platform": "node",
-        "outputPath": "dist/apps/dlq-handler",
+        "outputPath": "dist/apps/recovery-service",
         "format": ["cjs"],
         "bundle": true,
-        "main": "apps/dlq-handler/src/main.ts",
-        "tsConfig": "apps/dlq-handler/tsconfig.json",
+        "main": "apps/recovery-service/src/main.ts",
+        "tsConfig": "apps/recovery-service/tsconfig.json",
         "generatePackageJson": false,
         "skipTypeCheck": true
       }
@@ -22,14 +22,14 @@
       "executor": "@nx/js:node",
       "defaultConfiguration": "development",
       "options": {
-        "buildTarget": "dlq-handler:build"
+        "buildTarget": "recovery-service:build"
       },
       "configurations": {
         "development": {
-          "buildTarget": "dlq-handler:build:development"
+          "buildTarget": "recovery-service:build:development"
         },
         "production": {
-          "buildTarget": "dlq-handler:build:production"
+          "buildTarget": "recovery-service:build:production"
         }
       }
     },
@@ -37,21 +37,21 @@
       "executor": "@nx/eslint:lint",
       "outputs": ["{options.outputFile}"],
       "options": {
-        "lintFilePatterns": ["apps/dlq-handler/**/*.ts"]
+        "lintFilePatterns": ["apps/recovery-service/**/*.ts"]
       }
     },
     "test": {
       "executor": "@nx/jest:jest",
       "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
       "options": {
-        "jestConfig": "apps/dlq-handler/jest.config.ts",
+        "jestConfig": "apps/recovery-service/jest.config.ts",
         "passWithNoTests": true
       }
     },
     "typecheck": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "tsc --noEmit -p apps/dlq-handler/tsconfig.json"
+        "command": "tsc --noEmit -p apps/recovery-service/tsconfig.json"
       }
     }
   },

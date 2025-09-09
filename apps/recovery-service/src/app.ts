@@ -34,7 +34,7 @@ export async function createApp(
   app.get('/api/health', (req, res) => {
     res.status(200).json({
       status: 'healthy',
-      service: 'dlq-handler',
+      service: 'recovery-service',
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
     });
@@ -42,10 +42,10 @@ export async function createApp(
 
   // Readiness check endpoint
   app.get('/api/ready', (req, res) => {
-    // TODO: Check if DLQ workers are ready
+    // TODO: Check if Recovery workers are ready
     res.status(200).json({
       status: 'ready',
-      service: 'dlq-handler',
+      service: 'recovery-service',
       timestamp: new Date().toISOString(),
     });
   });
@@ -54,12 +54,12 @@ export async function createApp(
   if (config.monitoring.enableMetrics) {
     app.get('/metrics', (req, res) => {
       // TODO: Implement Prometheus metrics
-      res.status(200).send('# DLQ Handler Metrics\n# Coming soon...\n');
+      res.status(200).send('# Recovery Service Metrics\n# Coming soon...\n');
     });
   }
 
-  // TODO: Mount DLQ management API routes
-  // app.use('/api/dlq', dlqRoutes);
+  // TODO: Mount Recovery management API routes
+  // app.use('/api/recovery', recoveryRoutes);
 
   // Error handling middleware
   app.use(
@@ -88,7 +88,7 @@ export async function createApp(
   app.use('*', (req, res) => {
     res.status(404).json({
       error: 'Not found',
-      message: 'DLQ Handler service - endpoint not found',
+      message: 'Recovery Service - endpoint not found',
     });
   });
 

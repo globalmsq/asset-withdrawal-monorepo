@@ -59,6 +59,15 @@ const configSchema = z.object({
   logging: z.object({
     level: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   }),
+
+  // Recovery Configuration
+  recovery: z.object({
+    pollingInterval: z.number().min(1000).default(30000), // 30 seconds
+    maxRetryAttempts: z.number().min(1).default(3),
+    batchSize: z.number().min(1).max(10).default(5),
+    enableDummyTx: z.boolean().default(false),
+    maxDummyTxPerMinute: z.number().min(1).max(10).default(5),
+  }),
 });
 
 export type Config = z.infer<typeof configSchema>;
@@ -130,11 +139,28 @@ export function loadConfig(): Config {
     },
 
     logging: {
-      level: (process.env.DLQ_HANDLER_LOG_LEVEL || 'info') as
+      level: (process.env.RECOVERY_SERVICE_LOG_LEVEL || 'info') as
         | 'error'
         | 'warn'
         | 'info'
         | 'debug',
+    },
+
+    recovery: {
+      pollingInterval: parseInt(
+        process.env.RECOVERY_POLLING_INTERVAL || '30000',
+        10
+      ),
+      maxRetryAttempts: parseInt(
+        process.env.RECOVERY_MAX_RETRY_ATTEMPTS || '3',
+        10
+      ),
+      batchSize: parseInt(process.env.RECOVERY_BATCH_SIZE || '5', 10),
+      enableDummyTx: process.env.ENABLE_DUMMY_TX === 'true',
+      maxDummyTxPerMinute: parseInt(
+        process.env.MAX_DUMMY_TX_PER_MINUTE || '5',
+        10
+      ),
     },
   };
 

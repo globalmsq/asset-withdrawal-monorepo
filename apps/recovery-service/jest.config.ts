@@ -1,12 +1,12 @@
 export default {
-  displayName: 'dlq-handler',
+  displayName: 'recovery-service',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {
     '^.+\.[tj]s$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.json' }],
   },
   moduleFileExtensions: ['ts', 'js', 'html'],
-  coverageDirectory: '../../coverage/apps/dlq-handler',
+  coverageDirectory: '../../coverage/apps/recovery-service',
   setupFilesAfterEnv: [],
   setupFiles: ['<rootDir>/jest.setup.js'],
   testPathIgnorePatterns: ['<rootDir>/dist/', '<rootDir>/node_modules/'],

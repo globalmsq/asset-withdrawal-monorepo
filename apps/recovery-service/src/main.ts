@@ -15,10 +15,10 @@ async function bootstrap() {
 
   // Initialize logger
   const logger = new LoggerService({
-    service: 'dlq-handler',
+    service: 'recovery-service',
     level: config.logging.level,
   });
-  logger.info('Starting DLQ Handler service...', {
+  logger.info('Starting Recovery Service...', {
     metadata: {
       config: {
         ...config,
@@ -41,7 +41,7 @@ async function bootstrap() {
 
   // Start HTTP server
   const server = app.listen(config.port, () => {
-    logger.info('DLQ Handler server started', {
+    logger.info('Recovery Service server started', {
       metadata: {
         port: config.port,
         url: `http://localhost:${config.port}`,
@@ -50,17 +50,17 @@ async function bootstrap() {
     });
   });
 
-  // TODO: Initialize DLQ workers here
-  // const dlqWorker = new DLQWorker(config, logger);
-  // await dlqWorker.start();
+  // TODO: Initialize Recovery workers here
+  // const recoveryWorker = new RecoveryWorker(config, logger);
+  // await recoveryWorker.start();
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
     logger.info(`Received ${signal}, starting graceful shutdown...`);
 
     try {
-      // TODO: Stop DLQ workers
-      // await dlqWorker.stop();
+      // TODO: Stop Recovery workers
+      // await recoveryWorker.stop();
 
       // Close HTTP server
       server.close(() => {
@@ -97,6 +97,6 @@ async function bootstrap() {
 
 // Start the application
 bootstrap().catch(error => {
-  console.error('Failed to start DLQ Handler service:', error);
+  console.error('Failed to start Recovery Service:', error);
   process.exit(1);
 });

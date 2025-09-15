@@ -174,7 +174,11 @@ docker/hardhat/deployment.json
 .taskmaster/
 .serena/
 .claude/
+.cursor/
+.ai-tools/
 *.pkl
+*.ai-session
+*.ai-cache
 
 # Log files and runtime data
 *.log

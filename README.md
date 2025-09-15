@@ -1,6 +1,20 @@
 # Asset Withdrawal System
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-43853D?logo=node.js&logoColor=white)](https://nodejs.org/)
+
 High-throughput multi-chain blockchain withdrawal system with Multicall3 batch processing. Handles massive volumes of cryptocurrency withdrawals across multiple blockchain networks (Polygon, Ethereum, BSC, and localhost for development), processing tens of thousands of transactions efficiently. Features 10-100x faster speeds and up to 70% gas cost reduction.
+
+## ⚡ Key Features
+
+- 🚀 **High Throughput**: Process tens of thousands of transactions efficiently
+- 📦 **Batch Processing**: Multicall3 integration for 10-100x speed improvement  
+- 💰 **Gas Optimization**: 20-70% gas cost reduction through batching
+- 🔗 **Multi-Chain**: Support for Polygon, Ethereum, BSC, and local development
+- 🛡️ **Fault Tolerance**: DLQ handling and automatic retry mechanisms
+- 📊 **Real-time Monitoring**: Admin dashboard and comprehensive metrics
+- 🔧 **Microservices**: Scalable architecture with Docker containerization
 
 ## 📁 Project Structure
 
@@ -49,7 +63,23 @@ docker-compose -f docker/docker-compose.yaml down
 
 ### Environment Configuration
 
-Create a `.env` file in the root directory. See [Setup Guide](./docs/SETUP.md#environment-variables) for detailed configuration.
+1. Copy environment example files:
+```bash
+# Copy environment examples for each service
+cp apps/api-server/env.example apps/api-server/.env
+cp apps/signing-service/env.example apps/signing-service/.env
+cp apps/tx-broadcaster/env.example apps/tx-broadcaster/.env
+cp apps/tx-monitor/env.example apps/tx-monitor/.env
+cp apps/recovery-service/.env.example apps/recovery-service/.env
+```
+
+2. Update the `.env` files with your configuration:
+   - Database credentials
+   - AWS/LocalStack configuration  
+   - JWT secrets (for production)
+   - Blockchain RPC endpoints
+
+⚠️ **Security Note**: Never commit actual `.env` files to version control. Use strong, unique values in production.
 
 ## 📍 Service Endpoints
 
@@ -242,6 +272,45 @@ See [Setup Guide](./docs/SETUP.md#testing) for testing commands and strategies.
 - [API Documentation](./docs/api/README.md)
 - [All Documentation](./docs/README.md)
 
+## 🤝 Contributing
+
+We welcome contributions! Here's how to get started:
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make your changes** following the project's coding standards
+4. **Run tests**: `pnpm run test` (if applicable)
+5. **Run quality checks**: `pnpm run lint && pnpm run typecheck`
+6. **Commit your changes**: `git commit -m 'feat: add amazing feature'`
+7. **Push to your fork**: `git push origin feature/amazing-feature`
+8. **Create a Pull Request**
+
+### Development Guidelines
+
+- Use TypeScript strict mode
+- Follow existing code patterns and conventions
+- Add tests for new features (when applicable)
+- Update documentation as needed
+- Use meaningful commit messages
+
+## 🛡️ Security
+
+If you discover a security vulnerability, please send an email to [security contact]. We take security seriously and will respond promptly to security issues.
+
+### Security Features
+
+- JWT authentication with bcrypt password hashing
+- Environment variable configuration for sensitive data
+- Input validation and sanitization
+- Rate limiting and request throttling
+- Comprehensive audit logging
+
 ## 📄 License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](../../issues)
+- **Discussions**: [GitHub Discussions](../../discussions)
+- **Documentation**: See the `/docs` directory

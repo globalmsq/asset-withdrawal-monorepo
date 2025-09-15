@@ -435,7 +435,7 @@
           12,
           "37"
         ],
-        "status": "pending",
+        "status": "cancelled",
         "subtasks": []
       },
       {
@@ -1046,7 +1046,7 @@
         "description": "DLQ(Dead Letter Queue) 메시지를 모니터링하고 에러 타입별로 자동 복구를 수행하는 중앙화된 Recovery Service를 구현하여 시스템 복원력을 향상시킵니다.",
         "details": "**구현 목표**\n- 모든 DLQ(tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq)를 모니터링하는 중앙화된 서비스 구현\n- 에러 타입별 자동 복구 전략으로 시스템 안정성 극대화\n- 복구 불가능한 메시지에 대한 영구 실패 처리 및 알림 시스템\n\n**1. Recovery Service 앱 생성**\n- `apps/recovery-service` 디렉토리 생성\n- Express 기반 웹 서버 및 워커 프로세스 분리\n- 환경 변수 기반 DLQ 설정 및 복구 정책 관리\n\n**2. DLQ 모니터링 시스템**\n- DLQMonitor 클래스로 tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq 동시 모니터링\n- 폴링 기반 메시지 수신 (기본 30초 간격, 설정 가능)\n- 메시지 분석을 위한 ErrorAnalyzer 구현\n```typescript\ninterface RecoveryStrategy {\n  canRecover(error: DLQMessage): boolean;\n  recover(message: DLQMessage): Promise<RecoveryResult>;\n  getMaxRetryCount(): number;\n}\n```\n\n**3. 에러 타입별 복구 전략**\n- NetworkErrorRecovery: 네트워크 에러 시 지수 백오프로 재시도 (최대 5회)\n- NonceErrorRecovery: nonce 충돌 시 NonceCacheService 재시작 후 재시도\n- InsufficientBalanceRecovery: 잔액 부족 시 영구 실패 처리 및 알림\n- GasErrorRecovery: 가스 부족 시 가스비 재계산 후 재시도\n- UnknownErrorRecovery: 분류되지 않은 에러의 기본 재시도 로직\n\n**4. 복구 워크플로우**\n- RecoveryOrchestrator가 메시지 수신부터 복구 완료까지 전체 프로세스 관리\n- 복구 성공 시 원본 큐로 메시지 재전송\n- 복구 실패 시 재시도 카운트 증가 후 재처리 또는 영구 실패 처리\n- 모든 복구 활동 로깅 및 메트릭 수집\n\n**5. 관리 API 및 모니터링**\n- REST API로 복구 상태 조회 및 수동 복구 트리거\n- Prometheus 메트릭 노출 (복구 성공/실패율, 처리 시간 등)\n- 영구 실패 메시지에 대한 알림 시스템 (이메일/Slack)\n\n**6. 데이터베이스 모델**\n- RecoveryAttempt 모델로 복구 시도 이력 추적\n- 메시지 ID, 에러 유형, 복구 전략, 시도 횟수, 결과 저장",
         "testStrategy": "**1. DLQ 모니터링 테스트**\n- 각 DLQ(tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq)에 테스트 메시지 전송\n- DLQMonitor가 모든 큐에서 메시지를 정상 수신하는지 확인\n- 폴링 간격 설정 및 동시 처리 능력 테스트\n- 큐 연결 실패 시 재연결 로직 검증\n\n**2. 에러 분석 및 복구 전략 테스트**\n- 네트워크 에러 시뮬레이션으로 NetworkErrorRecovery 동작 확인\n- nonce 충돌 상황 재현 후 NonceErrorRecovery 복구 테스트\n- 잔액 부족 메시지로 InsufficientBalanceRecovery 영구 실패 처리 검증\n- 가스 부족 에러에 대한 GasErrorRecovery 가스비 재계산 테스트\n- 알 수 없는 에러에 대한 기본 재시도 로직 테스트\n\n**3. 복구 워크플로우 통합 테스트**\n- 메시지 수신부터 복구 완료까지 전체 플로우 테스트\n- 복구 성공 시 원본 큐로 메시지 재전송 확인\n- 최대 재시도 횟수 도달 시 영구 실패 처리 테스트\n- 동시 복구 작업 처리 시 리소스 경합 상황 테스트\n\n**4. API 및 모니터링 테스트**\n- REST API를 통한 복구 상태 조회 기능 테스트\n- 수동 복구 트리거 API 동작 확인\n- Prometheus 메트릭 정확성 검증\n- 영구 실패 알림 시스템 동작 테스트\n\n**5. 성능 및 안정성 테스트**\n- 대량 DLQ 메시지 처리 시 메모리 사용량 모니터링\n- 장시간 실행 시 메모리 누수 및 커넥션 풀 관리 테스트\n- 서비스 재시작 시 진행 중인 복구 작업 복원 테스트",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           11,
           15,
@@ -1061,7 +1061,7 @@
             "description": "apps/recovery-service 디렉토리를 생성하고 Express 기반 웹 서버와 워커 프로세스의 기본 구조를 구축합니다.",
             "dependencies": [],
             "details": "apps/recovery-service 디렉토리 생성, package.json 및 tsconfig.json 설정, 환경 변수 설정 파일(.env 템플릿), Docker 설정 파일 작성, Express 기반 HTTP 서버 및 워커 프로세스 분리 구조 구현, 기본 미들웨어(cors, helmet, express.json) 설정, 헬스 체크 엔드포인트(/health) 구현, 로깅 시스템 초기화\n<info added on 2025-08-07T11:47:57.864Z>\n## Recovery Service Nonce Gap 처리 설계\n\n**Dummy TX 생성 및 서명 아키텍처**\n\n핵심 기능\n- Nonce Gap 감지 시 Dummy TX 자동 생성 기능 추가\n- Just-In-Time Private Key Loading을 통한 보안 강화된 Private Key 관리\n- TX-Broadcaster와의 실시간 상태 동기화 메커니즘\n\n보안 설계\n- 서명 시에만 AWS Secrets Manager에서 Private Key 로드하는 JIT 방식 구현\n- 서명 완료 후 즉시 메모리에서 Private Key 완전 제거\n- Value=0인 dummy TX만 서명 허용하는 보안 제약 적용\n- 분당 최대 10개 dummy TX 생성으로 Rate limiting 구현\n\nDummy TX 처리 플로우\n1. DLQ에서 'nonce too high' 오류 메시지 감지\n2. Expected nonce와 actual nonce 간 차이 계산\n3. Gap 수만큼 value=0, from=to 설정의 dummy TX 생성\n4. AWS Secrets Manager에서 Private Key 임시 로드\n5. Dummy TX 서명 후 Polygon 네트워크에 즉시 브로드캐스트\n6. 메모리에서 Private Key 완전 제거\n7. TX-Broadcaster에 nonce 동기화 상태 알림 전송\n\n가스비 최적화\n- 네이티브 전송 최소 가스 limit인 21000으로 고정 설정\n- 네트워크 혼잡도에 따른 가스 가격 상한선 설정\n- 실시간 네트워크 상태 기반 가스 가격 동적 조정\n\n감사 및 모니터링\n- 모든 dummy TX 생성 및 서명 과정 CloudWatch 로깅\n- 가스비 소모량 추적 및 비용 모니터링\n- 비정상적인 dummy TX 생성 패턴 감지 알림\n</info added on 2025-08-07T11:47:57.864Z>",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "HTTP 서버 시작/종료 테스트, 헬스 체크 엔드포인트 동작 테스트, 환경 변수 로딩 테스트, Docker 컨테이너 빌드 및 실행 테스트",
             "jiraKey": "BFS-54"
           },
@@ -1073,7 +1073,7 @@
               "33.1"
             ],
             "details": "DLQMonitor 클래스 구현으로 3개 DLQ 동시 폴링, SQS 메시지 수신 및 파싱 로직, 폴링 인터벌 30초 기본값으로 설정(환경변수로 조정 가능), 메시지 배치 처리 및 병렬 처리 지원, 연결 실패 시 재연결 로직, 메시지 수신 실패 로그 및 메트릭 기록, graceful shutdown 지원",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "각 DLQ에 테스트 메시지 전송 후 수신 확인, 폴링 간격 설정 테스트, 동시 처리 능력 테스트, 큐 연결 실패 시 재연결 로직 검증, 메시지 파싱 정확성 테스트",
             "jiraKey": "BFS-55"
           },
@@ -1085,7 +1085,7 @@
               "33.2"
             ],
             "details": "ErrorAnalyzer 클래스로 DLQ 메시지의 에러 타입 분류, RecoveryStrategy 인터페이스 정의, NetworkErrorRecovery 구현(지수 백오프, 최대 5회 재시도), NonceErrorRecovery 구현(NonceCacheService 재시작 후 재시도), InsufficientBalanceRecovery 구현(영구 실패 처리), GasErrorRecovery 구현(가스비 재계산), UnknownErrorRecovery 구현(기본 재시도), 복구 전략별 최대 재시도 횟수 설정",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "에러 타입별 분류 정확성 테스트, 네트워크 에러 시뮬레이션 및 복구 테스트, nonce 충돌 상황 재현 및 복구 테스트, 잔액 부족 상황 영구 실패 처리 테스트, 각 복구 전략의 재시도 로직 테스트",
             "jiraKey": "BFS-56"
           },
@@ -1097,7 +1097,7 @@
               "33.3"
             ],
             "details": "RecoveryOrchestrator 클래스로 전체 복구 프로세스 조율, 메시지 수신 → 에러 분석 → 복구 전략 선택 → 복구 실행 워크플로우, 복구 성공 시 원본 큐로 메시지 재전송 로직, 복구 실패 시 재시도 카운트 증가 및 재처리, 최대 재시도 초과 시 영구 실패 처리, 모든 복구 활동 로깅 및 메트릭 수집, RecoveryAttempt 데이터베이스 모델 연동",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "전체 워크플로우 통합 테스트, 복구 성공 시 메시지 재전송 확인, 복구 실패 및 재시도 로직 테스트, 영구 실패 처리 테스트, 데이터베이스 기록 정확성 테스트",
             "jiraKey": "BFS-57"
           },
@@ -1119,7 +1119,7 @@
             "description": "tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq 세 개의 DLQ를 동시에 모니터링하는 DLQMonitor 클래스를 구현합니다.",
             "dependencies": [],
             "details": "src/services/dlq-monitor.service.ts 파일 생성, AWS SQS SDK를 사용한 다중 큐 폴링 구현, 폴링 간격 환경변수 설정(기본 30초), 메시지 수신 실패 시 재연결 로직, 각 DLQ별 독립적인 폴링 워커 스레드 생성, Promise.all을 사용한 병렬 처리 구현, 메시지 파싱 및 DLQMessage 인터페이스 정의",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "각 DLQ에 테스트 메시지 전송 후 정상 수신 확인, 폴링 간격 설정 테스트, 큐 연결 실패 시 재연결 로직 검증, 동시 처리 성능 테스트",
             "jiraKey": "BFS-59"
           },
@@ -1131,7 +1131,7 @@
               "33.2"
             ],
             "details": "src/services/error-analyzer.service.ts 파일 생성, 에러 타입 enum 정의(NETWORK_ERROR, NONCE_ERROR, INSUFFICIENT_BALANCE, GAS_ERROR, UNKNOWN_ERROR), 메시지 내용 파싱 및 에러 패턴 매칭 로직, 각 에러 타입별 특성 분석 메서드 구현, 에러 심각도 레벨 분류, 복구 가능성 판단 로직",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "각 에러 타입별 샘플 메시지로 분류 정확성 테스트, 알 수 없는 에러 패턴에 대한 기본 처리 검증, 에러 심각도 분류 테스트",
             "jiraKey": "BFS-60"
           },
@@ -1143,7 +1143,7 @@
               "33.2"
             ],
             "details": "src/strategies/ 디렉토리 생성, RecoveryStrategy 인터페이스 정의(canRecover, recover, getMaxRetryCount 메서드), NetworkErrorRecovery(지수 백오프 재시도, 최대 5회), NonceErrorRecovery(NonceCacheService 재시작 후 재시도), InsufficientBalanceRecovery(영구 실패 처리), GasErrorRecovery(가스비 재계산 후 재시도), UnknownErrorRecovery(기본 재시도 로직) 클래스 구현",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "각 전략별 복구 로직 단위 테스트, 최대 재시도 횟수 제한 테스트, 복구 불가능 메시지 처리 테스트, 전략 선택 로직 검증",
             "jiraKey": "BFS-61"
           },
@@ -1157,7 +1157,7 @@
               "33.3"
             ],
             "details": "src/services/recovery-orchestrator.service.ts 파일 생성, DLQMonitor와 ErrorAnalyzer, RecoveryStrategy 클래스들을 조합한 워크플로우 관리, 메시지 수신 → 에러 분석 → 전략 선택 → 복구 실행 → 결과 처리 파이프라인 구현, 복구 성공 시 원본 큐로 재전송 로직, 복구 실패 시 재시도 카운트 관리, 영구 실패 처리 및 알림 발송, RecoveryAttempt 데이터베이스 모델에 복구 이력 저장",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "전체 복구 워크플로우 시나리오 테스트, 복구 성공/실패 케이스별 처리 검증, 재시도 로직 및 영구 실패 처리 테스트, 데이터베이스 이력 저장 확인",
             "jiraKey": "BFS-62"
           },
@@ -1179,7 +1179,7 @@
             "description": "3개의 DLQ(tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq)를 동시에 모니터링할 수 있는 DLQMonitor 클래스의 기본 구조와 SQS 연결을 구현합니다.",
             "dependencies": [],
             "details": "DLQMonitor 클래스 생성, 환경변수에서 DLQ URL 목록 읽기, AWS SQS Client 초기화, 각 큐별 연결 상태 관리, 연결 실패 시 재연결 로직 구현. SQSClient 인스턴스를 클래스 속성으로 관리하고, 큐 URL 배열을 통해 다중 큐 관리 구조 설계.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "SQS 연결 테스트, 환경변수 로드 테스트, 재연결 로직 유닛 테스트",
             "jiraKey": "BFS-64"
           },
@@ -1189,7 +1189,7 @@
             "description": "ReceiveMessageCommand를 사용하여 각 DLQ에서 메시지를 배치로 수신하고, 병렬 처리를 지원하는 로직을 구현합니다.",
             "dependencies": [],
             "details": "ReceiveMessageCommand 설정 (MaxNumberOfMessages=10, WaitTimeSeconds=20 for long polling), Promise.all을 사용한 다중 큐 동시 폴링, 메시지 배치 처리 큐 구현, 동시 처리 제한 로직 (semaphore 패턴), 메시지 수신 실패 시 에러 처리 및 로깅.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "배치 메시지 수신 테스트, 병렬 처리 제한 테스트, long polling 동작 확인",
             "jiraKey": "BFS-65"
           },
@@ -1199,7 +1199,7 @@
             "description": "수신된 DLQ 메시지의 body를 파싱하여 원본 메시지와 에러 정보를 추출하고, 에러 타입을 식별하는 로직을 구현합니다.",
             "dependencies": [],
             "details": "메시지 body JSON 파싱, 원본 메시지와 에러 스택 분리, 에러 타입 분류 로직 (NetworkError, NonceError, InsufficientBalance 등), 메시지 메타데이터 추출 (타임스탬프, 재시도 횟수), 파싱 실패 시 안전한 에러 처리.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "다양한 DLQ 메시지 형식 파싱 테스트, 에러 타입 분류 정확도 테스트",
             "jiraKey": "BFS-66"
           },
@@ -1209,7 +1209,7 @@
             "description": "30초 간격의 폴링 스케줄러를 구현하고, graceful shutdown을 포함한 서비스 생명주기를 관리하는 로직을 구현합니다.",
             "dependencies": [],
             "details": "setInterval 기반 폴링 스케줄러, 환경변수로 폴링 간격 조정 (POLL_INTERVAL_SECONDS), 서비스 시작/중지 메서드, graceful shutdown 시그널 처리 (SIGTERM, SIGINT), 진행 중인 작업 완료 대기 로직, 스케줄러 상태 추적.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "폴링 간격 설정 테스트, graceful shutdown 시나리오 테스트, 시작/중지 상태 전환 테스트",
             "jiraKey": "BFS-67"
           },
@@ -1218,8 +1218,8 @@
             "title": "[BFS-68] 메시지 처리 상태 관리 및 메트릭 시스템 구현",
             "description": "처리 중인 메시지의 상태를 추적하고, 모니터링을 위한 메트릭 수집 시스템을 구현합니다.",
             "dependencies": [],
-            "details": "메시지 처리 상태 관리 (processing, completed, failed), 우선순위 큐 구현으로 메시지 순서 관리, 재시도 횟수 추적, 처리 시간 측정, 기본 메트릭 수집 (수신 메시지 수, 처리 성공/실패율), 로깅 시스템 통합.",
-            "status": "pending",
+            "details": "메시지 처리 상태 관리 (processing, completed, failed), 우선순위 큐 구현으로 메시지 순서 관리, 재시도 횟수 추적, 처리 시간 측정, 기본 메트릭 수집 (수신 메시지 수, 처리 성공/실패율), 로깅 시스템 통합.\n<info added on 2025-09-09T05:30:13.522Z>\n구현 완료 세부사항:\n\n**MetricsCollectorService (apps/recovery-service/src/services/metrics-collector.service.ts)**\n- 메시지 처리 상태별 카운터 관리 (received, processed, failed, retry)\n- 처리 시간 히스토그램 수집 및 평균/최대/최소 시간 추적\n- 재시도 횟수 증가 및 최대 재시도 한도 추적 기능\n- 성공률/실패율 실시간 계산 (총 처리 대비 백분율)\n- 큐별 메트릭 분리 관리 (tx-request-dlq, signed-tx-dlq, broadcast-tx-dlq)\n- getCurrentMetrics() 메서드로 현재 상태 조회 지원\n\n**PriorityQueueService (apps/recovery-service/src/services/priority-queue.service.ts)**\n- 우선순위 기반 메시지 처리 순서 관리 (HIGH, MEDIUM, LOW)\n- 재시도 지연 스케줄링 (exponential backoff: 1분, 5분, 15분, 1시간)\n- 처리 중 메시지 중복 방지를 위한 processing set 관리\n- 메시지 추가/제거/상태변경 메서드 구현\n- 다음 처리 대상 메시지 선택 로직 (우선순위 → 생성시간 순)\n\n**DLQMonitorService 통합 기능**\n- MetricsCollectorService 의존성 주입 및 메트릭 수집 자동화\n- PriorityQueueService를 통한 메시지 처리 순서 최적화\n- 5분 간격 메트릭 로깅 스케줄러 구현 (cron: '*/5 * * * *')\n- 처리 시간 측정 래퍼 함수로 모든 메시지 처리 시간 자동 추적\n- 실시간 시스템 상태 모니터링 (큐 크기, 처리율, 에러율)\n\n**품질 검사 통과**\n- TypeScript 컴파일 에러 없음 (pnpm run typecheck)\n- ESLint 규칙 준수 (pnpm run lint)\n- 코드 포맷팅 적용 (pnpm run format)\n- 의존성 검사 통과 (pnpm run depcheck)\n</info added on 2025-09-09T05:30:13.522Z>",
+            "status": "done",
             "testStrategy": "상태 전환 로직 테스트, 메트릭 데이터 정확성 검증, 우선순위 큐 동작 테스트",
             "jiraKey": "BFS-68"
           },
@@ -1229,7 +1229,7 @@
             "description": "DLQ 메시지의 에러 타입을 분석하고 분류하는 ErrorAnalyzer 클래스를 구현합니다. 에러 메시지를 파싱하여 NETWORK, NONCE, INSUFFICIENT_FUNDS, GAS, UNKNOWN 등의 타입으로 분류하고 재시도 가능 여부를 판단합니다.",
             "dependencies": [],
             "details": "ErrorAnalyzer 클래스에 analyzeError(message: DLQMessage) 메소드 구현, 에러 메시지 패턴 매칭으로 타입 분류, isRetryable(errorType: ErrorType) 메소드로 재시도 가능성 판단, 에러 심각도 레벨 설정, TypeScript enum으로 ErrorType 정의 (NETWORK_ERROR, NONCE_ERROR, INSUFFICIENT_FUNDS, GAS_ERROR, UNKNOWN_ERROR)",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "다양한 에러 메시지 샘플로 분류 정확성 테스트, 알 수 없는 에러의 기본 처리 확인, 에러 타입별 재시도 가능성 판단 검증",
             "jiraKey": "BFS-69"
           },
@@ -1241,7 +1241,7 @@
               "33.16"
             ],
             "details": "RecoveryStrategy 인터페이스 정의: canHandle(errorType: ErrorType), execute(message: DLQMessage), getRetryPolicy(), getMaxRetries() 메소드, BaseRecoveryStrategy 추상 클래스 구현으로 공통 로직 제공, RetryPolicy 타입 정의 (LINEAR, EXPONENTIAL), 복구 결과를 위한 RecoveryResult 타입 정의 (SUCCESS, RETRY, PERMANENT_FAILURE)",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "인터페이스 구현체들의 메소드 호출 테스트, 기본 클래스의 공통 로직 동작 확인, 복구 정책 설정 및 적용 검증",
             "jiraKey": "BFS-70"
           },
@@ -1253,7 +1253,7 @@
               "33.17"
             ],
             "details": "NetworkErrorRecovery 클래스 구현, 지수 백오프 로직 (2초->4초->8초->16초->32초), 최대 5회 재시도 제한, 네트워크 에러 타입 감지 (연결 실패, 타임아웃, DNS 오류), 재시도 성공 시 원본 큐로 메시지 재전송, 재시도 실패 시 다음 전략으로 전달 또는 영구 실패 처리",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "네트워크 에러 시뮬레이션으로 지수 백오프 동작 확인, 최대 재시도 횟수 도달 후 처리 검증, 원본 큐 재전송 로직 테스트",
             "jiraKey": "BFS-71"
           },
@@ -1277,7 +1277,7 @@
               "33.17"
             ],
             "details": "GasErrorRecovery: 현재 네트워크 상태 기반 가스비 재계산, Gas Price Oracle 연동으로 적정 가스비 산출, 재계산된 가스비로 트랜잭션 재생성 후 재시도, 최대 3회 가스비 조정 시도, UnknownErrorRecovery: 기본 선형 백오프로 재시도 (5초 간격), 최대 3회 재시도 후 수동 검토를 위한 별도 큐로 이동, 에러 상세 정보 로깅 및 관리자 알림",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "가스 부족 시나리오에서 가스비 재계산 및 재시도 확인, 알 수 없는 에러의 기본 재시도 로직 검증, 최대 재시도 후 수동 검토 큐 이동 테스트",
             "jiraKey": "BFS-73"
           },
@@ -1558,7 +1558,7 @@
     ],
     "metadata": {
       "created": "2025-07-21T09:59:36.904Z",
-      "updated": "2025-09-08T14:51:45.042Z",
+      "updated": "2025-09-09T06:48:22.541Z",
       "description": "Tasks for master context"
     }
   }

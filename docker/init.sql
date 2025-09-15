@@ -5,6 +5,7 @@
 USE withdrawal_system;
 
 -- Create user if not exists
+-- WARNING: These are development/test credentials only. Use secure credentials in production.
 CREATE USER IF NOT EXISTS 'withdrawal_user'@'%' IDENTIFIED BY 'withdrawal_pass';
 CREATE USER IF NOT EXISTS 'withdrawal_user'@'localhost' IDENTIFIED BY 'withdrawal_pass';
 
@@ -152,6 +153,9 @@ CREATE TABLE IF NOT EXISTS `sent_transactions` (
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Development sample data (optional)
+-- NOTE: Test user credentials for development only
+-- Email: test@test.com, Password: "password123" (bcrypt hashed)
+-- Wallet: dummy address for testing
 INSERT INTO `users` (`email`, `password`, `role`, `wallet`, `createdAt`, `updatedAt`) VALUES
 ('test@test.com', '$2b$10$0RRGARpzNxCcTXn0Q4kpve9nCkiV2vEIbos8FoaT2fHWVBvSxDkXe', 'USER', '0x1234567890abcdef1234567890abcdef12345678', NOW(), NOW());
 

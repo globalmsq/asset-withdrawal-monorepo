@@ -1,0 +1,59 @@
+{
+  "name": "recovery-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/recovery-service/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "platform": "node",
+        "outputPath": "dist/apps/recovery-service",
+        "format": ["cjs"],
+        "bundle": true,
+        "main": "apps/recovery-service/src/main.ts",
+        "tsConfig": "apps/recovery-service/tsconfig.json",
+        "generatePackageJson": false,
+        "skipTypeCheck": true
+      }
+    },
+    "serve": {
+      "executor": "@nx/js:node",
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "recovery-service:build"
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "recovery-service:build:development"
+        },
+        "production": {
+          "buildTarget": "recovery-service:build:production"
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/recovery-service/**/*.ts"]
+      }
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/{projectRoot}"],
+      "options": {
+        "jestConfig": "apps/recovery-service/jest.config.ts",
+        "passWithNoTests": true
+      }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit -p apps/recovery-service/tsconfig.json"
+      }
+    }
+  },
+  "tags": []
+}

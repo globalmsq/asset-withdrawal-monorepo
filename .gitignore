@@ -170,6 +170,16 @@ docker/hardhat/deployment.json
 # tasks.json
 # tasks/ 
 
-# Serena cache files
-.serena/cache/
+# Personal development folders (AI assistants)
+.taskmaster/
+.serena/
+.claude/
 *.pkl
+
+# Log files and runtime data
+*.log
+audit.log
+logs/
+*.pid
+*.seed
+*.pid.lock

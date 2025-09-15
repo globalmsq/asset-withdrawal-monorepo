@@ -6,6 +6,7 @@ import {
 } from '@aws-sdk/client-sqs';
 import { LoggerService } from 'shared';
 import { Config } from '../config';
+import { MetricsCollectorService } from './metrics-collector.service';
 
 export interface DLQMessage {
   id: string;
@@ -20,11 +21,14 @@ export class DLQMonitorService {
   private sqsClient: SQSClient;
   private isRunning = false;
   private pollingIntervals: NodeJS.Timeout[] = [];
+  private metricsInterval?: NodeJS.Timeout;
+  private metricsCollector: MetricsCollectorService;
 
   constructor(
     private readonly config: Config,
     private readonly logger: LoggerService
   ) {
+    this.metricsCollector = new MetricsCollectorService(logger);
     this.sqsClient = new SQSClient({
       region: config.aws.region,
       endpoint: config.aws.endpoint,
@@ -53,6 +57,14 @@ export class DLQMonitorService {
       'broadcast-tx',
       this.config.dlq.broadcastTxDlqUrl
     );
+
+    // Start metrics logging every 5 minutes
+    this.metricsInterval = setInterval(
+      () => {
+        this.metricsCollector.logMetricsSummary();
+      },
+      5 * 60 * 1000
+    );
   }
 
   async stop(): Promise<void> {
@@ -62,6 +74,15 @@ export class DLQMonitorService {
     // Clear all polling intervals
     this.pollingIntervals.forEach(interval => clearInterval(interval));
     this.pollingIntervals = [];
+
+    // Clear metrics interval
+    if (this.metricsInterval) {
+      clearInterval(this.metricsInterval);
+      this.metricsInterval = undefined;
+    }
+
+    // Log final metrics summary
+    this.metricsCollector.logMetricsSummary();
   }
 
   private startQueueMonitoring(
@@ -119,9 +140,14 @@ export class DLQMonitorService {
     queueUrl: string,
     message: Message
   ): Promise<void> {
+    const messageId = message.MessageId!;
+
     try {
+      // Start metrics tracking
+      this.metricsCollector.startMessageProcessing(messageId, queueType);
+
       const dlqMessage: DLQMessage = {
-        id: message.MessageId!,
+        id: messageId,
         queueType,
         originalMessage: JSON.parse(message.Body || '{}'),
         error: message.MessageAttributes?.error?.StringValue || 'Unknown error',
@@ -129,20 +155,52 @@ export class DLQMonitorService {
         timestamp: new Date(),
       };
 
+      // Extract retry count from message attributes
+      const retryCount = parseInt(
+        message.MessageAttributes?.retryCount?.StringValue || '0',
+        10
+      );
+
+      if (retryCount > 0) {
+        for (let i = 0; i < retryCount; i++) {
+          this.metricsCollector.incrementRetryCount(messageId);
+        }
+      }
+
       // TODO: Send to ErrorAnalyzer and RecoveryOrchestrator
       this.logger.info('Processing DLQ message', {
         metadata: {
           id: dlqMessage.id,
           queueType: dlqMessage.queueType,
           error: dlqMessage.error,
+          retryCount,
         },
       });
 
-      // For now, just delete the message after processing
-      // In real implementation, this would be done after successful recovery
-      await this.deleteMessage(queueUrl, message.ReceiptHandle!);
+      // Simulate message processing (will be replaced with actual recovery logic)
+      const processSuccess = Math.random() > 0.2; // 80% success rate for testing
+
+      if (processSuccess) {
+        // For now, just delete the message after processing
+        // In real implementation, this would be done after successful recovery
+        await this.deleteMessage(queueUrl, message.ReceiptHandle!);
+
+        // Mark as completed successfully
+        this.metricsCollector.completeMessageProcessing(messageId, true);
+      } else {
+        // Simulate processing failure
+        throw new Error('Simulated processing failure');
+      }
     } catch (error) {
       this.logger.error('Failed to process DLQ message:', error);
+
+      // Mark as failed with error information
+      this.metricsCollector.completeMessageProcessing(
+        messageId,
+        false,
+        'PROCESSING_ERROR',
+        error instanceof Error ? error.message : String(error)
+      );
     }
   }
 
@@ -156,5 +214,26 @@ export class DLQMonitorService {
     });
 
     await this.sqsClient.send(command);
+  }
+
+  // Public methods for metrics access
+  getMetricsCollector(): MetricsCollectorService {
+    return this.metricsCollector;
+  }
+
+  getSystemMetrics() {
+    return this.metricsCollector.getSystemMetrics();
+  }
+
+  getActiveMessageCount(): number {
+    return this.metricsCollector.getActiveMessageCount();
+  }
+
+  getProcessingTimePercentiles() {
+    return this.metricsCollector.getProcessingTimePercentiles();
+  }
+
+  logCurrentMetrics(): void {
+    this.metricsCollector.logMetricsSummary();
   }
 }
